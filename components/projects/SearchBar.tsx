@@ -13,6 +13,9 @@ export function SearchBar({ defaultValue }: SearchBarProps) {
   const [search, setSearch] = useState(defaultValue || '')
   const router = useRouter()
   const searchParams = useSearchParams()
+  
+  // Search is limited to 100 characters for performance and QuickBase query limits
+  const MAX_SEARCH_LENGTH = 100
 
   // Sync local state with search params changes
   useEffect(() => {
@@ -42,7 +45,8 @@ export function SearchBar({ defaultValue }: SearchBarProps) {
         type="search"
         placeholder="Search by customer name, project ID, or address..."
         value={search}
-        onChange={(e) => setSearch(e.target.value)}
+        onChange={(e) => setSearch(e.target.value.slice(0, MAX_SEARCH_LENGTH))}
+        maxLength={MAX_SEARCH_LENGTH}
         className="
           pl-10 pr-4 py-2.5 w-full
           bg-white border-slate-200

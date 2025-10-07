@@ -40,14 +40,26 @@ export async function GET(req: Request) {
     // Cache the result
     metricsCache.set(cacheKey, { data: metrics, timestamp: Date.now() });
 
-    // Clean up old cache entries (simple cleanup)
+    // Clean up old cache entries with strict size cap
     if (metricsCache.size > 100) {
       const now = Date.now();
       const entries = Array.from(metricsCache.entries());
+      
+      // First, remove expired entries
       for (const [key, value] of entries) {
         if (now - value.timestamp > CACHE_TTL) {
           metricsCache.delete(key);
         }
+      }
+      
+      // If still over 100 entries, evict oldest (FIFO) until size == 100
+      if (metricsCache.size > 100) {
+        const remainingEntries = Array.from(metricsCache.entries());
+        // Sort by timestamp (oldest first) and remove excess
+        remainingEntries
+          .sort((a, b) => a[1].timestamp - b[1].timestamp)
+          .slice(0, metricsCache.size - 100)
+          .forEach(([key]) => metricsCache.delete(key));
       }
     }
 
