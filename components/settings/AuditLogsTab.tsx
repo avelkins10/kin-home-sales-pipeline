@@ -27,6 +27,7 @@ import { FileDown, Calendar as CalendarIcon, Search, Eye, Loader2 } from 'lucide
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import type { AuditLog } from '@/lib/types/audit'
+import { getBaseUrl } from '@/lib/utils/baseUrl'
 
 export function AuditLogsTab() {
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
@@ -54,7 +55,7 @@ export function AuditLogsTab() {
       if (actionFilter !== 'all') params.set('action', actionFilter)
       if (searchQuery) params.set('search', searchQuery)
 
-      const response = await fetch(`/api/admin/audit-logs?${params.toString()}`)
+      const response = await fetch(`${getBaseUrl()}/api/admin/audit-logs?${params.toString()}`)
       if (!response.ok) throw new Error('Failed to fetch audit logs')
       return response.json() as Promise<{ logs: AuditLog[]; total: number; pages: number }>
     },
@@ -85,7 +86,7 @@ export function AuditLogsTab() {
       if (actionFilter !== 'all') params.set('action', actionFilter)
       if (searchQuery) params.set('search', searchQuery)
 
-      const response = await fetch(`/api/admin/audit-logs/export?${params.toString()}`, {
+      const response = await fetch(`${getBaseUrl()}/api/admin/audit-logs/export?${params.toString()}`, {
         signal: abortControllerRef.current.signal
       })
       if (!response.ok) throw new Error('Export failed')

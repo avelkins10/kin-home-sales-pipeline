@@ -44,6 +44,7 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           role: user.role,
           quickbaseUserId: user.quickbase_user_id,
+          salesOffice: user.sales_office,
         };
       }
     })
@@ -96,6 +97,7 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
         token.role = user.role;
         token.quickbaseUserId = user.quickbaseUserId;
+        token.salesOffice = user.salesOffice;
       }
       return token;
     },
@@ -104,6 +106,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
         session.user.quickbaseUserId = token.quickbaseUserId as string;
+        session.user.salesOffice = token.salesOffice as string[];
       }
       return session;
     },

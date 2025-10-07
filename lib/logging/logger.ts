@@ -257,9 +257,8 @@ export async function logAudit(
   }
 
   // Server-side: best-effort fire-and-forget with enhanced error capture
-  const baseUrl =
-    process.env.NEXTAUTH_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+  const { getBaseUrl } = await import('@/lib/utils/baseUrl');
+  const baseUrl = getBaseUrl(true);
 
   const startTime = Date.now();
 

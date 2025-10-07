@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 // fetching via API route
 import { AlertTriangle, Clock, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
+import { getBaseUrl } from '@/lib/utils/baseUrl'
 
 interface UrgentAlertsProps {
   userId: string
@@ -14,7 +15,7 @@ export function UrgentAlerts({ userId, role }: UrgentAlertsProps) {
   const { data: urgentProjects } = useQuery({
     queryKey: ['urgent-projects', userId, role],
     queryFn: async () => {
-      const response = await fetch(`/api/dashboard/urgent`)
+      const response = await fetch(`${getBaseUrl()}/api/dashboard/urgent`)
       if (!response.ok) throw new Error('Failed to fetch urgent projects')
       return response.json()
     },

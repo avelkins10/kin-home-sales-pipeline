@@ -15,6 +15,7 @@ import { parseCustomerName, formatAddress, getProjectAge } from '@/lib/utils/pro
 import { detectHoldStatus, extractHoldType } from '@/lib/utils/hold-detection';
 import { formatSystemSize, formatCurrency } from '@/lib/utils/formatters';
 import { projectKey } from '@/lib/queryKeys';
+import { getBaseUrl } from '@/lib/utils/baseUrl';
 
 interface ProjectRowProps {
   project: QuickbaseProject;
@@ -79,7 +80,7 @@ export function ProjectRow({ project }: ProjectRowProps) {
     queryClient.prefetchQuery({
       queryKey: projectKey(idKey),
       queryFn: async () => {
-        const response = await fetch(`/api/projects/${idKey}`);
+        const response = await fetch(`${getBaseUrl()}/api/projects/${idKey}`);
         if (!response.ok) throw new Error('Failed to prefetch project');
         return response.json();
       },

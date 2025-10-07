@@ -19,11 +19,11 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Do not supply userId/role in query params' }, { status: 400 });
     }
 
-    const { quickbaseUserId, role } = auth.session.user as any;
+    const { quickbaseUserId, role, salesOffice } = auth.session.user as any;
     const userId = quickbaseUserId as string;
 
     const { getRecentProjects } = await import('@/lib/quickbase/queries');
-    const recent = await getRecentProjects(userId, role);
+    const recent = await getRecentProjects(userId, role, salesOffice);
 
     logApiResponse('GET', '/api/dashboard/recent', Date.now() - startedAt, { count: Array.isArray(recent) ? recent.length : 0 }, reqId);
     return NextResponse.json(recent, { status: 200 });

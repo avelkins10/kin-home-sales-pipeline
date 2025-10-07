@@ -23,11 +23,12 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Do not supply userId/role in query params' }, { status: 400 });
     }
 
-    const { quickbaseUserId, role } = auth.session.user as any;
+    const { quickbaseUserId, role, salesOffice } = auth.session.user as any;
     const userId = quickbaseUserId as string;
 
     // Check cache first
-    const cacheKey = `${userId}:${role}`;
+    const officeKey = salesOffice ? salesOffice.sort().join(',') : '';
+    const cacheKey = `${userId}:${role}:${officeKey}`;
     const cached = metricsCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
       logApiResponse('GET', '/api/dashboard/metrics', Date.now() - startedAt, { cached: true }, reqId);
@@ -35,7 +36,7 @@ export async function GET(req: Request) {
     }
 
     const { getDashboardMetricsOptimized } = await import('@/lib/quickbase/queries');
-    const metrics = await getDashboardMetricsOptimized(userId, role);
+    const metrics = await getDashboardMetricsOptimized(userId, role, salesOffice);
 
     // Cache the result
     metricsCache.set(cacheKey, { data: metrics, timestamp: Date.now() });

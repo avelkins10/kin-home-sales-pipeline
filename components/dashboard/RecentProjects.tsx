@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import type { QuickbaseProject } from '@/lib/types/project'
+import { getBaseUrl } from '@/lib/utils/baseUrl'
 
 interface RecentProjectsProps {
   userId: string
@@ -20,7 +21,7 @@ export function RecentProjects({ userId, role }: RecentProjectsProps) {
   const { data: projects, isLoading, error } = useQuery({
     queryKey: ['recent-projects', userId, role],
     queryFn: async () => {
-      const response = await fetch(`/api/dashboard/recent`)
+      const response = await fetch(`${getBaseUrl()}/api/dashboard/recent`)
       if (!response.ok) throw new Error('Failed to fetch recent projects')
       return response.json()
     },

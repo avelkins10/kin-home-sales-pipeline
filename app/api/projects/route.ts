@@ -19,6 +19,16 @@ let cacheStats = {
   currentSize: 0
 };
 
+// Export cache stats for debug endpoint
+export function getCacheStats() {
+  return {
+    ...cacheStats,
+    currentSize: projectsCache.size,
+    ttl: CACHE_TTL,
+    maxEntries: MAX_CACHE_ENTRIES
+  };
+}
+
 export async function GET(req: Request) {
   const startedAt = Date.now();
   const reqId = req.headers.get('x-request-id') || Math.random().toString(36).slice(2, 10);
@@ -52,11 +62,12 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Invalid sort parameter' }, { status: 400 });
     }
 
-    const { quickbaseUserId, role } = auth.session.user as any;
+    const { quickbaseUserId, role, salesOffice } = auth.session.user as any;
     const userId = quickbaseUserId as string;
 
     // Check cache first
-    const cacheKey = `${userId}:${role}:${view || 'all'}:${search || ''}:${sort || 'default'}`;
+    const officeKey = salesOffice ? salesOffice.sort().join(',') : '';
+    const cacheKey = `${userId}:${role}:${officeKey}:${view || 'all'}:${search || ''}:${sort || 'default'}`;
     const cached = projectsCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
       // Refresh timestamp to approximate LRU behavior
@@ -74,7 +85,7 @@ export async function GET(req: Request) {
     cacheStats.misses++;
 
     const { getProjectsForUserList } = await import('@/lib/quickbase/queries');
-    const projects = await getProjectsForUserList(userId, role, view, search, sort);
+    const projects = await getProjectsForUserList(userId, role, view, search, sort, salesOffice);
 
     // Cache the result
     projectsCache.set(cacheKey, { data: projects, timestamp: Date.now() });

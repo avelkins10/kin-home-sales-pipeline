@@ -12,8 +12,8 @@ import { PROJECT_FIELDS } from '@/lib/constants/fieldIds';
 const QB_TABLE_PROJECTS = process.env.QUICKBASE_TABLE_PROJECTS || 'br9kwm8na';
 
 // Shared role scoping helper
-export function buildRoleClause(userId: string, role: string): string {
-  console.log('[buildRoleClause] Building clause for:', { userId, role });
+export function buildRoleClause(userId: string, role: string, salesOffice?: string[]): string {
+  console.log('[buildRoleClause] Building clause for:', { userId, role, salesOffice });
 
   const userIds = userId.split(',').map(id => id.trim());
 
@@ -25,14 +25,32 @@ export function buildRoleClause(userId: string, role: string): string {
     return ids.map(id => `{${fieldId}.EX.'${id}'}`).join(' OR ');
   };
 
+  const buildOfficeClause = (offices: string[]) => {
+    if (offices.length === 1) {
+      return `{${PROJECT_FIELDS.SALES_OFFICE}.EX.'${offices[0]}'}`;
+    }
+    // Multiple offices joined with OR
+    return offices.map(office => `{${PROJECT_FIELDS.SALES_OFFICE}.EX.'${office}'}`).join(' OR ');
+  };
+
   let clause: string;
   switch (role) {
     case 'super_admin':
     case 'regional':
-    case 'office_leader':
       // These roles see all projects, no user filter
       clause = '{3.GT.0}'; // Record ID > 0 (matches all records)
       console.log('[buildRoleClause] Admin role detected, returning all-projects clause:', clause);
+      break;
+    case 'office_leader':
+      // Office leaders see projects in their assigned offices
+      if (salesOffice && salesOffice.length > 0) {
+        clause = buildOfficeClause(salesOffice);
+        console.log('[buildRoleClause] Office leader role, filtering by offices:', clause);
+      } else {
+        // Fallback to all projects if no office assigned
+        clause = '{3.GT.0}';
+        console.log('[buildRoleClause] Office leader with no office assigned, returning all-projects clause:', clause);
+      }
       break;
     case 'closer':
       clause = buildClause(PROJECT_FIELDS.CLOSER_ID, userIds);
@@ -56,11 +74,11 @@ export function buildRoleClause(userId: string, role: string): string {
 }
 
 // Lean selector for list view - only essential fields for performance
-export async function getProjectsForUserList(userId: string, role: string, view?: string, search?: string, sort?: string) {
-  console.log('[getProjectsForUserList] START - userId:', userId, 'role:', role, 'view:', view, 'search:', search, 'sort:', sort);
+export async function getProjectsForUserList(userId: string, role: string, view?: string, search?: string, sort?: string, salesOffice?: string[]) {
+  console.log('[getProjectsForUserList] START - userId:', userId, 'role:', role, 'view:', view, 'search:', search, 'sort:', sort, 'salesOffice:', salesOffice);
 
   // Build role-based where clause using shared helper
-  const roleClause = buildRoleClause(userId, role);
+  const roleClause = buildRoleClause(userId, role, salesOffice);
 
   // Build view-based filter
   const viewFilter = buildViewFilter(view);
@@ -141,11 +159,11 @@ export async function getProjectsForUserList(userId: string, role: string, view?
   }
 }
 
-export async function getProjectsForUser(userId: string, role: string, view?: string, search?: string, sort?: string) {
-  console.log('[getProjectsForUser] START - userId:', userId, 'role:', role, 'view:', view, 'search:', search, 'sort:', sort);
+export async function getProjectsForUser(userId: string, role: string, view?: string, search?: string, sort?: string, salesOffice?: string[]) {
+  console.log('[getProjectsForUser] START - userId:', userId, 'role:', role, 'view:', view, 'search:', search, 'sort:', sort, 'salesOffice:', salesOffice);
 
   // Build role-based where clause using shared helper
-  const roleClause = buildRoleClause(userId, role);
+  const roleClause = buildRoleClause(userId, role, salesOffice);
 
   // Build view-based filter
   const viewFilter = buildViewFilter(view);
@@ -388,12 +406,12 @@ export async function getDashboardMetrics(userId: string, role: string) {
   };
 }
 
-export async function getDashboardMetricsOptimized(userId: string, role: string) {
-  console.log('[getDashboardMetricsOptimized] START - userId:', userId, 'role:', role);
+export async function getDashboardMetricsOptimized(userId: string, role: string, salesOffice?: string[]) {
+  console.log('[getDashboardMetricsOptimized] START - userId:', userId, 'role:', role, 'salesOffice:', salesOffice);
   const startTime = Date.now();
 
   // Use shared role scoping helper for consistency
-  const whereClause = buildRoleClause(userId, role);
+  const whereClause = buildRoleClause(userId, role, salesOffice);
   console.log('[getDashboardMetricsOptimized] WHERE clause:', whereClause);
 
   const userProjects = await qbClient.queryRecords({
@@ -463,9 +481,9 @@ export const __test__ = {
   buildSearchFilter,
 };
 
-export async function getUrgentProjects(userId: string, role: string) {
-  console.log('[getUrgentProjects] START - userId:', userId, 'role:', role);
-  const holds = await getProjectsOnHold(userId, role);
+export async function getUrgentProjects(userId: string, role: string, salesOffice?: string[]) {
+  console.log('[getUrgentProjects] START - userId:', userId, 'role:', role, 'salesOffice:', salesOffice);
+  const holds = await getProjectsOnHold(userId, role, salesOffice);
   console.log('[getUrgentProjects] Retrieved', holds?.length || 0, 'projects on hold');
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   
@@ -491,8 +509,8 @@ export async function getUrgentProjects(userId: string, role: string) {
   return urgentProjects;
 }
 
-export async function getRecentProjects(userId: string, role: string) {
-  const projects = await getProjectsForUser(userId, role);
+export async function getRecentProjects(userId: string, role: string, salesOffice?: string[]) {
+  const projects = await getProjectsForUser(userId, role, undefined, undefined, undefined, salesOffice);
   
   const recentProjects = projects
     .filter((project: any) => {
@@ -520,9 +538,9 @@ export async function getProjectById(recordId: number) {
   return result.data[0] || null;
 }
 
-export async function getProjectsOnHold(userId: string, role: string) {
+export async function getProjectsOnHold(userId: string, role: string, salesOffice?: string[]) {
   // Use shared role scoping helper and consistent ON_HOLD value
-  const roleClause = buildRoleClause(userId, role);
+  const roleClause = buildRoleClause(userId, role, salesOffice);
   const whereClause = `(${roleClause}) AND {${PROJECT_FIELDS.ON_HOLD}.EX.'Yes'}`;
 
   const result = await qbClient.queryRecords({

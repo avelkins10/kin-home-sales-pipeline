@@ -93,7 +93,31 @@
 
 **Files:** `lib/logging/logger.ts`, `lib/quickbase/client.ts`, `lib/offline/syncQueue.ts`, `app/api/projects/[id]/hold/route.ts`
 
-### 4. Input Validation & Sanitization ✅
+### 5. Internal Audit API Security ✅
+
+**Secret Header Enforcement:**
+- ✅ `x-internal-secret` header required for all audit API calls
+- ✅ Secret validated against `INTERNAL_API_SECRET` environment variable
+- ✅ Returns 403 Forbidden for missing or invalid secrets
+- ✅ Unauthorized attempts logged with client IP and user agent for security monitoring
+
+**Client-Side Protection:**
+- ✅ Browser-side audit calls blocked in `logger.ts` (lines 237-242)
+- ✅ Prevents client-origin invocations of internal audit API
+- ✅ Warning logged when audit called from browser context
+
+**Security Flow:**
+1. Server-side code calls `logAudit()` function
+2. Function checks if running in browser context - if yes, skips API call
+3. Function validates `INTERNAL_API_SECRET` environment variable exists
+4. If secret missing, logs warning and skips API call
+5. If secret present, makes authenticated request to `/api/internal/audit`
+6. Audit API validates `x-internal-secret` header matches environment variable
+7. Unauthorized attempts logged with full context for security monitoring
+
+**Files:** `lib/logging/logger.ts`, `app/api/internal/audit/route.ts`
+
+### 6. Input Validation & Sanitization ✅
 
 **Hold Update API:**
 - ✅ Type validation for `onHold` boolean (line 23-25)
@@ -137,6 +161,9 @@
 - Error messages don't expose sensitive data
 - Internal audit API requires secret header (x-internal-secret)
 - Audit API returns 403 Forbidden for missing/invalid secrets
+- Unauthorized audit API attempts are logged with client IP and user agent
+- Browser-side audit calls are blocked (client-side guard in logger.ts)
+- Secret header validation prevents client-origin invocations
 
 5. **Observability:**
    - Request logging for audit trail

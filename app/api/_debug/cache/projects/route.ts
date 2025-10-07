@@ -23,24 +23,11 @@ export async function GET(req: Request) {
   }
 
   try {
-    // Import the cache and stats from the projects route
-    // Note: This is a bit of a hack since we can't directly import the cache
-    // In a real implementation, you'd want to move the cache to a shared module
-    const response = await fetch(`${req.url.replace('/_debug/cache/projects', '/projects')}`, {
-      headers: {
-        'x-debug-cache-stats': 'true'
-      }
-    });
+    // Import cache stats from the projects route
+    const { getCacheStats } = await import('@/app/api/projects/route');
+    const cacheStats = getCacheStats();
 
-    // For now, return basic cache configuration
-    const cacheConfig = {
-      ttl: parseInt(process.env.PROJECTS_CACHE_TTL_MS || '60000'),
-      maxEntries: parseInt(process.env.PROJECTS_CACHE_MAX || '100'),
-      environment: process.env.NODE_ENV,
-      note: 'Cache stats are logged in the main API response. Check server logs for detailed metrics.'
-    };
-
-    return NextResponse.json(cacheConfig, { status: 200 });
+    return NextResponse.json(cacheStats, { status: 200 });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to get cache stats' }, { status: 500 });
   }

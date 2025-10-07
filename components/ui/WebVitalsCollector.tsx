@@ -73,9 +73,10 @@ export function WebVitalsCollector() {
     }
 
     // Dynamically import web-vitals to avoid bundle bloat
-    import('web-vitals').then(({ onCLS, onFID, onFCP, onLCP, onTTFB }) => {
+    // Note: onFID was replaced with onINP in web-vitals v3+
+    import('web-vitals').then(({ onCLS, onINP, onFCP, onLCP, onTTFB }) => {
       onCLS(sendWebVitals);
-      onFID(sendWebVitals);
+      onINP(sendWebVitals); // Interaction to Next Paint (replaces FID)
       onFCP(sendWebVitals);
       onLCP(sendWebVitals);
       onTTFB(sendWebVitals);

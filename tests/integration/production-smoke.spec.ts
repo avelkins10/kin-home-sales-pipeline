@@ -7,7 +7,7 @@ test.describe('Production Smoke Tests', () => {
     await page.goto(BASE_URL);
     
     // Verify page loads without errors
-    await expect(page).toHaveTitle(/Kin Solar/);
+    await expect(page).toHaveTitle(/Kin Home Sales Pipeline|Kin Home/);
     
     // Verify no console errors
     const errors: string[] = [];
@@ -333,11 +333,11 @@ test.describe('Production Smoke Tests', () => {
     
     // Use Playwright's performance API for more detailed metrics
     const metrics = await page.evaluate(() => {
-      const timing = window.performance.timing;
+      const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
       return {
-        loadTime: timing.loadEventEnd - timing.navigationStart,
-        domContentLoaded: timing.domContentLoadedEventEnd - timing.navigationStart,
-        firstPaint: timing.responseEnd - timing.navigationStart
+        loadTime: nav.loadEventEnd - nav.startTime,
+        domContentLoaded: nav.domContentLoadedEventEnd - nav.startTime,
+        firstPaint: nav.responseEnd - nav.startTime
       };
     });
     
