@@ -1,0 +1,82 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  deploy:
+    name: Deploy to Vercel
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run tests
+        run: npm run test:ci
+        env:
+          QUICKBASE_REALM: ${{ secrets.QUICKBASE_REALM }}
+          QUICKBASE_TOKEN: ${{ secrets.QUICKBASE_TOKEN_TEST }}
+          QUICKBASE_APP_ID: ${{ secrets.QUICKBASE_APP_ID }}
+          QUICKBASE_TABLE_PROJECTS: ${{ secrets.QUICKBASE_TABLE_PROJECTS }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL_TEST }}
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+          NEXTAUTH_URL: http://localhost:3000
+          INTERNAL_API_SECRET: ${{ secrets.INTERNAL_API_SECRET }}
+      
+      - name: Build
+        run: npm run build
+      
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'
+        id: deploy
+      
+      - name: Wait for deployment
+        run: sleep 30
+      
+      - name: Run smoke tests
+        run: BASE_URL=${{ steps.deploy.outputs.preview-url }} npm run test:smoke
+        env:
+          QUICKBASE_REALM: ${{ secrets.QUICKBASE_REALM }}
+          QUICKBASE_TOKEN: ${{ secrets.QUICKBASE_TOKEN_PROD }}
+      
+      - name: Upload smoke test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: smoke-test-results
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 30
+      
+      - name: Notify on failure
+        if: failure()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: 'Production deployment failed! Check GitHub Actions for details.'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+      
+      - name: Notify on success
+        if: success()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: 'Production deployment successful! URL: ${{ steps.deploy.outputs.preview-url }}'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}

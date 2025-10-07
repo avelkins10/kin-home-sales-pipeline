@@ -1,0 +1,74 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run unit tests with coverage
+        run: npm run test:unit -- --coverage
+      
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./tests/coverage/lcov.info
+          flags: unittests
+          name: unit-coverage
+  
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    
+    env:
+      QUICKBASE_REALM: ${{ secrets.QUICKBASE_REALM }}
+      QUICKBASE_TOKEN: ${{ secrets.QUICKBASE_TOKEN }}
+      QUICKBASE_APP_ID: ${{ secrets.QUICKBASE_APP_ID }}
+      QUICKBASE_TABLE_PROJECTS: ${{ secrets.QUICKBASE_TABLE_PROJECTS }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+      NEXTAUTH_URL: http://localhost:3000
+      INTERNAL_API_SECRET: ${{ secrets.INTERNAL_API_SECRET }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+      
+      - name: Run E2E tests
+        run: npm run test:integration
+      
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30

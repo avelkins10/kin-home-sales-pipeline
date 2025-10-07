@@ -1,0 +1,153 @@
+# Kin Home Sales Pipeline PWA
+
+## Project Context
+Building Next.js 14 PWA to replace Quickbase interface for solar sales team.
+Primary devices: iPad (landscape/portrait) + Desktop browsers.
+Secondary: iPhone and Android phones.
+Users: 50+ sales reps (closers/setters) + office leaders + regional managers.
+
+## Critical Stats
+- 21.4% of projects on hold (TOP PRIORITY to surface)
+- Install dates most reliable (50%+ usage)
+- PPW fields 94-100% populated (use directly, don't calculate)
+- Quickbase API: 10 req/sec limit (batch aggressively)
+
+## Tech Stack
+- Next.js 14 App Router + TypeScript strict mode
+- Tailwind CSS + shadcn/ui components
+- TanStack Query (React Query) + Zustand for state
+- Neon PostgreSQL for caching/offline
+- Vercel deployment
+
+## Core Principles
+- iPad/Desktop first, responsive to mobile
+- Optimistic updates for instant feedback
+- Offline-capable (IndexedDB + service worker)
+- Load times <2 seconds
+- Sales-focused transparency without panic
+- Touch-optimized (44px min tap targets)
+
+## Critical Data Understanding
+- **Low usage ≠ unreliable!** 20% PTO usage = only 20% of projects completed
+- Include ALL milestone fields ≥10% usage (42 fields for standard dashboard)
+- HOA (10.7%), Inspection (19%), PTO (20%) are ESSENTIAL despite "low" usage
+- Use PRIMARY field first, fall back to BACKUP if null
+- Show "Pending" not "N/A" for missing milestone dates
+
+## Quickbase Integration
+- Use field IDs from quickbase-config.json
+- Try PRIMARY field first, fall back to BACKUP if null
+- Parse Status Bar HTML (field 301) for milestone visualization
+- Filter projects by user role:
+  - Closers: closerId (516) = current user
+  - Setters: setterId (329) = current user
+  - Office Leaders: configurable office access
+  - Regional: multiple offices (configurable)
+  - Super Admin: all projects
+- Poll every 30s for updates
+- Immediate push for user mutations
+- Handle rate limits with exponential backoff (1s, 2s, 4s, 8s)
+
+## Field Mapping Strategy
+- Install dates: PRIMARY 710 (54% usage), BACKUP [534, 587]
+- Survey dates: PRIMARY 164/165 (26% usage), BACKUP 575/693
+- Design dates: PRIMARY 315/476 (26% usage)
+- Permit dates: PRIMARY 207/208 (23% usage), BACKUP 709/584
+- NEM dates: PRIMARY 326/327 (24% usage), BACKUP 716/585
+- HOA dates: PRIMARY 212/213 (10.7% usage) - INCLUDE!
+- Inspection: PRIMARY 491 (19% usage) - INCLUDE!
+- PTO: PRIMARY 537/538 (20% usage) - INCLUDE!
+- PPW: Use actual fields (grossPPW 19, netPPW 543, commissionablePPW 2480)
+
+## 9 Milestones Timeline
+1. Intake (100% usage)
+2. Survey (26% usage)
+3. Design (26% usage)
+4. NEM (24% usage)
+5. Permitting (23% usage)
+6. Installation (52% usage - MOST RELIABLE)
+7. Verification (calculated between install and inspection)
+8. Inspection (19% usage)
+9. PTO (20% usage)
+
+Display ALL 9 milestones in timeline even if dates missing.
+Show completed (green), in-progress (yellow), not-started (gray), blocked (red).
+
+## UI/UX Rules
+- Cards over tables (iPad-friendly)
+- Green = completed/on-track
+- Yellow = needs attention
+- Red = critical/blocked/on-hold
+- Gray = waiting/not started
+- Loading skeletons (no spinners)
+- Swipe gestures for quick actions (optional, not required)
+- Prominent hold alerts (red banner at top of project detail)
+
+## Role-Based Access Control
+- Closers: Only projects where closerId (516) = userId
+- Setters: Only projects where setterId (329) = userId
+- Office Leaders: Their projects + configurable office access
+- Regional: Multiple offices (configurable in settings)
+- Super Admin: All projects + SLA configuration access
+
+## Authentication
+- Email/password (custom, not Quickbase OAuth for MVP)
+- Email must match Quickbase user email
+- Fetch user role from Quickbase after login
+- Store JWT in HTTP-only cookie
+- Session management with token refresh
+
+## Never
+- Don't calculate PPW if fields exist (they do - 94% populated)
+- Don't query child tables for basic milestone dates (parent has them)
+- Don't use tables for mobile layouts (use cards)
+- Don't show internal ops metrics without context
+- Don't panic sales reps with raw SLA breaches
+- Don't skip "low usage" fields (they're milestone-dependent, not unreliable)
+- Don't use hover-dependent features (touch devices)
+
+## Error Handling
+- 429 (rate limit): Exponential backoff
+- 401: Force re-login
+- 500: Retry 3x, then show error
+- Network offline: Show cached data + offline indicator
+- Missing data: Show "Pending" not "N/A"
+
+## Performance Targets
+- Initial load: <2 seconds
+- Dashboard refresh: <1 second
+- Project detail: <1.5 seconds
+- Search results: <500ms
+- All API calls: <1 second (95th percentile)
+
+## File Organization
+Follow Next.js 14 App Router conventions:
+- app/(auth)/* for login/register
+- app/(dashboard)/* for main app
+- app/api/* for API routes
+- components/ui/* for shadcn components
+- components/dashboard/* for dashboard-specific
+- lib/quickbase/* for Quickbase API client
+- lib/db/* for Neon database
+- types/* for TypeScript interfaces
+
+## Important Notes
+- This is Phase 1 MVP (6-8 weeks)
+- Focus on core features: dashboard, project list, project detail, hold management
+- Real-time chat is Phase 2 (use comment threads for MVP)
+- Commission calculator is Phase 2
+- Document upload is Phase 2
+- Mobile native apps are Phase 2
+
+## Success Criteria
+- Load time <2 seconds ✓
+- Find project status in <3 seconds ✓
+- Complete task in ≤2 taps ✓
+- 90%+ daily active users (after launch)
+- 30%+ increase in task completion rate
+- 50% reduction in hold resolution time
+
+## Questions?
+Refer to MASTER-REQUIREMENTS.md in project documentation.
+All field IDs in quickbase-config.json.
+All API examples in QUICKBASE-API-REFERENCE.md.

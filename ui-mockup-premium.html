@@ -1,0 +1,2153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kin Home - Sales Pipeline Management</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            /* Professional Blue-Green Theme */
+            --primary: #0F766E;
+            --primary-dark: #134E4A;
+            --primary-light: #14B8A6;
+            --accent: #06B6D4;
+            --success: #10B981;
+            --warning: #F59E0B;
+            --danger: #EF4444;
+
+            /* Neutral Palette */
+            --slate-900: #0F172A;
+            --slate-800: #1E293B;
+            --slate-700: #334155;
+            --slate-600: #475569;
+            --slate-500: #64748B;
+            --slate-400: #94A3B8;
+            --slate-300: #CBD5E1;
+            --slate-200: #E2E8F0;
+            --slate-100: #F1F5F9;
+            --slate-50: #F8FAFC;
+            --white: #FFFFFF;
+
+            /* Shadows */
+            --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-md: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+            --shadow-xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+
+            --radius: 8px;
+            --radius-lg: 12px;
+            --radius-xl: 16px;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--slate-50);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            font-size: 14px;
+            color: var(--slate-800);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 1200px;
+            background: var(--white);
+            border-radius: var(--radius-xl);
+            overflow: hidden;
+            box-shadow: var(--shadow-xl);
+            height: 85vh;
+            min-height: 700px;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--slate-200);
+        }
+
+        /* Offline Banner */
+        .offline-banner {
+            display: none;
+            background: var(--warning);
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 600;
+            animation: slideDown 0.3s ease;
+        }
+
+        .offline-banner.visible {
+            display: block;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-100%);
+            }
+            to {
+                transform: translateY(0);
+            }
+        }
+
+        /* Header */
+        .header {
+            background: var(--white);
+            padding: 20px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--slate-200);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--slate-900);
+            letter-spacing: -0.025em;
+        }
+
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            border-radius: var(--radius);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 800;
+            font-size: 16px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .notification-btn {
+            position: relative;
+            min-width: 44px;
+            min-height: 44px;
+            border-radius: var(--radius);
+            border: 1px solid var(--slate-200);
+            background: var(--white);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--slate-600);
+        }
+
+        .notification-btn:hover {
+            background: var(--slate-50);
+            border-color: var(--slate-300);
+        }
+
+        /* Bell Icon SVG */
+        .icon-bell {
+            width: 20px;
+            height: 20px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .notification-dot {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 8px;
+            height: 8px;
+            background: var(--danger);
+            border-radius: 50%;
+            border: 2px solid var(--white);
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px;
+            border-radius: var(--radius);
+            transition: background 0.2s;
+            cursor: pointer;
+            min-height: 44px;
+        }
+
+        .user-info:hover {
+            background: var(--slate-50);
+        }
+
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .user-details {
+            text-align: right;
+        }
+
+        .user-name {
+            font-weight: 600;
+            color: var(--slate-900);
+            font-size: 14px;
+        }
+
+        .user-role {
+            font-size: 12px;
+            color: var(--slate-500);
+        }
+
+        /* Navigation */
+        .nav-tabs {
+            background: var(--white);
+            padding: 0 32px;
+            display: flex;
+            gap: 8px;
+            border-bottom: 1px solid var(--slate-200);
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .nav-tabs::-webkit-scrollbar {
+            height: 0;
+        }
+
+        .nav-tab {
+            padding: 14px 20px;
+            color: var(--slate-500);
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+            font-size: 14px;
+            position: relative;
+            white-space: nowrap;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+        }
+
+        .nav-tab:hover {
+            color: var(--slate-700);
+        }
+
+        .nav-tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .nav-badge {
+            position: absolute;
+            top: 10px;
+            right: -4px;
+            background: var(--danger);
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            padding: 32px;
+            overflow-y: auto;
+            background: var(--slate-50);
+        }
+
+        /* Metrics Cards */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+
+        .metric-card {
+            background: var(--white);
+            padding: 24px;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--slate-200);
+            transition: all 0.2s;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: transparent;
+            transition: all 0.3s;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+            border-color: var(--slate-300);
+        }
+
+        .metric-card.primary::before {
+            background: linear-gradient(90deg, var(--primary), var(--primary-light));
+        }
+
+        .metric-card.success::before {
+            background: var(--success);
+        }
+
+        .metric-card.warning::before {
+            background: var(--warning);
+        }
+
+        .metric-card.danger::before {
+            background: var(--danger);
+        }
+
+        .metric-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+
+        .metric-card.primary .metric-icon {
+            background: rgba(15, 118, 110, 0.1);
+            color: var(--primary);
+        }
+
+        .metric-card.success .metric-icon {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+        }
+
+        .metric-card.warning .metric-icon {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--warning);
+        }
+
+        .metric-card.danger .metric-icon {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+        }
+
+        /* Icon SVGs */
+        .icon {
+            width: 24px;
+            height: 24px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: var(--slate-600);
+            margin-bottom: 8px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .metric-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--slate-900);
+            margin-bottom: 8px;
+            letter-spacing: -0.025em;
+        }
+
+        .metric-change {
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 500;
+        }
+
+        .metric-change.positive {
+            color: var(--success);
+        }
+
+        .metric-change.negative {
+            color: var(--danger);
+        }
+
+        .metric-change.neutral {
+            color: var(--slate-500);
+        }
+
+        /* Section Headers */
+        .section {
+            margin-bottom: 32px;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .section-title-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--slate-900);
+            letter-spacing: -0.025em;
+        }
+
+        .section-subtitle {
+            font-size: 14px;
+            color: var(--slate-500);
+            font-weight: 500;
+        }
+
+        .badge {
+            background: var(--slate-900);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge.danger {
+            background: var(--danger);
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        /* Search Input */
+        .search-input {
+            padding: 10px 16px 10px 40px;
+            border: 1px solid var(--slate-200);
+            border-radius: var(--radius);
+            font-size: 14px;
+            width: 280px;
+            background: var(--white);
+            transition: all 0.2s;
+            position: relative;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .search-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 18px;
+            height: 18px;
+            color: var(--slate-400);
+            pointer-events: none;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.1);
+        }
+
+        .filter-chips {
+            display: flex;
+            gap: 8px;
+            padding: 4px;
+            background: var(--slate-100);
+            border-radius: var(--radius);
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .filter-chips::-webkit-scrollbar {
+            height: 0;
+        }
+
+        .chip {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--slate-600);
+            background: transparent;
+            border: none;
+            white-space: nowrap;
+            min-height: 44px;
+        }
+
+        .chip:hover {
+            background: var(--white);
+            color: var(--slate-700);
+        }
+
+        .chip.active {
+            background: var(--white);
+            color: var(--primary);
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* Task Cards */
+        .task-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .task-card {
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            padding: 20px 24px;
+            border: 1px solid var(--slate-200);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .task-card:hover {
+            border-color: var(--slate-300);
+            box-shadow: var(--shadow-md);
+            transform: translateX(4px);
+        }
+
+        .task-priority-indicator {
+            width: 4px;
+            position: absolute;
+            left: 0;
+            top: 20%;
+            bottom: 20%;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .priority-high {
+            background: var(--danger);
+        }
+
+        .priority-medium {
+            background: var(--warning);
+        }
+
+        .priority-low {
+            background: var(--success);
+        }
+
+        .task-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .task-icon.blocked {
+            background: linear-gradient(135deg, #FEF2F2, #FEE2E2);
+            color: var(--danger);
+        }
+
+        .task-icon.review {
+            background: linear-gradient(135deg, #FEF3C7, #FDE68A);
+            color: var(--warning);
+        }
+
+        .task-icon.approval {
+            background: linear-gradient(135deg, #DBEAFE, #BFDBFE);
+            color: var(--accent);
+        }
+
+        .task-content {
+            flex: 1;
+        }
+
+        .task-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+
+        .task-title {
+            font-weight: 600;
+            color: var(--slate-900);
+            font-size: 15px;
+        }
+
+        .task-tag {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+
+        .tag-urgent {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+        }
+
+        .tag-new {
+            background: rgba(6, 182, 212, 0.1);
+            color: var(--accent);
+        }
+
+        .task-details {
+            display: flex;
+            gap: 20px;
+            font-size: 13px;
+            color: var(--slate-500);
+            flex-wrap: wrap;
+        }
+
+        .task-detail {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .task-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-action {
+            min-width: 44px;
+            min-height: 44px;
+            border-radius: var(--radius);
+            border: 1px solid var(--slate-200);
+            background: var(--white);
+            color: var(--slate-600);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+
+        .btn-action:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            transform: scale(1.05);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 48px 24px;
+            color: var(--slate-500);
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            border: 2px dashed var(--slate-200);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .empty-state h3 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--slate-700);
+        }
+
+        .empty-state p {
+            font-size: 14px;
+        }
+
+        /* Projects List View */
+        .projects-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 400px);
+        }
+
+        .projects-list-container {
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--slate-200);
+            overflow: hidden;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .projects-list-header {
+            display: grid;
+            grid-template-columns: 2.5fr 3fr 1.5fr 1.5fr 0.8fr 0.5fr;
+            gap: 16px;
+            padding: 16px 24px;
+            background: var(--slate-50);
+            border-bottom: 2px solid var(--slate-200);
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--slate-600);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .projects-list-scroll {
+            flex: 1;
+            overflow-y: auto;
+            max-height: 400px;
+        }
+
+        .project-row {
+            display: grid;
+            grid-template-columns: 2.5fr 3fr 1.5fr 1.5fr 0.8fr 0.5fr;
+            gap: 16px;
+            padding: 24px;
+            border-bottom: 1px solid var(--slate-100);
+            align-items: center;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .project-row:hover {
+            background: var(--slate-50);
+            transform: translateX(4px);
+        }
+
+        .project-row.on-hold {
+            background: rgba(239, 68, 68, 0.02);
+            border-left: 4px solid var(--danger);
+            padding-left: 20px;
+        }
+
+        /* Hold Banner */
+        .hold-banner {
+            grid-column: 1 / -1;
+            background: rgba(239, 68, 68, 0.08);
+            padding: 10px 16px;
+            border-radius: 6px;
+            margin-top: 12px;
+            font-size: 12px;
+            color: var(--danger);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .hold-banner-icon {
+            font-size: 14px;
+        }
+
+        /* Customer Column */
+        .col-customer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .customer-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .customer-name {
+            font-weight: 600;
+            color: var(--slate-900);
+            font-size: 14px;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .customer-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .project-id {
+            font-size: 11px;
+            color: var(--slate-600);
+            font-weight: 500;
+        }
+
+        .project-type {
+            font-size: 11px;
+            color: var(--slate-500);
+        }
+
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .status-badge.status-active {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+        }
+
+        .status-badge.status-hold {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+        }
+
+        .status-badge.status-ready {
+            background: rgba(6, 182, 212, 0.1);
+            color: var(--accent);
+        }
+
+        .status-badge.status-design {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--warning);
+        }
+
+        /* Milestone Tracker */
+        .col-milestones {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .milestone-tracker {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            position: relative;
+        }
+
+        .milestone {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .milestone-dot {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid var(--slate-300);
+            background: var(--white);
+            position: relative;
+            z-index: 2;
+            transition: all 0.2s;
+        }
+
+        .milestone.completed .milestone-dot {
+            background: var(--success);
+            border-color: var(--success);
+        }
+
+        .milestone.in-progress .milestone-dot {
+            background: var(--warning);
+            border-color: var(--warning);
+            animation: pulse 2s infinite;
+        }
+
+        .milestone.blocked .milestone-dot {
+            background: var(--danger);
+            border-color: var(--danger);
+        }
+
+        .milestone.pending .milestone-dot {
+            background: var(--slate-100);
+            border-color: var(--slate-300);
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+            }
+            70% {
+                box-shadow: 0 0 0 8px rgba(245, 158, 11, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+            }
+        }
+
+        .milestone-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--slate-700);
+            margin-top: 2px;
+            letter-spacing: 0.025em;
+        }
+
+        .milestone.completed .milestone-label {
+            color: var(--success);
+        }
+
+        .milestone.in-progress .milestone-label {
+            color: var(--warning);
+        }
+
+        .milestone.blocked .milestone-label {
+            color: var(--danger);
+        }
+
+        .milestone-line {
+            width: 24px;
+            height: 2px;
+            background: var(--slate-200);
+            position: relative;
+            top: -10px;
+        }
+
+        .milestone-line.completed {
+            background: var(--success);
+        }
+
+        .milestone-line.in-progress {
+            background: linear-gradient(90deg, var(--success) 0%, var(--warning) 100%);
+        }
+
+        .milestone-line.blocked {
+            background: var(--danger);
+            background-image: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 2px,
+                rgba(239, 68, 68, 0.5) 2px,
+                rgba(239, 68, 68, 0.5) 4px
+            );
+        }
+
+        /* Tooltip */
+        .milestone[data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--slate-900);
+            color: white;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            white-space: nowrap;
+            z-index: 100;
+            margin-bottom: 8px;
+        }
+
+        /* Progress Bar under tracker */
+        .mini-progress-bar {
+            height: 4px;
+            background: var(--slate-200);
+            border-radius: 2px;
+            margin-top: 4px;
+            overflow: hidden;
+        }
+
+        .mini-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--primary-light));
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        .milestone-progress {
+            font-size: 12px;
+            color: var(--slate-600);
+            font-weight: 500;
+        }
+
+        .milestone-progress.hold {
+            color: var(--danger);
+        }
+
+        /* Dates Column */
+        .col-dates {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .date-item {
+            display: flex;
+            gap: 6px;
+            font-size: 12px;
+        }
+
+        .date-label {
+            color: var(--slate-500);
+            font-weight: 500;
+        }
+
+        .date-value {
+            color: var(--slate-900);
+            font-weight: 600;
+        }
+
+        .date-item.highlight .date-value {
+            color: var(--primary);
+        }
+
+        .date-item.hold .date-value {
+            color: var(--danger);
+        }
+
+        .date-item.age-warning .date-value {
+            color: var(--warning);
+            font-weight: 700;
+        }
+
+        .date-item.age-danger .date-value {
+            color: var(--danger);
+            font-weight: 700;
+        }
+
+        /* Metrics Column */
+        .col-metrics {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .metric-item {
+            display: flex;
+            gap: 6px;
+            font-size: 12px;
+        }
+
+        .metric-item .metric-label {
+            color: var(--slate-500);
+            font-weight: 500;
+            text-transform: none;
+        }
+
+        .metric-item .metric-value {
+            color: var(--slate-900);
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        /* Team Column */
+        .col-team {
+            display: flex;
+            justify-content: center;
+        }
+
+        .team-avatars {
+            display: flex;
+            align-items: center;
+        }
+
+        .team-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 2px solid var(--white);
+            margin-left: -8px;
+            font-size: 9px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+
+        .team-avatar:first-child {
+            margin-left: 0;
+        }
+
+        /* Actions Column */
+        .col-actions {
+            display: flex;
+            justify-content: center;
+        }
+
+        /* View Toggle */
+        .view-toggle {
+            display: flex;
+            gap: 4px;
+            padding: 4px;
+            background: var(--slate-100);
+            border-radius: var(--radius);
+        }
+
+        .view-btn {
+            padding: 6px 10px;
+            border-radius: 4px;
+            background: transparent;
+            border: none;
+            color: var(--slate-600);
+            cursor: pointer;
+            transition: all 0.2s;
+            min-height: 44px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .view-btn.active {
+            background: var(--white);
+            color: var(--primary);
+            box-shadow: var(--shadow-xs);
+        }
+
+        /* Floating Action Button */
+        .fab {
+            position: fixed;
+            bottom: 32px;
+            right: 32px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            color: white;
+            border: none;
+            box-shadow: var(--shadow-lg);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            transition: all 0.3s ease;
+        }
+
+        .fab:hover {
+            transform: scale(1.1);
+            box-shadow: var(--shadow-xl);
+        }
+
+        /* Scrollbar Styling */
+        .projects-list-scroll::-webkit-scrollbar,
+        .main-content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .projects-list-scroll::-webkit-scrollbar-track,
+        .main-content::-webkit-scrollbar-track {
+            background: var(--slate-100);
+            border-radius: 3px;
+        }
+
+        .projects-list-scroll::-webkit-scrollbar-thumb,
+        .main-content::-webkit-scrollbar-thumb {
+            background: var(--slate-400);
+            border-radius: 3px;
+        }
+
+        .projects-list-scroll::-webkit-scrollbar-thumb:hover,
+        .main-content::-webkit-scrollbar-thumb:hover {
+            background: var(--slate-500);
+        }
+
+        /* Responsive - iPad Portrait */
+        @media (max-width: 1024px) {
+            .projects-list-header,
+            .project-row {
+                grid-template-columns: 2.5fr 3fr 1.8fr 0.5fr;
+            }
+
+            .col-metrics,
+            .col-team {
+                display: none;
+            }
+        }
+
+        /* Responsive - Tablet */
+        @media (max-width: 768px) {
+            .metrics-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .search-input {
+                width: 100%;
+                max-width: 280px;
+            }
+
+            .main-content {
+                padding: 20px;
+            }
+
+            .section-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .filter-group {
+                width: 100%;
+            }
+
+            .filter-chips {
+                width: 100%;
+            }
+        }
+
+        /* Responsive - Mobile */
+        @media (max-width: 640px) {
+            .app-container {
+                border-radius: 0;
+                height: 100vh;
+            }
+
+            .header {
+                padding: 16px 20px;
+            }
+
+            .nav-tabs {
+                padding: 0 20px;
+            }
+
+            .main-content {
+                padding: 16px;
+            }
+
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .projects-list-header {
+                display: none;
+            }
+
+            .project-row {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+
+            .task-card {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .task-actions {
+                width: 100%;
+                justify-content: space-between;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Offline Banner -->
+        <div class="offline-banner" id="offlineBanner">
+            🔴 Offline Mode - Showing cached data • Last sync: <span id="lastSync">5 minutes ago</span>
+        </div>
+
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">
+                <div class="logo">
+                    <div class="logo-icon">KH</div>
+                    <span>Kin Home</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <button class="notification-btn">
+                    <svg class="icon-bell" viewBox="0 0 24 24">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                    </svg>
+                    <span class="notification-dot"></span>
+                </button>
+                <div class="user-info">
+                    <div class="user-details">
+                        <div class="user-name">Sarah Johnson</div>
+                        <div class="user-role">Senior Sales Representative</div>
+                    </div>
+                    <div class="user-avatar">SJ</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="nav-tabs">
+            <div class="nav-tab active">Dashboard</div>
+            <div class="nav-tab">Projects</div>
+            <div class="nav-tab">
+                Tasks
+                <span class="nav-badge">8</span>
+            </div>
+            <div class="nav-tab">Messages</div>
+            <div class="nav-tab">Analytics</div>
+            <div class="nav-tab">Team</div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Metrics Cards -->
+            <div class="metrics-grid">
+                <div class="metric-card primary">
+                    <div class="metric-icon">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                            <polyline points="17 6 23 6 23 12"></polyline>
+                        </svg>
+                    </div>
+                    <div class="metric-label">Installs This Week</div>
+                    <div class="metric-value">12</div>
+                    <div class="metric-change positive">
+                        ↑ 20% from last week
+                    </div>
+                </div>
+                <div class="metric-card success">
+                    <div class="metric-icon">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    </div>
+                    <div class="metric-label">Active Accounts</div>
+                    <div class="metric-value">147</div>
+                    <div class="metric-change positive">
+                        ↑ 8 new this month
+                    </div>
+                </div>
+                <div class="metric-card warning">
+                    <div class="metric-icon">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <rect x="9" y="9" width="6" height="6"></rect>
+                        </svg>
+                    </div>
+                    <div class="metric-label">On Hold</div>
+                    <div class="metric-value">18</div>
+                    <div class="metric-change negative">
+                        ↑ 3 added today
+                    </div>
+                </div>
+                <div class="metric-card danger">
+                    <div class="metric-icon">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <line x1="12" y1="1" x2="12" y2="23"></line>
+                            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                        </svg>
+                    </div>
+                    <div class="metric-label">Close Rate</div>
+                    <div class="metric-value">68%</div>
+                    <div class="metric-change positive">
+                        ↑ 5% this quarter
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Items Section -->
+            <div class="section">
+                <div class="section-header">
+                    <div class="section-title-group">
+                        <h2 class="section-title">Action Required</h2>
+                        <span class="badge danger">8 Items</span>
+                    </div>
+                    <div class="filter-group">
+                        <div class="filter-chips">
+                            <button class="chip active">All Tasks</button>
+                            <button class="chip">Urgent</button>
+                            <button class="chip">Today</button>
+                            <button class="chip">Blocked</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="task-list">
+                    <div class="task-card">
+                        <div class="task-priority-indicator priority-high"></div>
+                        <div class="task-icon blocked">
+                            <svg class="icon" viewBox="0 0 24 24">
+                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                                <line x1="12" y1="9" x2="12" y2="13"></line>
+                                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                            </svg>
+                        </div>
+                        <div class="task-content">
+                            <div class="task-header">
+                                <h3 class="task-title">Johnson Residence - Permit Hold</h3>
+                                <span class="task-tag tag-urgent">URGENT</span>
+                            </div>
+                            <div class="task-details">
+                                <div class="task-detail">
+                                    <svg class="icon" viewBox="0 0 24 24" style="width: 16px; height: 16px;">
+                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                        <circle cx="12" cy="10" r="3"></circle>
+                                    </svg>
+                                    Fremont, CA
+                                </div>
+                                <div class="task-detail">
+                                    <svg class="icon" viewBox="0 0 24 24" style="width: 16px; height: 16px;">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <polyline points="12 6 12 12 16 14"></polyline>
+                                    </svg>
+                                    3 days on hold
+                                </div>
+                                <div class="task-detail">⚡ 45kW system</div>
+                                <div class="task-detail">💰 $189,000</div>
+                            </div>
+                        </div>
+                        <div class="task-actions">
+                            <a href="tel:+14155551234" class="btn-action" title="Call Customer">
+                                <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;">
+                                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                                </svg>
+                            </a>
+                            <a href="sms:+14155551234" class="btn-action" title="Text Customer">
+                                <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                                </svg>
+                            </a>
+                            <button class="btn-action" title="View Details">
+                                <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;">
+                                    <polyline points="9 18 15 12 9 6"></polyline>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="task-card">
+                        <div class="task-priority-indicator priority-medium"></div>
+                        <div class="task-icon review">
+                            <svg class="icon" viewBox="0 0 24 24">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                            </svg>
+                        </div>
+                        <div class="task-content">
+                            <div class="task-header">
+                                <h3 class="task-title">Smith Project - Design Approval Required</h3>
+                                <span class="task-tag tag-new">NEW</span>
+                            </div>
+                            <div class="task-details">
+                                <div class="task-detail">
+                                    <svg class="icon" viewBox="0 0 24 24" style="width: 16px; height: 16px;">
+                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                        <circle cx="12" cy="10" r="3"></circle>
+                                    </svg>
+                                    San Jose, CA
+                                </div>
+                                <div class="task-detail">
+                                    <svg class="icon" viewBox="0 0 24 24" style="width: 16px; height: 16px;">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <polyline points="12 6 12 12 16 14"></polyline>
+                                    </svg>
+                                    Due in 4 hours
+                                </div>
+                                <div class="task-detail">⚡ 32kW system</div>
+                                <div class="task-detail">💰 $134,400</div>
+                            </div>
+                        </div>
+                        <div class="task-actions">
+                            <a href="tel:+14155559876" class="btn-action" title="Call Customer">
+                                <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;">
+                                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                                </svg>
+                            </a>
+                            <a href="sms:+14155559876" class="btn-action" title="Text Customer">
+                                <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                                </svg>
+                            </a>
+                            <button class="btn-action" title="View Details">
+                                <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;">
+                                    <polyline points="9 18 15 12 9 6"></polyline>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="task-card">
+                        <div class="task-priority-indicator priority-low"></div>
+                        <div class="task-icon approval">
+                            <svg class="icon" viewBox="0 0 24 24">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <line x1="16" y1="13" x2="8" y2="13"></line>
+                                <line x1="16" y1="17" x2="8" y2="17"></line>
+                                <polyline points="10 9 9 9 8 9"></polyline>
+                            </svg>
+                        </div>
+                        <div class="task-content">
+                            <div class="task-header">
+                                <h3 class="task-title">Williams Install - Final Documentation</h3>
+                            </div>
+                            <div class="task-details">
+                                <div class="task-detail">
+                                    <svg class="icon" viewBox="0 0 24 24" style="width: 16px; height: 16px;">
+                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                        <circle cx="12" cy="10" r="3"></circle>
+                                    </svg>
+                                    Oakland, CA
+                                </div>
+                                <div class="task-detail">
+                                    <svg class="icon" viewBox="0 0 24 24" style="width: 16px; height: 16px;">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <polyline points="12 6 12 12 16 14"></polyline>
+                                    </svg>
+                                    Due tomorrow
+                                </div>
+                                <div class="task-detail">⚡ 28kW system</div>
+                                <div class="task-detail">💰 $117,600</div>
+                            </div>
+                        </div>
+                        <div class="task-actions">
+                            <a href="tel:+14155552345" class="btn-action" title="Call Customer">
+                                <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;">
+                                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                                </svg>
+                            </a>
+                            <a href="sms:+14155552345" class="btn-action" title="Text Customer">
+                                <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                                </svg>
+                            </a>
+                            <button class="btn-action" title="View Details">
+                                <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;">
+                                    <polyline points="9 18 15 12 9 6"></polyline>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active Projects Section -->
+            <div class="section projects-section">
+                <div class="section-header">
+                    <div class="section-title-group">
+                        <h2 class="section-title">Active Projects</h2>
+                        <span class="section-subtitle">147 total • 18 on hold • 12 install ready</span>
+                    </div>
+                    <div class="filter-group">
+                        <div class="search-wrapper">
+                            <svg class="search-icon icon" viewBox="0 0 24 24">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <path d="m21 21-4.35-4.35"></path>
+                            </svg>
+                            <input
+                                type="text"
+                                placeholder="Search projects..."
+                                class="search-input"
+                                id="projectSearch"
+                            />
+                        </div>
+                        <div class="view-toggle">
+                            <button class="view-btn">
+                                <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;">
+                                    <rect x="3" y="3" width="7" height="7"></rect>
+                                    <rect x="14" y="3" width="7" height="7"></rect>
+                                    <rect x="14" y="14" width="7" height="7"></rect>
+                                    <rect x="3" y="14" width="7" height="7"></rect>
+                                </svg>
+                                Grid
+                            </button>
+                            <button class="view-btn active">
+                                <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;">
+                                    <line x1="8" y1="6" x2="21" y2="6"></line>
+                                    <line x1="8" y1="12" x2="21" y2="12"></line>
+                                    <line x1="8" y1="18" x2="21" y2="18"></line>
+                                    <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                                    <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                                    <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                                </svg>
+                                List
+                            </button>
+                        </div>
+                        <div class="filter-chips">
+                            <button class="chip active">All</button>
+                            <button class="chip">Active</button>
+                            <button class="chip">On Hold</button>
+                            <button class="chip">Install Ready</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Projects List View -->
+                <div class="projects-list-container">
+                    <div class="projects-list-header">
+                        <div class="col-customer">Customer</div>
+                        <div class="col-milestones">Pipeline Status</div>
+                        <div class="col-dates">Key Dates</div>
+                        <div class="col-metrics">Metrics</div>
+                        <div class="col-team">Team</div>
+                        <div class="col-actions"></div>
+                    </div>
+
+                    <div class="projects-list-scroll">
+                        <!-- Project Row 1 - Active -->
+                        <div class="project-row">
+                            <div class="col-customer">
+                                <div class="customer-info">
+                                    <div class="customer-name">Anderson Family</div>
+                                    <div class="customer-meta">
+                                        <span class="project-id">PRJ-2024-1847</span>
+                                        <span class="project-type">Residential • Fremont</span>
+                                    </div>
+                                </div>
+                                <span class="status-badge status-active">Active</span>
+                            </div>
+
+                            <div class="col-milestones">
+                                <div class="milestone-tracker">
+                                    <div class="milestone completed" data-tooltip="Intake: Completed 12/15">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">INT</div>
+                                    </div>
+                                    <div class="milestone-line completed"></div>
+                                    <div class="milestone completed" data-tooltip="Survey: Completed 12/18">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">SRV</div>
+                                    </div>
+                                    <div class="milestone-line completed"></div>
+                                    <div class="milestone completed" data-tooltip="Design: Approved 12/22">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">DSN</div>
+                                    </div>
+                                    <div class="milestone-line completed"></div>
+                                    <div class="milestone in-progress" data-tooltip="NEM: Submitted 12/28">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">NEM</div>
+                                    </div>
+                                    <div class="milestone-line"></div>
+                                    <div class="milestone pending" data-tooltip="Permit: Pending">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">PRM</div>
+                                    </div>
+                                    <div class="milestone-line"></div>
+                                    <div class="milestone pending" data-tooltip="Install: Scheduled 1/15">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">INS</div>
+                                    </div>
+                                    <div class="milestone-line"></div>
+                                    <div class="milestone pending">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">VER</div>
+                                    </div>
+                                    <div class="milestone-line"></div>
+                                    <div class="milestone pending">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">INP</div>
+                                    </div>
+                                    <div class="milestone-line"></div>
+                                    <div class="milestone pending">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">PTO</div>
+                                    </div>
+                                </div>
+                                <div class="mini-progress-bar">
+                                    <div class="mini-progress-fill" style="width: 44%;"></div>
+                                </div>
+                                <div class="milestone-progress">44% Complete • NEM Pending Approval</div>
+                            </div>
+
+                            <div class="col-dates">
+                                <div class="date-item">
+                                    <span class="date-label">Sale:</span>
+                                    <span class="date-value">12/15/24</span>
+                                </div>
+                                <div class="date-item">
+                                    <span class="date-label">Install:</span>
+                                    <span class="date-value">01/15/25</span>
+                                </div>
+                                <div class="date-item">
+                                    <span class="date-label">Age:</span>
+                                    <span class="date-value">12 days</span>
+                                </div>
+                            </div>
+
+                            <div class="col-metrics">
+                                <div class="metric-item">
+                                    <span class="metric-label">Size:</span>
+                                    <span class="metric-value">38kW</span>
+                                </div>
+                                <div class="metric-item">
+                                    <span class="metric-label">PPW:</span>
+                                    <span class="metric-value">$4.20</span>
+                                </div>
+                                <div class="metric-item">
+                                    <span class="metric-label">Value:</span>
+                                    <span class="metric-value">$159.6k</span>
+                                </div>
+                            </div>
+
+                            <div class="col-team">
+                                <div class="team-avatars">
+                                    <div class="team-avatar" style="background: #0F766E;">SJ</div>
+                                    <div class="team-avatar" style="background: #06B6D4;">MK</div>
+                                    <div class="team-avatar" style="background: #64748B;">TC</div>
+                                </div>
+                            </div>
+
+                            <div class="col-actions">
+                                <button class="btn-action">
+                                    <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;">
+                                        <polyline points="9 18 15 12 9 6"></polyline>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Project Row 2 - On Hold with Banner -->
+                        <div class="project-row on-hold">
+                            <div class="col-customer">
+                                <div class="customer-info">
+                                    <div class="customer-name">Martinez Residence</div>
+                                    <div class="customer-meta">
+                                        <span class="project-id">PRJ-2024-1852</span>
+                                        <span class="project-type">Residential • San Jose</span>
+                                    </div>
+                                </div>
+                                <span class="status-badge status-hold">On Hold - Permit</span>
+                            </div>
+
+                            <div class="col-milestones">
+                                <div class="milestone-tracker">
+                                    <div class="milestone completed">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">INT</div>
+                                    </div>
+                                    <div class="milestone-line completed"></div>
+                                    <div class="milestone completed">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">SRV</div>
+                                    </div>
+                                    <div class="milestone-line completed"></div>
+                                    <div class="milestone completed">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">DSN</div>
+                                    </div>
+                                    <div class="milestone-line blocked"></div>
+                                    <div class="milestone blocked" data-tooltip="NEM: On Hold">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">NEM</div>
+                                    </div>
+                                    <div class="milestone-line"></div>
+                                    <div class="milestone blocked" data-tooltip="Permit: Hold - HOA Required">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">PRM</div>
+                                    </div>
+                                    <div class="milestone-line"></div>
+                                    <div class="milestone pending">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">INS</div>
+                                    </div>
+                                    <div class="milestone-line"></div>
+                                    <div class="milestone pending">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">VER</div>
+                                    </div>
+                                    <div class="milestone-line"></div>
+                                    <div class="milestone pending">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">INP</div>
+                                    </div>
+                                    <div class="milestone-line"></div>
+                                    <div class="milestone pending">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">PTO</div>
+                                    </div>
+                                </div>
+                                <div class="mini-progress-bar">
+                                    <div class="mini-progress-fill" style="width: 33%;"></div>
+                                </div>
+                                <div class="milestone-progress hold">33% Complete • Blocked: HOA Approval Required</div>
+                            </div>
+
+                            <div class="col-dates">
+                                <div class="date-item">
+                                    <span class="date-label">Sale:</span>
+                                    <span class="date-value">12/19/24</span>
+                                </div>
+                                <div class="date-item">
+                                    <span class="date-label">Install:</span>
+                                    <span class="date-value">TBD</span>
+                                </div>
+                                <div class="date-item hold">
+                                    <span class="date-label">Hold:</span>
+                                    <span class="date-value">3 days</span>
+                                </div>
+                            </div>
+
+                            <div class="col-metrics">
+                                <div class="metric-item">
+                                    <span class="metric-label">Size:</span>
+                                    <span class="metric-value">42kW</span>
+                                </div>
+                                <div class="metric-item">
+                                    <span class="metric-label">PPW:</span>
+                                    <span class="metric-value">$3.95</span>
+                                </div>
+                                <div class="metric-item">
+                                    <span class="metric-label">Value:</span>
+                                    <span class="metric-value">$165.9k</span>
+                                </div>
+                            </div>
+
+                            <div class="col-team">
+                                <div class="team-avatars">
+                                    <div class="team-avatar" style="background: #0F766E;">SJ</div>
+                                    <div class="team-avatar" style="background: #64748B;">TC</div>
+                                </div>
+                            </div>
+
+                            <div class="col-actions">
+                                <button class="btn-action">
+                                    <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;">
+                                        <polyline points="9 18 15 12 9 6"></polyline>
+                                    </svg>
+                                </button>
+                            </div>
+
+                            <!-- Hold Reason Banner -->
+                            <div class="hold-banner">
+                                <span class="hold-banner-icon">
+                                    <svg class="icon" viewBox="0 0 24 24" style="width: 16px; height: 16px;">
+                                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                                    </svg>
+                                </span>
+                                <span><strong>Hold Reason:</strong> HOA Approval Required • 3 days on hold • Action: Contact customer to update on timeline</span>
+                            </div>
+                        </div>
+
+                        <!-- Project Row 3 - Install Ready -->
+                        <div class="project-row">
+                            <div class="col-customer">
+                                <div class="customer-info">
+                                    <div class="customer-name">Thompson Project</div>
+                                    <div class="customer-meta">
+                                        <span class="project-id">PRJ-2024-1823</span>
+                                        <span class="project-type">Residential • Oakland</span>
+                                    </div>
+                                </div>
+                                <span class="status-badge status-ready">Install Ready</span>
+                            </div>
+
+                            <div class="col-milestones">
+                                <div class="milestone-tracker">
+                                    <div class="milestone completed">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">INT</div>
+                                    </div>
+                                    <div class="milestone-line completed"></div>
+                                    <div class="milestone completed">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">SRV</div>
+                                    </div>
+                                    <div class="milestone-line completed"></div>
+                                    <div class="milestone completed">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">DSN</div>
+                                    </div>
+                                    <div class="milestone-line completed"></div>
+                                    <div class="milestone completed">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">NEM</div>
+                                    </div>
+                                    <div class="milestone-line completed"></div>
+                                    <div class="milestone completed">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">PRM</div>
+                                    </div>
+                                    <div class="milestone-line completed"></div>
+                                    <div class="milestone in-progress" data-tooltip="Install: Scheduled Tomorrow">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">INS</div>
+                                    </div>
+                                    <div class="milestone-line"></div>
+                                    <div class="milestone pending">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">VER</div>
+                                    </div>
+                                    <div class="milestone-line"></div>
+                                    <div class="milestone pending">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">INP</div>
+                                    </div>
+                                    <div class="milestone-line"></div>
+                                    <div class="milestone pending">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">PTO</div>
+                                    </div>
+                                </div>
+                                <div class="mini-progress-bar">
+                                    <div class="mini-progress-fill" style="width: 67%;"></div>
+                                </div>
+                                <div class="milestone-progress">67% Complete • Install Tomorrow 8:00 AM</div>
+                            </div>
+
+                            <div class="col-dates">
+                                <div class="date-item">
+                                    <span class="date-label">Sale:</span>
+                                    <span class="date-value">11/28/24</span>
+                                </div>
+                                <div class="date-item highlight">
+                                    <span class="date-label">Install:</span>
+                                    <span class="date-value">12/28/24</span>
+                                </div>
+                                <div class="date-item">
+                                    <span class="date-label">Age:</span>
+                                    <span class="date-value">29 days</span>
+                                </div>
+                            </div>
+
+                            <div class="col-metrics">
+                                <div class="metric-item">
+                                    <span class="metric-label">Size:</span>
+                                    <span class="metric-value">28kW</span>
+                                </div>
+                                <div class="metric-item">
+                                    <span class="metric-label">PPW:</span>
+                                    <span class="metric-value">$4.50</span>
+                                </div>
+                                <div class="metric-item">
+                                    <span class="metric-label">Value:</span>
+                                    <span class="metric-value">$126k</span>
+                                </div>
+                            </div>
+
+                            <div class="col-team">
+                                <div class="team-avatars">
+                                    <div class="team-avatar" style="background: #0F766E;">SJ</div>
+                                    <div class="team-avatar" style="background: #F59E0B;">RH</div>
+                                </div>
+                            </div>
+
+                            <div class="col-actions">
+                                <button class="btn-action">
+                                    <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;">
+                                        <polyline points="9 18 15 12 9 6"></polyline>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Project Row 4 - Old Project (Age Warning) -->
+                        <div class="project-row">
+                            <div class="col-customer">
+                                <div class="customer-info">
+                                    <div class="customer-name">Garcia Installation</div>
+                                    <div class="customer-meta">
+                                        <span class="project-id">PRJ-2024-1745</span>
+                                        <span class="project-type">Residential • Palo Alto</span>
+                                    </div>
+                                </div>
+                                <span class="status-badge status-active">Active</span>
+                            </div>
+
+                            <div class="col-milestones">
+                                <div class="milestone-tracker">
+                                    <div class="milestone completed">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">INT</div>
+                                    </div>
+                                    <div class="milestone-line completed"></div>
+                                    <div class="milestone completed">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">SRV</div>
+                                    </div>
+                                    <div class="milestone-line completed"></div>
+                                    <div class="milestone completed">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">DSN</div>
+                                    </div>
+                                    <div class="milestone-line completed"></div>
+                                    <div class="milestone completed">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">NEM</div>
+                                    </div>
+                                    <div class="milestone-line in-progress"></div>
+                                    <div class="milestone in-progress">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">PRM</div>
+                                    </div>
+                                    <div class="milestone-line"></div>
+                                    <div class="milestone pending">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">INS</div>
+                                    </div>
+                                    <div class="milestone-line"></div>
+                                    <div class="milestone pending">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">VER</div>
+                                    </div>
+                                    <div class="milestone-line"></div>
+                                    <div class="milestone pending">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">INP</div>
+                                    </div>
+                                    <div class="milestone-line"></div>
+                                    <div class="milestone pending">
+                                        <div class="milestone-dot"></div>
+                                        <div class="milestone-label">PTO</div>
+                                    </div>
+                                </div>
+                                <div class="mini-progress-bar">
+                                    <div class="mini-progress-fill" style="width: 56%;"></div>
+                                </div>
+                                <div class="milestone-progress">56% Complete • Permit Expected This Week</div>
+                            </div>
+
+                            <div class="col-dates">
+                                <div class="date-item">
+                                    <span class="date-label">Sale:</span>
+                                    <span class="date-value">10/15/24</span>
+                                </div>
+                                <div class="date-item">
+                                    <span class="date-label">Install:</span>
+                                    <span class="date-value">01/10/25</span>
+                                </div>
+                                <div class="date-item age-danger">
+                                    <span class="date-label">Age:</span>
+                                    <span class="date-value">73 days</span>
+                                </div>
+                            </div>
+
+                            <div class="col-metrics">
+                                <div class="metric-item">
+                                    <span class="metric-label">Size:</span>
+                                    <span class="metric-value">52kW</span>
+                                </div>
+                                <div class="metric-item">
+                                    <span class="metric-label">PPW:</span>
+                                    <span class="metric-value">$3.85</span>
+                                </div>
+                                <div class="metric-item">
+                                    <span class="metric-label">Value:</span>
+                                    <span class="metric-value">$200.2k</span>
+                                </div>
+                            </div>
+
+                            <div class="col-team">
+                                <div class="team-avatars">
+                                    <div class="team-avatar" style="background: #0F766E;">SJ</div>
+                                    <div class="team-avatar" style="background: #EF4444;">JM</div>
+                                </div>
+                            </div>
+
+                            <div class="col-actions">
+                                <button class="btn-action">
+                                    <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;">
+                                        <polyline points="9 18 15 12 9 6"></polyline>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating Action Button -->
+        <button class="fab">
+            <svg class="icon" viewBox="0 0 24 24" style="width: 28px; height: 28px; stroke-width: 2.5;">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+        </button>
+    </div>
+
+    <script>
+        // Simulate offline detection
+        function updateOfflineStatus() {
+            const offlineBanner = document.getElementById('offlineBanner');
+            if (!navigator.onLine) {
+                offlineBanner.classList.add('visible');
+            } else {
+                offlineBanner.classList.remove('visible');
+            }
+        }
+
+        window.addEventListener('online', updateOfflineStatus);
+        window.addEventListener('offline', updateOfflineStatus);
+
+        // Simple search demo
+        document.getElementById('projectSearch').addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            const rows = document.querySelectorAll('.project-row');
+
+            rows.forEach(row => {
+                const customerName = row.querySelector('.customer-name').textContent.toLowerCase();
+                const projectId = row.querySelector('.project-id').textContent.toLowerCase();
+
+                if (customerName.includes(searchTerm) || projectId.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

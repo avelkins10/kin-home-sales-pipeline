@@ -1,0 +1,113 @@
+'use client'
+
+import { useRouter } from 'next/navigation'
+import { ArrowLeft, AlertTriangle } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { PROJECT_FIELDS } from '@/lib/constants/fieldIds'
+import { QuickbaseProject } from '@/lib/types/project'
+import { getCurrentMilestone, getProjectUrgency, getMilestoneColor } from '@/lib/utils/milestones'
+import { cn } from '@/lib/utils/cn'
+
+interface ProjectHeaderProps {
+  project: QuickbaseProject
+}
+
+export function ProjectHeader({ project }: ProjectHeaderProps) {
+  const router = useRouter()
+
+  // Extract project data
+  const customerName = project[PROJECT_FIELDS.CUSTOMER_NAME]?.value || 'Unknown Customer'
+  const projectId = project[PROJECT_FIELDS.RECORD_ID]?.value || 'Unknown'
+  const projectStatus = project[PROJECT_FIELDS.PROJECT_STATUS]?.value || 'Active'
+  const priority = project[PROJECT_FIELDS.PROJECT_PRIORITY]?.value
+  const onHold = project[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes'
+  const holdReason = project[PROJECT_FIELDS.HOLD_REASON]?.value
+
+  // Get milestone and urgency info
+  const currentMilestone = getCurrentMilestone(project)
+  const urgency = getProjectUrgency(project)
+  const milestoneColor = getMilestoneColor(currentMilestone)
+
+  const handleBackClick = () => {
+    router.back()
+  }
+
+  const scrollToHoldManagement = () => {
+    const holdCard = document.getElementById('hold-management')
+    if (holdCard) {
+      holdCard.scrollIntoView({ behavior: 'smooth' })
+    }
+  }
+
+  return (
+    <div className="space-y-4" data-testid="project-header">
+      {/* Back Button */}
+      <Button
+        variant="ghost"
+        onClick={handleBackClick}
+        className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Back to Projects
+      </Button>
+
+      {/* Header Row */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        {/* Left Side - Customer Info */}
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">{customerName}</h1>
+          <p className="text-gray-600 text-sm">Project #{projectId}</p>
+        </div>
+
+        {/* Right Side - Status Badges */}
+        <div className="flex flex-wrap gap-2">
+          {/* Project Status */}
+          <Badge
+            variant={onHold ? 'destructive' : projectStatus === 'Completed' ? 'secondary' : 'default'}
+          >
+            {onHold ? 'On Hold' : projectStatus}
+          </Badge>
+
+          {/* Priority Badge */}
+          {priority && (priority === 'Insane' || priority === 'Urgent') && (
+            <Badge variant={priority === 'Insane' ? 'destructive' : 'secondary'}>
+              {priority}
+            </Badge>
+          )}
+
+          {/* Current Milestone */}
+          <Badge
+            variant="outline"
+            className={cn(milestoneColor)}
+          >
+            {currentMilestone}
+          </Badge>
+        </div>
+      </div>
+
+      {/* Hold Alert */}
+      {onHold && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h3 className="text-sm font-medium text-red-800">Project on Hold</h3>
+              <p className="text-sm text-red-700 mt-1">
+                {holdReason || 'No reason provided'}
+              </p>
+              <Button
+                variant="link"
+                size="sm"
+                onClick={scrollToHoldManagement}
+                className="text-red-600 hover:text-red-800 p-0 h-auto mt-2"
+              >
+                Manage Hold →
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

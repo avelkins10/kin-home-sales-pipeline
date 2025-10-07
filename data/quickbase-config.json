@@ -1,0 +1,1503 @@
+{
+  "projectId": 11,
+  "recordId": 3,
+  "customerName": 145,
+  "customerAddress": 146,
+  "salesDate": 522,
+  "projectStatus": 255,
+  "systemSize": 13,
+  "systemPrice": 133,
+  "ppw": {
+    "gross": 19,
+    "net": 543,
+    "soldGross": 2292,
+    "soldNet": 2293,
+    "commissionable": 2480,
+    "dealerFee": 545
+  },
+  "sales": {
+    "closerName": 517,
+    "closerId": 516,
+    "setterName": 330,
+    "setterId": 329
+  },
+  "dates": {
+    "Sales_Date": {
+      "id": 522,
+      "usage": "100.0"
+    },
+    "Recent_Note_-_Date_Created": {
+      "id": 1143,
+      "usage": "31.2"
+    },
+    "Activation_Completed": {
+      "id": 572,
+      "usage": "0.3"
+    },
+    "ARC_Date/Time": {
+      "id": 891,
+      "usage": "0.3"
+    },
+    "As_built_Submitted_to_AHJ": {
+      "id": 614,
+      "usage": "25.8"
+    },
+    "CAD_Design_Approved": {
+      "id": 476,
+      "usage": "26.2"
+    },
+    "Cancellation_Invoice_Sent_Date": {
+      "id": 951,
+      "usage": "3.0"
+    },
+    "credit_expiration_date": {
+      "id": 321,
+      "usage": "4.4"
+    },
+    "CS_Handoff_-_Commissioning_Complete_Date/Time": {
+      "id": 1462,
+      "usage": "0.3"
+    },
+    "Date_Created": {
+      "id": 1,
+      "usage": "100.0"
+    },
+    "Date_Modified": {
+      "id": 2,
+      "usage": "100.0"
+    },
+    "Design_Completed": {
+      "id": 315,
+      "usage": "26.2"
+    },
+    "Estimated_Clawback_Date": {
+      "id": 1659,
+      "usage": "18.5"
+    },
+    "Estimated_Install_Date": {
+      "id": 1124,
+      "usage": "27.5"
+    },
+    "Estimated_Install_Date_(Sunday)": {
+      "id": 1182,
+      "usage": "27.5"
+    },
+    "Estimated_Permit_Return_Date": {
+      "id": 1777,
+      "usage": "23.5"
+    },
+    "Expected_M1_Received_Date": {
+      "id": 444,
+      "usage": "19.5"
+    },
+    "Expected_M2_Clawback_Date": {
+      "id": 908,
+      "usage": "2.0"
+    },
+    "Expected_M2_Received_Date": {
+      "id": 447,
+      "usage": "18.8"
+    },
+    "Expected_M3_Received_Date": {
+      "id": 512,
+      "usage": "4.7"
+    },
+    "FIC_Uploaded_to_Lender": {
+      "id": 555,
+      "usage": "19.1"
+    },
+    "Final_Funding_Received": {
+      "id": 489,
+      "usage": "10.4"
+    },
+    "Final_Funding_Submitted": {
+      "id": 488,
+      "usage": "11.1"
+    },
+    "Finance_Intake_Approved_Date/Time": {
+      "id": 1549,
+      "usage": "0.3"
+    },
+    "First_Inspection_Scheduled_Date/Time": {
+      "id": 1589,
+      "usage": "9.7"
+    },
+    "Funding_Dashboard:_Max_M3_Event_-_Approved_Date": {
+      "id": 2029,
+      "usage": "0.3"
+    },
+    "Funding_Dashboard:_Max_M3_Event_-_Requested_Date": {
+      "id": 2028,
+      "usage": "0.3"
+    },
+    "Funding_Dashboard:_Official_M1_Requested_Date": {
+      "id": 2038,
+      "usage": "19.5"
+    },
+    "Funding_Dashboard:_Official_M2_Requested_Date": {
+      "id": 2039,
+      "usage": "18.5"
+    },
+    "Funding_Dashboard:_Official_M3_Requested_Date": {
+      "id": 2040,
+      "usage": "5.7"
+    },
+    "Funding_Dashboard:_Ready_for_M1_Funding": {
+      "id": 1992,
+      "usage": "20.5"
+    },
+    "Funding_Dashboard:_Ready_for_M2_Funding": {
+      "id": 1993,
+      "usage": "52.3"
+    },
+    "Funding_Dashboard:_Ready_for_M3_Funding": {
+      "id": 1994,
+      "usage": "20.5"
+    },
+    "HOA_Application_Approved": {
+      "id": 213,
+      "usage": "10.7"
+    },
+    "HOA_Application_Submitted": {
+      "id": 212,
+      "usage": "10.7"
+    },
+    "HOA_Approved_Date_-_Capture": {
+      "id": 583,
+      "usage": "10.7"
+    },
+    "IA_-_Approval_Date": {
+      "id": 303,
+      "usage": "1.7"
+    },
+    "Inspection_Failed_Date": {
+      "id": 1469,
+      "usage": "2.3"
+    },
+    "Inspection_Scheduled_Date": {
+      "id": 226,
+      "usage": "9.7"
+    },
+    "Install_Audit_Updated_Date/Time": {
+      "id": 904,
+      "usage": "0.7"
+    },
+    "Install_Completed_Date": {
+      "id": 534,
+      "usage": "52.3"
+    },
+    "Install_Completed_Test": {
+      "id": 2006,
+      "usage": "52.3"
+    },
+    "Install_Date_Import": {
+      "id": 835,
+      "usage": "44.6"
+    },
+    "Install_Funding_Received": {
+      "id": 487,
+      "usage": "13.8"
+    },
+    "Install_Funding_Submitted": {
+      "id": 486,
+      "usage": "18.8"
+    },
+    "Install_Scheduled_Date_Capture": {
+      "id": 710,
+      "usage": "54.4"
+    },
+    "Install_Scheduled_End_Date": {
+      "id": 179,
+      "usage": "20.1"
+    },
+    "Install_Scheduled_End_Date_2.0": {
+      "id": 1357,
+      "usage": "20.1"
+    },
+    "Install_Scheduled_Start_Date": {
+      "id": 178,
+      "usage": "20.1"
+    },
+    "Max_-_Any_Install_Event_Scheduled_Start_Date": {
+      "id": 2449,
+      "usage": "20.1"
+    },
+    "Install_Scheduled_Start_Date_2.0": {
+      "id": 1356,
+      "usage": "20.1"
+    },
+    "Install_Started_Date": {
+      "id": 464,
+      "usage": "19.8"
+    },
+    "Installation_-_Completed_At": {
+      "id": 587,
+      "usage": "52.3"
+    },
+    "Installation_Agreement_Date/Time": {
+      "id": 1011,
+      "usage": "0.3"
+    },
+    "Installation_Date_(Calc)": {
+      "id": 1185,
+      "usage": "24.2"
+    },
+    "Intake_Completed_Date": {
+      "id": 461,
+      "usage": "5.7"
+    },
+    "intake_install_date_tentative": {
+      "id": 902,
+      "usage": "100.0"
+    },
+    "Interconnection_Signatures_Sent": {
+      "id": 2198,
+      "usage": "16.1"
+    },
+    "Invoice_Date": {
+      "id": 618,
+      "usage": "51.7"
+    },
+    "M1_Request_Date": {
+      "id": 442,
+      "usage": "19.5"
+    },
+    "M2_Credit_Date": {
+      "id": 915,
+      "usage": "2.0"
+    },
+    "M2_Request_Date": {
+      "id": 445,
+      "usage": "18.5"
+    },
+    "M3_Request_Date": {
+      "id": 513,
+      "usage": "5.4"
+    },
+    "Max_PC_Note_Date": {
+      "id": 2304,
+      "usage": "0.3"
+    },
+    "Maximum_CAD_Approved_Capture": {
+      "id": 577,
+      "usage": "25.8"
+    },
+    "Maximum_CAD_Design_Submitted": {
+      "id": 475,
+      "usage": "27.5"
+    },
+    "Maximum_Date_Cancel": {
+      "id": 873,
+      "usage": "13.8"
+    },
+    "Maximum_Design_-_Survey_Approved_Date": {
+      "id": 693,
+      "usage": "25.2"
+    },
+    "Maximum_ENG_Approved_Capture": {
+      "id": 578,
+      "usage": "25.8"
+    },
+    "Maximum_Engineering_Completed": {
+      "id": 478,
+      "usage": "26.2"
+    },
+    "Maximum_Engineering_Submitted": {
+      "id": 477,
+      "usage": "27.5"
+    },
+    "Maximum_Initial_CAD_Design_Approved": {
+      "id": 702,
+      "usage": "24.2"
+    },
+    "Maximum_Initial_CAD_Design_Submitted": {
+      "id": 703,
+      "usage": "25.5"
+    },
+    "Maximum_Initial_Engineering_Submitted": {
+      "id": 704,
+      "usage": "25.5"
+    },
+    "Minimum_Install_Scheduled_Created_At": {
+      "id": 2408,
+      "usage": "22.5"
+    },
+    "Maximum_Modified_Date_Time": {
+      "id": 677,
+      "usage": "38.9"
+    },
+    "Maximum_Note_Date_Modified": {
+      "id": 713,
+      "usage": "31.2"
+    },
+    "Maximum_Permit_Rejected/_Revisions_Needed": {
+      "id": 706,
+      "usage": "4.0"
+    },
+    "Maximum_Permit_Resubmitted": {
+      "id": 707,
+      "usage": "6.7"
+    },
+    "Maximum_Permit_Resubmitted_Date": {
+      "id": 2094,
+      "usage": "6.7"
+    },
+    "Maximum_Survey_Scheduled_Date": {
+      "id": 793,
+      "usage": "0.7"
+    },
+    "Maximum_Survey_Submitted_Date/Time": {
+      "id": 575,
+      "usage": "26.5"
+    },
+    "Minimum_Initial_CAD_Design_Approved": {
+      "id": 701,
+      "usage": "24.2"
+    },
+    "Minimum_Initial_Design_CAD_Design_Submitted": {
+      "id": 699,
+      "usage": "25.5"
+    },
+    "Minimum_Initial_Design_Completed": {
+      "id": 1774,
+      "usage": "24.2"
+    },
+    "Minimum_Initial_Engineering_Submitted": {
+      "id": 705,
+      "usage": "25.5"
+    },
+    "Multi-Touch:_Milestone_Completed_End_Date": {
+      "id": 2183,
+      "usage": "52.3"
+    },
+    "Multi-Touch:_Milestone_Completed_Start_Date": {
+      "id": 2182,
+      "usage": "52.3"
+    },
+    "Multi-Touch:_Milestone_Scheduled_End_Date": {
+      "id": 2181,
+      "usage": "20.1"
+    },
+    "Multi-Touch:_Milestone_Scheduled_Start_Date": {
+      "id": 2180,
+      "usage": "20.1"
+    },
+    "Multi-Touch:_Uncategorized_Completed_Date": {
+      "id": 2256,
+      "usage": "52.3"
+    },
+    "Multi-Touch:_Uncategorized_Scheduled_Date": {
+      "id": 2255,
+      "usage": "20.1"
+    },
+    "NEM_Approved_Date": {
+      "id": 327,
+      "usage": "22.8"
+    },
+    "NEM_Approved-_Captured": {
+      "id": 585,
+      "usage": "22.5"
+    },
+    "Nem_Checklist_Date_Logger_-_Tier_2_Requested": {
+      "id": 1701,
+      "usage": "0.3"
+    },
+    "NEM_Initial_Packet_Filled_Out": {
+      "id": 1842,
+      "usage": "0.3"
+    },
+    "NEM_Signature_Received": {
+      "id": 1845,
+      "usage": "12.8"
+    },
+    "NEM_Signatures_Sent": {
+      "id": 1844,
+      "usage": "21.8"
+    },
+    "NEM_Submitted_-_Captured": {
+      "id": 716,
+      "usage": "24.2"
+    },
+    "NEM_Submitted_Date": {
+      "id": 326,
+      "usage": "24.2"
+    },
+    "Now_Date/Time": {
+      "id": 893,
+      "usage": "100.0"
+    },
+    "NTP_-_Approval_Date": {
+      "id": 312,
+      "usage": "19.1"
+    },
+    "NTP_-_Submitted_Date": {
+      "id": 479,
+      "usage": "18.8"
+    },
+    "NTP_Date/Time": {
+      "id": 1028,
+      "usage": "0.3"
+    },
+    "Passed_Inspection_Complete_-_Capture": {
+      "id": 593,
+      "usage": "4.0"
+    },
+    "Passing_Inspection_Completed_Date": {
+      "id": 491,
+      "usage": "19.1"
+    },
+    "Permit_Approved": {
+      "id": 208,
+      "usage": "21.8"
+    },
+    "Permit_Approved_Date_-_Capture": {
+      "id": 584,
+      "usage": "21.5"
+    },
+    "Permit_Submitted": {
+      "id": 207,
+      "usage": "23.5"
+    },
+    "Permit_Submitted_(+3_Days)": {
+      "id": 1402,
+      "usage": "23.2"
+    },
+    "Permit_Submitted_(+7_Days)": {
+      "id": 1403,
+      "usage": "23.2"
+    },
+    "Permit_Submitted_Date_-_Capture": {
+      "id": 709,
+      "usage": "23.2"
+    },
+    "Predesign_Approved": {
+      "id": 316,
+      "usage": "27.2"
+    },
+    "Project_Created_Date": {
+      "id": 393,
+      "usage": "93.6"
+    },
+    "Project_Status_Bar_-_NEM_Hover_-_Initial_Packet": {
+      "id": 1853,
+      "usage": "0.3"
+    },
+    "PTO_Approved_Date": {
+      "id": 538,
+      "usage": "20.5"
+    },
+    "PTO_Submitted_Date": {
+      "id": 537,
+      "usage": "21.1"
+    },
+    "PTO_Uploaded_to_Lender": {
+      "id": 556,
+      "usage": "19.8"
+    },
+    "Ready_for_Commission_-_Date/Time": {
+      "id": 813,
+      "usage": "47.0"
+    },
+    "Ready_for_Commission_-_Date/Time_(10/29)": {
+      "id": 841,
+      "usage": "40.3"
+    },
+    "Ready_for_Payroll_-_Date/Time": {
+      "id": 769,
+      "usage": "37.9"
+    },
+    "Ready_for_Payroll_-_Date/Time_(10/29)": {
+      "id": 842,
+      "usage": "44.0"
+    },
+    "Recent_Note_-_Date_Created_(Cancel/ARC)": {
+      "id": 1596,
+      "usage": "7.4"
+    },
+    "Recent_Notes_Date/Time": {
+      "id": 1602,
+      "usage": "31.2"
+    },
+    "Revision_Resubmitted_Date": {
+      "id": 2097,
+      "usage": "5.0"
+    },
+    "Sale_Date": {
+      "id": 695,
+      "usage": "100.0"
+    },
+    "Sales_Date_(Backup)": {
+      "id": 948,
+      "usage": "100.0"
+    },
+    "Sales_Date_Time": {
+      "id": 1580,
+      "usage": "100.0"
+    },
+    "sales_date": {
+      "id": 933,
+      "usage": "100.0"
+    },
+    "Site_Survey_Scheduled": {
+      "id": 969,
+      "usage": "0.7"
+    },
+    "Survey_Approved_Date": {
+      "id": 165,
+      "usage": "25.2"
+    },
+    "Survey_Scheduled_Date": {
+      "id": 166,
+      "usage": "0.7"
+    },
+    "Survey_Scheduled_Date_-_Historical_Data": {
+      "id": 2209,
+      "usage": "0.7"
+    },
+    "Survey_Submitted_Date": {
+      "id": 164,
+      "usage": "26.5"
+    },
+    "Task:_Inspection_Scheduled_Date/Time": {
+      "id": 1815,
+      "usage": "9.7"
+    },
+    "Today_(Date)": {
+      "id": 1197,
+      "usage": "100.0"
+    },
+    "Trigger_-_Adder_Audit_(Date)": {
+      "id": 1163,
+      "usage": "3.7"
+    },
+    "Trigger_-_Document_Review_(Date)": {
+      "id": 1159,
+      "usage": "3.7"
+    },
+    "Trigger_-_Finance_Audit_(Date)": {
+      "id": 1162,
+      "usage": "3.7"
+    },
+    "Utility_-_Approval_Date": {
+      "id": 310,
+      "usage": "2.3"
+    },
+    "Welcome_Call_Completed": {
+      "id": 558,
+      "usage": "0.7"
+    },
+    "Welcome_Call_Scheduled": {
+      "id": 967,
+      "usage": "0.7"
+    },
+    "Welcome_Call_Started": {
+      "id": 559,
+      "usage": "0.7"
+    },
+    "xx.Intake_Completed_Date": {
+      "id": 542,
+      "usage": "5.7"
+    },
+    "xx.Maximum_Cancellation_Record_ID#_-_Cancellation_Date": {
+      "id": 1755,
+      "usage": "41.6"
+    },
+    "z.Installation_Scheduled_Start_Date": {
+      "id": 228,
+      "usage": "20.1"
+    },
+    "webhook.contact_last_updated_trigger": {
+      "id": 2328,
+      "usage": "0.3"
+    },
+    "Minimum_Install_Start_Date": {
+      "id": 2442,
+      "usage": "20.1"
+    },
+    "Design_SLA_Deadline": {
+      "id": 2459,
+      "usage": "25.2"
+    }
+  },
+  "milestones": {
+    "inspection": [
+      {
+        "id": 1073,
+        "label": "# of Inspections (Passed)",
+        "type": "numeric",
+        "usage": "100.0",
+        "samples": [
+          "1",
+          "1",
+          "1"
+        ]
+      },
+      {
+        "id": 1627,
+        "label": "# of Tasks (Final Inspection - Complete)",
+        "type": "numeric",
+        "usage": "100.0",
+        "samples": []
+      },
+      {
+        "id": 1628,
+        "label": "# of Tasks (Inspection Check-In - Complete)",
+        "type": "numeric",
+        "usage": "100.0",
+        "samples": []
+      },
+      {
+        "id": 1426,
+        "label": "CS Handoff - Inspection Passed",
+        "type": "checkbox",
+        "usage": "100.0",
+        "samples": [
+          "true"
+        ]
+      },
+      {
+        "id": 1763,
+        "label": "Inspection Completed",
+        "type": "checkbox",
+        "usage": "100.0",
+        "samples": [
+          "true",
+          "true",
+          "true"
+        ]
+      },
+      {
+        "id": 1757,
+        "label": "Inspection First Time Pass",
+        "type": "checkbox",
+        "usage": "100.0",
+        "samples": []
+      },
+      {
+        "id": 571,
+        "label": "Inspection Pass/Fail",
+        "type": "multitext",
+        "usage": "100.0",
+        "samples": [
+          "",
+          "Pass",
+          ""
+        ]
+      },
+      {
+        "id": 2156,
+        "label": "Maximum Inspection Pass/Fail",
+        "type": "multitext",
+        "usage": "100.0",
+        "samples": [
+          "",
+          "Pass",
+          ""
+        ]
+      },
+      {
+        "id": 1459,
+        "label": "CS Handoff - Inspection Passed User",
+        "type": "user",
+        "usage": "0.0",
+        "samples": []
+      },
+      {
+        "id": 1762,
+        "label": "Inspection - Ever Passed",
+        "type": "text",
+        "usage": "0.0",
+        "samples": []
+      },
+      {
+        "id": 599,
+        "label": "Total Ready for Inspection - Duration",
+        "type": "duration",
+        "usage": "0.0",
+        "samples": []
+      }
+    ],
+    "survey": [
+      {
+        "id": 1157,
+        "label": "# of Surveys (Not Scheduled)",
+        "type": "numeric",
+        "usage": "100.0",
+        "samples": [
+          "1",
+          "1",
+          "1"
+        ]
+      },
+      {
+        "id": 416,
+        "label": "Sale to Site Survey Complete",
+        "type": "duration",
+        "usage": "100.0",
+        "samples": [
+          "1820160000",
+          "-9180000",
+          "110668379441"
+        ]
+      },
+      {
+        "id": 1033,
+        "label": "Site Survey Scheduled Count",
+        "type": "numeric",
+        "usage": "100.0",
+        "samples": [
+          "1",
+          "1",
+          "1"
+        ]
+      },
+      {
+        "id": 1056,
+        "label": "Site Survey Scheduled RT",
+        "type": "rich-text",
+        "usage": "100.0",
+        "samples": [
+          "<img src=\"https://images.quickbase.com/si/16/220-point_gray.png\" alt=\"gray\">",
+          "<img src=\"https://images.quickbase.com/si/16/220-point_gray.png\" alt=\"gray\">",
+          "<img src=\"https://images.quickbase.com/si/16/220-point_gray.png\" alt=\"gray\">"
+        ]
+      },
+      {
+        "id": 1002,
+        "label": "Site Survey Scheduled2",
+        "type": "checkbox",
+        "usage": "100.0",
+        "samples": []
+      },
+      {
+        "id": 794,
+        "label": "Sale to Site Survey Scheduled - Biz",
+        "type": "numeric",
+        "usage": "0.7",
+        "samples": [
+          "293",
+          "394"
+        ]
+      },
+      {
+        "id": 1430,
+        "label": "Sale to Site Survey Scheduled - Calendar",
+        "type": "numeric",
+        "usage": "0.7",
+        "samples": [
+          "411",
+          "552"
+        ]
+      },
+      {
+        "id": 717,
+        "label": "Survey Submitted By",
+        "type": "text",
+        "usage": "0.3",
+        "samples": [
+          "Mindi Gyimesi"
+        ]
+      },
+      {
+        "id": 1309,
+        "label": "KCA - Site Survey Scheduled",
+        "type": "text-multiple-choice",
+        "usage": "0.0",
+        "samples": []
+      },
+      {
+        "id": 1319,
+        "label": "KCA - Site Survey Scheduled Ticket Note",
+        "type": "text",
+        "usage": "0.0",
+        "samples": []
+      },
+      {
+        "id": 1018,
+        "label": "Site Survey Scheduled User",
+        "type": "user",
+        "usage": "0.0",
+        "samples": []
+      }
+    ],
+    "design": [
+      {
+        "id": 1621,
+        "label": "# of Tasks (Design Approval - Complete)",
+        "type": "numeric",
+        "usage": "100.0",
+        "samples": []
+      },
+      {
+        "id": 2464,
+        "label": "Design - Slack Alert Sent (Warning)?",
+        "type": "checkbox",
+        "usage": "100.0",
+        "samples": []
+      },
+      {
+        "id": 2465,
+        "label": "Design - Slack Alert Sent (Breach)?",
+        "type": "checkbox",
+        "usage": "100.0",
+        "samples": []
+      },
+      {
+        "id": 2467,
+        "label": "Design Incomplete Sort Flag",
+        "type": "numeric",
+        "usage": "100.0",
+        "samples": [
+          "1",
+          "1",
+          "1"
+        ]
+      },
+      {
+        "id": 676,
+        "label": "Total Duration - Design Complete to Permit Submitted",
+        "type": "duration",
+        "usage": "25.8",
+        "samples": [
+          "145500358882",
+          "77955059441",
+          "864000000"
+        ]
+      },
+      {
+        "id": 2281,
+        "label": "Maximum Adder Confirmation Design Record ID",
+        "type": "numeric",
+        "usage": "0.0",
+        "samples": []
+      }
+    ],
+    "install": [
+      {
+        "id": 1626,
+        "label": "# of Tasks (Install Complete - Complete)",
+        "type": "numeric",
+        "usage": "100.0",
+        "samples": []
+      },
+      {
+        "id": 1625,
+        "label": "# of Tasks (Install Update - Complete)",
+        "type": "numeric",
+        "usage": "100.0",
+        "samples": []
+      },
+      {
+        "id": 617,
+        "label": "Install Audit Complete",
+        "type": "checkbox",
+        "usage": "100.0",
+        "samples": [
+          "true",
+          "true",
+          "true"
+        ]
+      },
+      {
+        "id": 509,
+        "label": "Install Completed",
+        "type": "checkbox",
+        "usage": "100.0",
+        "samples": []
+      },
+      {
+        "id": 2184,
+        "label": "Multi-Touch: # of Complete Installs",
+        "type": "numeric",
+        "usage": "100.0",
+        "samples": []
+      },
+      {
+        "id": 2187,
+        "label": "Multi-Touch: # of Install Scheduled Days",
+        "type": "numeric",
+        "usage": "100.0",
+        "samples": []
+      },
+      {
+        "id": 2262,
+        "label": "Multi-Touch: # of Scheduled Installs",
+        "type": "numeric",
+        "usage": "100.0",
+        "samples": [
+          "1",
+          "1",
+          "1"
+        ]
+      },
+      {
+        "id": 2066,
+        "label": "Install Started No M2",
+        "type": "numeric",
+        "usage": "99.7",
+        "samples": [
+          "73839.9975",
+          "38993.3977176",
+          "25626"
+        ]
+      },
+      {
+        "id": 1387,
+        "label": "Days Since Install Completed",
+        "type": "numeric",
+        "usage": "52.3",
+        "samples": [
+          "797",
+          "850",
+          "910"
+        ]
+      },
+      {
+        "id": 623,
+        "label": "Project Age at Install Completed",
+        "type": "numeric",
+        "usage": "52.3",
+        "samples": [
+          "160",
+          "91",
+          "1"
+        ]
+      },
+      {
+        "id": 918,
+        "label": "Project Biz Age at Install Scheduled Start Date",
+        "type": "numeric",
+        "usage": "20.1",
+        "samples": [
+          "84",
+          "129",
+          "44"
+        ]
+      },
+      {
+        "id": 708,
+        "label": "Project Calendar Age at Install Scheduled Start Date",
+        "type": "numeric",
+        "usage": "20.1",
+        "samples": [
+          "118",
+          "181",
+          "62"
+        ]
+      },
+      {
+        "id": 876,
+        "label": "Install Complete to Max Inspection Scheduled (biz days)",
+        "type": "numeric",
+        "usage": "9.7",
+        "samples": [
+          "205",
+          "157",
+          "85"
+        ]
+      },
+      {
+        "id": 600,
+        "label": "Total Ready for Install - Duration",
+        "type": "duration",
+        "usage": "4.0",
+        "samples": [
+          "108482039441",
+          "109778039441",
+          "107704439441"
+        ]
+      },
+      {
+        "id": 1351,
+        "label": "install Scheduled Start Date Formula",
+        "type": "rich-text",
+        "usage": "0.0",
+        "samples": []
+      }
+    ],
+    "permit": [
+      {
+        "id": 1623,
+        "label": "# of Tasks (Permit Received - Complete)",
+        "type": "numeric",
+        "usage": "100.0",
+        "samples": []
+      },
+      {
+        "id": 1622,
+        "label": "# of Tasks (Permit Update - Complete)",
+        "type": "numeric",
+        "usage": "100.0",
+        "samples": []
+      },
+      {
+        "id": 2513,
+        "label": "Permitting - Submitted This Month",
+        "type": "checkbox",
+        "usage": "100.0",
+        "samples": []
+      },
+      {
+        "id": 1121,
+        "label": "Total Duration - Permit Submitted",
+        "type": "duration",
+        "usage": "25.8",
+        "samples": [
+          "145500358882",
+          "77955059441",
+          "864000000"
+        ]
+      },
+      {
+        "id": 1404,
+        "label": "Days Since Permit Submitted",
+        "type": "duration",
+        "usage": "23.2",
+        "samples": [
+          "108914039441",
+          "108482039441",
+          "108914039441"
+        ]
+      },
+      {
+        "id": 581,
+        "label": "Total Duration - Permit Approval",
+        "type": "duration",
+        "usage": "20.8",
+        "samples": [
+          "11577600000",
+          "1209600000",
+          "1555200000"
+        ]
+      },
+      {
+        "id": 1122,
+        "label": "Total Duration - Permit Submitted (Active Only)",
+        "type": "duration",
+        "usage": "12.8",
+        "samples": [
+          "864000000",
+          "1123200000",
+          "1209600000"
+        ]
+      },
+      {
+        "id": 1125,
+        "label": "AHJ - Average Duration - Permit Submitted",
+        "type": "numeric",
+        "usage": "12.4",
+        "samples": [
+          "102",
+          "136",
+          "136"
+        ]
+      },
+      {
+        "id": 1541,
+        "label": "Related AHJ (Project) - Average Duration - Permit Submitted Formula",
+        "type": "duration",
+        "usage": "1.0",
+        "samples": []
+      },
+      {
+        "id": 1612,
+        "label": "Related AHJ (Project) - Average Duration - Permit Submitted Formula2",
+        "type": "duration",
+        "usage": "1.0",
+        "samples": []
+      },
+      {
+        "id": 1133,
+        "label": "Organization - Average Duration - Permit Submitted Formula",
+        "type": "duration",
+        "usage": "0.0",
+        "samples": []
+      },
+      {
+        "id": 724,
+        "label": "Permit Submitted By",
+        "type": "text",
+        "usage": "0.0",
+        "samples": []
+      },
+      {
+        "id": 1611,
+        "label": "Related AHJ (Project) - Average Duration - Permit Submitted (Last 180 Days)",
+        "type": "duration",
+        "usage": "0.0",
+        "samples": []
+      },
+      {
+        "id": 1608,
+        "label": "Related AHJ (Project) - Average Duration - Permit Submitted (Last 30 Days)",
+        "type": "duration",
+        "usage": "0.0",
+        "samples": []
+      },
+      {
+        "id": 1609,
+        "label": "Related AHJ (Project) - Average Duration - Permit Submitted (Last 60 Days)",
+        "type": "duration",
+        "usage": "0.0",
+        "samples": []
+      },
+      {
+        "id": 1610,
+        "label": "Related AHJ (Project) - Average Duration - Permit Submitted (Last 90 Days)",
+        "type": "duration",
+        "usage": "0.0",
+        "samples": []
+      }
+    ],
+    "nem": [
+      {
+        "id": 1624,
+        "label": "# of Tasks (PTO / NEM Check-In - Complete)",
+        "type": "numeric",
+        "usage": "100.0",
+        "samples": []
+      },
+      {
+        "id": 1767,
+        "label": "NEM Checklist - Access Received",
+        "type": "checkbox",
+        "usage": "100.0",
+        "samples": []
+      },
+      {
+        "id": 1691,
+        "label": "NEM Checklist - Inspection Complete",
+        "type": "checkbox",
+        "usage": "100.0",
+        "samples": [
+          "true",
+          "true",
+          "true"
+        ]
+      },
+      {
+        "id": 1696,
+        "label": "NEM Checklist - Submitted",
+        "type": "checkbox",
+        "usage": "100.0",
+        "samples": []
+      },
+      {
+        "id": 1744,
+        "label": "NEM Checklist - Tier 2 Submitted",
+        "type": "checkbox",
+        "usage": "100.0",
+        "samples": [
+          "true"
+        ]
+      },
+      {
+        "id": 1764,
+        "label": "NEM Completion Bar",
+        "type": "rich-text",
+        "usage": "100.0",
+        "samples": [
+          "<div style='width: 200px; height: 18px;'><div style='position: relative; width: 200px; height: 18px;",
+          "<div style='width: 200px; height: 18px;'><div style='position: relative; width: 200px; height: 18px;",
+          "<div style='width: 200px; height: 18px;'><div style='position: relative; width: 200px; height: 18px;"
+        ]
+      },
+      {
+        "id": 601,
+        "label": "Total Duration - Ready for NEM",
+        "type": "duration",
+        "usage": "25.5",
+        "samples": [
+          "-72327720000",
+          "-30526980000",
+          "864000000"
+        ]
+      },
+      {
+        "id": 723,
+        "label": "NEM Submitted By",
+        "type": "text",
+        "usage": "0.0",
+        "samples": []
+      }
+    ],
+    "pto": [
+      {
+        "id": 1629,
+        "label": "# of Tasks (PTO Approval - Complete)",
+        "type": "numeric",
+        "usage": "100.0",
+        "samples": []
+      },
+      {
+        "id": 1429,
+        "label": "CS Handoff - Ready for Activation",
+        "type": "checkbox",
+        "usage": "100.0",
+        "samples": [
+          "true"
+        ]
+      },
+      {
+        "id": 1467,
+        "label": "CS Handoff - Ready for Activation User",
+        "type": "user",
+        "usage": "0.0",
+        "samples": []
+      },
+      {
+        "id": 1926,
+        "label": "Receivables Table: PTO Bonus Received",
+        "type": "currency",
+        "usage": "0.0",
+        "samples": []
+      }
+    ],
+    "intake": [
+      {
+        "id": 1548,
+        "label": "Finance Intake Approved",
+        "type": "checkbox",
+        "usage": "100.0",
+        "samples": [
+          "true"
+        ]
+      },
+      {
+        "id": 554,
+        "label": "Intake Complete",
+        "type": "url",
+        "usage": "100.0",
+        "samples": [
+          "https://kin.quickbase.com/db/br9kwm8na?act=API_EditRecord&apptoken=c98jgpxw6rnv2cp98u7rckwaxw4&_fid_",
+          "https://kin.quickbase.com/db/br9kwm8na?act=API_EditRecord&apptoken=c98jgpxw6rnv2cp98u7rckwaxw4&_fid_",
+          "https://kin.quickbase.com/db/br9kwm8na?act=API_EditRecord&apptoken=c98jgpxw6rnv2cp98u7rckwaxw4&_fid_"
+        ]
+      },
+      {
+        "id": 1826,
+        "label": "Intake First Pass",
+        "type": "rich-text",
+        "usage": "100.0",
+        "samples": [
+          "<table><tr><td>Install Agreement: </td><td></td></tr><tr><td>Finance Audit: </td><td></td></tr></tr>",
+          "<table><tr><td>Install Agreement: </td><td></td></tr><tr><td>Finance Audit: </td><td></td></tr></tr>",
+          "<table><tr><td>Install Agreement: </td><td></td></tr><tr><td>Finance Audit: </td><td></td></tr></tr>"
+        ]
+      },
+      {
+        "id": 1872,
+        "label": "Intake First Pass: Missing Items",
+        "type": "multitext",
+        "usage": "100.0",
+        "samples": [
+          "",
+          "",
+          ""
+        ]
+      },
+      {
+        "id": 1867,
+        "label": "Intake Missing Items: Finance Approved",
+        "type": "multitext",
+        "usage": "100.0",
+        "samples": [
+          "",
+          "",
+          ""
+        ]
+      },
+      {
+        "id": 603,
+        "label": "Webhook - Intake Complete",
+        "type": "checkbox",
+        "usage": "100.0",
+        "samples": []
+      },
+      {
+        "id": 730,
+        "label": "Project Age at Intake Complete (biz days)",
+        "type": "numeric",
+        "usage": "5.4",
+        "samples": [
+          "-62",
+          "-137",
+          "-77"
+        ]
+      },
+      {
+        "id": 560,
+        "label": "Intake Completed By",
+        "type": "user",
+        "usage": "3.0",
+        "samples": [
+          "[object Object]",
+          "[object Object]",
+          "[object Object]"
+        ]
+      },
+      {
+        "id": 1550,
+        "label": "Finance Intake Approved User",
+        "type": "user",
+        "usage": "0.3",
+        "samples": [
+          "[object Object]"
+        ]
+      },
+      {
+        "id": 1592,
+        "label": "HSI Form Navigation - Complete PreIntake",
+        "type": "url",
+        "usage": "0.0",
+        "samples": []
+      },
+      {
+        "id": 1381,
+        "label": "Intake Complete Log",
+        "type": "text-multi-line",
+        "usage": "0.0",
+        "samples": []
+      },
+      {
+        "id": 1858,
+        "label": "Intake Event Started Note",
+        "type": "numeric",
+        "usage": "0.0",
+        "samples": []
+      },
+      {
+        "id": 1861,
+        "label": "Intake First Pass User",
+        "type": "user",
+        "usage": "0.0",
+        "samples": []
+      },
+      {
+        "id": 1838,
+        "label": "Intake First Pass: Adders",
+        "type": "text",
+        "usage": "0.0",
+        "samples": []
+      },
+      {
+        "id": 1833,
+        "label": "Intake First Pass: Consumption Audit",
+        "type": "text",
+        "usage": "0.0",
+        "samples": []
+      },
+      {
+        "id": 1950,
+        "label": "Intake First Pass: Disposition",
+        "type": "text",
+        "usage": "0.0",
+        "samples": []
+      },
+      {
+        "id": 1831,
+        "label": "Intake First Pass: Finance Approved",
+        "type": "text",
+        "usage": "0.0",
+        "samples": []
+      },
+      {
+        "id": 1832,
+        "label": "Intake First Pass: Full Utility Bill",
+        "type": "text",
+        "usage": "0.0",
+        "samples": []
+      },
+      {
+        "id": 1837,
+        "label": "Intake First Pass: Google Drive",
+        "type": "text",
+        "usage": "0.0",
+        "samples": []
+      },
+      {
+        "id": 1830,
+        "label": "Intake First Pass: Installation Agreement",
+        "type": "text",
+        "usage": "0.0",
+        "samples": []
+      },
+      {
+        "id": 1953,
+        "label": "Intake First Pass: Processing Time",
+        "type": "duration",
+        "usage": "0.0",
+        "samples": []
+      },
+      {
+        "id": 1829,
+        "label": "Intake First Pass: Record ID#",
+        "type": "numeric",
+        "usage": "0.0",
+        "samples": []
+      },
+      {
+        "id": 1834,
+        "label": "Intake First Pass: Site Survey Scheduled",
+        "type": "text",
+        "usage": "0.0",
+        "samples": []
+      },
+      {
+        "id": 1835,
+        "label": "Intake First Pass: Welcome Call Scheduled",
+        "type": "text",
+        "usage": "0.0",
+        "samples": []
+      },
+      {
+        "id": 1828,
+        "label": "Max Intake Event: Completion % Bar",
+        "type": "rich-text",
+        "usage": "0.0",
+        "samples": []
+      },
+      {
+        "id": 1803,
+        "label": "Max Intake Event: Finance Approved",
+        "type": "text",
+        "usage": "0.0",
+        "samples": []
+      },
+      {
+        "id": 1821,
+        "label": "Max Intake Event: Site Survey Scheduled",
+        "type": "text",
+        "usage": "0.0",
+        "samples": []
+      },
+      {
+        "id": 1822,
+        "label": "Max Intake Event: Welcome Call Scheduled",
+        "type": "text",
+        "usage": "0.0",
+        "samples": []
+      },
+      {
+        "id": 1561,
+        "label": "Record ID# - Intake Submitted",
+        "type": "numeric",
+        "usage": "0.0",
+        "samples": []
+      }
+    ],
+    "hoa": [
+      {
+        "id": 582,
+        "label": "Total Duration - HOA Approval",
+        "type": "duration",
+        "usage": "25.8",
+        "samples": [
+          "72750179441",
+          "-30613380000",
+          "2505600000"
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,1516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kin Home - Sales Pipeline Management</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            /* Professional Blue-Green Theme */
+            --primary: #0F766E;
+            --primary-dark: #134E4A;
+            --primary-light: #14B8A6;
+            --accent: #06B6D4;
+            --success: #10B981;
+            --warning: #F59E0B;
+            --danger: #EF4444;
+
+            /* Neutral Palette */
+            --slate-900: #0F172A;
+            --slate-800: #1E293B;
+            --slate-700: #334155;
+            --slate-600: #475569;
+            --slate-500: #64748B;
+            --slate-400: #94A3B8;
+            --slate-300: #CBD5E1;
+            --slate-200: #E2E8F0;
+            --slate-100: #F1F5F9;
+            --slate-50: #F8FAFC;
+            --white: #FFFFFF;
+
+            /* Shadows */
+            --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-md: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+            --shadow-xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+
+            --radius: 8px;
+            --radius-lg: 12px;
+            --radius-xl: 16px;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--slate-50);
+            min-height: 100vh;
+            padding: 0;
+            font-size: 14px;
+            color: var(--slate-800);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .app-container {
+            width: 100%;
+            height: 100vh;
+            background: var(--white);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Offline Banner */
+        .offline-banner {
+            display: none;
+            background: var(--warning);
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 600;
+            animation: slideDown 0.3s ease;
+        }
+
+        .offline-banner.visible {
+            display: block;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-100%);
+            }
+            to {
+                transform: translateY(0);
+            }
+        }
+
+        /* Header */
+        .header {
+            background: var(--white);
+            padding: 16px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--slate-200);
+            flex-shrink: 0;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--slate-900);
+            letter-spacing: -0.025em;
+        }
+
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            border-radius: var(--radius);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 800;
+            font-size: 16px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .notification-btn {
+            position: relative;
+            min-width: 44px;
+            min-height: 44px;
+            border-radius: var(--radius);
+            border: 1px solid var(--slate-200);
+            background: var(--white);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--slate-600);
+        }
+
+        .notification-btn:hover {
+            background: var(--slate-50);
+            border-color: var(--slate-300);
+        }
+
+        .icon-bell {
+            width: 20px;
+            height: 20px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .notification-dot {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 8px;
+            height: 8px;
+            background: var(--danger);
+            border-radius: 50%;
+            border: 2px solid var(--white);
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px;
+            border-radius: var(--radius);
+            transition: background 0.2s;
+            cursor: pointer;
+            min-height: 44px;
+        }
+
+        .user-info:hover {
+            background: var(--slate-50);
+        }
+
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .user-details {
+            text-align: right;
+        }
+
+        .user-name {
+            font-weight: 600;
+            color: var(--slate-900);
+            font-size: 14px;
+        }
+
+        .user-role {
+            font-size: 12px;
+            color: var(--slate-500);
+        }
+
+        /* Navigation */
+        .nav-tabs {
+            background: var(--white);
+            padding: 0 32px;
+            display: flex;
+            gap: 8px;
+            border-bottom: 1px solid var(--slate-200);
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            flex-shrink: 0;
+        }
+
+        .nav-tabs::-webkit-scrollbar {
+            height: 0;
+        }
+
+        .nav-tab {
+            padding: 14px 20px;
+            color: var(--slate-500);
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+            font-size: 14px;
+            position: relative;
+            white-space: nowrap;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+        }
+
+        .nav-tab:hover {
+            color: var(--slate-700);
+        }
+
+        .nav-tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .nav-badge {
+            position: absolute;
+            top: 10px;
+            right: -4px;
+            background: var(--danger);
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            padding: 24px 32px;
+            overflow-y: auto;
+            background: var(--slate-50);
+        }
+
+        /* Metrics Cards */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .metric-card {
+            background: var(--white);
+            padding: 20px;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--slate-200);
+            transition: all 0.2s;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: transparent;
+            transition: all 0.3s;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+            border-color: var(--slate-300);
+        }
+
+        .metric-card.primary::before {
+            background: linear-gradient(90deg, var(--primary), var(--primary-light));
+        }
+
+        .metric-card.success::before {
+            background: var(--success);
+        }
+
+        .metric-card.warning::before {
+            background: var(--warning);
+        }
+
+        .metric-card.danger::before {
+            background: var(--danger);
+        }
+
+        .metric-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 12px;
+        }
+
+        .metric-card.primary .metric-icon {
+            background: rgba(15, 118, 110, 0.1);
+            color: var(--primary);
+        }
+
+        .metric-card.success .metric-icon {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+        }
+
+        .metric-card.warning .metric-icon {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--warning);
+        }
+
+        .metric-card.danger .metric-icon {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+        }
+
+        .icon {
+            width: 24px;
+            height: 24px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .metric-label {
+            font-size: 11px;
+            color: var(--slate-600);
+            margin-bottom: 6px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .metric-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--slate-900);
+            margin-bottom: 6px;
+            letter-spacing: -0.025em;
+        }
+
+        .metric-change {
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-weight: 500;
+        }
+
+        .metric-change.positive {
+            color: var(--success);
+        }
+
+        .metric-change.negative {
+            color: var(--danger);
+        }
+
+        /* Section Headers */
+        .section {
+            margin-bottom: 24px;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .section-title-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--slate-900);
+            letter-spacing: -0.025em;
+        }
+
+        .section-subtitle {
+            font-size: 13px;
+            color: var(--slate-500);
+            font-weight: 500;
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        /* Search Input */
+        .search-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 18px;
+            height: 18px;
+            color: var(--slate-400);
+            pointer-events: none;
+        }
+
+        .search-input {
+            padding: 10px 16px 10px 40px;
+            border: 1px solid var(--slate-200);
+            border-radius: var(--radius);
+            font-size: 14px;
+            width: 280px;
+            background: var(--white);
+            transition: all 0.2s;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.1);
+        }
+
+        .filter-chips {
+            display: flex;
+            gap: 8px;
+            padding: 4px;
+            background: var(--slate-100);
+            border-radius: var(--radius);
+        }
+
+        .chip {
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--slate-600);
+            background: transparent;
+            border: none;
+            white-space: nowrap;
+        }
+
+        .chip:hover {
+            background: var(--white);
+            color: var(--slate-700);
+        }
+
+        .chip.active {
+            background: var(--white);
+            color: var(--primary);
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* Projects List View */
+        .projects-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .projects-list-container {
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--slate-200);
+            overflow: hidden;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .projects-list-header {
+            display: grid;
+            grid-template-columns: 220px 1fr 160px 80px;
+            gap: 20px;
+            padding: 14px 20px;
+            background: var(--slate-50);
+            border-bottom: 2px solid var(--slate-200);
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--slate-600);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .projects-list-scroll {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .project-row {
+            display: grid;
+            grid-template-columns: 220px 1fr 160px 80px;
+            gap: 20px;
+            padding: 20px;
+            border-bottom: 1px solid var(--slate-100);
+            align-items: center;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .project-row:hover {
+            background: var(--slate-50);
+        }
+
+        .project-row.on-hold {
+            background: rgba(239, 68, 68, 0.02);
+            border-left: 4px solid var(--danger);
+            padding-left: 16px;
+        }
+
+        /* Hold Banner */
+        .hold-banner {
+            grid-column: 1 / -1;
+            background: rgba(239, 68, 68, 0.08);
+            padding: 10px 14px;
+            border-radius: 6px;
+            margin-top: 10px;
+            font-size: 12px;
+            color: var(--danger);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Customer Column */
+        .col-customer {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .customer-name {
+            font-weight: 600;
+            color: var(--slate-900);
+            font-size: 15px;
+            margin-bottom: 4px;
+        }
+
+        .customer-address {
+            font-size: 12px;
+            color: var(--slate-600);
+            margin-bottom: 6px;
+            line-height: 1.3;
+        }
+
+        .project-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .project-id {
+            font-size: 11px;
+            color: var(--slate-600);
+            font-weight: 500;
+        }
+
+        .project-type {
+            font-size: 11px;
+            color: var(--slate-500);
+        }
+
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+            width: fit-content;
+        }
+
+        .status-badge.status-active {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+        }
+
+        .status-badge.status-hold {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+        }
+
+        .status-badge.status-ready {
+            background: rgba(6, 182, 212, 0.1);
+            color: var(--accent);
+        }
+
+        /* Pipeline Traffic Lights - HORIZONTAL */
+        .col-pipeline {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .traffic-lights-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .traffic-light-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .traffic-light {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            position: relative;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .traffic-light:hover {
+            transform: scale(1.15);
+        }
+
+        /* Completed state */
+        .traffic-light.completed {
+            background: var(--success);
+            border-color: var(--success);
+        }
+
+        .traffic-light.completed::after {
+            content: '✓';
+            color: white;
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        /* In Progress state */
+        .traffic-light.in-progress {
+            background: var(--warning);
+            border-color: var(--warning);
+            animation: pulse-light 2s infinite;
+        }
+
+        .traffic-light.in-progress::after {
+            content: '';
+            width: 10px;
+            height: 10px;
+            background: white;
+            border-radius: 50%;
+        }
+
+        /* Blocked state */
+        .traffic-light.blocked {
+            background: var(--danger);
+            border-color: var(--danger);
+        }
+
+        .traffic-light.blocked::after {
+            content: '!';
+            color: white;
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        /* Pending state */
+        .traffic-light.pending {
+            background: var(--slate-100);
+            border-color: var(--slate-300);
+        }
+
+        @keyframes pulse-light {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+            }
+            50% {
+                box-shadow: 0 0 0 8px rgba(245, 158, 11, 0);
+            }
+        }
+
+        .traffic-light-label {
+            font-size: 9px;
+            font-weight: 700;
+            color: var(--slate-600);
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+            line-height: 1.2;
+        }
+
+        .pipeline-status-text {
+            font-size: 11px;
+            color: var(--slate-600);
+            font-weight: 500;
+            margin-top: 4px;
+        }
+
+        .pipeline-status-text.in-progress {
+            color: var(--warning);
+            font-weight: 600;
+        }
+
+        .pipeline-status-text.blocked {
+            color: var(--danger);
+            font-weight: 600;
+        }
+
+        .progress-summary {
+            font-size: 11px;
+            color: var(--slate-600);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding-top: 6px;
+            border-top: 1px solid var(--slate-100);
+            margin-top: 2px;
+        }
+
+        .progress-bar-mini {
+            height: 4px;
+            background: var(--slate-200);
+            border-radius: 2px;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--primary-light));
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        /* Metrics Column */
+        .col-metrics {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+        }
+
+        .metric-row-label {
+            color: var(--slate-500);
+            font-weight: 500;
+        }
+
+        .metric-row-value {
+            color: var(--slate-900);
+            font-weight: 600;
+        }
+
+        /* Actions Column */
+        .col-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        .btn-action {
+            min-width: 36px;
+            min-height: 36px;
+            border-radius: var(--radius);
+            border: 1px solid var(--slate-200);
+            background: var(--white);
+            color: var(--slate-600);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+
+        .btn-action:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            transform: scale(1.05);
+        }
+
+        /* Tooltip */
+        .traffic-light[data-tooltip]:hover::before {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--slate-900);
+            color: white;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            white-space: nowrap;
+            z-index: 100;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        /* Floating Action Button */
+        .fab {
+            position: fixed;
+            bottom: 32px;
+            right: 32px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            color: white;
+            border: none;
+            box-shadow: var(--shadow-lg);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .fab:hover {
+            transform: scale(1.1);
+            box-shadow: var(--shadow-xl);
+        }
+
+        /* Scrollbar Styling */
+        .projects-list-scroll::-webkit-scrollbar,
+        .main-content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .projects-list-scroll::-webkit-scrollbar-track,
+        .main-content::-webkit-scrollbar-track {
+            background: var(--slate-100);
+            border-radius: 3px;
+        }
+
+        .projects-list-scroll::-webkit-scrollbar-thumb,
+        .main-content::-webkit-scrollbar-thumb {
+            background: var(--slate-400);
+            border-radius: 3px;
+        }
+
+        .projects-list-scroll::-webkit-scrollbar-thumb:hover,
+        .main-content::-webkit-scrollbar-thumb:hover {
+            background: var(--slate-500);
+        }
+
+        /* iPad Pro 13" (1366x1024) and 11" (1194x834) Landscape */
+        @media (min-width: 1024px) and (max-width: 1400px) {
+            .projects-list-header,
+            .project-row {
+                grid-template-columns: 200px 1fr 140px 70px;
+            }
+
+            .metric-value {
+                font-size: 24px;
+            }
+
+            .section-title {
+                font-size: 18px;
+            }
+        }
+
+        /* Tablet Portrait and smaller screens */
+        @media (max-width: 1023px) {
+            .metrics-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .projects-list-header {
+                display: none;
+            }
+
+            .project-row {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+                padding: 16px;
+            }
+
+            .col-customer,
+            .col-pipeline,
+            .col-metrics,
+            .col-actions {
+                width: 100%;
+            }
+
+            .pipeline-row {
+                flex-wrap: wrap;
+            }
+        }
+
+        /* Mobile */
+        @media (max-width: 640px) {
+            .header {
+                padding: 12px 16px;
+            }
+
+            .nav-tabs {
+                padding: 0 16px;
+            }
+
+            .main-content {
+                padding: 16px;
+            }
+
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .search-input {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Offline Banner -->
+        <div class="offline-banner" id="offlineBanner">
+            🔴 Offline Mode - Showing cached data • Last sync: <span id="lastSync">5 minutes ago</span>
+        </div>
+
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">
+                <div class="logo">
+                    <div class="logo-icon">KH</div>
+                    <span>Kin Home</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <button class="notification-btn">
+                    <svg class="icon-bell" viewBox="0 0 24 24">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                    </svg>
+                    <span class="notification-dot"></span>
+                </button>
+                <div class="user-info">
+                    <div class="user-details">
+                        <div class="user-name">Sarah Johnson</div>
+                        <div class="user-role">Senior Sales Representative</div>
+                    </div>
+                    <div class="user-avatar">SJ</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="nav-tabs">
+            <div class="nav-tab active">Dashboard</div>
+            <div class="nav-tab">Projects</div>
+            <div class="nav-tab">
+                Tasks
+                <span class="nav-badge">8</span>
+            </div>
+            <div class="nav-tab">Messages</div>
+            <div class="nav-tab">Analytics</div>
+            <div class="nav-tab">Team</div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Metrics Cards -->
+            <div class="metrics-grid">
+                <div class="metric-card primary">
+                    <div class="metric-icon">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                            <polyline points="17 6 23 6 23 12"></polyline>
+                        </svg>
+                    </div>
+                    <div class="metric-label">Installs This Week</div>
+                    <div class="metric-value">12</div>
+                    <div class="metric-change positive">
+                        ↑ 20% from last week
+                    </div>
+                </div>
+                <div class="metric-card success">
+                    <div class="metric-icon">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    </div>
+                    <div class="metric-label">Active Accounts</div>
+                    <div class="metric-value">147</div>
+                    <div class="metric-change positive">
+                        ↑ 8 new this month
+                    </div>
+                </div>
+                <div class="metric-card warning">
+                    <div class="metric-icon">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <rect x="9" y="9" width="6" height="6"></rect>
+                        </svg>
+                    </div>
+                    <div class="metric-label">On Hold</div>
+                    <div class="metric-value">18</div>
+                    <div class="metric-change negative">
+                        ↑ 3 added today
+                    </div>
+                </div>
+                <div class="metric-card primary">
+                    <div class="metric-icon">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                        </svg>
+                    </div>
+                    <div class="metric-label">Install Rate</div>
+                    <div class="metric-value">82%</div>
+                    <div class="metric-change positive">
+                        ↑ 4% this quarter
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active Projects Section -->
+            <div class="section projects-section">
+                <div class="section-header">
+                    <div class="section-title-group">
+                        <h2 class="section-title">Active Projects</h2>
+                        <span class="section-subtitle">147 total • 18 on hold • 12 install ready</span>
+                    </div>
+                    <div class="filter-group">
+                        <div class="search-wrapper">
+                            <svg class="search-icon icon" viewBox="0 0 24 24">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <path d="m21 21-4.35-4.35"></path>
+                            </svg>
+                            <input
+                                type="text"
+                                placeholder="Search projects..."
+                                class="search-input"
+                                id="projectSearch"
+                            />
+                        </div>
+                        <div class="filter-chips">
+                            <button class="chip active">All</button>
+                            <button class="chip">Active</button>
+                            <button class="chip">On Hold</button>
+                            <button class="chip">Install Ready</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Projects List View -->
+                <div class="projects-list-container">
+                    <div class="projects-list-header">
+                        <div>Customer</div>
+                        <div>Pipeline Status</div>
+                        <div>Project Metrics</div>
+                        <div>Actions</div>
+                    </div>
+
+                    <div class="projects-list-scroll">
+                        <!-- Project Row 1 - Active, in NEM -->
+                        <div class="project-row">
+                            <div class="col-customer">
+                                <div class="customer-name">Michael Anderson</div>
+                                <div class="customer-address">4782 Thornridge Circle<br>Fremont, CA 94538</div>
+                                <div class="project-meta">
+                                    <span class="project-id">PRJ-2024-1847</span>
+                                    <span class="project-type">Residential • 38kW System</span>
+                                </div>
+                                <span class="status-badge status-active">Active</span>
+                            </div>
+
+                            <div class="col-pipeline">
+                                <div class="traffic-lights-row">
+                                    <div class="traffic-light-item">
+                                        <div class="traffic-light completed" data-tooltip="Intake completed 12/15/24"></div>
+                                        <div class="traffic-light-label">Intake</div>
+                                    </div>
+                                    <div class="traffic-light-item">
+                                        <div class="traffic-light completed" data-tooltip="Site Survey completed 12/18/24 (3d)"></div>
+                                        <div class="traffic-light-label">Survey</div>
+                                    </div>
+                                    <div class="traffic-light-item">
+                                        <div class="traffic-light completed" data-tooltip="Design approved 12/22/24 (4d)"></div>
+                                        <div class="traffic-light-label">Design</div>
+                                    </div>
+                                    <div class="traffic-light-item">
+                                        <div class="traffic-light in-progress" data-tooltip="NEM submitted 12/28, waiting 5 days"></div>
+                                        <div class="traffic-light-label">Permit</div>
+                                    </div>
+                                    <div class="traffic-light-item">
+                                        <div class="traffic-light pending" data-tooltip="Install scheduled 1/15/25"></div>
+                                        <div class="traffic-light-label">Install</div>
+                                    </div>
+                                    <div class="traffic-light-item">
+                                        <div class="traffic-light pending"></div>
+                                        <div class="traffic-light-label">PTO</div>
+                                    </div>
+                                </div>
+                                <div class="pipeline-status-text in-progress">Permitting: NEM submitted 12/28 • 5d waiting</div>
+                                <div class="progress-summary">
+                                    <div class="progress-bar-mini">
+                                        <div class="progress-bar-fill" style="width: 50%;"></div>
+                                    </div>
+                                    <span>50% Complete</span>
+                                </div>
+                            </div>
+
+                            <div class="col-metrics">
+                                <div class="metric-row">
+                                    <span class="metric-row-label">Size:</span>
+                                    <span class="metric-row-value">38kW</span>
+                                </div>
+                                <div class="metric-row">
+                                    <span class="metric-row-label">PPW:</span>
+                                    <span class="metric-row-value">$4.20</span>
+                                </div>
+                                <div class="metric-row">
+                                    <span class="metric-row-label">Value:</span>
+                                    <span class="metric-row-value">$159.6k</span>
+                                </div>
+                                <div class="metric-row">
+                                    <span class="metric-row-label">Age:</span>
+                                    <span class="metric-row-value">18 days</span>
+                                </div>
+                            </div>
+
+                            <div class="col-actions">
+                                <a href="tel:+14155551234" class="btn-action" title="Call Customer">
+                                    <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;">
+                                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                                    </svg>
+                                </a>
+                                <button class="btn-action" title="View Details">
+                                    <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;">
+                                        <polyline points="9 18 15 12 9 6"></polyline>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Project Row 2 - On Hold (Permit blocked) -->
+                        <div class="project-row on-hold">
+                            <div class="col-customer">
+                                <div class="customer-name">Sofia Martinez</div>
+                                <div class="customer-address">2464 Royal Lane<br>San Jose, CA 95132</div>
+                                <div class="project-meta">
+                                    <span class="project-id">PRJ-2024-1852</span>
+                                    <span class="project-type">Residential • 42kW System</span>
+                                </div>
+                                <span class="status-badge status-hold">On Hold</span>
+                            </div>
+
+                            <div class="col-pipeline">
+                                <div class="traffic-lights-row">
+                                    <div class="traffic-light-item">
+                                        <div class="traffic-light completed"></div>
+                                        <div class="traffic-light-label">Intake</div>
+                                    </div>
+                                    <div class="traffic-light-item">
+                                        <div class="traffic-light completed"></div>
+                                        <div class="traffic-light-label">Survey</div>
+                                    </div>
+                                    <div class="traffic-light-item">
+                                        <div class="traffic-light completed"></div>
+                                        <div class="traffic-light-label">Design</div>
+                                    </div>
+                                    <div class="traffic-light-item">
+                                        <div class="traffic-light blocked" data-tooltip="Blocked: HOA Approval Required (8 days)"></div>
+                                        <div class="traffic-light-label">Permit</div>
+                                    </div>
+                                    <div class="traffic-light-item">
+                                        <div class="traffic-light pending"></div>
+                                        <div class="traffic-light-label">Install</div>
+                                    </div>
+                                    <div class="traffic-light-item">
+                                        <div class="traffic-light pending"></div>
+                                        <div class="traffic-light-label">PTO</div>
+                                    </div>
+                                </div>
+                                <div class="pipeline-status-text blocked">BLOCKED: HOA approval required • 8d hold</div>
+                                <div class="progress-summary">
+                                    <div class="progress-bar-mini">
+                                        <div class="progress-bar-fill" style="width: 42%;"></div>
+                                    </div>
+                                    <span>42% Complete</span>
+                                </div>
+                            </div>
+
+                            <div class="col-metrics">
+                                <div class="metric-row">
+                                    <span class="metric-row-label">Size:</span>
+                                    <span class="metric-row-value">42kW</span>
+                                </div>
+                                <div class="metric-row">
+                                    <span class="metric-row-label">PPW:</span>
+                                    <span class="metric-row-value">$3.95</span>
+                                </div>
+                                <div class="metric-row">
+                                    <span class="metric-row-label">Value:</span>
+                                    <span class="metric-row-value">$165.9k</span>
+                                </div>
+                                <div class="metric-row">
+                                    <span class="metric-row-label">Hold:</span>
+                                    <span class="metric-row-value" style="color: var(--danger);">8 days</span>
+                                </div>
+                            </div>
+
+                            <div class="col-actions">
+                                <a href="tel:+14155551235" class="btn-action" title="Call Customer">
+                                    <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;">
+                                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                                    </svg>
+                                </a>
+                                <button class="btn-action" title="View Details">
+                                    <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;">
+                                        <polyline points="9 18 15 12 9 6"></polyline>
+                                    </svg>
+                                </button>
+                            </div>
+
+                            <!-- Hold Banner -->
+                            <div class="hold-banner">
+                                <svg class="icon" viewBox="0 0 24 24" style="width: 16px; height: 16px;">
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                                </svg>
+                                <span><strong>Hold Reason:</strong> HOA Approval Required • Contact customer to update on timeline</span>
+                            </div>
+                        </div>
+
+                        <!-- Project Row 3 - Install in Progress -->
+                        <div class="project-row">
+                            <div class="col-customer">
+                                <div class="customer-name">Jennifer Thompson</div>
+                                <div class="customer-address">8502 Preston Road<br>Oakland, CA 94612</div>
+                                <div class="project-meta">
+                                    <span class="project-id">PRJ-2024-1823</span>
+                                    <span class="project-type">Residential • 28kW System</span>
+                                </div>
+                                <span class="status-badge status-ready">Install Ready</span>
+                            </div>
+
+                            <div class="col-pipeline">
+                                <div class="traffic-lights-row">
+                                    <div class="traffic-light-item">
+                                        <div class="traffic-light completed"></div>
+                                        <div class="traffic-light-label">Intake</div>
+                                    </div>
+                                    <div class="traffic-light-item">
+                                        <div class="traffic-light completed"></div>
+                                        <div class="traffic-light-label">Survey</div>
+                                    </div>
+                                    <div class="traffic-light-item">
+                                        <div class="traffic-light completed"></div>
+                                        <div class="traffic-light-label">Design</div>
+                                    </div>
+                                    <div class="traffic-light-item">
+                                        <div class="traffic-light completed"></div>
+                                        <div class="traffic-light-label">Permit</div>
+                                    </div>
+                                    <div class="traffic-light-item">
+                                        <div class="traffic-light in-progress" data-tooltip="Install tomorrow 8:00 AM, crew assigned"></div>
+                                        <div class="traffic-light-label">Install</div>
+                                    </div>
+                                    <div class="traffic-light-item">
+                                        <div class="traffic-light pending"></div>
+                                        <div class="traffic-light-label">PTO</div>
+                                    </div>
+                                </div>
+                                <div class="pipeline-status-text in-progress">Install: Tomorrow 8:00 AM • Crew assigned</div>
+                                <div class="progress-summary">
+                                    <div class="progress-bar-mini">
+                                        <div class="progress-bar-fill" style="width: 75%;"></div>
+                                    </div>
+                                    <span>75% Complete</span>
+                                </div>
+                            </div>
+
+                            <div class="col-metrics">
+                                <div class="metric-row">
+                                    <span class="metric-row-label">Size:</span>
+                                    <span class="metric-row-value">28kW</span>
+                                </div>
+                                <div class="metric-row">
+                                    <span class="metric-row-label">PPW:</span>
+                                    <span class="metric-row-value">$4.50</span>
+                                </div>
+                                <div class="metric-row">
+                                    <span class="metric-row-label">Value:</span>
+                                    <span class="metric-row-value">$126k</span>
+                                </div>
+                                <div class="metric-row">
+                                    <span class="metric-row-label">Age:</span>
+                                    <span class="metric-row-value">43 days</span>
+                                </div>
+                            </div>
+
+                            <div class="col-actions">
+                                <a href="tel:+14155552345" class="btn-action" title="Call Customer">
+                                    <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;">
+                                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                                    </svg>
+                                </a>
+                                <button class="btn-action" title="View Details">
+                                    <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;">
+                                        <polyline points="9 18 15 12 9 6"></polyline>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Project Row 4 - Post-Install (Inspection phase) -->
+                        <div class="project-row">
+                            <div class="col-customer">
+                                <div class="customer-name">Carlos Garcia</div>
+                                <div class="customer-address">1901 Thornridge Drive<br>Palo Alto, CA 94303</div>
+                                <div class="project-meta">
+                                    <span class="project-id">PRJ-2024-1810</span>
+                                    <span class="project-type">Residential • 52kW System</span>
+                                </div>
+                                <span class="status-badge status-active">Active</span>
+                            </div>
+
+                            <div class="col-pipeline">
+                                <div class="traffic-lights-row">
+                                    <div class="traffic-light-item">
+                                        <div class="traffic-light completed"></div>
+                                        <div class="traffic-light-label">Intake</div>
+                                    </div>
+                                    <div class="traffic-light-item">
+                                        <div class="traffic-light completed"></div>
+                                        <div class="traffic-light-label">Survey</div>
+                                    </div>
+                                    <div class="traffic-light-item">
+                                        <div class="traffic-light completed"></div>
+                                        <div class="traffic-light-label">Design</div>
+                                    </div>
+                                    <div class="traffic-light-item">
+                                        <div class="traffic-light completed"></div>
+                                        <div class="traffic-light-label">Permit</div>
+                                    </div>
+                                    <div class="traffic-light-item">
+                                        <div class="traffic-light completed"></div>
+                                        <div class="traffic-light-label">Install</div>
+                                    </div>
+                                    <div class="traffic-light-item">
+                                        <div class="traffic-light in-progress" data-tooltip="Inspection passed, PTO pending 6 days"></div>
+                                        <div class="traffic-light-label">PTO</div>
+                                    </div>
+                                </div>
+                                <div class="pipeline-status-text in-progress">PTO: Inspection passed • PTO pending (6d)</div>
+                                <div class="progress-summary">
+                                    <div class="progress-bar-mini">
+                                        <div class="progress-bar-fill" style="width: 92%;"></div>
+                                    </div>
+                                    <span>92% Complete</span>
+                                </div>
+                            </div>
+
+                            <div class="col-metrics">
+                                <div class="metric-row">
+                                    <span class="metric-row-label">Size:</span>
+                                    <span class="metric-row-value">52kW</span>
+                                </div>
+                                <div class="metric-row">
+                                    <span class="metric-row-label">PPW:</span>
+                                    <span class="metric-row-value">$3.85</span>
+                                </div>
+                                <div class="metric-row">
+                                    <span class="metric-row-label">Value:</span>
+                                    <span class="metric-row-value">$200.2k</span>
+                                </div>
+                                <div class="metric-row">
+                                    <span class="metric-row-label">Age:</span>
+                                    <span class="metric-row-value">70 days</span>
+                                </div>
+                            </div>
+
+                            <div class="col-actions">
+                                <a href="tel:+14155556789" class="btn-action" title="Call Customer">
+                                    <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;">
+                                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                                    </svg>
+                                </a>
+                                <button class="btn-action" title="View Details">
+                                    <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;">
+                                        <polyline points="9 18 15 12 9 6"></polyline>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating Action Button -->
+        <button class="fab">
+            <svg class="icon" viewBox="0 0 24 24" style="width: 28px; height: 28px; stroke-width: 2.5;">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+        </button>
+    </div>
+
+    <script>
+        // Offline detection
+        function updateOfflineStatus() {
+            const offlineBanner = document.getElementById('offlineBanner');
+            if (!navigator.onLine) {
+                offlineBanner.classList.add('visible');
+            } else {
+                offlineBanner.classList.remove('visible');
+            }
+        }
+
+        window.addEventListener('online', updateOfflineStatus);
+        window.addEventListener('offline', updateOfflineStatus);
+
+        // Search functionality
+        document.getElementById('projectSearch').addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            const rows = document.querySelectorAll('.project-row');
+
+            rows.forEach(row => {
+                const customerName = row.querySelector('.customer-name').textContent.toLowerCase();
+                const projectId = row.querySelector('.project-id').textContent.toLowerCase();
+
+                if (customerName.includes(searchTerm) || projectId.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
