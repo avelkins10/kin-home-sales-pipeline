@@ -33,18 +33,29 @@ export function Timeline({ project }: TimelineProps) {
   // Get HOA status to determine if HOA milestone should be shown
   const hoaStatus = getHOAStatus(project)
 
+  // Check intake status fields
+  const financeIntakeApproved = project[PROJECT_FIELDS.FINANCE_INTAKE_APPROVED]?.value
+  const webhookIntakeComplete = project[PROJECT_FIELDS.WEBHOOK_INTAKE_COMPLETE]?.value
+  const financeIntakeApprovedDate = project[PROJECT_FIELDS.FINANCE_INTAKE_APPROVED_DATE]?.value
+
+  // Determine if intake is actually complete
+  const isIntakeComplete = !!(financeIntakeApproved || webhookIntakeComplete || financeIntakeApprovedDate)
+
   // Build milestones array
   const milestones = [
     {
       name: 'Intake',
       icon: '📋',
       color: 'gray',
-      // For rejected/cancelled projects, intake was rejected (not approved)
-      status: isFailedProject ? ('rejected' as const) : ('complete' as const),
+      // For rejected/cancelled projects, intake was rejected
+      // For active projects, check if intake is actually approved/complete
+      status: isFailedProject
+        ? ('rejected' as const)
+        : (isIntakeComplete ? ('complete' as const) : ('in-progress' as const)),
       date: isFailedProject
         ? (project[PROJECT_FIELDS.SALES_DATE]?.value ? new Date(project[PROJECT_FIELDS.SALES_DATE].value) : undefined)
-        : (project[PROJECT_FIELDS.FINANCE_INTAKE_APPROVED_DATE]?.value ?
-            new Date(project[PROJECT_FIELDS.FINANCE_INTAKE_APPROVED_DATE].value) :
+        : (financeIntakeApprovedDate ?
+            new Date(financeIntakeApprovedDate) :
             (project[PROJECT_FIELDS.SALES_DATE]?.value ? new Date(project[PROJECT_FIELDS.SALES_DATE].value) : undefined))
     },
     {
