@@ -30,11 +30,24 @@ export function Timeline({ project }: TimelineProps) {
   const isCancelled = projectStatus.includes('cancel')
   const isFailedProject = isRejected || isCancelled
 
+  // Debug logging
+  if (isFailedProject) {
+    console.log('[Timeline] Rejected/Cancelled project detected:', {
+      projectStatus,
+      isRejected,
+      isCancelled,
+      recordId: project[PROJECT_FIELDS.RECORD_ID]?.value
+    })
+  }
+
   // Get HOA status to determine if HOA milestone should be shown
   const hoaStatus = getHOAStatus(project)
 
-  // Determine intake status
+  // For rejected/cancelled projects, ALL milestones should be rejected
+  // because the project failed and won't proceed
   const intakeStatus = isFailedProject ? ('rejected' as const) : ('complete' as const)
+
+  console.log('[Timeline] Intake status:', intakeStatus, 'for project status:', projectStatus)
 
   // Build milestones array
   const milestones = [
@@ -43,9 +56,11 @@ export function Timeline({ project }: TimelineProps) {
       icon: '📋',
       color: 'gray',
       status: intakeStatus,
-      date: project[PROJECT_FIELDS.FINANCE_INTAKE_APPROVED_DATE]?.value ?
-        new Date(project[PROJECT_FIELDS.FINANCE_INTAKE_APPROVED_DATE].value) :
-        (project[PROJECT_FIELDS.SALES_DATE]?.value ? new Date(project[PROJECT_FIELDS.SALES_DATE].value) : undefined)
+      date: isFailedProject
+        ? (project[PROJECT_FIELDS.SALES_DATE]?.value ? new Date(project[PROJECT_FIELDS.SALES_DATE].value) : undefined)
+        : (project[PROJECT_FIELDS.FINANCE_INTAKE_APPROVED_DATE]?.value ?
+            new Date(project[PROJECT_FIELDS.FINANCE_INTAKE_APPROVED_DATE].value) :
+            (project[PROJECT_FIELDS.SALES_DATE]?.value ? new Date(project[PROJECT_FIELDS.SALES_DATE].value) : undefined))
     },
     {
       name: 'Survey',
