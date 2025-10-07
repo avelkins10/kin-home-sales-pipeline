@@ -31,8 +31,6 @@ export function CustomerContactCard({ project }: CustomerContactCardProps) {
   const parseAddress = (rawAddress: string): string => {
     if (!rawAddress || typeof rawAddress !== 'string') return ''
 
-    console.log('[CustomerContactCard] Raw address:', rawAddress)
-
     // Remove any URLs (https://...)
     let cleaned = rawAddress.replace(/https?:\/\/[^\s,]+/g, '').trim()
 
@@ -47,10 +45,7 @@ export function CustomerContactCard({ project }: CustomerContactCardProps) {
 
     // Split by comma and take first meaningful part
     const parts = cleaned.split(',').map(p => p.trim()).filter(Boolean)
-    const result = parts[0] || ''
-
-    console.log('[CustomerContactCard] Cleaned address:', result)
-    return result
+    return parts[0] || ''
   }
 
   const address = parseAddress(addressRaw)
@@ -100,10 +95,10 @@ export function CustomerContactCard({ project }: CustomerContactCardProps) {
                   href={mapsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-blue-600 hover:text-blue-800 hover:underline block"
+                  className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
                 >
-                  <div>{address}</div>
-                  <div>{[city, state, zip].filter(Boolean).join(', ')}</div>
+                  <span className="block">{address}</span>
+                  <span className="block">{[city, state, zip].filter(Boolean).join(', ')}</span>
                 </a>
               ) : (
                 <p className="text-sm text-gray-900">N/A</p>
