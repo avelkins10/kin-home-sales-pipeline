@@ -27,6 +27,11 @@ export function AddersCard({ project }: AddersCardProps) {
   // Check if needs review (urgency indicator)
   const needsReview = needsReviewAdders > 0
 
+  // Calculate individual adder cost (split evenly if no names)
+  const individualAdderCost = totalAdders > 0 && totalAdderCost > 0
+    ? totalAdderCost / totalAdders
+    : 0
+
   return (
     <Card className={needsReview ? 'border-orange-200' : ''}>
       <CardHeader>
@@ -70,32 +75,53 @@ export function AddersCard({ project }: AddersCardProps) {
             </div>
 
             {/* Adder List */}
-            {adderList.length > 0 && (
+            {(adderList.length > 0 || totalAdders > 0) && (
               <div className="border-t border-gray-200 pt-4">
                 <h4 className="text-sm font-medium text-gray-600 mb-3">
-                  Included Adders ({adderList.length})
+                  Included Adders ({adderList.length || totalAdders})
                 </h4>
                 <div className="space-y-2.5 max-h-64 overflow-y-auto">
-                  {adderList.map((adder: string, index: number) => (
-                    <div
-                      key={index}
-                      className="flex items-start justify-between gap-3 py-2 px-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
-                    >
-                      <div className="flex items-start gap-2 flex-1 min-w-0">
-                        <Plus className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0 mt-0.5" />
-                        <span className="text-sm text-gray-800 font-medium">{adder}</span>
+                  {adderList.length > 0 ? (
+                    // Show named adders if we have them
+                    adderList.map((adder: string, index: number) => (
+                      <div
+                        key={index}
+                        className="flex items-start justify-between gap-3 py-2 px-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
+                      >
+                        <div className="flex items-start gap-2 flex-1 min-w-0">
+                          <Plus className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                          <span className="text-sm text-gray-800 font-medium">{adder}</span>
+                        </div>
+                        {individualAdderCost > 0 && (
+                          <span className="text-xs text-gray-500 whitespace-nowrap">
+                            ~{formatCurrency(individualAdderCost)}
+                          </span>
+                        )}
                       </div>
-                      {totalAdders > 0 && totalAdderCost > 0 && (
-                        <span className="text-xs text-gray-500 whitespace-nowrap">
-                          ~{formatCurrency(totalAdderCost / totalAdders)}
-                        </span>
-                      )}
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    // Show placeholder adders if we only have count
+                    Array.from({ length: totalAdders }).map((_, index) => (
+                      <div
+                        key={index}
+                        className="flex items-start justify-between gap-3 py-2 px-3 bg-slate-50 rounded-lg"
+                      >
+                        <div className="flex items-start gap-2 flex-1 min-w-0">
+                          <Plus className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                          <span className="text-sm text-gray-700">Adder #{index + 1}</span>
+                        </div>
+                        {individualAdderCost > 0 && (
+                          <span className="text-xs text-gray-600 font-semibold whitespace-nowrap">
+                            ~{formatCurrency(individualAdderCost)}
+                          </span>
+                        )}
+                      </div>
+                    ))
+                  )}
                 </div>
-                {totalAdders > 0 && totalAdderCost > 0 && (
+                {individualAdderCost > 0 && (
                   <p className="text-xs text-gray-500 mt-3 italic">
-                    * Estimated cost per adder (total divided equally)
+                    * {adderList.length > 0 ? 'Estimated' : 'Average'} cost per adder
                   </p>
                 )}
               </div>

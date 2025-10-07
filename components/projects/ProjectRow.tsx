@@ -13,6 +13,7 @@ import { StatusBadge } from './StatusBadge';
 import { parseCustomerName, formatAddress, getProjectAge } from '@/lib/utils/project-helpers';
 import { detectHoldStatus, extractHoldType } from '@/lib/utils/hold-detection';
 import { formatSystemSize, formatCurrency } from '@/lib/utils/formatters';
+import { projectKey } from '@/lib/queryKeys';
 
 interface ProjectRowProps {
   project: QuickbaseProject;
@@ -62,10 +63,16 @@ export function ProjectRow({ project }: ProjectRowProps) {
 
   // Prefetch project detail on hover for instant navigation
   const handlePrefetch = () => {
+    // Guard against missing recordId to avoid prefetching /api/projects/undefined
+    if (!recordId) {
+      return;
+    }
+    
+    const idKey = String(recordId);
     queryClient.prefetchQuery({
-      queryKey: ['project', recordId],
+      queryKey: projectKey(idKey),
       queryFn: async () => {
-        const response = await fetch(`/api/projects/${recordId}`);
+        const response = await fetch(`/api/projects/${idKey}`);
         if (!response.ok) throw new Error('Failed to prefetch project');
         return response.json();
       },

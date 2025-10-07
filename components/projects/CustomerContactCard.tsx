@@ -26,29 +26,26 @@ export function CustomerContactCard({ project }: CustomerContactCardProps) {
   // Clean email - sometimes might have extra data
   const email = typeof emailRaw === 'string' ? emailRaw.trim() : ''
 
-  // Parse address - QuickBase field contains: address, email, maps URL all concatenated
-  // Extract just the street address (first part before any comma or email)
-  const parseAddress = (rawAddress: string): string => {
-    if (!rawAddress || typeof rawAddress !== 'string') return ''
+  // The CUSTOMER_ADDRESS field (146) often contains concatenated data
+  // Use dedicated city/state/zip fields instead
+  // Only parse the raw address if the dedicated fields are empty
+  let address = ''
 
-    // Remove any URLs (https://...)
-    let cleaned = rawAddress.replace(/https?:\/\/[^\s,]+/g, '').trim()
-
-    // Remove email addresses (anything@anything.domain)
-    cleaned = cleaned.replace(/[\w.-]+@[\w.-]+\.\w+/g, '').trim()
-
-    // Clean up multiple commas and spaces
-    cleaned = cleaned.replace(/,+/g, ',').replace(/\s+/g, ' ').trim()
-
-    // Remove leading/trailing commas
-    cleaned = cleaned.replace(/^,|,$/g, '').trim()
-
-    // Split by comma and take first meaningful part
-    const parts = cleaned.split(',').map(p => p.trim()).filter(Boolean)
-    return parts[0] || ''
+  if (addressRaw && typeof addressRaw === 'string') {
+    // If we have dedicated city/state/zip, just extract street from raw address
+    if (city || state || zip) {
+      // Remove URLs and emails, then take first part before comma
+      let cleaned = addressRaw.replace(/https?:\/\/[^\s,]+/g, '').trim()
+      cleaned = cleaned.replace(/[\w.-]+@[\w.-]+\.\w+/g, '').trim()
+      cleaned = cleaned.replace(/,+/g, ',').replace(/\s+/g, ' ').trim()
+      cleaned = cleaned.replace(/^,|,$/g, '').trim()
+      const parts = cleaned.split(',').map(p => p.trim()).filter(Boolean)
+      address = parts[0] || ''
+    } else {
+      // No dedicated fields, try to parse everything from raw address
+      address = addressRaw.trim()
+    }
   }
-
-  const address = parseAddress(addressRaw)
 
   // Build full address for display
   const fullAddress = [address, city, state, zip].filter(Boolean).join(', ')

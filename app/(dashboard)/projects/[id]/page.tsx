@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense } from 'react'
+import { Suspense, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useQuery } from '@tanstack/react-query'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -14,6 +14,7 @@ import { AddersCard } from '@/components/projects/AddersCard'
 import { Timeline } from '@/components/milestones/Timeline'
 import { HoldManagementCard } from '@/components/projects/HoldManagementCard'
 import { ProjectDetailSkeleton } from '@/components/projects/ProjectDetailSkeleton'
+import { projectKey } from '@/lib/queryKeys'
 
 export default function ProjectDetailPage({
   params,
@@ -23,21 +24,28 @@ export default function ProjectDetailPage({
   const { data: session, status } = useSession()
   const router = useRouter()
 
-  // Parse and validate project ID
-  const projectId = parseInt(params.id)
-  if (isNaN(projectId)) {
+  // Parse and validate project ID - keep as string for consistent query keys
+  const projectId = params.id
+  const projectIdNum = parseInt(projectId)
+  if (isNaN(projectIdNum)) {
     notFound()
   }
 
-  // Redirect if not authenticated
+  // Redirect if not authenticated - moved to useEffect to avoid router.push during render
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.replace('/login')
+    }
+  }, [status, router])
+
+  // Return null when unauthenticated to stop rendering the page
   if (status === 'unauthenticated') {
-    router.push('/login')
     return null
   }
 
   // Fetch project data with useQuery
   const { data: project, isLoading, error } = useQuery({
-    queryKey: ['project', projectId],
+    queryKey: projectKey(projectId),
     queryFn: async () => {
       const response = await fetch(`/api/projects/${projectId}`)
       if (!response.ok) {
@@ -48,6 +56,14 @@ export default function ProjectDetailPage({
     },
     enabled: status === 'authenticated', // Only fetch when authenticated
     staleTime: 300000, // 5 minutes (matches list view cache)
+    retry: (failureCount, error) => {
+      // Disable retries for NOT_FOUND to avoid slow 404 handling and wasted requests
+      if (error?.message === 'NOT_FOUND') {
+        return false
+      }
+      // Keep up to 3 retries for other errors
+      return failureCount < 3
+    },
   })
 
   // Handle loading state
