@@ -47,9 +47,9 @@ export function buildRoleClause(userId: string, role: string, salesOffice?: stri
         clause = buildOfficeClause(salesOffice);
         console.log('[buildRoleClause] Office leader role, filtering by offices:', clause);
       } else {
-        // Fallback to all projects if no office assigned
-        clause = '{3.GT.0}';
-        console.log('[buildRoleClause] Office leader with no office assigned, returning all-projects clause:', clause);
+        // Fallback to least-privilege: restrict to no projects if no office assigned
+        clause = '{3.EQ.0}'; // Record ID = 0 (matches no records)
+        console.log('[buildRoleClause] Office leader with no office assigned, returning no-projects clause:', clause);
       }
       break;
     case 'closer':

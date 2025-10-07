@@ -15,6 +15,7 @@ import { Timeline } from '@/components/milestones/Timeline'
 import { HoldManagementCard } from '@/components/projects/HoldManagementCard'
 import { ProjectDetailSkeleton } from '@/components/projects/ProjectDetailSkeleton'
 import { projectKey } from '@/lib/queryKeys'
+import { getBaseUrl } from '@/lib/utils/baseUrl'
 
 export default function ProjectDetailPage({
   params,
@@ -35,7 +36,8 @@ export default function ProjectDetailPage({
   const { data: project, isLoading, error } = useQuery({
     queryKey: projectKey(projectId),
     queryFn: async () => {
-      const response = await fetch(`/api/projects/${projectId}`)
+      const baseUrl = getBaseUrl()
+      const response = await fetch(`${baseUrl}/api/projects/${projectId}`)
       if (!response.ok) {
         if (response.status === 404) throw new Error('NOT_FOUND')
         throw new Error('Failed to fetch project')

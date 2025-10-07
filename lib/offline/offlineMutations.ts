@@ -29,7 +29,8 @@ export async function updateProjectHoldOffline(
 
     if (isOnline()) {
       // Online: execute mutation via API
-      const res = await fetch(`/api/projects/${recordId}/hold`, {
+      const baseUrl = getBaseUrl();
+      const res = await fetch(`${baseUrl}/api/projects/${recordId}/hold`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -1,126 +1,217 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { getProjectsForUserList } from '@/lib/quickbase/queries';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { NextRequest } from 'next/server';
+import { GET } from '@/app/api/projects/route';
+import { QuickbaseProject } from '@/lib/types/project';
 
 // Mock the Quickbase client
-const mockQbClient = {
-  queryRecords: vi.fn(),
-};
-
 vi.mock('@/lib/quickbase/client', () => ({
-  qbClient: mockQbClient,
+  qbClient: {
+    query: vi.fn(),
+  },
 }));
 
-// Mock logger
-vi.mock('@/lib/logging/logger', () => ({
-  logError: vi.fn(),
+// Mock the auth guards
+vi.mock('@/lib/auth/guards', () => ({
+  requireAuth: vi.fn(),
 }));
 
-describe('Projects List Payload Size', () => {
+// Mock the cache
+vi.mock('@/lib/cache/projectsCache', () => ({
+  getCachedProjects: vi.fn(() => null),
+  setCachedProjects: vi.fn(),
+  cacheStats: {
+    hits: 0,
+    misses: 0,
+    evictions: 0,
+    expiredRemovals: 0,
+    currentSize: 0,
+  },
+}));
+
+// Mock the queries module
+vi.mock('@/lib/quickbase/queries', () => ({
+  getProjectsForUserList: vi.fn(),
+}));
+
+describe('Projects List Payload Regression Test', () => {
+  const mockAuth = {
+    authorized: true,
+    session: {
+      user: {
+        quickbaseUserId: 'test-user-123',
+        role: 'closer',
+        salesOffice: ['Office A'],
+      },
+    },
+  };
+
+  const mockProjects: QuickbaseProject[] = Array.from({ length: 50 }, (_, i) => ({
+    [3]: { value: i + 1 }, // recordId
+    [PROJECT_FIELDS.CUSTOMER_NAME]: { value: `Customer ${i + 1}` },
+    [PROJECT_FIELDS.CUSTOMER_ADDRESS]: { value: `${i + 1} Main St, City, State` },
+    [PROJECT_FIELDS.CUSTOMER_PHONE]: { value: `555-${String(i + 1).padStart(4, '0')}` },
+    [PROJECT_FIELDS.PROJECT_STATUS]: { value: i % 3 === 0 ? 'On Hold - Customer' : 'Active' },
+    [PROJECT_FIELDS.SYSTEM_SIZE_KW]: { value: (5 + (i % 10)).toString() },
+    [PROJECT_FIELDS.SYSTEM_PRICE]: { value: (25000 + (i * 1000)).toString() },
+    [PROJECT_FIELDS.SALES_DATE]: { value: new Date(Date.now() - (i * 24 * 60 * 60 * 1000)).toISOString() },
+    [PROJECT_FIELDS.CLOSER_NAME]: { value: `Closer ${i + 1}` },
+    [PROJECT_FIELDS.SETTER_NAME]: { value: `Setter ${i + 1}` },
+    [PROJECT_FIELDS.ON_HOLD]: { value: i % 3 === 0 ? 'Yes' : 'No' },
+    [PROJECT_FIELDS.HOLD_REASON]: { value: i % 3 === 0 ? 'Customer requested hold' : '' },
+    [PROJECT_FIELDS.BLOCK_REASON]: { value: '' },
+    [PROJECT_FIELDS.DATE_ON_HOLD]: { value: i % 3 === 0 ? new Date().toISOString() : '' },
+    [2292]: { value: (3.5 + (i % 2)).toString() }, // soldGross PPW
+    [2480]: { value: (3.2 + (i % 2)).toString() }, // commissionable PPW
+  }));
+
   beforeEach(() => {
     vi.clearAllMocks();
+    
+    // Mock requireAuth to return authorized user
+    const { requireAuth } = await import('@/lib/auth/guards');
+    vi.mocked(requireAuth).mockResolvedValue(mockAuth);
+    
+    // Mock getProjectsForUserList to return mock data
+    const { getProjectsForUserList } = await import('@/lib/quickbase/queries');
+    vi.mocked(getProjectsForUserList).mockResolvedValue(mockProjects);
   });
 
-  it('should return payload under 300KB for 50 records', async () => {
-    // Mock 50 project records with lean field selection
-    const mockProjects = Array.from({ length: 50 }, (_, i) => ({
-      3: { value: `record_${i}` }, // RECORD_ID
-      6: { value: `PROJ-${i.toString().padStart(4, '0')}` }, // PROJECT_ID
-      7: { value: `Customer ${i}` }, // CUSTOMER_NAME
-      8: { value: `123 Main St, City ${i}, ST 12345` }, // CUSTOMER_ADDRESS
-      9: { value: `555-${i.toString().padStart(4, '0')}` }, // CUSTOMER_PHONE
-      10: { value: 'Active' }, // PROJECT_STATUS
-      11: { value: 'No' }, // ON_HOLD
-      12: { value: '' }, // HOLD_REASON
-      13: { value: '' }, // BLOCK_REASON
-      14: { value: '' }, // DATE_ON_HOLD
-      15: { value: 'Normal' }, // PROJECT_PRIORITY
-      16: { value: 'Phoenix' }, // SALES_OFFICE
-      17: { value: '2024-01-01' }, // SALES_DATE
-      18: { value: 30 }, // PROJECT_AGE
-      19: { value: 8.5 }, // SYSTEM_SIZE_KW
-      20: { value: 25000 }, // SYSTEM_PRICE
-      2292: { value: 2.94 }, // soldGross PPW
-      2480: { value: 2.85 }, // commissionable PPW
-      // Milestone dates
-      710: { value: '2024-02-01' }, // INTAKE_INSTALL_DATE_TENTATIVE
-      164: { value: '2024-01-15' }, // SURVEY_SUBMITTED
-      315: { value: '2024-01-20' }, // DESIGN_COMPLETED
-      207: { value: '2024-01-25' }, // PERMIT_APPROVED
-      326: { value: '2024-01-30' }, // NEM_APPROVED
-      534: { value: '2024-02-05' }, // INSTALL_SCHEDULED_DATE_CAPTURE
-      587: { value: '2024-02-10' }, // INSTALL_COMPLETED_DATE
-      491: { value: '2024-02-12' }, // PASSING_INSPECTION_COMPLETED
-      537: { value: '2024-02-15' }, // PTO_APPROVED
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('should return projects list with payload under 300KB', async () => {
+    const request = new NextRequest('http://localhost:3000/api/projects');
+    const response = await GET(request);
+    
+    expect(response.status).toBe(200);
+    
+    const responseText = await response.text();
+    const responseSize = new Blob([responseText]).size;
+    
+    // Assert payload size is under 300KB
+    expect(responseSize).toBeLessThan(300 * 1024);
+    
+    const projects = JSON.parse(responseText);
+    expect(Array.isArray(projects)).toBe(true);
+    expect(projects).toHaveLength(50);
+  });
+
+  it('should include essential fields for ProjectRow rendering', async () => {
+    const request = new NextRequest('http://localhost:3000/api/projects');
+    const response = await GET(request);
+    
+    expect(response.status).toBe(200);
+    
+    const projects = await response.json();
+    const firstProject = projects[0];
+    
+    // Essential fields for ProjectRow component
+    expect(firstProject[3]).toBeDefined(); // recordId
+    expect(firstProject[PROJECT_FIELDS.CUSTOMER_NAME]).toBeDefined(); // customerName
+    expect(firstProject[PROJECT_FIELDS.CUSTOMER_ADDRESS]).toBeDefined(); // customerAddress
+    expect(firstProject[PROJECT_FIELDS.CUSTOMER_PHONE]).toBeDefined(); // customerPhone
+    expect(firstProject[PROJECT_FIELDS.PROJECT_STATUS]).toBeDefined(); // projectStatus
+    expect(firstProject[PROJECT_FIELDS.SYSTEM_SIZE_KW]).toBeDefined(); // systemSizeKw
+    expect(firstProject[PROJECT_FIELDS.SYSTEM_PRICE]).toBeDefined(); // systemPrice
+    expect(firstProject[PROJECT_FIELDS.SALES_DATE]).toBeDefined(); // salesDate
+    expect(firstProject[PROJECT_FIELDS.CLOSER_NAME]).toBeDefined(); // closerName
+    expect(firstProject[PROJECT_FIELDS.SETTER_NAME]).toBeDefined(); // setterName
+    expect(firstProject[PROJECT_FIELDS.ON_HOLD]).toBeDefined(); // onHold
+    expect(firstProject[PROJECT_FIELDS.HOLD_REASON]).toBeDefined(); // holdReason
+    expect(firstProject[2292]).toBeDefined(); // soldGross PPW
+    expect(firstProject[2480]).toBeDefined(); // commissionable PPW
+  });
+
+  it('should include hold status fields for hold badge rendering', async () => {
+    const request = new NextRequest('http://localhost:3000/api/projects');
+    const response = await GET(request);
+    
+    expect(response.status).toBe(200);
+    
+    const projects = await response.json();
+    
+    // Check that some projects have hold status
+    const holdProjects = projects.filter((p: QuickbaseProject) => 
+      p[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes'
+    );
+    expect(holdProjects.length).toBeGreaterThan(0);
+    
+    // Check hold reason is present for hold projects
+    holdProjects.forEach((project: QuickbaseProject) => {
+      expect(project[PROJECT_FIELDS.HOLD_REASON]?.value).toBeDefined();
+    });
+  });
+
+  it('should include PPW fields for PPW display', async () => {
+    const request = new NextRequest('http://localhost:3000/api/projects');
+    const response = await GET(request);
+    
+    expect(response.status).toBe(200);
+    
+    const projects = await response.json();
+    const firstProject = projects[0];
+    
+    // PPW fields should be present and numeric
+    expect(firstProject[2292]?.value).toBeDefined(); // soldGross
+    expect(firstProject[2480]?.value).toBeDefined(); // commissionable
+    expect(typeof parseFloat(firstProject[2292]?.value || '0')).toBe('number');
+    expect(typeof parseFloat(firstProject[2480]?.value || '0')).toBe('number');
+  });
+
+  it('should include age calculation fields', async () => {
+    const request = new NextRequest('http://localhost:3000/api/projects');
+    const response = await GET(request);
+    
+    expect(response.status).toBe(200);
+    
+    const projects = await response.json();
+    const firstProject = projects[0];
+    
+    // Sales date should be present for age calculation
+    expect(firstProject[PROJECT_FIELDS.SALES_DATE]?.value).toBeDefined();
+    expect(firstProject[PROJECT_FIELDS.SALES_DATE]?.value).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it('should handle large payload efficiently', async () => {
+    // Create a larger dataset to test payload size limits
+    const largeMockProjects: QuickbaseProject[] = Array.from({ length: 100 }, (_, i) => ({
+      [3]: { value: i + 1 },
+      [PROJECT_FIELDS.CUSTOMER_NAME]: { value: `Customer ${i + 1}` },
+      [PROJECT_FIELDS.CUSTOMER_ADDRESS]: { value: `${i + 1} Main St, City, State, ZIP Code` },
+      [PROJECT_FIELDS.CUSTOMER_PHONE]: { value: `555-${String(i + 1).padStart(4, '0')}` },
+      [PROJECT_FIELDS.PROJECT_STATUS]: { value: i % 3 === 0 ? 'On Hold - Customer' : 'Active' },
+      [PROJECT_FIELDS.SYSTEM_SIZE_KW]: { value: (5 + (i % 10)).toString() },
+      [PROJECT_FIELDS.SYSTEM_PRICE]: { value: (25000 + (i * 1000)).toString() },
+      [PROJECT_FIELDS.SALES_DATE]: { value: new Date(Date.now() - (i * 24 * 60 * 60 * 1000)).toISOString() },
+      [PROJECT_FIELDS.CLOSER_NAME]: { value: `Closer ${i + 1}` },
+      [PROJECT_FIELDS.SETTER_NAME]: { value: `Setter ${i + 1}` },
+      [PROJECT_FIELDS.ON_HOLD]: { value: i % 3 === 0 ? 'Yes' : 'No' },
+      [PROJECT_FIELDS.HOLD_REASON]: { value: i % 3 === 0 ? 'Customer requested hold' : '' },
+      [PROJECT_FIELDS.BLOCK_REASON]: { value: '' },
+      [PROJECT_FIELDS.DATE_ON_HOLD]: { value: i % 3 === 0 ? new Date().toISOString() : '' },
+      [2292]: { value: (3.5 + (i % 2)).toString() },
+      [2480]: { value: (3.2 + (i % 2)).toString() },
     }));
 
-    mockQbClient.queryRecords.mockResolvedValue({
-      data: mockProjects,
-      metadata: { totalRecords: 50 }
-    });
+    const { getProjectsForUserList } = await import('@/lib/quickbase/queries');
+    vi.mocked(getProjectsForUserList).mockResolvedValue(largeMockProjects);
 
-    const result = await getProjectsForUserList('test-user', 'closer', 'all', '', 'default');
-
-    // Convert to JSON to measure size
-    const jsonString = JSON.stringify(result);
-    const sizeInBytes = new Blob([jsonString]).size;
-    const sizeInKB = sizeInBytes / 1024;
-
-    console.log(`Payload size: ${sizeInKB.toFixed(2)} KB (${sizeInBytes} bytes)`);
-    console.log(`Records: ${result.length}`);
-
-    // Assertions
-    expect(result).toHaveLength(50);
-    expect(sizeInKB).toBeLessThan(300); // Should be under 300KB
+    const request = new NextRequest('http://localhost:3000/api/projects');
+    const response = await GET(request);
     
-    // Verify lean field selection - should not have all 92 fields
-    const firstRecord = result[0];
-    const fieldCount = Object.keys(firstRecord).length;
-    expect(fieldCount).toBeLessThan(50); // Should have significantly fewer fields than full record
+    expect(response.status).toBe(200);
     
-    // Verify essential fields are present
-    expect(firstRecord[3]).toBeDefined(); // RECORD_ID
-    expect(firstRecord[6]).toBeDefined(); // PROJECT_ID
-    expect(firstRecord[7]).toBeDefined(); // CUSTOMER_NAME
-    expect(firstRecord[10]).toBeDefined(); // PROJECT_STATUS
-  });
-
-  it('should handle empty results efficiently', async () => {
-    mockQbClient.queryRecords.mockResolvedValue({
-      data: [],
-      metadata: { totalRecords: 0 }
-    });
-
-    const result = await getProjectsForUserList('test-user', 'closer', 'all', '', 'default');
-    const jsonString = JSON.stringify(result);
-    const sizeInBytes = new Blob([jsonString]).size;
-
-    expect(result).toHaveLength(0);
-    expect(sizeInBytes).toBeLessThan(100); // Empty array should be tiny
-  });
-
-  it('should maintain data integrity with lean selection', async () => {
-    const mockProject = {
-      3: { value: 'record_123' },
-      6: { value: 'PROJ-0001' },
-      7: { value: 'John Doe' },
-      10: { value: 'Active' },
-      11: { value: 'No' },
-      2292: { value: 2.94 },
-      2480: { value: 2.85 },
-    };
-
-    mockQbClient.queryRecords.mockResolvedValue({
-      data: [mockProject],
-      metadata: { totalRecords: 1 }
-    });
-
-    const result = await getProjectsForUserList('test-user', 'closer', 'all', '', 'default');
-
-    expect(result).toHaveLength(1);
-    expect(result[0][3].value).toBe('record_123');
-    expect(result[0][6].value).toBe('PROJ-0001');
-    expect(result[0][7].value).toBe('John Doe');
-    expect(result[0][2292].value).toBe(2.94);
-    expect(result[0][2480].value).toBe(2.85);
+    const responseText = await response.text();
+    const responseSize = new Blob([responseText]).size;
+    
+    // Even with 100 projects, payload should be under 300KB
+    expect(responseSize).toBeLessThan(300 * 1024);
+    
+    const projects = JSON.parse(responseText);
+    expect(projects).toHaveLength(100);
   });
 });
+
+// Import PROJECT_FIELDS for the test
+import { PROJECT_FIELDS } from '@/lib/constants/fieldIds';

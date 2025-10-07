@@ -1,5 +1,6 @@
 import { cacheProject, getCachedProject, cacheProjectList, getCachedProjectList } from './storage';
 import { QuickbaseProject } from '@/lib/types/project';
+import { getBaseUrl } from '@/lib/utils/baseUrl';
 
 // Offline detection helpers
 export function isOnline(): boolean {
@@ -26,7 +27,8 @@ export async function getProjectsForUserOffline(
       if (search) params.set('search', search);
       if (sort && sort !== 'default') params.set('sort', sort);
 
-      const url = `/api/projects${params.toString() ? `?${params.toString()}` : ''}`;
+      const baseUrl = getBaseUrl();
+      const url = `${baseUrl}/api/projects${params.toString() ? `?${params.toString()}` : ''}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error('Failed to fetch projects');
       const projects = await res.json();
@@ -56,7 +58,8 @@ export async function getProjectByIdOffline(recordId: number): Promise<Quickbase
   try {
     if (isOnline()) {
       // Online: fetch from API and cache result
-      const res = await fetch(`/api/projects/${recordId}`);
+      const baseUrl = getBaseUrl();
+      const res = await fetch(`${baseUrl}/api/projects/${recordId}`);
       if (!res.ok) throw new Error('Failed to fetch project');
       const project = await res.json();
       if (project) {
@@ -93,7 +96,8 @@ export async function warmCache(userId: string, role: string): Promise<void> {
     }
 
     console.log('Warming cache for user:', userId, 'role:', role);
-    const res = await fetch(`/api/projects`);
+    const baseUrl = getBaseUrl();
+    const res = await fetch(`${baseUrl}/api/projects`);
     if (!res.ok) throw new Error('Failed to warm cache');
     const projects = await res.json();
     await cacheProjectList(projects, userId, role);

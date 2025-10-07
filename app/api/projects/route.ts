@@ -6,10 +6,16 @@ import { requireAuth } from '@/lib/auth/guards';
 import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
 import { getCachedProjects, setCachedProjects, getCacheTTL, cacheStats } from '@/lib/cache/projectsCache';
 
+// Request counter for periodic logging
+let requestCount = 0;
+
 export async function GET(req: Request) {
   const startedAt = Date.now();
   const reqId = req.headers.get('x-request-id') || Math.random().toString(36).slice(2, 10);
   logApiRequest('GET', '/api/projects', undefined, reqId);
+  
+  // Increment request counter
+  requestCount++;
 
   // Auth check
   const auth = await requireAuth();
@@ -47,11 +53,18 @@ export async function GET(req: Request) {
     const cacheKey = `${userId}:${role}:${officeKey}:${view || 'all'}:${search || ''}:${sort || 'default'}`;
     const cached = getCachedProjects(cacheKey);
     if (cached) {
-      logApiResponse('GET', '/api/projects', Date.now() - startedAt, {
+      const duration = Date.now() - startedAt;
+      logApiResponse('GET', '/api/projects', duration, {
         cached: true,
         count: Array.isArray(cached.data) ? cached.data.length : 0,
         cacheStats: { ...cacheStats }
       }, reqId);
+      
+      // Periodic logging every 100 requests
+      if (requestCount % 100 === 0) {
+        logApiResponse('GET', '/api/projects', duration, { cacheStats }, reqId);
+      }
+      
       return NextResponse.json(cached.data, { status: 200 });
     }
 
@@ -61,11 +74,18 @@ export async function GET(req: Request) {
     // Cache the result
     setCachedProjects(cacheKey, projects);
 
-    logApiResponse('GET', '/api/projects', Date.now() - startedAt, { 
+    const duration = Date.now() - startedAt;
+    logApiResponse('GET', '/api/projects', duration, { 
       cached: false, 
       count: Array.isArray(projects) ? projects.length : 0,
       cacheStats: { ...cacheStats }
     }, reqId);
+    
+    // Periodic logging every 100 requests
+    if (requestCount % 100 === 0) {
+      logApiResponse('GET', '/api/projects', duration, { cacheStats }, reqId);
+    }
+    
     return NextResponse.json(projects, { status: 200 });
   } catch (error) {
     logError('Failed to fetch projects', error as Error, {});

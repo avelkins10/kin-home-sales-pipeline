@@ -10,6 +10,7 @@ declare module 'next-auth' {
       name: string;
       role: string;
       quickbaseUserId: string;
+      salesOffice?: string[];
     };
   }
 
@@ -19,6 +20,7 @@ declare module 'next-auth' {
     name: string;
     role: string;
     quickbaseUserId: string;
+    salesOffice?: string[];
   }
 }
 
@@ -26,5 +28,6 @@ declare module 'next-auth/jwt' {
   interface JWT {
     role: string;
     quickbaseUserId: string;
+    salesOffice?: string[];
   }
 }

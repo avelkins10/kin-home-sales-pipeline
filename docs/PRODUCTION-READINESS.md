@@ -40,9 +40,11 @@
 - Projects API cache size: `PROJECTS_CACHE_MAX` (default: 100 entries)
 - Cache metrics tracked: hits, misses, evictions, expired removals, current size
 - Cache hit/miss ratios and eviction stats logged in API responses with `logApiResponse`
+- Periodic cache metrics logging: Every 100 requests, logs `logApiResponse('GET','/api/projects',duration,{ cacheStats })`
 - Development-only cache inspection: `/api/_debug/cache/projects` (super_admin only)
   - Returns real-time cache statistics including hit/miss ratios and current utilization
   - Accessible only in development environment for security
+  - Use in development to monitor cache performance and adjust TTL based on usage patterns
 - Monitor cache performance via server logs and adjust TTL based on usage patterns
 - Cache keys include user role and office information to prevent cross-user data leakage
 
