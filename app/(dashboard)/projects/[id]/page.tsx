@@ -1,8 +1,11 @@
+'use client';
+
 import { Suspense } from 'react'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth/next-auth.config'
-import { notFound, redirect } from 'next/navigation'
-import { getProjectById } from '@/lib/quickbase/queries'
+import { useSession } from 'next-auth/react'
+import { useQuery } from '@tanstack/react-query'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useRouter } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import { ProjectHeader } from '@/components/projects/ProjectHeader'
 import { CustomerContactCard } from '@/components/projects/CustomerContactCard'
 import { SystemSpecsCard } from '@/components/projects/SystemSpecsCard'
@@ -10,17 +13,15 @@ import { TeamMembersCard } from '@/components/projects/TeamMembersCard'
 import { AddersCard } from '@/components/projects/AddersCard'
 import { Timeline } from '@/components/milestones/Timeline'
 import { HoldManagementCard } from '@/components/projects/HoldManagementCard'
+import { ProjectDetailSkeleton } from '@/components/projects/ProjectDetailSkeleton'
 
-export default async function ProjectDetailPage({
+export default function ProjectDetailPage({
   params,
 }: {
   params: { id: string }
 }) {
-  // Check authentication
-  const session = await getServerSession(authOptions)
-  if (!session) {
-    redirect('/login')
-  }
+  const { data: session, status } = useSession()
+  const router = useRouter()
 
   // Parse and validate project ID
   const projectId = parseInt(params.id)
@@ -28,11 +29,52 @@ export default async function ProjectDetailPage({
     notFound()
   }
 
-  // Fetch project data server-side
-  const project = await getProjectById(projectId)
-  
-  if (!project) {
+  // Redirect if not authenticated
+  if (status === 'unauthenticated') {
+    router.push('/login')
+    return null
+  }
+
+  // Fetch project data with useQuery
+  const { data: project, isLoading, error } = useQuery({
+    queryKey: ['project', projectId],
+    queryFn: async () => {
+      const response = await fetch(`/api/projects/${projectId}`)
+      if (!response.ok) {
+        if (response.status === 404) throw new Error('NOT_FOUND')
+        throw new Error('Failed to fetch project')
+      }
+      return response.json()
+    },
+    enabled: status === 'authenticated', // Only fetch when authenticated
+    staleTime: 300000, // 5 minutes (matches list view cache)
+  })
+
+  // Handle loading state
+  if (isLoading || status === 'loading') {
+    return <ProjectDetailSkeleton />
+  }
+
+  // Handle error states
+  if (error?.message === 'NOT_FOUND') {
     notFound()
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-white rounded-lg shadow-sm border p-6">
+            <h2 className="text-xl font-semibold text-red-600 mb-2">Error Loading Project</h2>
+            <p className="text-gray-600">{error.message}</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!project) {
+    return <ProjectDetailSkeleton />
   }
 
   return (

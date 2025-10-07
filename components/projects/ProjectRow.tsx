@@ -2,12 +2,14 @@
 
 import Link from 'next/link';
 import { Phone } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { PROJECT_FIELDS } from '@/lib/constants/fieldIds';
 import { QuickbaseProject } from '@/lib/types/project';
 import { TrafficLightPipeline } from './TrafficLightPipeline';
 import { PPWDisplay } from './PPWDisplay';
 import { ProjectAgeIndicator } from './ProjectAgeIndicator';
 import { HoldBanner } from './HoldBanner';
+import { StatusBadge } from './StatusBadge';
 import { parseCustomerName, formatAddress, getProjectAge } from '@/lib/utils/project-helpers';
 import { detectHoldStatus, extractHoldType } from '@/lib/utils/hold-detection';
 import { formatSystemSize, formatCurrency } from '@/lib/utils/formatters';
@@ -19,6 +21,8 @@ interface ProjectRowProps {
 // Updated 2025-01-07: Current active version
 
 export function ProjectRow({ project }: ProjectRowProps) {
+  const queryClient = useQueryClient();
+
   // Extract data from project
   const recordId = project[PROJECT_FIELDS.RECORD_ID]?.value;
   const customerName = project[PROJECT_FIELDS.CUSTOMER_NAME]?.value || '';
@@ -56,6 +60,19 @@ export function ProjectRow({ project }: ProjectRowProps) {
   // Format phone number for tel: link
   const phoneLink = customerPhone ? `tel:${customerPhone.replace(/\D/g, '')}` : '';
 
+  // Prefetch project detail on hover for instant navigation
+  const handlePrefetch = () => {
+    queryClient.prefetchQuery({
+      queryKey: ['project', recordId],
+      queryFn: async () => {
+        const response = await fetch(`/api/projects/${recordId}`);
+        if (!response.ok) throw new Error('Failed to prefetch project');
+        return response.json();
+      },
+      staleTime: 300000, // 5 minutes (matches detail page cache)
+    });
+  };
+
   return (
     <div>
       {/* Hold banner (if on hold) */}
@@ -73,13 +90,17 @@ export function ProjectRow({ project }: ProjectRowProps) {
           ${isOnHold ? 'rounded-t-none border-t-0' : ''}
         `}
         data-testid="project-row"
-        onClick={() => console.log('[ProjectRow] Navigating to project:', recordId)}
+        onMouseEnter={handlePrefetch}
+        onClick={() => console.log('[ProjectRow] Navigating to project (prefetched):', recordId)}
       >
         <div className="flex items-center gap-6 p-4">
           {/* Column 1 - Customer Info */}
           <div className="flex-shrink-0 w-56 space-y-1">
-            <div className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors" data-testid="customer-name">
-              {parsedName.firstName} {parsedName.lastName}
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors" data-testid="customer-name">
+                {parsedName.firstName} {parsedName.lastName}
+              </div>
+              <StatusBadge status={projectStatus} />
             </div>
             <div className="text-sm text-slate-600">
               {formattedAddress.line1}
