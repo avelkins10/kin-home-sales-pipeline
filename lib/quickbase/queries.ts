@@ -24,6 +24,11 @@ export function buildRoleClause(userId: string, role: string): string {
   };
 
   switch (role) {
+    case 'super_admin':
+    case 'regional':
+    case 'office_leader':
+      // These roles see all projects, no user filter
+      return '{3.GT.0}'; // Record ID > 0 (matches all records)
     case 'closer':
       return buildClause(PROJECT_FIELDS.CLOSER_ID, userIds);
     case 'setter':
