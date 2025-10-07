@@ -136,12 +136,20 @@ class QuickbaseClient {
       if (!response.ok) {
         const error = await response.json();
         const errorMessage = error.message || response.statusText;
+        const errorDetails = {
+          status: response.status,
+          message: errorMessage,
+          description: error.description,
+          errorCode: error.errorCode
+        };
+        console.error('[QuickbaseClient] API Error:', errorDetails);
         logQuickbaseError('POST', '/v1/records/query', new Error(errorMessage));
-        throw new Error(`Quickbase API error: ${errorMessage}`);
+        throw new Error(`Quickbase API error (${response.status}): ${errorMessage}`);
       }
 
       const json = await response.json();
       const duration = Date.now() - startTime;
+      console.log('[QuickbaseClient] Query successful - returned', json.data?.length || 0, 'records in', duration, 'ms');
       logQuickbaseResponse('POST', '/v1/records/query', duration, json.data?.length);
       return json;
     });

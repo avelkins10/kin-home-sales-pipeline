@@ -13,8 +13,10 @@ const QB_TABLE_PROJECTS = process.env.QUICKBASE_TABLE_PROJECTS || 'br9kwm8na';
 
 // Shared role scoping helper
 export function buildRoleClause(userId: string, role: string): string {
+  console.log('[buildRoleClause] Building clause for:', { userId, role });
+
   const userIds = userId.split(',').map(id => id.trim());
-  
+
   const buildClause = (fieldId: number, ids: string[]) => {
     if (ids.length === 1) {
       return `{${fieldId}.EX.'${ids[0]}'}`;
@@ -23,24 +25,39 @@ export function buildRoleClause(userId: string, role: string): string {
     return ids.map(id => `{${fieldId}.EX.'${id}'}`).join(' OR ');
   };
 
+  let clause: string;
   switch (role) {
     case 'super_admin':
     case 'regional':
     case 'office_leader':
       // These roles see all projects, no user filter
-      return '{3.GT.0}'; // Record ID > 0 (matches all records)
+      clause = '{3.GT.0}'; // Record ID > 0 (matches all records)
+      console.log('[buildRoleClause] Admin role detected, returning all-projects clause:', clause);
+      break;
     case 'closer':
-      return buildClause(PROJECT_FIELDS.CLOSER_ID, userIds);
+      clause = buildClause(PROJECT_FIELDS.CLOSER_ID, userIds);
+      console.log('[buildRoleClause] Closer role, filtering by closer ID:', clause);
+      break;
     case 'setter':
-      return buildClause(PROJECT_FIELDS.SETTER_ID, userIds);
+      clause = buildClause(PROJECT_FIELDS.SETTER_ID, userIds);
+      console.log('[buildRoleClause] Setter role, filtering by setter ID:', clause);
+      break;
     case 'coordinator':
-      return buildClause(PROJECT_FIELDS.PROJECT_COORDINATOR_ID, userIds);
+      clause = buildClause(PROJECT_FIELDS.PROJECT_COORDINATOR_ID, userIds);
+      console.log('[buildRoleClause] Coordinator role, filtering by coordinator ID:', clause);
+      break;
     default:
-      return buildClause(PROJECT_FIELDS.CLOSER_ID, userIds);
+      clause = buildClause(PROJECT_FIELDS.CLOSER_ID, userIds);
+      console.log('[buildRoleClause] Unknown role, defaulting to closer filter:', clause);
+      break;
   }
+
+  return clause;
 }
 
 export async function getProjectsForUser(userId: string, role: string, view?: string, search?: string) {
+  console.log('[getProjectsForUser] START - userId:', userId, 'role:', role, 'view:', view, 'search:', search);
+
   // Build role-based where clause using shared helper
   const roleClause = buildRoleClause(userId, role);
 
@@ -59,10 +76,13 @@ export async function getProjectsForUser(userId: string, role: string, view?: st
     whereClause = `(${whereClause}) AND ${searchFilter}`;
   }
 
+  console.log('[getProjectsForUser] Final WHERE clause:', whereClause);
+
   // Determine sort order based on view
   const sortBy = getSortOrder(view);
 
   try {
+    console.log('[getProjectsForUser] Querying QuickBase table:', QB_TABLE_PROJECTS);
     const result = await qbClient.queryRecords({
       from: QB_TABLE_PROJECTS,
       select: [
@@ -113,8 +133,18 @@ export async function getProjectsForUser(userId: string, role: string, view?: st
       sortBy,
     });
 
+    console.log('[getProjectsForUser] QuickBase response:', {
+      totalRecords: result.data?.length || 0,
+      metadata: result.metadata
+    });
+
+    if (!result.data || result.data.length === 0) {
+      console.warn('[getProjectsForUser] WARNING: No projects returned from QuickBase');
+    }
+
     return result.data;
   } catch (error) {
+    console.error('[getProjectsForUser] ERROR:', error);
     logError('Error fetching projects', error as Error);
     return [];
   }
