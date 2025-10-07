@@ -22,8 +22,14 @@ interface MilestoneNodeProps {
 }
 
 export function MilestoneNode({ milestone, isBlocked }: MilestoneNodeProps) {
+  // Debug logging for rejected status
+  if (milestone.name === 'Intake' && milestone.status === 'rejected') {
+    console.log('[MilestoneNode] Intake milestone status:', milestone.status, 'color should be red')
+  }
+
   const getStatusColor = () => {
     if (milestone.status === 'rejected') {
+      console.log('[MilestoneNode] Returning red color for rejected status')
       return 'bg-rose-500 border-rose-600'
     }
     if (isBlocked || milestone.status === 'blocked') {

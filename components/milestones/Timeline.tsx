@@ -50,18 +50,24 @@ export function Timeline({ project }: TimelineProps) {
   console.log('[Timeline] Intake status:', intakeStatus, 'for project status:', projectStatus)
 
   // Build milestones array
+  const intakeMilestone = {
+    name: 'Intake',
+    icon: '📋',
+    color: 'gray',
+    status: intakeStatus,
+    date: isFailedProject
+      ? (project[PROJECT_FIELDS.SALES_DATE]?.value ? new Date(project[PROJECT_FIELDS.SALES_DATE].value) : undefined)
+      : (project[PROJECT_FIELDS.FINANCE_INTAKE_APPROVED_DATE]?.value ?
+          new Date(project[PROJECT_FIELDS.FINANCE_INTAKE_APPROVED_DATE].value) :
+          (project[PROJECT_FIELDS.SALES_DATE]?.value ? new Date(project[PROJECT_FIELDS.SALES_DATE].value) : undefined))
+  }
+
+  if (isFailedProject) {
+    console.log('[Timeline] Intake milestone object:', intakeMilestone)
+  }
+
   const milestones = [
-    {
-      name: 'Intake',
-      icon: '📋',
-      color: 'gray',
-      status: intakeStatus,
-      date: isFailedProject
-        ? (project[PROJECT_FIELDS.SALES_DATE]?.value ? new Date(project[PROJECT_FIELDS.SALES_DATE].value) : undefined)
-        : (project[PROJECT_FIELDS.FINANCE_INTAKE_APPROVED_DATE]?.value ?
-            new Date(project[PROJECT_FIELDS.FINANCE_INTAKE_APPROVED_DATE].value) :
-            (project[PROJECT_FIELDS.SALES_DATE]?.value ? new Date(project[PROJECT_FIELDS.SALES_DATE].value) : undefined))
-    },
+    intakeMilestone,
     {
       name: 'Survey',
       icon: '📐',
