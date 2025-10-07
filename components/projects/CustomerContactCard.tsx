@@ -28,8 +28,10 @@ export function CustomerContactCard({ project }: CustomerContactCardProps) {
 
   // Parse address - QuickBase field contains: address, email, maps URL all concatenated
   // Extract just the street address (first part before any comma or email)
-  const parseAddress = (rawAddress: string) => {
+  const parseAddress = (rawAddress: string): string => {
     if (!rawAddress || typeof rawAddress !== 'string') return ''
+
+    console.log('[CustomerContactCard] Raw address:', rawAddress)
 
     // Remove any URLs (https://...)
     let cleaned = rawAddress.replace(/https?:\/\/[^\s,]+/g, '').trim()
@@ -45,7 +47,10 @@ export function CustomerContactCard({ project }: CustomerContactCardProps) {
 
     // Split by comma and take first meaningful part
     const parts = cleaned.split(',').map(p => p.trim()).filter(Boolean)
-    return parts[0] || ''
+    const result = parts[0] || ''
+
+    console.log('[CustomerContactCard] Cleaned address:', result)
+    return result
   }
 
   const address = parseAddress(addressRaw)
