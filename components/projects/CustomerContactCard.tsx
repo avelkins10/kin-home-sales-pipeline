@@ -13,20 +13,39 @@ interface CustomerContactCardProps {
 export function CustomerContactCard({ project }: CustomerContactCardProps) {
   // Extract customer contact data
   const customerName = project[PROJECT_FIELDS.CUSTOMER_NAME]?.value || 'N/A'
-  const phone = project[PROJECT_FIELDS.CUSTOMER_PHONE]?.value || ''
-  const email = project[PROJECT_FIELDS.CUSTOMER_EMAIL]?.value || ''
+  const phoneRaw = project[PROJECT_FIELDS.CUSTOMER_PHONE]?.value || ''
+  const emailRaw = project[PROJECT_FIELDS.CUSTOMER_EMAIL]?.value || ''
   const addressRaw = project[PROJECT_FIELDS.CUSTOMER_ADDRESS]?.value || ''
   const city = project[PROJECT_FIELDS.CUSTOMER_CITY]?.value || ''
   const state = project[PROJECT_FIELDS.CUSTOMER_STATE]?.value || ''
   const zip = project[PROJECT_FIELDS.CUSTOMER_ZIP]?.value || ''
 
-  // Parse address - QuickBase sometimes includes extra data after commas
-  // Extract just the street address (first part before any comma)
+  // Clean phone - sometimes formatted as "(407) 924-3849" or might have extra data
+  const phone = typeof phoneRaw === 'string' ? phoneRaw.trim() : ''
+
+  // Clean email - sometimes might have extra data
+  const email = typeof emailRaw === 'string' ? emailRaw.trim() : ''
+
+  // Parse address - QuickBase field contains: address, email, maps URL all concatenated
+  // Extract just the street address (first part before any comma or email)
   const parseAddress = (rawAddress: string) => {
     if (!rawAddress || typeof rawAddress !== 'string') return ''
-    // Split by comma and take first part, or check for URL pattern
-    const parts = rawAddress.split(',')
-    return parts[0].trim()
+
+    // Remove any URLs (https://...)
+    let cleaned = rawAddress.replace(/https?:\/\/[^\s,]+/g, '').trim()
+
+    // Remove email addresses (anything@anything.domain)
+    cleaned = cleaned.replace(/[\w.-]+@[\w.-]+\.\w+/g, '').trim()
+
+    // Clean up multiple commas and spaces
+    cleaned = cleaned.replace(/,+/g, ',').replace(/\s+/g, ' ').trim()
+
+    // Remove leading/trailing commas
+    cleaned = cleaned.replace(/^,|,$/g, '').trim()
+
+    // Split by comma and take first meaningful part
+    const parts = cleaned.split(',').map(p => p.trim()).filter(Boolean)
+    return parts[0] || ''
   }
 
   const address = parseAddress(addressRaw)
