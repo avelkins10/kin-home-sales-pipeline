@@ -57,6 +57,7 @@ export function ProjectRow({ project }: ProjectRowProps) {
           ${isOnHold ? 'rounded-t-none border-t-0' : ''}
         `}
         data-testid="project-row"
+        onClick={() => console.log('[ProjectRow] Navigating to project:', recordId)}
       >
         <div className="flex items-center gap-6 p-4">
           {/* Column 1 - Customer Info */}
