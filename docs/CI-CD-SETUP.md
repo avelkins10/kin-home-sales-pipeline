@@ -17,7 +17,12 @@
 - Full test suite including database setup
 - Unit tests with coverage
 - All integration tests including production smoke tests
-- Used for `predeploy` and production deployments
+- Used for CI (not predeploy)
+
+**Predeploy (`test:critical`):**
+- Fast checks to unblock production deploys
+- Runs unit tests and a grep-tagged subset of Playwright tests (`@critical`)
+- Use to keep deploy cycle fast while maintaining safety
 
 **Production Validation (`test:smoke`):**
 - Dedicated production smoke tests

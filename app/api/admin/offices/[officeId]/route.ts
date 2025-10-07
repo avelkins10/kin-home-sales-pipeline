@@ -5,12 +5,7 @@ import { requireRole } from '@/lib/auth/guards'
 import { sql } from '@/lib/db/client'
 import { logInfo, logError, logWarn, logAudit } from '@/lib/logging/logger'
 import { z } from 'zod'
-
-const updateOfficeSchema = z.object({
-  name: z.string().min(1).max(100).optional(),
-  region: z.enum(['southwest', 'southeast', 'midwest', 'northeast', 'west']).optional(),
-  leaderId: z.string().optional(),
-})
+import { updateOfficeSchema } from '@/lib/validation/admin'
 
 export async function PATCH(
   request: NextRequest,

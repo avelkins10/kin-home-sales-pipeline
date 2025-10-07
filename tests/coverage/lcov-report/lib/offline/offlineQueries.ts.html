@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/149</span>
+                <span class='fraction'>0/155</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/149</span>
+                <span class='fraction'>0/155</span>
             </div>
         
             
@@ -212,7 +212,13 @@
 <a name='L147'></a><a href='#L147'>147</a>
 <a name='L148'></a><a href='#L148'>148</a>
 <a name='L149'></a><a href='#L149'>149</a>
-<a name='L150'></a><a href='#L150'>150</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L150'></a><a href='#L150'>150</a>
+<a name='L151'></a><a href='#L151'>151</a>
+<a name='L152'></a><a href='#L152'>152</a>
+<a name='L153'></a><a href='#L153'>153</a>
+<a name='L154'></a><a href='#L154'>154</a>
+<a name='L155'></a><a href='#L155'>155</a>
+<a name='L156'></a><a href='#L156'>156</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -361,8 +367,13 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" >import { getProjectsForUser, getProjectById } from '@/lib/quickbase/queries';<span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" ></span></span></span>
-<span class="cstat-no" title="statement not covered" >import { cacheProject, getCachedProject, cacheProjectList, getCachedProjectList } from './storage';</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" >import { cacheProject, getCachedProject, cacheProjectList, getCachedProjectList } from './storage';</span></span></span>
 <span class="cstat-no" title="statement not covered" >import { QuickbaseProject } from '@/lib/types/project';</span>
 <span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" >// Offline detection helpers</span>
@@ -384,7 +395,10 @@
 <span class="cstat-no" title="statement not covered" >  try {</span>
 <span class="cstat-no" title="statement not covered" >    if (isOnline()) {</span>
 <span class="cstat-no" title="statement not covered" >      // Online: fetch from API and cache result</span>
-<span class="cstat-no" title="statement not covered" >      const projects = await getProjectsForUser(userId, role, view, search);</span>
+<span class="cstat-no" title="statement not covered" >      const url = `/api/projects${view ? `?view=${encodeURIComponent(view)}` : ''}${!view &amp;&amp; search ? `?search=${encodeURIComponent(search)}` : view &amp;&amp; search ? `&amp;search=${encodeURIComponent(search)}` : ''}`;</span>
+<span class="cstat-no" title="statement not covered" >      const res = await fetch(url);</span>
+<span class="cstat-no" title="statement not covered" >      if (!res.ok) throw new Error('Failed to fetch projects');</span>
+<span class="cstat-no" title="statement not covered" >      const projects = await res.json();</span>
 <span class="cstat-no" title="statement not covered" >      await cacheProjectList(projects, userId, role);</span>
 <span class="cstat-no" title="statement not covered" >      return projects;</span>
 <span class="cstat-no" title="statement not covered" >    } else {</span>
@@ -411,7 +425,9 @@
 <span class="cstat-no" title="statement not covered" >  try {</span>
 <span class="cstat-no" title="statement not covered" >    if (isOnline()) {</span>
 <span class="cstat-no" title="statement not covered" >      // Online: fetch from API and cache result</span>
-<span class="cstat-no" title="statement not covered" >      const project = await getProjectById(recordId);</span>
+<span class="cstat-no" title="statement not covered" >      const res = await fetch(`/api/projects/${recordId}`);</span>
+<span class="cstat-no" title="statement not covered" >      if (!res.ok) throw new Error('Failed to fetch project');</span>
+<span class="cstat-no" title="statement not covered" >      const project = await res.json();</span>
 <span class="cstat-no" title="statement not covered" >      if (project) {</span>
 <span class="cstat-no" title="statement not covered" >        await cacheProject(project);</span>
 <span class="cstat-no" title="statement not covered" >      }</span>
@@ -446,7 +462,9 @@
 <span class="cstat-no" title="statement not covered" >    }</span>
 <span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" >    console.log('Warming cache for user:', userId, 'role:', role);</span>
-<span class="cstat-no" title="statement not covered" >    const projects = await getProjectsForUser(userId, role);</span>
+<span class="cstat-no" title="statement not covered" >    const res = await fetch(`/api/projects`);</span>
+<span class="cstat-no" title="statement not covered" >    if (!res.ok) throw new Error('Failed to warm cache');</span>
+<span class="cstat-no" title="statement not covered" >    const projects = await res.json();</span>
 <span class="cstat-no" title="statement not covered" >    await cacheProjectList(projects, userId, role);</span>
 <span class="cstat-no" title="statement not covered" >    </span>
 <span class="cstat-no" title="statement not covered" >    // Cache individual projects</span>
@@ -517,7 +535,7 @@
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-10-06T17:22:08.382Z
+                at 2025-10-07T19:14:42.683Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

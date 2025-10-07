@@ -1,6 +1,1430 @@
 [
   {
     "3": {
+      "value": 9936
+    },
+    "6": {
+      "value": "Ashmeed Mohammed - 589 Oak Branch Cir"
+    },
+    "7": {
+      "value": ""
+    },
+    "8": {
+      "value": ""
+    },
+    "9": {
+      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9936&z="
+    },
+    "10": {
+      "value": "Active"
+    },
+    "11": {
+      "value": 4515911
+    },
+    "12": {
+      "value": ""
+    },
+    "13": {
+      "value": 8.505
+    },
+    "14": {
+      "value": null
+    },
+    "15": {
+      "value": "12737"
+    },
+    "16": {
+      "value": 21
+    },
+    "17": {
+      "value": "USE7600H-USMNBE78"
+    },
+    "18": {
+      "value": "39.989999999999995"
+    },
+    "19": {
+      "value": 4.999166372721929
+    },
+    "20": {
+      "value": false
+    },
+    "21": {
+      "value": null
+    },
+    "22": {
+      "value": null
+    },
+    "23": {
+      "value": false
+    },
+    "24": {
+      "value": null
+    },
+    "25": {
+      "value": null
+    },
+    "26": {
+      "value": false
+    },
+    "27": {
+      "value": null
+    },
+    "28": {
+      "value": null
+    },
+    "29": {
+      "value": false
+    },
+    "30": {
+      "value": null
+    },
+    "514": {
+      "value": ""
+    },
+    "515": {
+      "value": ""
+    },
+    "516": {
+      "value": 928
+    }
+  },
+  {
+    "3": {
+      "value": 9935
+    },
+    "6": {
+      "value": "Tim Rollefson - 1016 State St"
+    },
+    "7": {
+      "value": ""
+    },
+    "8": {
+      "value": ""
+    },
+    "9": {
+      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9935&z="
+    },
+    "10": {
+      "value": "Active"
+    },
+    "11": {
+      "value": 4515674
+    },
+    "12": {
+      "value": ""
+    },
+    "13": {
+      "value": 3.24
+    },
+    "14": {
+      "value": null
+    },
+    "15": {
+      "value": "4081"
+    },
+    "16": {
+      "value": 8
+    },
+    "17": {
+      "value": "USE3800H-USMNBE78"
+    },
+    "18": {
+      "value": "0"
+    },
+    "19": {
+      "value": 3.37
+    },
+    "20": {
+      "value": false
+    },
+    "21": {
+      "value": null
+    },
+    "22": {
+      "value": null
+    },
+    "23": {
+      "value": false
+    },
+    "24": {
+      "value": null
+    },
+    "25": {
+      "value": null
+    },
+    "26": {
+      "value": false
+    },
+    "27": {
+      "value": null
+    },
+    "28": {
+      "value": null
+    },
+    "29": {
+      "value": false
+    },
+    "30": {
+      "value": null
+    },
+    "514": {
+      "value": ""
+    },
+    "515": {
+      "value": ""
+    },
+    "516": {
+      "value": 980
+    }
+  },
+  {
+    "3": {
+      "value": 9934
+    },
+    "6": {
+      "value": "Tracey Hessel - 1575 Allen Ave"
+    },
+    "7": {
+      "value": ""
+    },
+    "8": {
+      "value": ""
+    },
+    "9": {
+      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9934&z="
+    },
+    "10": {
+      "value": "Active"
+    },
+    "11": {
+      "value": 4515658
+    },
+    "12": {
+      "value": ""
+    },
+    "13": {
+      "value": 6.48
+    },
+    "14": {
+      "value": null
+    },
+    "15": {
+      "value": "7728"
+    },
+    "16": {
+      "value": 16
+    },
+    "17": {
+      "value": "USE5700H-USMNBE78"
+    },
+    "18": {
+      "value": "0"
+    },
+    "19": {
+      "value": 3.26
+    },
+    "20": {
+      "value": false
+    },
+    "21": {
+      "value": null
+    },
+    "22": {
+      "value": null
+    },
+    "23": {
+      "value": false
+    },
+    "24": {
+      "value": null
+    },
+    "25": {
+      "value": null
+    },
+    "26": {
+      "value": false
+    },
+    "27": {
+      "value": null
+    },
+    "28": {
+      "value": null
+    },
+    "29": {
+      "value": false
+    },
+    "30": {
+      "value": null
+    },
+    "514": {
+      "value": ""
+    },
+    "515": {
+      "value": ""
+    },
+    "516": {
+      "value": 980
+    }
+  },
+  {
+    "3": {
+      "value": 9933
+    },
+    "6": {
+      "value": "8803"
+    },
+    "7": {
+      "value": ""
+    },
+    "8": {
+      "value": ""
+    },
+    "9": {
+      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9933&z="
+    },
+    "10": {
+      "value": "Active"
+    },
+    "11": {
+      "value": null
+    },
+    "12": {
+      "value": ""
+    },
+    "13": {
+      "value": 0
+    },
+    "14": {
+      "value": null
+    },
+    "15": {
+      "value": ""
+    },
+    "16": {
+      "value": null
+    },
+    "17": {
+      "value": ""
+    },
+    "18": {
+      "value": ""
+    },
+    "19": {
+      "value": null
+    },
+    "20": {
+      "value": false
+    },
+    "21": {
+      "value": null
+    },
+    "22": {
+      "value": null
+    },
+    "23": {
+      "value": false
+    },
+    "24": {
+      "value": null
+    },
+    "25": {
+      "value": null
+    },
+    "26": {
+      "value": false
+    },
+    "27": {
+      "value": null
+    },
+    "28": {
+      "value": null
+    },
+    "29": {
+      "value": false
+    },
+    "30": {
+      "value": null
+    },
+    "514": {
+      "value": ""
+    },
+    "515": {
+      "value": ""
+    },
+    "516": {
+      "value": 196
+    }
+  },
+  {
+    "3": {
+      "value": 9932
+    },
+    "6": {
+      "value": "Cindy Bono - 3123 Byington Terrace"
+    },
+    "7": {
+      "value": ""
+    },
+    "8": {
+      "value": ""
+    },
+    "9": {
+      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9932&z="
+    },
+    "10": {
+      "value": "Active"
+    },
+    "11": {
+      "value": 4515760
+    },
+    "12": {
+      "value": ""
+    },
+    "13": {
+      "value": 6.48
+    },
+    "14": {
+      "value": null
+    },
+    "15": {
+      "value": "9176"
+    },
+    "16": {
+      "value": 16
+    },
+    "17": {
+      "value": "USE11400H-USMNBE78"
+    },
+    "18": {
+      "value": "0"
+    },
+    "19": {
+      "value": 3.28
+    },
+    "20": {
+      "value": false
+    },
+    "21": {
+      "value": null
+    },
+    "22": {
+      "value": null
+    },
+    "23": {
+      "value": false
+    },
+    "24": {
+      "value": null
+    },
+    "25": {
+      "value": null
+    },
+    "26": {
+      "value": false
+    },
+    "27": {
+      "value": null
+    },
+    "28": {
+      "value": null
+    },
+    "29": {
+      "value": false
+    },
+    "30": {
+      "value": null
+    },
+    "514": {
+      "value": ""
+    },
+    "515": {
+      "value": ""
+    },
+    "516": {
+      "value": 965
+    }
+  },
+  {
+    "3": {
+      "value": 9931
+    },
+    "6": {
+      "value": "Mara Bierbrodt - 1080 Grove Ave"
+    },
+    "7": {
+      "value": ""
+    },
+    "8": {
+      "value": ""
+    },
+    "9": {
+      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9931&z="
+    },
+    "10": {
+      "value": "Active"
+    },
+    "11": {
+      "value": 4515750
+    },
+    "12": {
+      "value": ""
+    },
+    "13": {
+      "value": 14.58
+    },
+    "14": {
+      "value": null
+    },
+    "15": {
+      "value": "16874"
+    },
+    "16": {
+      "value": 36
+    },
+    "17": {
+      "value": "USE11400H-USMNBE78"
+    },
+    "18": {
+      "value": "0"
+    },
+    "19": {
+      "value": 3.15
+    },
+    "20": {
+      "value": false
+    },
+    "21": {
+      "value": null
+    },
+    "22": {
+      "value": null
+    },
+    "23": {
+      "value": false
+    },
+    "24": {
+      "value": null
+    },
+    "25": {
+      "value": null
+    },
+    "26": {
+      "value": false
+    },
+    "27": {
+      "value": null
+    },
+    "28": {
+      "value": null
+    },
+    "29": {
+      "value": false
+    },
+    "30": {
+      "value": null
+    },
+    "514": {
+      "value": ""
+    },
+    "515": {
+      "value": ""
+    },
+    "516": {
+      "value": 980
+    }
+  },
+  {
+    "3": {
+      "value": 9930
+    },
+    "6": {
+      "value": "William Rivera - 12042 Florida Woods Ln"
+    },
+    "7": {
+      "value": ""
+    },
+    "8": {
+      "value": ""
+    },
+    "9": {
+      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9930&z="
+    },
+    "10": {
+      "value": "Active"
+    },
+    "11": {
+      "value": 4515657
+    },
+    "12": {
+      "value": ""
+    },
+    "13": {
+      "value": 14.58
+    },
+    "14": {
+      "value": null
+    },
+    "15": {
+      "value": "22184"
+    },
+    "16": {
+      "value": 36
+    },
+    "17": {
+      "value": "USE11400H-USMNBE78"
+    },
+    "18": {
+      "value": "0"
+    },
+    "19": {
+      "value": 3.44
+    },
+    "20": {
+      "value": false
+    },
+    "21": {
+      "value": null
+    },
+    "22": {
+      "value": null
+    },
+    "23": {
+      "value": false
+    },
+    "24": {
+      "value": null
+    },
+    "25": {
+      "value": null
+    },
+    "26": {
+      "value": false
+    },
+    "27": {
+      "value": null
+    },
+    "28": {
+      "value": null
+    },
+    "29": {
+      "value": false
+    },
+    "30": {
+      "value": null
+    },
+    "514": {
+      "value": ""
+    },
+    "515": {
+      "value": ""
+    },
+    "516": {
+      "value": 959
+    }
+  },
+  {
+    "3": {
+      "value": 9929
+    },
+    "6": {
+      "value": "Richard Hoepner - 1402 Fox Trail Dr NE"
+    },
+    "7": {
+      "value": ""
+    },
+    "8": {
+      "value": ""
+    },
+    "9": {
+      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9929&z="
+    },
+    "10": {
+      "value": "Active"
+    },
+    "11": {
+      "value": 4515653
+    },
+    "12": {
+      "value": ""
+    },
+    "13": {
+      "value": 7.92
+    },
+    "14": {
+      "value": null
+    },
+    "15": {
+      "value": "9633"
+    },
+    "16": {
+      "value": 22
+    },
+    "17": {
+      "value": "USE7600H-USMNBE78"
+    },
+    "18": {
+      "value": "28.9"
+    },
+    "19": {
+      "value": 6.047819444444444
+    },
+    "20": {
+      "value": false
+    },
+    "21": {
+      "value": null
+    },
+    "22": {
+      "value": null
+    },
+    "23": {
+      "value": false
+    },
+    "24": {
+      "value": null
+    },
+    "25": {
+      "value": null
+    },
+    "26": {
+      "value": false
+    },
+    "27": {
+      "value": null
+    },
+    "28": {
+      "value": null
+    },
+    "29": {
+      "value": false
+    },
+    "30": {
+      "value": null
+    },
+    "514": {
+      "value": ""
+    },
+    "515": {
+      "value": ""
+    },
+    "516": {
+      "value": 923
+    }
+  },
+  {
+    "3": {
+      "value": 9928
+    },
+    "6": {
+      "value": "Jose Guerra - 1361 Nadine Dr"
+    },
+    "7": {
+      "value": ""
+    },
+    "8": {
+      "value": ""
+    },
+    "9": {
+      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9928&z="
+    },
+    "10": {
+      "value": "Active"
+    },
+    "11": {
+      "value": 4515630
+    },
+    "12": {
+      "value": ""
+    },
+    "13": {
+      "value": 12.555
+    },
+    "14": {
+      "value": null
+    },
+    "15": {
+      "value": "16084"
+    },
+    "16": {
+      "value": 31
+    },
+    "17": {
+      "value": "USE10000H-USMNBE78"
+    },
+    "18": {
+      "value": "0"
+    },
+    "19": {
+      "value": 2.78
+    },
+    "20": {
+      "value": false
+    },
+    "21": {
+      "value": null
+    },
+    "22": {
+      "value": null
+    },
+    "23": {
+      "value": false
+    },
+    "24": {
+      "value": null
+    },
+    "25": {
+      "value": null
+    },
+    "26": {
+      "value": false
+    },
+    "27": {
+      "value": null
+    },
+    "28": {
+      "value": null
+    },
+    "29": {
+      "value": false
+    },
+    "30": {
+      "value": null
+    },
+    "514": {
+      "value": ""
+    },
+    "515": {
+      "value": ""
+    },
+    "516": {
+      "value": 965
+    }
+  },
+  {
+    "3": {
+      "value": 9927
+    },
+    "6": {
+      "value": "Susan Griffith - 321 Sussex Dr NE"
+    },
+    "7": {
+      "value": ""
+    },
+    "8": {
+      "value": ""
+    },
+    "9": {
+      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9927&z="
+    },
+    "10": {
+      "value": "Active"
+    },
+    "11": {
+      "value": 4515614
+    },
+    "12": {
+      "value": ""
+    },
+    "13": {
+      "value": 4.455
+    },
+    "14": {
+      "value": null
+    },
+    "15": {
+      "value": "5635"
+    },
+    "16": {
+      "value": 11
+    },
+    "17": {
+      "value": "USE3800H-USMNBE78"
+    },
+    "18": {
+      "value": "0"
+    },
+    "19": {
+      "value": 3.58
+    },
+    "20": {
+      "value": false
+    },
+    "21": {
+      "value": null
+    },
+    "22": {
+      "value": null
+    },
+    "23": {
+      "value": false
+    },
+    "24": {
+      "value": null
+    },
+    "25": {
+      "value": null
+    },
+    "26": {
+      "value": false
+    },
+    "27": {
+      "value": null
+    },
+    "28": {
+      "value": null
+    },
+    "29": {
+      "value": false
+    },
+    "30": {
+      "value": null
+    },
+    "514": {
+      "value": ""
+    },
+    "515": {
+      "value": ""
+    },
+    "516": {
+      "value": 923
+    }
+  },
+  {
+    "3": {
+      "value": 9926
+    },
+    "6": {
+      "value": "Ieshia Dupes - 3001 Lakeview Ct"
+    },
+    "7": {
+      "value": ""
+    },
+    "8": {
+      "value": ""
+    },
+    "9": {
+      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9926&z="
+    },
+    "10": {
+      "value": "Active"
+    },
+    "11": {
+      "value": 4515609
+    },
+    "12": {
+      "value": ""
+    },
+    "13": {
+      "value": 8.91
+    },
+    "14": {
+      "value": null
+    },
+    "15": {
+      "value": "13628"
+    },
+    "16": {
+      "value": 22
+    },
+    "17": {
+      "value": "USE7600H-USMNBE78"
+    },
+    "18": {
+      "value": "0"
+    },
+    "19": {
+      "value": 3.32
+    },
+    "20": {
+      "value": false
+    },
+    "21": {
+      "value": null
+    },
+    "22": {
+      "value": null
+    },
+    "23": {
+      "value": false
+    },
+    "24": {
+      "value": null
+    },
+    "25": {
+      "value": null
+    },
+    "26": {
+      "value": false
+    },
+    "27": {
+      "value": null
+    },
+    "28": {
+      "value": null
+    },
+    "29": {
+      "value": false
+    },
+    "30": {
+      "value": null
+    },
+    "514": {
+      "value": ""
+    },
+    "515": {
+      "value": ""
+    },
+    "516": {
+      "value": 906
+    }
+  },
+  {
+    "3": {
+      "value": 9925
+    },
+    "6": {
+      "value": "Ajit Kulkarni - 2521 Oak St"
+    },
+    "7": {
+      "value": ""
+    },
+    "8": {
+      "value": ""
+    },
+    "9": {
+      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9925&z="
+    },
+    "10": {
+      "value": "Active"
+    },
+    "11": {
+      "value": 4515602
+    },
+    "12": {
+      "value": ""
+    },
+    "13": {
+      "value": 3.645
+    },
+    "14": {
+      "value": null
+    },
+    "15": {
+      "value": "5602"
+    },
+    "16": {
+      "value": 9
+    },
+    "17": {
+      "value": "USE3800H-USMNBE78"
+    },
+    "18": {
+      "value": "0"
+    },
+    "19": {
+      "value": 3.71
+    },
+    "20": {
+      "value": false
+    },
+    "21": {
+      "value": null
+    },
+    "22": {
+      "value": null
+    },
+    "23": {
+      "value": false
+    },
+    "24": {
+      "value": null
+    },
+    "25": {
+      "value": null
+    },
+    "26": {
+      "value": false
+    },
+    "27": {
+      "value": null
+    },
+    "28": {
+      "value": null
+    },
+    "29": {
+      "value": false
+    },
+    "30": {
+      "value": null
+    },
+    "514": {
+      "value": ""
+    },
+    "515": {
+      "value": ""
+    },
+    "516": {
+      "value": 862
+    }
+  },
+  {
+    "3": {
+      "value": 9924
+    },
+    "6": {
+      "value": "David Lynch - 501 Forest Dr SE"
+    },
+    "7": {
+      "value": ""
+    },
+    "8": {
+      "value": ""
+    },
+    "9": {
+      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9924&z="
+    },
+    "10": {
+      "value": "Active"
+    },
+    "11": {
+      "value": 4515213
+    },
+    "12": {
+      "value": ""
+    },
+    "13": {
+      "value": 8.505
+    },
+    "14": {
+      "value": null
+    },
+    "15": {
+      "value": "11179"
+    },
+    "16": {
+      "value": 21
+    },
+    "17": {
+      "value": "USE7600H-USMNBE78"
+    },
+    "18": {
+      "value": "28.9"
+    },
+    "19": {
+      "value": 4.781997648442093
+    },
+    "20": {
+      "value": false
+    },
+    "21": {
+      "value": null
+    },
+    "22": {
+      "value": null
+    },
+    "23": {
+      "value": false
+    },
+    "24": {
+      "value": null
+    },
+    "25": {
+      "value": null
+    },
+    "26": {
+      "value": false
+    },
+    "27": {
+      "value": null
+    },
+    "28": {
+      "value": null
+    },
+    "29": {
+      "value": false
+    },
+    "30": {
+      "value": null
+    },
+    "514": {
+      "value": ""
+    },
+    "515": {
+      "value": ""
+    },
+    "516": {
+      "value": 923
+    }
+  },
+  {
+    "3": {
+      "value": 9923
+    },
+    "6": {
+      "value": "Adila Mizrahy - 10219 Louth Ct"
+    },
+    "7": {
+      "value": ""
+    },
+    "8": {
+      "value": ""
+    },
+    "9": {
+      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9923&z="
+    },
+    "10": {
+      "value": "Active"
+    },
+    "11": {
+      "value": 4515488
+    },
+    "12": {
+      "value": ""
+    },
+    "13": {
+      "value": 28.755
+    },
+    "14": {
+      "value": null
+    },
+    "15": {
+      "value": "38093"
+    },
+    "16": {
+      "value": 71
+    },
+    "17": {
+      "value": "USE11400H-USMNBE78"
+    },
+    "18": {
+      "value": "0"
+    },
+    "19": {
+      "value": 2.9
+    },
+    "20": {
+      "value": false
+    },
+    "21": {
+      "value": null
+    },
+    "22": {
+      "value": null
+    },
+    "23": {
+      "value": false
+    },
+    "24": {
+      "value": null
+    },
+    "25": {
+      "value": null
+    },
+    "26": {
+      "value": false
+    },
+    "27": {
+      "value": null
+    },
+    "28": {
+      "value": null
+    },
+    "29": {
+      "value": false
+    },
+    "30": {
+      "value": null
+    },
+    "514": {
+      "value": ""
+    },
+    "515": {
+      "value": ""
+    },
+    "516": {
+      "value": 925
+    }
+  },
+  {
+    "3": {
+      "value": 9922
+    },
+    "6": {
+      "value": "Todd Jass - 865 W 11th St"
+    },
+    "7": {
+      "value": ""
+    },
+    "8": {
+      "value": ""
+    },
+    "9": {
+      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9922&z="
+    },
+    "10": {
+      "value": "Active"
+    },
+    "11": {
+      "value": 4515419
+    },
+    "12": {
+      "value": ""
+    },
+    "13": {
+      "value": 4.86
+    },
+    "14": {
+      "value": null
+    },
+    "15": {
+      "value": "6902"
+    },
+    "16": {
+      "value": 12
+    },
+    "17": {
+      "value": "IQ8M-72-2-US"
+    },
+    "18": {
+      "value": "0"
+    },
+    "19": {
+      "value": 3.59
+    },
+    "20": {
+      "value": false
+    },
+    "21": {
+      "value": null
+    },
+    "22": {
+      "value": null
+    },
+    "23": {
+      "value": false
+    },
+    "24": {
+      "value": null
+    },
+    "25": {
+      "value": null
+    },
+    "26": {
+      "value": false
+    },
+    "27": {
+      "value": null
+    },
+    "28": {
+      "value": null
+    },
+    "29": {
+      "value": false
+    },
+    "30": {
+      "value": null
+    },
+    "514": {
+      "value": ""
+    },
+    "515": {
+      "value": ""
+    },
+    "516": {
+      "value": 980
+    }
+  },
+  {
+    "3": {
+      "value": 9921
+    },
+    "6": {
+      "value": "James Torres - 2161 Emma Lane"
+    },
+    "7": {
+      "value": ""
+    },
+    "8": {
+      "value": ""
+    },
+    "9": {
+      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9921&z="
+    },
+    "10": {
+      "value": "Active"
+    },
+    "11": {
+      "value": 4515410
+    },
+    "12": {
+      "value": ""
+    },
+    "13": {
+      "value": 3.24
+    },
+    "14": {
+      "value": null
+    },
+    "15": {
+      "value": "5071"
+    },
+    "16": {
+      "value": 8
+    },
+    "17": {
+      "value": "USE3800H-USMNBE78"
+    },
+    "18": {
+      "value": "0"
+    },
+    "19": {
+      "value": 3.29320987654321
+    },
+    "20": {
+      "value": false
+    },
+    "21": {
+      "value": null
+    },
+    "22": {
+      "value": null
+    },
+    "23": {
+      "value": false
+    },
+    "24": {
+      "value": null
+    },
+    "25": {
+      "value": null
+    },
+    "26": {
+      "value": false
+    },
+    "27": {
+      "value": null
+    },
+    "28": {
+      "value": null
+    },
+    "29": {
+      "value": false
+    },
+    "30": {
+      "value": null
+    },
+    "514": {
+      "value": ""
+    },
+    "515": {
+      "value": ""
+    },
+    "516": {
+      "value": 921
+    }
+  },
+  {
+    "3": {
       "value": 9920
     },
     "6": {
@@ -353,1430 +1777,6 @@
     },
     "516": {
       "value": 922
-    }
-  },
-  {
-    "3": {
-      "value": 9916
-    },
-    "6": {
-      "value": "Beverly Petersen - 114 W Main St"
-    },
-    "7": {
-      "value": ""
-    },
-    "8": {
-      "value": ""
-    },
-    "9": {
-      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9916&z="
-    },
-    "10": {
-      "value": "Active"
-    },
-    "11": {
-      "value": 4515249
-    },
-    "12": {
-      "value": ""
-    },
-    "13": {
-      "value": 7.29
-    },
-    "14": {
-      "value": null
-    },
-    "15": {
-      "value": "7990"
-    },
-    "16": {
-      "value": 18
-    },
-    "17": {
-      "value": "USE7600H-USMNBE78"
-    },
-    "18": {
-      "value": "0"
-    },
-    "19": {
-      "value": 3.06
-    },
-    "20": {
-      "value": false
-    },
-    "21": {
-      "value": null
-    },
-    "22": {
-      "value": null
-    },
-    "23": {
-      "value": false
-    },
-    "24": {
-      "value": null
-    },
-    "25": {
-      "value": null
-    },
-    "26": {
-      "value": false
-    },
-    "27": {
-      "value": null
-    },
-    "28": {
-      "value": null
-    },
-    "29": {
-      "value": false
-    },
-    "30": {
-      "value": null
-    },
-    "514": {
-      "value": ""
-    },
-    "515": {
-      "value": ""
-    },
-    "516": {
-      "value": 506
-    }
-  },
-  {
-    "3": {
-      "value": 9915
-    },
-    "6": {
-      "value": "Adam Kramer - 335 W Cardinal St"
-    },
-    "7": {
-      "value": ""
-    },
-    "8": {
-      "value": ""
-    },
-    "9": {
-      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9915&z="
-    },
-    "10": {
-      "value": "Active"
-    },
-    "11": {
-      "value": 4515141
-    },
-    "12": {
-      "value": ""
-    },
-    "13": {
-      "value": 6.48
-    },
-    "14": {
-      "value": null
-    },
-    "15": {
-      "value": "9420"
-    },
-    "16": {
-      "value": 16
-    },
-    "17": {
-      "value": "USE5700H-USMNBE78"
-    },
-    "18": {
-      "value": "0"
-    },
-    "19": {
-      "value": 3.6
-    },
-    "20": {
-      "value": false
-    },
-    "21": {
-      "value": null
-    },
-    "22": {
-      "value": null
-    },
-    "23": {
-      "value": false
-    },
-    "24": {
-      "value": null
-    },
-    "25": {
-      "value": null
-    },
-    "26": {
-      "value": false
-    },
-    "27": {
-      "value": null
-    },
-    "28": {
-      "value": null
-    },
-    "29": {
-      "value": false
-    },
-    "30": {
-      "value": null
-    },
-    "514": {
-      "value": ""
-    },
-    "515": {
-      "value": ""
-    },
-    "516": {
-      "value": 980
-    }
-  },
-  {
-    "3": {
-      "value": 9914
-    },
-    "6": {
-      "value": "Sharon Hollatz - 880 W 11th St Pl"
-    },
-    "7": {
-      "value": ""
-    },
-    "8": {
-      "value": ""
-    },
-    "9": {
-      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9914&z="
-    },
-    "10": {
-      "value": "Active"
-    },
-    "11": {
-      "value": 4515116
-    },
-    "12": {
-      "value": ""
-    },
-    "13": {
-      "value": 3.645
-    },
-    "14": {
-      "value": null
-    },
-    "15": {
-      "value": "4990"
-    },
-    "16": {
-      "value": 9
-    },
-    "17": {
-      "value": "USE3800H-USMNBE78"
-    },
-    "18": {
-      "value": "0"
-    },
-    "19": {
-      "value": 3.64
-    },
-    "20": {
-      "value": false
-    },
-    "21": {
-      "value": null
-    },
-    "22": {
-      "value": null
-    },
-    "23": {
-      "value": false
-    },
-    "24": {
-      "value": null
-    },
-    "25": {
-      "value": null
-    },
-    "26": {
-      "value": false
-    },
-    "27": {
-      "value": null
-    },
-    "28": {
-      "value": null
-    },
-    "29": {
-      "value": false
-    },
-    "30": {
-      "value": null
-    },
-    "514": {
-      "value": ""
-    },
-    "515": {
-      "value": ""
-    },
-    "516": {
-      "value": 980
-    }
-  },
-  {
-    "3": {
-      "value": 9913
-    },
-    "6": {
-      "value": "Joy Burke - 1362 Trollman Ave"
-    },
-    "7": {
-      "value": ""
-    },
-    "8": {
-      "value": ""
-    },
-    "9": {
-      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9913&z="
-    },
-    "10": {
-      "value": "Active"
-    },
-    "11": {
-      "value": 4515151
-    },
-    "12": {
-      "value": ""
-    },
-    "13": {
-      "value": 8.1
-    },
-    "14": {
-      "value": null
-    },
-    "15": {
-      "value": "12432"
-    },
-    "16": {
-      "value": 20
-    },
-    "17": {
-      "value": "USE7600H-USMNBE78"
-    },
-    "18": {
-      "value": "0"
-    },
-    "19": {
-      "value": 3.07
-    },
-    "20": {
-      "value": false
-    },
-    "21": {
-      "value": null
-    },
-    "22": {
-      "value": null
-    },
-    "23": {
-      "value": false
-    },
-    "24": {
-      "value": null
-    },
-    "25": {
-      "value": null
-    },
-    "26": {
-      "value": false
-    },
-    "27": {
-      "value": null
-    },
-    "28": {
-      "value": null
-    },
-    "29": {
-      "value": false
-    },
-    "30": {
-      "value": null
-    },
-    "514": {
-      "value": ""
-    },
-    "515": {
-      "value": ""
-    },
-    "516": {
-      "value": 929
-    }
-  },
-  {
-    "3": {
-      "value": 9912
-    },
-    "6": {
-      "value": "Alex Dahle - 1627 Alloway Dr"
-    },
-    "7": {
-      "value": ""
-    },
-    "8": {
-      "value": ""
-    },
-    "9": {
-      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9912&z="
-    },
-    "10": {
-      "value": "Active"
-    },
-    "11": {
-      "value": 4515139
-    },
-    "12": {
-      "value": ""
-    },
-    "13": {
-      "value": 9.315
-    },
-    "14": {
-      "value": null
-    },
-    "15": {
-      "value": "12980"
-    },
-    "16": {
-      "value": 23
-    },
-    "17": {
-      "value": "USE7600H-USMNBE78"
-    },
-    "18": {
-      "value": "0"
-    },
-    "19": {
-      "value": 3.04
-    },
-    "20": {
-      "value": false
-    },
-    "21": {
-      "value": null
-    },
-    "22": {
-      "value": null
-    },
-    "23": {
-      "value": false
-    },
-    "24": {
-      "value": null
-    },
-    "25": {
-      "value": null
-    },
-    "26": {
-      "value": false
-    },
-    "27": {
-      "value": null
-    },
-    "28": {
-      "value": null
-    },
-    "29": {
-      "value": false
-    },
-    "30": {
-      "value": null
-    },
-    "514": {
-      "value": ""
-    },
-    "515": {
-      "value": ""
-    },
-    "516": {
-      "value": 970
-    }
-  },
-  {
-    "3": {
-      "value": 9911
-    },
-    "6": {
-      "value": "Koffi Gangba - 1970 Sherman Dr"
-    },
-    "7": {
-      "value": ""
-    },
-    "8": {
-      "value": ""
-    },
-    "9": {
-      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9911&z="
-    },
-    "10": {
-      "value": "Active"
-    },
-    "11": {
-      "value": 4515040
-    },
-    "12": {
-      "value": ""
-    },
-    "13": {
-      "value": 11.88
-    },
-    "14": {
-      "value": null
-    },
-    "15": {
-      "value": "17714"
-    },
-    "16": {
-      "value": 33
-    },
-    "17": {
-      "value": "USE10000H-USMNBE78"
-    },
-    "18": {
-      "value": "28.9"
-    },
-    "19": {
-      "value": 4.219409090909091
-    },
-    "20": {
-      "value": false
-    },
-    "21": {
-      "value": null
-    },
-    "22": {
-      "value": null
-    },
-    "23": {
-      "value": false
-    },
-    "24": {
-      "value": null
-    },
-    "25": {
-      "value": null
-    },
-    "26": {
-      "value": false
-    },
-    "27": {
-      "value": null
-    },
-    "28": {
-      "value": null
-    },
-    "29": {
-      "value": false
-    },
-    "30": {
-      "value": null
-    },
-    "514": {
-      "value": ""
-    },
-    "515": {
-      "value": ""
-    },
-    "516": {
-      "value": 914
-    }
-  },
-  {
-    "3": {
-      "value": 9910
-    },
-    "6": {
-      "value": "Blake Hewitt - 238 Brentwood Dr NE"
-    },
-    "7": {
-      "value": ""
-    },
-    "8": {
-      "value": ""
-    },
-    "9": {
-      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9910&z="
-    },
-    "10": {
-      "value": "Active"
-    },
-    "11": {
-      "value": 4514953
-    },
-    "12": {
-      "value": ""
-    },
-    "13": {
-      "value": 7.92
-    },
-    "14": {
-      "value": null
-    },
-    "15": {
-      "value": "10201"
-    },
-    "16": {
-      "value": 22
-    },
-    "17": {
-      "value": "USE7600H-USMNBE78"
-    },
-    "18": {
-      "value": "28.9"
-    },
-    "19": {
-      "value": 4.840954545454546
-    },
-    "20": {
-      "value": false
-    },
-    "21": {
-      "value": null
-    },
-    "22": {
-      "value": null
-    },
-    "23": {
-      "value": false
-    },
-    "24": {
-      "value": null
-    },
-    "25": {
-      "value": null
-    },
-    "26": {
-      "value": false
-    },
-    "27": {
-      "value": null
-    },
-    "28": {
-      "value": null
-    },
-    "29": {
-      "value": false
-    },
-    "30": {
-      "value": null
-    },
-    "514": {
-      "value": ""
-    },
-    "515": {
-      "value": ""
-    },
-    "516": {
-      "value": 506
-    }
-  },
-  {
-    "3": {
-      "value": 9909
-    },
-    "6": {
-      "value": "Andrew Rodriguez - 1703 Blackberry Ct"
-    },
-    "7": {
-      "value": ""
-    },
-    "8": {
-      "value": ""
-    },
-    "9": {
-      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9909&z="
-    },
-    "10": {
-      "value": "Active"
-    },
-    "11": {
-      "value": 4514938
-    },
-    "12": {
-      "value": ""
-    },
-    "13": {
-      "value": 10.53
-    },
-    "14": {
-      "value": null
-    },
-    "15": {
-      "value": "14619"
-    },
-    "16": {
-      "value": 26
-    },
-    "17": {
-      "value": "USE10000H-USMNBE78"
-    },
-    "18": {
-      "value": "28.9"
-    },
-    "19": {
-      "value": 5.821555555555556
-    },
-    "20": {
-      "value": false
-    },
-    "21": {
-      "value": null
-    },
-    "22": {
-      "value": null
-    },
-    "23": {
-      "value": false
-    },
-    "24": {
-      "value": null
-    },
-    "25": {
-      "value": null
-    },
-    "26": {
-      "value": false
-    },
-    "27": {
-      "value": null
-    },
-    "28": {
-      "value": null
-    },
-    "29": {
-      "value": false
-    },
-    "30": {
-      "value": null
-    },
-    "514": {
-      "value": ""
-    },
-    "515": {
-      "value": ""
-    },
-    "516": {
-      "value": 944
-    }
-  },
-  {
-    "3": {
-      "value": 9908
-    },
-    "6": {
-      "value": "Randall Grimmette - 6417 Pine Dr"
-    },
-    "7": {
-      "value": ""
-    },
-    "8": {
-      "value": ""
-    },
-    "9": {
-      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9908&z="
-    },
-    "10": {
-      "value": "Active"
-    },
-    "11": {
-      "value": 4514941
-    },
-    "12": {
-      "value": ""
-    },
-    "13": {
-      "value": 15.39
-    },
-    "14": {
-      "value": null
-    },
-    "15": {
-      "value": "21801"
-    },
-    "16": {
-      "value": 38
-    },
-    "17": {
-      "value": "USE10000H-USMNBE78"
-    },
-    "18": {
-      "value": "0"
-    },
-    "19": {
-      "value": 3.16
-    },
-    "20": {
-      "value": false
-    },
-    "21": {
-      "value": null
-    },
-    "22": {
-      "value": null
-    },
-    "23": {
-      "value": false
-    },
-    "24": {
-      "value": null
-    },
-    "25": {
-      "value": null
-    },
-    "26": {
-      "value": false
-    },
-    "27": {
-      "value": null
-    },
-    "28": {
-      "value": null
-    },
-    "29": {
-      "value": false
-    },
-    "30": {
-      "value": null
-    },
-    "514": {
-      "value": ""
-    },
-    "515": {
-      "value": ""
-    },
-    "516": {
-      "value": 862
-    }
-  },
-  {
-    "3": {
-      "value": 9907
-    },
-    "6": {
-      "value": "Amanda Marcelli - 76 Spicewood Dr"
-    },
-    "7": {
-      "value": ""
-    },
-    "8": {
-      "value": ""
-    },
-    "9": {
-      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9907&z="
-    },
-    "10": {
-      "value": "Active"
-    },
-    "11": {
-      "value": 4514885
-    },
-    "12": {
-      "value": ""
-    },
-    "13": {
-      "value": 8.505
-    },
-    "14": {
-      "value": null
-    },
-    "15": {
-      "value": "10171"
-    },
-    "16": {
-      "value": 21
-    },
-    "17": {
-      "value": "USE7600H-USMNBE78"
-    },
-    "18": {
-      "value": "36.99"
-    },
-    "19": {
-      "value": 4.919854203409759
-    },
-    "20": {
-      "value": false
-    },
-    "21": {
-      "value": null
-    },
-    "22": {
-      "value": null
-    },
-    "23": {
-      "value": false
-    },
-    "24": {
-      "value": null
-    },
-    "25": {
-      "value": null
-    },
-    "26": {
-      "value": false
-    },
-    "27": {
-      "value": null
-    },
-    "28": {
-      "value": null
-    },
-    "29": {
-      "value": false
-    },
-    "30": {
-      "value": null
-    },
-    "514": {
-      "value": ""
-    },
-    "515": {
-      "value": ""
-    },
-    "516": {
-      "value": 949
-    }
-  },
-  {
-    "3": {
-      "value": 9906
-    },
-    "6": {
-      "value": "Cassie Bultsma - 1016 16th Ave NW"
-    },
-    "7": {
-      "value": ""
-    },
-    "8": {
-      "value": ""
-    },
-    "9": {
-      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9906&z="
-    },
-    "10": {
-      "value": "Active"
-    },
-    "11": {
-      "value": 4514931
-    },
-    "12": {
-      "value": ""
-    },
-    "13": {
-      "value": 8.1
-    },
-    "14": {
-      "value": null
-    },
-    "15": {
-      "value": "11601"
-    },
-    "16": {
-      "value": 20
-    },
-    "17": {
-      "value": "USE7600H-USMNBE78"
-    },
-    "18": {
-      "value": "0"
-    },
-    "19": {
-      "value": 3.95
-    },
-    "20": {
-      "value": false
-    },
-    "21": {
-      "value": null
-    },
-    "22": {
-      "value": null
-    },
-    "23": {
-      "value": false
-    },
-    "24": {
-      "value": null
-    },
-    "25": {
-      "value": null
-    },
-    "26": {
-      "value": false
-    },
-    "27": {
-      "value": null
-    },
-    "28": {
-      "value": null
-    },
-    "29": {
-      "value": false
-    },
-    "30": {
-      "value": null
-    },
-    "514": {
-      "value": ""
-    },
-    "515": {
-      "value": ""
-    },
-    "516": {
-      "value": 952
-    }
-  },
-  {
-    "3": {
-      "value": 9905
-    },
-    "6": {
-      "value": "Gary Gebs - 469 Juniper Dr"
-    },
-    "7": {
-      "value": ""
-    },
-    "8": {
-      "value": ""
-    },
-    "9": {
-      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9905&z="
-    },
-    "10": {
-      "value": "Active"
-    },
-    "11": {
-      "value": 4514797
-    },
-    "12": {
-      "value": ""
-    },
-    "13": {
-      "value": 7.29
-    },
-    "14": {
-      "value": null
-    },
-    "15": {
-      "value": "10600"
-    },
-    "16": {
-      "value": 18
-    },
-    "17": {
-      "value": "USE5700H-USMNBE78"
-    },
-    "18": {
-      "value": "28.9"
-    },
-    "19": {
-      "value": 7.498347050754457
-    },
-    "20": {
-      "value": false
-    },
-    "21": {
-      "value": null
-    },
-    "22": {
-      "value": null
-    },
-    "23": {
-      "value": false
-    },
-    "24": {
-      "value": null
-    },
-    "25": {
-      "value": null
-    },
-    "26": {
-      "value": false
-    },
-    "27": {
-      "value": null
-    },
-    "28": {
-      "value": null
-    },
-    "29": {
-      "value": false
-    },
-    "30": {
-      "value": null
-    },
-    "514": {
-      "value": ""
-    },
-    "515": {
-      "value": ""
-    },
-    "516": {
-      "value": 952
-    }
-  },
-  {
-    "3": {
-      "value": 9904
-    },
-    "6": {
-      "value": "Bhavya Pydi - 5578 Old Coble St"
-    },
-    "7": {
-      "value": ""
-    },
-    "8": {
-      "value": ""
-    },
-    "9": {
-      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9904&z="
-    },
-    "10": {
-      "value": "Active"
-    },
-    "11": {
-      "value": 4514715
-    },
-    "12": {
-      "value": ""
-    },
-    "13": {
-      "value": 8.1
-    },
-    "14": {
-      "value": null
-    },
-    "15": {
-      "value": "10249"
-    },
-    "16": {
-      "value": 20
-    },
-    "17": {
-      "value": "USE7600H-USMNBE78"
-    },
-    "18": {
-      "value": "32.74"
-    },
-    "19": {
-      "value": 5.352364197530864
-    },
-    "20": {
-      "value": false
-    },
-    "21": {
-      "value": null
-    },
-    "22": {
-      "value": null
-    },
-    "23": {
-      "value": false
-    },
-    "24": {
-      "value": null
-    },
-    "25": {
-      "value": null
-    },
-    "26": {
-      "value": false
-    },
-    "27": {
-      "value": null
-    },
-    "28": {
-      "value": null
-    },
-    "29": {
-      "value": false
-    },
-    "30": {
-      "value": null
-    },
-    "514": {
-      "value": ""
-    },
-    "515": {
-      "value": ""
-    },
-    "516": {
-      "value": 905
-    }
-  },
-  {
-    "3": {
-      "value": 9903
-    },
-    "6": {
-      "value": "Darrin Hale - 101 E St Louis Ave"
-    },
-    "7": {
-      "value": ""
-    },
-    "8": {
-      "value": ""
-    },
-    "9": {
-      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9903&z="
-    },
-    "10": {
-      "value": "Active"
-    },
-    "11": {
-      "value": 4514694
-    },
-    "12": {
-      "value": ""
-    },
-    "13": {
-      "value": 8.1
-    },
-    "14": {
-      "value": null
-    },
-    "15": {
-      "value": "12711"
-    },
-    "16": {
-      "value": 20
-    },
-    "17": {
-      "value": "USE7600H-USMNBE78"
-    },
-    "18": {
-      "value": "28.9"
-    },
-    "19": {
-      "value": 4.21940987654321
-    },
-    "20": {
-      "value": false
-    },
-    "21": {
-      "value": null
-    },
-    "22": {
-      "value": null
-    },
-    "23": {
-      "value": false
-    },
-    "24": {
-      "value": null
-    },
-    "25": {
-      "value": null
-    },
-    "26": {
-      "value": false
-    },
-    "27": {
-      "value": null
-    },
-    "28": {
-      "value": null
-    },
-    "29": {
-      "value": false
-    },
-    "30": {
-      "value": null
-    },
-    "514": {
-      "value": ""
-    },
-    "515": {
-      "value": ""
-    },
-    "516": {
-      "value": 944
-    }
-  },
-  {
-    "3": {
-      "value": 9902
-    },
-    "6": {
-      "value": "Edward Wagemester - 808 2nd St"
-    },
-    "7": {
-      "value": ""
-    },
-    "8": {
-      "value": ""
-    },
-    "9": {
-      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9902&z="
-    },
-    "10": {
-      "value": "Active"
-    },
-    "11": {
-      "value": 4514641
-    },
-    "12": {
-      "value": ""
-    },
-    "13": {
-      "value": 7.695
-    },
-    "14": {
-      "value": null
-    },
-    "15": {
-      "value": "10559"
-    },
-    "16": {
-      "value": 19
-    },
-    "17": {
-      "value": "USE7600H-USMNBE78"
-    },
-    "18": {
-      "value": "0"
-    },
-    "19": {
-      "value": 3.57
-    },
-    "20": {
-      "value": false
-    },
-    "21": {
-      "value": null
-    },
-    "22": {
-      "value": null
-    },
-    "23": {
-      "value": false
-    },
-    "24": {
-      "value": null
-    },
-    "25": {
-      "value": null
-    },
-    "26": {
-      "value": false
-    },
-    "27": {
-      "value": null
-    },
-    "28": {
-      "value": null
-    },
-    "29": {
-      "value": false
-    },
-    "30": {
-      "value": null
-    },
-    "514": {
-      "value": ""
-    },
-    "515": {
-      "value": ""
-    },
-    "516": {
-      "value": 980
-    }
-  },
-  {
-    "3": {
-      "value": 9901
-    },
-    "6": {
-      "value": "David Bachmann - 1495 New London Rd"
-    },
-    "7": {
-      "value": ""
-    },
-    "8": {
-      "value": ""
-    },
-    "9": {
-      "value": "https://kin.quickbase.com/db/br9kwm87j?a=API_GenAddRecordForm&_fid_11=9901&z="
-    },
-    "10": {
-      "value": "Active"
-    },
-    "11": {
-      "value": 4514075
-    },
-    "12": {
-      "value": ""
-    },
-    "13": {
-      "value": 14.985
-    },
-    "14": {
-      "value": null
-    },
-    "15": {
-      "value": "19662"
-    },
-    "16": {
-      "value": 37
-    },
-    "17": {
-      "value": "USE7600H-USMNBE78"
-    },
-    "18": {
-      "value": "28.9"
-    },
-    "19": {
-      "value": 4.360056056056056
-    },
-    "20": {
-      "value": false
-    },
-    "21": {
-      "value": null
-    },
-    "22": {
-      "value": null
-    },
-    "23": {
-      "value": false
-    },
-    "24": {
-      "value": null
-    },
-    "25": {
-      "value": null
-    },
-    "26": {
-      "value": false
-    },
-    "27": {
-      "value": null
-    },
-    "28": {
-      "value": null
-    },
-    "29": {
-      "value": false
-    },
-    "30": {
-      "value": null
-    },
-    "514": {
-      "value": ""
-    },
-    "515": {
-      "value": ""
-    },
-    "516": {
-      "value": 905
     }
   }
 ]

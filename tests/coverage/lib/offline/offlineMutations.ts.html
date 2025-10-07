@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/85</span>
+                <span class='fraction'>0/95</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/85</span>
+                <span class='fraction'>0/95</span>
             </div>
         
             
@@ -148,7 +148,27 @@
 <a name='L83'></a><a href='#L83'>83</a>
 <a name='L84'></a><a href='#L84'>84</a>
 <a name='L85'></a><a href='#L85'>85</a>
-<a name='L86'></a><a href='#L86'>86</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L86'></a><a href='#L86'>86</a>
+<a name='L87'></a><a href='#L87'>87</a>
+<a name='L88'></a><a href='#L88'>88</a>
+<a name='L89'></a><a href='#L89'>89</a>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -234,7 +254,6 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" >import { queueMutation } from './storage';</span></span></span>
-<span class="cstat-no" title="statement not covered" >import { updateProject } from '@/lib/quickbase/queries';</span>
 <span class="cstat-no" title="statement not covered" >import { PROJECT_FIELDS } from '@/lib/constants/fieldIds';</span>
 <span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" >// Offline detection</span>
@@ -263,8 +282,19 @@
 <span class="cstat-no" title="statement not covered" >    };</span>
 <span class="cstat-no" title="statement not covered" ></span>
 <span class="cstat-no" title="statement not covered" >    if (isOnline()) {</span>
-<span class="cstat-no" title="statement not covered" >      // Online: execute mutation directly</span>
-<span class="cstat-no" title="statement not covered" >      await updateProject(recordId, updates);</span>
+<span class="cstat-no" title="statement not covered" >      // Online: execute mutation via API</span>
+<span class="cstat-no" title="statement not covered" >      const res = await fetch(`/api/projects/${recordId}/hold`, {</span>
+<span class="cstat-no" title="statement not covered" >        method: 'POST',</span>
+<span class="cstat-no" title="statement not covered" >        headers: { 'Content-Type': 'application/json' },</span>
+<span class="cstat-no" title="statement not covered" >        body: JSON.stringify({</span>
+<span class="cstat-no" title="statement not covered" >          onHold: holdData.onHold,</span>
+<span class="cstat-no" title="statement not covered" >          holdReason: holdData.holdReason,</span>
+<span class="cstat-no" title="statement not covered" >          blockReason: holdData.blockReason,</span>
+<span class="cstat-no" title="statement not covered" >        }),</span>
+<span class="cstat-no" title="statement not covered" >      });</span>
+<span class="cstat-no" title="statement not covered" >      if (!res.ok) {</span>
+<span class="cstat-no" title="statement not covered" >        throw new Error('Failed to update project hold');</span>
+<span class="cstat-no" title="statement not covered" >      }</span>
 <span class="cstat-no" title="statement not covered" >      return { success: true };</span>
 <span class="cstat-no" title="statement not covered" >    } else {</span>
 <span class="cstat-no" title="statement not covered" >      // Offline: queue mutation for later sync</span>
@@ -325,7 +355,7 @@
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-10-06T17:22:08.356Z
+                at 2025-10-07T19:14:42.652Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

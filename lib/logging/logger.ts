@@ -233,8 +233,11 @@ export async function logAudit(
     console.log('[AUDIT]', auditEvent);
   }
 
-  // Client-side: skip audit API call to avoid bundling server-only deps
+  // Client-side: warn and skip audit API call
   if (typeof window !== 'undefined') {
+    try {
+      console.warn('[AUDIT] logAudit called in browser; skipping network call');
+    } catch {}
     return;
   }
 
@@ -258,89 +261,85 @@ export async function logAudit(
     process.env.NEXTAUTH_URL ||
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
   const startTime = Date.now();
-  
-  void fetch(`${baseUrl}/api/internal/audit`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-internal-secret': internalSecret,
-    },
-    body: JSON.stringify({
-      action,
-      resource,
-      resourceId,
-      userId,
-      changes: changes || {},
-      ipAddress: meta?.ipAddress,
-      userAgent: meta?.userAgent,
-      requestId: meta?.requestId,
-    }),
-    signal: controller.signal,
-  })
-    .then((response) => {
-      const duration = Date.now() - startTime;
-      if (!response.ok) {
-        // Log audit failure with structured error capture
-        const errorContext = {
+
+  const attempt = async (attemptNumber: number): Promise<Response> => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    try {
+      const res = await fetch(`${baseUrl}/api/internal/audit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-internal-secret': internalSecret,
+        },
+        body: JSON.stringify({
           action,
           resource,
+          resourceId,
+          userId,
+          changes: changes || {},
+          ipAddress: meta?.ipAddress,
+          userAgent: meta?.userAgent,
           requestId: meta?.requestId,
-          status: response.status,
-          statusText: response.statusText,
-          duration,
-        };
-        
-        if (isDev) {
-          console.warn('[AUDIT] Failed to log audit event:', errorContext);
-        } else {
-          // In production, emit a single warning for ops visibility
-          logWarn('[AUDIT] failed', errorContext);
-        }
-        
-        // Optionally integrate with Sentry for audit failures
-        if (isProd && SENTRY_DSN) {
-          try {
-            if (Sentry) {
-              Sentry.addBreadcrumb({
-                message: 'Audit logging failed',
-                level: 'warning',
-                data: errorContext,
-              });
-            }
-          } catch (sentryError) {
-            // Don't let Sentry errors break the app
+        }),
+        signal: controller.signal,
+      });
+      return res;
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
+
+  void (async () => {
+    let response: Response | null = null;
+    let lastError: any = null;
+    const maxAttempts = 3; // initial + 2 retries
+    for (let i = 1; i <= maxAttempts; i++) {
+      try {
+        response = await attempt(i);
+        if (!response.ok) {
+          lastError = new Error(`HTTP ${response.status}`);
+          if (i < maxAttempts) {
+            await new Promise(r => setTimeout(r, 250 * i));
+            continue;
           }
         }
-      } else if (duration > 2000) {
-        // Log slow audit requests
-        logWarn('[AUDIT] slow request', { action, resource, requestId: meta?.requestId, duration });
+        break;
+      } catch (err) {
+        lastError = err;
+        if (i < maxAttempts) {
+          await new Promise(r => setTimeout(r, 250 * i));
+          continue;
+        }
       }
-    })
-    .catch((error) => {
+    }
+
+    if (!response) {
+      // All attempts failed before a response
       const duration = Date.now() - startTime;
+      const errorContext = { action, resource, requestId: meta?.requestId, duration };
+      logWarn('[AUDIT] failed', errorContext);
+      return;
+    }
+
+    const duration = Date.now() - startTime;
+    if (!response.ok) {
+      // Log audit failure with structured error capture
       const errorContext = {
         action,
         resource,
         requestId: meta?.requestId,
+        status: response.status,
+        statusText: response.statusText,
         duration,
-        errorType: (error as any)?.name || 'Unknown',
       };
       
-      if ((error as any)?.name === 'AbortError') {
-        if (isDev) {
-          console.warn('[AUDIT] Audit request aborted after timeout', errorContext);
-        } else {
-          logWarn('[AUDIT] timeout', errorContext);
-        }
+      if (isDev) {
+        console.warn('[AUDIT] Failed to log audit event:', errorContext);
       } else {
-        if (isDev) {
-          console.error('[AUDIT] Failed to log audit event:', error, errorContext);
-        } else {
-          logWarn('[AUDIT] failed', errorContext);
-        }
+        // In production, emit a single warning for ops visibility
+        logWarn('[AUDIT] failed', errorContext);
       }
       
       // Optionally integrate with Sentry for audit failures
@@ -349,7 +348,7 @@ export async function logAudit(
           if (Sentry) {
             Sentry.addBreadcrumb({
               message: 'Audit logging failed',
-              level: 'error',
+              level: 'warning',
               data: errorContext,
             });
           }
@@ -357,8 +356,9 @@ export async function logAudit(
           // Don't let Sentry errors break the app
         }
       }
-    })
-    .finally(() => {
-      clearTimeout(timeout);
-    });
+    } else if (duration > 2000) {
+      // Log slow audit requests
+      logWarn('[AUDIT] slow request', { action, resource, requestId: meta?.requestId, duration });
+    }
+  })().catch(() => {});
 }

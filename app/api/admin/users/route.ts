@@ -5,17 +5,7 @@ import { sql } from '@/lib/db/client'
 import { hash } from 'bcryptjs'
 import { logInfo, logError, logAudit, logApiRequest, logApiResponse } from '@/lib/logging/logger'
 import { z } from 'zod'
-
-const createUserSchema = z.object({
-  name: z.string().min(1, 'Name is required').max(100),
-  email: z.string().email('Invalid email address'),
-  phone: z.string().optional(),
-  role: z.enum(['closer', 'setter', 'office_leader', 'regional', 'super_admin']),
-  quickbaseUserId: z.string().min(1, 'Quickbase User ID is required'),
-  office: z.string().optional(),
-  region: z.string().optional(),
-  temporaryPassword: z.string().min(8, 'Password must be at least 8 characters'),
-})
+import { createUserSchema } from '@/lib/validation/admin'
 
 export async function GET(request: NextRequest) {
   const startedAt = Date.now();

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { z } from 'zod'
-import { systemSettingsSchema } from '@/app/api/admin/system/settings/route'
+import { systemSettingsSchema } from '@/lib/validation/systemSettings'
 
 function validate(input: unknown) {
   return () => systemSettingsSchema.parse(input)

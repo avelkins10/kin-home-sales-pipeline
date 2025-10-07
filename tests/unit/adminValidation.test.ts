@@ -1,8 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createUserSchema } from '@/app/api/admin/users/route'
-import { updateUserSchema } from '@/app/api/admin/users/[userId]/route'
-import { createOfficeSchema } from '@/app/api/admin/offices/route'
-import { updateOfficeSchema } from '@/app/api/admin/offices/[officeId]/route'
+import { createUserSchema, updateUserSchema, createOfficeSchema, updateOfficeSchema } from '@/lib/validation/admin'
 
 describe('Admin API Validation', () => {
   describe('createUserSchema', () => {

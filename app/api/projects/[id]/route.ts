@@ -1,4 +1,4 @@
-'use server'
+export const runtime = 'nodejs'
 
 // app/api/projects/[id]/route.ts
 import { NextResponse } from 'next/server';

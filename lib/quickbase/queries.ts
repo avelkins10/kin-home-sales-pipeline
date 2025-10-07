@@ -1,5 +1,7 @@
 // lib/quickbase/queries.ts
 import 'server-only'
+// Server-only module. Do not import from client components.
+export const __isServerOnly = true as const
 
 // This module must not be imported by client components
 import { qbClient } from './client';

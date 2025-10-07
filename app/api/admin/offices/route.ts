@@ -4,12 +4,7 @@ import { requireRole } from '@/lib/auth/guards'
 import { sql } from '@/lib/db/client'
 import { logInfo, logError, logAudit } from '@/lib/logging/logger'
 import { z } from 'zod'
-
-const createOfficeSchema = z.object({
-  name: z.string().min(1, 'Office name is required').max(100),
-  region: z.enum(['southwest', 'southeast', 'midwest', 'northeast', 'west']),
-  leaderId: z.string().min(1, 'Office leader is required'),
-})
+import { createOfficeSchema } from '@/lib/validation/admin'
 
 export async function GET(request: NextRequest) {
   try {

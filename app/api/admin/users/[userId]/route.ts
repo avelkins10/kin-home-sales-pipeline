@@ -4,16 +4,7 @@ import { requireRole } from '@/lib/auth/guards'
 import { sql } from '@/lib/db/client'
 import { logInfo, logError, logWarn, logAudit } from '@/lib/logging/logger'
 import { z } from 'zod'
-
-const updateUserSchema = z.object({
-  name: z.string().min(1).max(100).optional(),
-  email: z.string().email().optional(),
-  phone: z.string().optional(),
-  role: z.enum(['closer', 'setter', 'office_leader', 'regional', 'super_admin']).optional(),
-  office: z.string().optional(),
-  region: z.string().optional(),
-  isActive: z.boolean().optional(),
-})
+import { updateUserSchema } from '@/lib/validation/admin'
 
 export async function PATCH(
   request: NextRequest,
