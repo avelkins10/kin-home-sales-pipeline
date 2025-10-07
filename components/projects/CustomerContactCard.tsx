@@ -14,21 +14,13 @@ export function CustomerContactCard({ project }: CustomerContactCardProps) {
   // Extract customer contact data - Field IDs from fieldIds.ts
   const customerName = project[PROJECT_FIELDS.CUSTOMER_NAME]?.value || 'N/A'
   const phoneRaw = project[PROJECT_FIELDS.CUSTOMER_PHONE]?.value || '' // Field 148
-  const emailRaw = project[PROJECT_FIELDS.CUSTOMER_EMAIL]?.value || '' // Field 147
-  const addressRaw = project[PROJECT_FIELDS.CUSTOMER_ADDRESS]?.value || '' // Field 146 (polluted)
-  const city = project[PROJECT_FIELDS.CUSTOMER_CITY]?.value || '' // Field 149
-  const state = project[PROJECT_FIELDS.CUSTOMER_STATE]?.value || '' // Field 150
-  const zip = project[PROJECT_FIELDS.CUSTOMER_ZIP]?.value || '' // Field 151
 
-  // Debug: Log what we're getting from QuickBase
-  console.log('[CustomerContactCard] Raw data:', {
-    phone: phoneRaw,
-    email: emailRaw,
-    address: addressRaw,
-    city,
-    state,
-    zip
-  })
+  // WORKAROUND: QuickBase has the email in the CITY field (149) instead of EMAIL field (147)
+  // This appears to be a QuickBase data migration issue
+  const emailRaw = project[PROJECT_FIELDS.CUSTOMER_CITY]?.value || '' // Field 149 has email
+
+  // The ADDRESS field (146) contains the full address, which is cleaner than trying to piece together city/state/zip
+  const addressRaw = project[PROJECT_FIELDS.CUSTOMER_ADDRESS]?.value || '' // Field 146
 
   // Clean phone - extract just the number part if it's an object or has extra data
   let phone = ''
@@ -48,36 +40,9 @@ export function CustomerContactCard({ project }: CustomerContactCardProps) {
     email = String(emailRaw.value).trim()
   }
 
-  // The CUSTOMER_ADDRESS field (146) is heavily polluted with emails, URLs, and concatenated data
-  // Strategy: Use dedicated city/state/zip fields and extract ONLY the street address
-  let address = ''
-
-  if (addressRaw && typeof addressRaw === 'string') {
-    // Remove emails first
-    let cleaned = addressRaw.replace(/[\w.-]+@[\w.-]+\.\w+/g, '').trim()
-    // Remove URLs
-    cleaned = cleaned.replace(/https?:\/\/[^\s,]+/g, '').trim()
-    // Remove any remaining "maps.google.com" fragments
-    cleaned = cleaned.replace(/maps\.google\.com[^\s,]*/g, '').trim()
-    // Clean up multiple commas and spaces
-    cleaned = cleaned.replace(/,+/g, ',').replace(/\s+/g, ' ').trim()
-    // Remove leading/trailing commas
-    cleaned = cleaned.replace(/^,|,$/g, '').trim()
-
-    // Split by comma and take the first part (should be street address)
-    const parts = cleaned.split(',').map(p => p.trim()).filter(Boolean)
-    address = parts[0] || ''
-
-    console.log('[CustomerContactCard] Address cleaning:', {
-      raw: addressRaw,
-      cleaned,
-      parts,
-      final: address
-    })
-  }
-
-  // Build full address for display and maps
-  const fullAddress = [address, city, state, zip].filter(Boolean).join(', ')
+  // The ADDRESS field (146) contains the full address already formatted correctly
+  // Just use it as-is
+  const fullAddress = typeof addressRaw === 'string' ? addressRaw.trim() : ''
 
   // Build Google Maps URL
   const mapsUrl = fullAddress ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}` : ''
@@ -123,8 +88,7 @@ export function CustomerContactCard({ project }: CustomerContactCardProps) {
                   rel="noopener noreferrer"
                   className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
                 >
-                  <span className="block">{address}</span>
-                  <span className="block">{[city, state, zip].filter(Boolean).join(', ')}</span>
+                  {fullAddress}
                 </a>
               ) : (
                 <p className="text-sm text-gray-900">N/A</p>
