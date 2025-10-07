@@ -32,7 +32,7 @@ export default async function StatusValidationPage() {
         </div>
 
         <div className="space-y-6">
-          {sampleProjects.map((project) => {
+          {sampleProjects.map((project: any) => {
             const recordId = project[PROJECT_FIELDS.RECORD_ID]?.value
             const customerName = project[PROJECT_FIELDS.CUSTOMER_NAME]?.value
             const projectStatus = project[PROJECT_FIELDS.PROJECT_STATUS]?.value
