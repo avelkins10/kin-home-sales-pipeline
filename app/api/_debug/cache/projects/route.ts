@@ -23,8 +23,8 @@ export async function GET(req: Request) {
   }
 
   try {
-    // Import cache stats from the projects route
-    const { getCacheStats } = await import('@/app/api/projects/route');
+    // Import cache stats from the cache utility
+    const { getCacheStats } = await import('@/lib/cache/projectsCache');
     const cacheStats = getCacheStats();
 
     return NextResponse.json(cacheStats, { status: 200 });

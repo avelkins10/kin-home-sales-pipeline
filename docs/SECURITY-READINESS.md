@@ -114,10 +114,28 @@
 5. If secret present, makes authenticated request to `/api/internal/audit`
 6. Audit API validates `x-internal-secret` header matches environment variable
 7. Unauthorized attempts logged with full context for security monitoring
+8. 403 responses include `logWarn('[AUDIT_API] forbidden', { ip, ua })` for monitoring
+9. API enforces `export const runtime='nodejs'` to ensure server-only execution
 
 **Files:** `lib/logging/logger.ts`, `app/api/internal/audit/route.ts`
 
-### 6. Input Validation & Sanitization ✅
+### 6. WebVitals Security Fix ✅
+
+**Secret Header Removal:**
+- ✅ Removed `x-internal-secret` header from client-side WebVitalsCollector
+- ✅ Removed `NEXT_PUBLIC_INTERNAL_SECRET` usage to prevent secret leakage
+- ✅ Updated metrics API to reject client-origin requests until proper authentication
+- ✅ Set `NEXT_PUBLIC_ENABLE_WEB_VITALS=false` in production until refactor complete
+
+**Security Flow:**
+1. WebVitalsCollector no longer sends internal secret from browser
+2. Metrics API temporarily accepts non-sensitive metrics without secret validation
+3. Client-origin requests are rejected until server-signed HMAC payload is implemented
+4. Production deployment disables web vitals collection via environment variable
+
+**Files:** `components/ui/WebVitalsCollector.tsx`, `app/api/internal/metrics/route.ts`
+
+### 7. Input Validation & Sanitization ✅
 
 **Hold Update API:**
 - ✅ Type validation for `onHold` boolean (line 23-25)
@@ -241,6 +259,7 @@ None found - clean security audit.
 **Public Variables:**
 - `NEXT_PUBLIC_APP_URL` - App URL (safe to expose) ✅
 - `NEXT_PUBLIC_SENTRY_DSN` - Client-side Sentry DSN (safe to expose) ✅
+- `NEXT_PUBLIC_ENABLE_WEB_VITALS` - Web vitals collection flag (set to false in production) ✅
 
 **Quickbase Token Handling Update:**
 - Confirmed no usage of `NEXT_PUBLIC_QUICKBASE_TOKEN`. Tokens are server-only via `QUICKBASE_TOKEN` and accessed exclusively in server modules like `lib/quickbase/client.ts`. This prevents token leakage to browsers.

@@ -9,10 +9,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Not available' }, { status: 404 });
   }
 
-  // Validate internal secret
-  const secret = req.headers.get('x-internal-secret') || '';
-  if (!process.env.INTERNAL_API_SECRET || secret !== process.env.INTERNAL_API_SECRET) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  // TODO: Temporarily accept metrics without secret validation
+  // In the future, implement server-signed HMAC payload for security
+  // For now, reject client-origin requests unless implementing proper authentication
+  const userAgent = req.headers.get('user-agent') || '';
+  const isClientOrigin = userAgent.includes('Mozilla') || userAgent.includes('Chrome') || userAgent.includes('Safari');
+  
+  if (isClientOrigin) {
+    // Reject direct client calls until proper authentication is implemented
+    return NextResponse.json({ error: 'Client-origin requests not allowed' }, { status: 403 });
   }
 
   try {

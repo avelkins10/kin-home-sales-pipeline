@@ -1,5 +1,6 @@
 import { queueMutation } from './storage';
 import { PROJECT_FIELDS } from '@/lib/constants/fieldIds';
+import { getBaseUrl } from '@/lib/utils/baseUrl';
 
 // Offline detection
 export function isOnline(): boolean {

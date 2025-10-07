@@ -1,7 +1,7 @@
 export const runtime = 'nodejs'
 import { NextRequest, NextResponse } from 'next/server'
 import { sql } from '@/lib/db/client'
-import { logError, logInfo } from '@/lib/logging/logger'
+import { logError, logInfo, logWarn } from '@/lib/logging/logger'
 import { z } from 'zod'
 
 const auditLogSchema = z.object({
@@ -27,6 +27,8 @@ export async function POST(req: NextRequest) {
       hasSecret: !!secret,
       secretLength: secret.length
     })
+    // Add specific rejection log as requested
+    logWarn('[AUDIT_API] forbidden', { ip: clientIP, ua: requestUserAgent })
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

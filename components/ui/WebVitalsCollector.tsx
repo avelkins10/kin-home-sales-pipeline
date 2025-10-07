@@ -35,7 +35,6 @@ async function sendWebVitals(metric: WebVitalsMetric): Promise<void> {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-internal-secret': process.env.NEXT_PUBLIC_INTERNAL_SECRET || '',
       },
       body: JSON.stringify({
         type: 'web-vitals',
