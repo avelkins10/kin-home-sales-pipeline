@@ -307,6 +307,13 @@
 - **Metrics tracked:** LCP, FID, FCP, CLS, TTFB with navigation type and URL context
 - **Internal API:** `/api/internal/metrics` endpoint with secret header authentication
 - **Opt-out capability:** Controlled via `ENABLE_WEB_VITALS` environment variable
+- **Navigation Timing Level 2:** Performance thresholds for smoke tests:
+  - Overall page load: <3 seconds
+  - DOM content loaded: <2 seconds
+  - Response end: <1.5 seconds
+  - Dashboard load: <3 seconds
+  - Projects list load: <2.5 seconds
+  - Project detail load: <1.5 seconds
 - **Bundle optimization:** Web-vitals library loaded dynamically to avoid bundle bloat
 
 ### Lighthouse Audit Results

@@ -67,6 +67,9 @@ export function ProjectRow({ project }: ProjectRowProps) {
   // Check if this project is currently being fetched
   const isFetching = useIsFetching({ queryKey: ['project', recordId] }) > 0;
 
+  // Check if project detail is being fetched for spinner
+  const isFetchingDetail = useIsFetching({ queryKey: projectKey(String(recordId)) });
+
   // Prefetch project detail on hover for instant navigation
   const handlePrefetch = () => {
     // Guard against missing recordId to avoid prefetching /api/projects/undefined
@@ -211,7 +214,12 @@ export function ProjectRow({ project }: ProjectRowProps) {
             {isFetching ? (
               <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
             ) : (
-              <ProjectAgeIndicator age={projectAge} />
+              <div className="flex items-center gap-1">
+                <ProjectAgeIndicator age={projectAge} />
+                {isFetchingDetail > 0 && (
+                  <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
+                )}
+              </div>
             )}
           </div>
         </div>

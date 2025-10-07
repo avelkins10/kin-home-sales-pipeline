@@ -7,7 +7,7 @@ test.describe('Production Smoke Tests', () => {
     await page.goto(BASE_URL);
     
     // Verify page loads without errors
-    await expect(page).toHaveTitle(/Kin Home Sales Pipeline|Kin Home/);
+    await expect(page).toHaveTitle(/Kin Home Sales Pipeline/);
     
     // Verify no console errors
     const errors: string[] = [];
@@ -331,17 +331,26 @@ test.describe('Production Smoke Tests', () => {
     // Project detail should load in <1.5 seconds (prefetching should help)
     expect(detailLoadTime).toBeLessThan(1500);
     
-    // Use Playwright's performance API for more detailed metrics
+    // Use Navigation Timing Level 2 for reliable performance metrics
     const metrics = await page.evaluate(() => {
       const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
       return {
         loadTime: nav.loadEventEnd - nav.startTime,
         domContentLoaded: nav.domContentLoadedEventEnd - nav.startTime,
-        firstPaint: nav.responseEnd - nav.startTime
+        responseEnd: nav.responseEnd - nav.startTime,
+        firstByte: nav.responseStart - nav.startTime,
+        domInteractive: nav.domInteractive - nav.startTime,
+        domComplete: nav.domComplete - nav.startTime
       };
     });
     
     // Overall page load should be <3 seconds (increased for cache miss scenarios)
     expect(metrics.loadTime).toBeLessThan(3000);
+    
+    // DOM content loaded should be <2 seconds
+    expect(metrics.domContentLoaded).toBeLessThan(2000);
+    
+    // Response end should be <1.5 seconds
+    expect(metrics.responseEnd).toBeLessThan(1500);
   });
 });

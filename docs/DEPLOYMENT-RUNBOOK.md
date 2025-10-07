@@ -353,7 +353,8 @@ Note: If service worker or HTTPS tests fail, verify BASE_URL starts with https:/
 - [ ] Monitor Quickbase API rate limiting (should stay under 10 req/sec)
 - [ ] Verify offline sync is working (check for queued mutations)
 - [ ] Monitor user feedback channels
-- [ ] Track login success rate
+- [ ] Track login success rate via auth logs: `vercel logs --since=24h | grep "[AUTH]"`
+- [ ] Monitor auth success/failure patterns for security issues
 - [ ] Verify no performance degradation
 
 **First Week:**

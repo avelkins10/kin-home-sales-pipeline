@@ -143,7 +143,7 @@ Office leaders are now limited to projects within their assigned offices:
 - **Office Assignment**: Users with `office_leader` role have a `salesOffice` array in their session
 - **Project Filtering**: Projects are filtered using `{SALES_OFFICE.EX.'<officeName>'}` clause
 - **Multiple Offices**: Office leaders assigned to multiple offices see projects from all assigned offices
-- **Fallback**: If no office is assigned, office leaders see all projects (same as super_admin)
+- **Fallback**: If no office is assigned, office leaders see no projects (least-privilege security model)
 
 ### Implementation Details
 - Session includes `salesOffice: string[]` field from user's `sales_office` database column
@@ -156,6 +156,7 @@ Office leaders are now limited to projects within their assigned offices:
 2. Verify projects returned match only those with matching `SALES_OFFICE` field
 3. Test multiple office assignments work correctly
 4. Verify cache isolation between different office leaders
+5. **Security Test**: Verify office leaders with no assigned offices see no projects (not all projects)
 
 ## Contact
 

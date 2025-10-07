@@ -7,9 +7,11 @@ export const __isServerOnly = true as const
 import { qbClient } from './client';
 import { logError } from '@/lib/logging/logger';
 import { PROJECT_FIELDS } from '@/lib/constants/fieldIds';
+import { ADDER_FIELDS } from '@/lib/constants/adderFieldIds';
 
 // Quickbase table IDs
 const QB_TABLE_PROJECTS = process.env.QUICKBASE_TABLE_PROJECTS || 'br9kwm8na';
+const QB_TABLE_ADDERS = 'bsaycczmf';
 
 // Shared role scoping helper
 export function buildRoleClause(userId: string, role: string, salesOffice?: string[]): string {
@@ -576,4 +578,33 @@ export async function updateProject(recordId: number, updates: any) {
       },
     ],
   });
+}
+
+/**
+ * Get adders for a specific project
+ */
+export async function getAddersForProject(projectRecordId: string | number) {
+  console.log('[getAddersForProject] Fetching adders for project:', projectRecordId);
+
+  try {
+    const response = await qbClient.queryRecords({
+      from: QB_TABLE_ADDERS,
+      where: `{${ADDER_FIELDS.RELATED_PROJECT}.EX.${projectRecordId}}`,
+      select: [
+        ADDER_FIELDS.RECORD_ID,
+        ADDER_FIELDS.PRODUCT_NAME,
+        ADDER_FIELDS.TOTAL_COST,
+        ADDER_FIELDS.QTY,
+        ADDER_FIELDS.STATUS,
+        ADDER_FIELDS.WHOS_PAYING,
+        ADDER_FIELDS.ADDER_NAME_COST,
+      ],
+    });
+
+    console.log('[getAddersForProject] Found adders:', response.data?.length || 0);
+    return response.data || [];
+  } catch (error) {
+    logError('Failed to fetch adders for project', error as Error, { projectRecordId });
+    return [];
+  }
 }

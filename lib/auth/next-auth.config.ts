@@ -6,7 +6,7 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import { compare } from 'bcryptjs';
 import { sql } from '@/lib/db/client';
 import { rateLimit } from './rateLimit';
-import { logWarn } from '@/lib/logging/logger';
+import { logWarn, logInfo } from '@/lib/logging/logger';
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -17,6 +17,7 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
+          logWarn('[AUTH] login failed', { email: credentials?.email, important: true });
           return null;
         }
         // Apply in-function rate limiting (defense-in-depth; primary guard is in route handler)
@@ -25,6 +26,7 @@ export const authOptions: NextAuthOptions = {
         const allowedEmail = rateLimit(['authorize', emailKey], 5, 15 * 60_000)
         if (!allowedEmail) {
           logWarn('Rate limit (email) exceeded inside authorize')
+          logWarn('[AUTH] login failed', { email: credentials.email, important: true });
           return null
         }
 
@@ -33,11 +35,18 @@ export const authOptions: NextAuthOptions = {
         `;
 
         const user = result.rows[0];
-        if (!user) return null;
+        if (!user) {
+          logWarn('[AUTH] login failed', { email: credentials.email, important: true });
+          return null;
+        }
 
         const passwordValid = await compare(credentials.password, user.password_hash);
-        if (!passwordValid) return null;
+        if (!passwordValid) {
+          logWarn('[AUTH] login failed', { email: credentials.email, important: true });
+          return null;
+        }
 
+        logInfo('[AUTH] login success', { userId: user.id, important: true });
         return {
           id: user.id,
           email: user.email,
@@ -109,6 +118,14 @@ export const authOptions: NextAuthOptions = {
         session.user.salesOffice = token.salesOffice as string[];
       }
       return session;
+    },
+  },
+  events: {
+    async signIn({ user, account, profile, isNewUser }) {
+      logInfo('[AUTH] signIn event', { userId: user.id, isNewUser, important: true });
+    },
+    async signOut({ session, token }) {
+      logInfo('[AUTH] signOut event', { userId: session?.user?.id || token?.id, important: true });
     },
   },
 };
