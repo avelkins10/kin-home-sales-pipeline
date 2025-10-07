@@ -14,10 +14,12 @@ interface ProjectTableViewProps {
   view: string;
   search: string;
   sort: string;
-  onFetchingChange?: (isFetching: boolean) => void;
+  onFetchingChange?: (isFetching: boolean, reason?: 'manual' | 'background') => void;
 }
 
 export function ProjectTableView({ userId, role, view, search, sort, onFetchingChange }: ProjectTableViewProps) {
+  const [isManualRefetch, setIsManualRefetch] = React.useState(false);
+  
   const { data: projects, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['projects', userId, role, view, search, sort],
     queryFn: () => getProjectsForUserOffline(userId, role, view, search, sort),
@@ -25,10 +27,14 @@ export function ProjectTableView({ userId, role, view, search, sort, onFetchingC
     refetchInterval: 300000, // Option A: refresh every 5 minutes
   });
 
-  // Notify parent of fetching state changes
+  // Notify parent of fetching state changes with reason
   React.useEffect(() => {
-    onFetchingChange?.(isFetching);
-  }, [isFetching, onFetchingChange]);
+    const reason = isManualRefetch ? 'manual' : 'background';
+    onFetchingChange?.(isFetching, reason);
+    if (!isFetching && isManualRefetch) {
+      setIsManualRefetch(false);
+    }
+  }, [isFetching, onFetchingChange, isManualRefetch]);
 
   // Loading state
   if (isLoading) {
@@ -138,7 +144,10 @@ export function ProjectTableView({ userId, role, view, search, sort, onFetchingC
       {/* Option B: Add a refresh button */}
       <div className="flex justify-end">
         <Button 
-          onClick={() => refetch()} 
+          onClick={() => {
+            setIsManualRefetch(true);
+            refetch();
+          }} 
           variant="outline" 
           size="sm"
           disabled={isFetching}

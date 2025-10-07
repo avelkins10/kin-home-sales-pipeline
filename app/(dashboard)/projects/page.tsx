@@ -19,6 +19,7 @@ interface ProjectsPageProps {
 export default function ProjectsPage({ searchParams }: ProjectsPageProps) {
   const { data: session, status } = useSession()
   const [isFetching, setIsFetching] = useState(false)
+  const [fetchReason, setFetchReason] = useState<'manual' | 'background'>('background')
 
   if (status === 'loading') {
     return <div>Loading...</div>
@@ -42,13 +43,13 @@ export default function ProjectsPage({ searchParams }: ProjectsPageProps) {
           {/* Search Bar and Sort */}
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1">
-              <SearchBar defaultValue={searchParams.search} isFetching={isFetching} />
+              <SearchBar defaultValue={searchParams.search} isFetching={isFetching && fetchReason === 'manual'} />
             </div>
-            <SortDropdown isFetching={isFetching} />
+            <SortDropdown isFetching={isFetching && fetchReason === 'manual'} />
           </div>
 
           {/* Filter Chips */}
-          <ProjectFilterChips isFetching={isFetching} />
+          <ProjectFilterChips isFetching={isFetching && fetchReason === 'manual'} />
         </div>
 
         {/* Project Table */}
@@ -59,7 +60,10 @@ export default function ProjectsPage({ searchParams }: ProjectsPageProps) {
             view={searchParams.view || 'all'}
             search={searchParams.search || ''}
             sort={searchParams.sort || 'default'}
-            onFetchingChange={setIsFetching}
+            onFetchingChange={(fetching, reason) => {
+              setIsFetching(fetching);
+              if (reason) setFetchReason(reason);
+            }}
           />
         </Suspense>
       </div>

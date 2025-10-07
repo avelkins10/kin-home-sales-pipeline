@@ -100,9 +100,10 @@ export function CustomerContactCard({ project }: CustomerContactCardProps) {
                   href={mapsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                  className="text-sm text-blue-600 hover:text-blue-800 hover:underline block"
                 >
-                  {fullAddress}
+                  <div>{address}</div>
+                  <div>{[city, state, zip].filter(Boolean).join(', ')}</div>
                 </a>
               ) : (
                 <p className="text-sm text-gray-900">N/A</p>

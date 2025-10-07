@@ -72,21 +72,32 @@ export function AddersCard({ project }: AddersCardProps) {
             {/* Adder List */}
             {adderList.length > 0 && (
               <div className="border-t border-gray-200 pt-4">
-                <h4 className="text-sm font-medium text-gray-600 mb-3">Adder List</h4>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {adderList.slice(0, 10).map((adder: string, index: number) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <Plus className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                      <span className="text-sm text-gray-700">{adder}</span>
+                <h4 className="text-sm font-medium text-gray-600 mb-3">
+                  Included Adders ({adderList.length})
+                </h4>
+                <div className="space-y-2.5 max-h-64 overflow-y-auto">
+                  {adderList.map((adder: string, index: number) => (
+                    <div
+                      key={index}
+                      className="flex items-start justify-between gap-3 py-2 px-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
+                    >
+                      <div className="flex items-start gap-2 flex-1 min-w-0">
+                        <Plus className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                        <span className="text-sm text-gray-800 font-medium">{adder}</span>
+                      </div>
+                      {totalAdders > 0 && totalAdderCost > 0 && (
+                        <span className="text-xs text-gray-500 whitespace-nowrap">
+                          ~{formatCurrency(totalAdderCost / totalAdders)}
+                        </span>
+                      )}
                     </div>
                   ))}
-                  {adderList.length > 10 && (
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <Plus className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                      <span>+ {adderList.length - 10} more adders</span>
-                    </div>
-                  )}
                 </div>
+                {totalAdders > 0 && totalAdderCost > 0 && (
+                  <p className="text-xs text-gray-500 mt-3 italic">
+                    * Estimated cost per adder (total divided equally)
+                  </p>
+                )}
               </div>
             )}
           </>

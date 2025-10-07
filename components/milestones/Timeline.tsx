@@ -34,8 +34,9 @@ export function Timeline({ project }: TimelineProps) {
       icon: '📋',
       color: 'gray',
       status: 'complete' as const,
-      date: project[PROJECT_FIELDS.INTAKE_INSTALL_DATE_TENTATIVE]?.value ? 
-        new Date(project[PROJECT_FIELDS.INTAKE_INSTALL_DATE_TENTATIVE].value) : undefined
+      date: project[PROJECT_FIELDS.FINANCE_INTAKE_APPROVED_DATE]?.value ?
+        new Date(project[PROJECT_FIELDS.FINANCE_INTAKE_APPROVED_DATE].value) :
+        (project[PROJECT_FIELDS.SALES_DATE]?.value ? new Date(project[PROJECT_FIELDS.SALES_DATE].value) : undefined)
     },
     {
       name: 'Survey',

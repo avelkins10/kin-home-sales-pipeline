@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowUpDown, Clock, Calendar, AlertCircle, Zap, Loader2 } from 'lucide-react'
 import {
@@ -20,11 +21,13 @@ const SORT_OPTIONS = [
 ]
 
 export function SortDropdown({ isFetching = false }: { isFetching?: boolean }) {
+  const [isSorting, setIsSorting] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentSort = searchParams.get('sort') || 'default'
 
   const handleSortChange = (sortValue: string) => {
+    setIsSorting(true)
     const params = new URLSearchParams(searchParams.toString())
 
     if (sortValue === 'default') {
@@ -36,6 +39,13 @@ export function SortDropdown({ isFetching = false }: { isFetching?: boolean }) {
     router.push(`/projects?${params.toString()}`)
   }
 
+  // Clear isSorting when parent passes isFetching=false
+  useEffect(() => {
+    if (!isFetching) {
+      setIsSorting(false)
+    }
+  }, [isFetching])
+
   const currentOption = SORT_OPTIONS.find(opt => opt.value === currentSort) || SORT_OPTIONS[0]
   const Icon = currentOption.icon
 
@@ -44,10 +54,10 @@ export function SortDropdown({ isFetching = false }: { isFetching?: boolean }) {
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
-          className={`flex items-center gap-2 bg-white ${isFetching ? 'opacity-75 cursor-wait' : ''}`}
-          disabled={isFetching}
+          className={`flex items-center gap-2 bg-white ${(isSorting || isFetching) ? 'opacity-75 cursor-wait' : ''}`}
+          disabled={isSorting || isFetching}
         >
-          {isFetching ? (
+          {(isSorting || isFetching) ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <Icon className="h-4 w-4" />

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   Table,
@@ -38,6 +38,7 @@ export function AuditLogsTab() {
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null)
   const [page, setPage] = useState(1)
   const [isExporting, setIsExporting] = useState(false)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   // Fetch audit logs
   const { data: logsData, isLoading } = useQuery({
@@ -59,8 +60,21 @@ export function AuditLogsTab() {
     },
   })
 
+  // Cleanup abort controller on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
+  }, [])
+
   const exportToCSV = async () => {
     setIsExporting(true)
+    
+    // Create new abort controller for this export
+    abortControllerRef.current = new AbortController()
+    
     try {
       const params = new URLSearchParams({
         from: dateRange.from.toISOString(),
@@ -71,7 +85,9 @@ export function AuditLogsTab() {
       if (actionFilter !== 'all') params.set('action', actionFilter)
       if (searchQuery) params.set('search', searchQuery)
 
-      const response = await fetch(`/api/admin/audit-logs/export?${params.toString()}`)
+      const response = await fetch(`/api/admin/audit-logs/export?${params.toString()}`, {
+        signal: abortControllerRef.current.signal
+      })
       if (!response.ok) throw new Error('Export failed')
 
       const blob = await response.blob()
@@ -84,9 +100,14 @@ export function AuditLogsTab() {
 
       toast.success('Audit logs exported successfully')
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        // Export was aborted, don't show error toast
+        return
+      }
       toast.error('Failed to export audit logs')
     } finally {
       setIsExporting(false)
+      abortControllerRef.current = null
     }
   }
 
