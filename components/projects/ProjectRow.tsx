@@ -128,8 +128,7 @@ export function ProjectRow({ project }: ProjectRowProps) {
               </div>
             )}
             {customerPhone && (
-              <a
-                href={phoneLink}
+              <button
                 onClick={(e) => {
                   e.stopPropagation();
                   e.preventDefault();
@@ -139,12 +138,13 @@ export function ProjectRow({ project }: ProjectRowProps) {
                   inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-700
                   hover:underline transition-colors
                   focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 rounded
+                  bg-transparent border-0 p-0 cursor-pointer
                 "
                 data-testid="customer-phone"
               >
                 <Phone className="h-3.5 w-3.5" />
                 {customerPhone}
-              </a>
+              </button>
             )}
 
             {/* Sales Date & Team */}
