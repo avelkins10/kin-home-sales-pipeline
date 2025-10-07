@@ -64,7 +64,10 @@ export function CustomerContactCard({ project }: CustomerContactCardProps) {
   return (
     <Card data-testid="customer-contact">
       <CardHeader>
-        <CardTitle className="text-xl font-semibold">Customer Contact</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-xl font-semibold">Customer Contact</CardTitle>
+          <span className="text-xs text-gray-400">v2.0</span>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Contact Information */}

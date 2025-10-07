@@ -18,8 +18,8 @@ export function ProjectTableView({ userId, role, view, search, sort }: ProjectTa
   const { data: projects, isLoading, error, refetch } = useQuery({
     queryKey: ['projects', userId, role, view, search, sort],
     queryFn: () => getProjectsForUserOffline(userId, role, view, search, sort),
-    staleTime: 30000, // 30 seconds
-    refetchInterval: 60000, // 1 minute for auto-refresh
+    staleTime: 300000, // 5 minutes
+    refetchInterval: false, // Disable auto-refresh for auto-refresh
   });
 
   // Loading state
