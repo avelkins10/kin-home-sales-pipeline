@@ -28,6 +28,17 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     if (!project) {
       return NextResponse.json({ error: 'Not Found' }, { status: 404 });
     }
+
+    // Debug: Log customer contact fields to diagnose data issues
+    console.log('[API /projects/[id]] Customer contact data for project', numericId, {
+      phone_field_148: project[148],
+      email_field_147: project[147],
+      address_field_146: project[146],
+      city_field_149: project[149],
+      state_field_150: project[150],
+      zip_field_151: project[151],
+    });
+
     logApiResponse('GET', `/api/projects/${id}`, Date.now() - startedAt, {}, reqId);
     return NextResponse.json(project, { status: 200 });
   } catch (error) {
