@@ -15,13 +15,27 @@ export function CustomerContactCard({ project }: CustomerContactCardProps) {
   const customerName = project[PROJECT_FIELDS.CUSTOMER_NAME]?.value || 'N/A'
   const phone = project[PROJECT_FIELDS.CUSTOMER_PHONE]?.value || ''
   const email = project[PROJECT_FIELDS.CUSTOMER_EMAIL]?.value || ''
-  const address = project[PROJECT_FIELDS.CUSTOMER_ADDRESS]?.value || ''
+  const addressRaw = project[PROJECT_FIELDS.CUSTOMER_ADDRESS]?.value || ''
   const city = project[PROJECT_FIELDS.CUSTOMER_CITY]?.value || ''
   const state = project[PROJECT_FIELDS.CUSTOMER_STATE]?.value || ''
   const zip = project[PROJECT_FIELDS.CUSTOMER_ZIP]?.value || ''
 
-  // Build full address
+  // Parse address - QuickBase sometimes includes extra data after commas
+  // Extract just the street address (first part before any comma)
+  const parseAddress = (rawAddress: string) => {
+    if (!rawAddress || typeof rawAddress !== 'string') return ''
+    // Split by comma and take first part, or check for URL pattern
+    const parts = rawAddress.split(',')
+    return parts[0].trim()
+  }
+
+  const address = parseAddress(addressRaw)
+
+  // Build full address for display
   const fullAddress = [address, city, state, zip].filter(Boolean).join(', ')
+
+  // Build Google Maps URL
+  const mapsUrl = fullAddress ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}` : ''
 
   return (
     <Card data-testid="customer-contact">
@@ -52,9 +66,20 @@ export function CustomerContactCard({ project }: CustomerContactCardProps) {
           {/* Address */}
           <div className="flex items-start gap-3 md:col-span-2">
             <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
-            <div>
+            <div className="flex-1">
               <p className="text-sm text-gray-600 font-medium">Address</p>
-              <p className="text-sm text-gray-900">{fullAddress || 'N/A'}</p>
+              {fullAddress ? (
+                <a
+                  href={mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                >
+                  {fullAddress}
+                </a>
+              ) : (
+                <p className="text-sm text-gray-900">N/A</p>
+              )}
             </div>
           </div>
         </div>

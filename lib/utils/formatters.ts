@@ -35,7 +35,7 @@ export function formatSystemSize(kw: number | null | undefined): string {
 }
 
 export function formatPPW(ppw: number | null | undefined): string {
-  if (ppw === null || ppw === undefined) return 'N/A';
+  if (ppw === null || ppw === undefined || ppw === 0) return 'N/A';
 
   const absValue = Math.abs(ppw);
   const sign = ppw < 0 ? '-' : '';
