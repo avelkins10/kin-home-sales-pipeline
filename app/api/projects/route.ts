@@ -8,6 +8,7 @@ import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
 // Simple in-memory cache for projects (60s TTL)
 const projectsCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL = 60 * 1000; // 60 seconds
+const MAX_CACHE_ENTRIES = 100;
 
 export async function GET(req: Request) {
   const startedAt = Date.now();
@@ -49,6 +50,8 @@ export async function GET(req: Request) {
     const cacheKey = `${userId}:${role}:${view || 'all'}:${search || ''}:${sort || 'default'}`;
     const cached = projectsCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      // Refresh timestamp to approximate LRU behavior
+      projectsCache.set(cacheKey, { data: cached.data, timestamp: Date.now() });
       logApiResponse('GET', '/api/projects', Date.now() - startedAt, { cached: true, count: Array.isArray(cached.data) ? cached.data.length : 0 }, reqId);
       return NextResponse.json(cached.data, { status: 200 });
     }
@@ -59,27 +62,32 @@ export async function GET(req: Request) {
     // Cache the result
     projectsCache.set(cacheKey, { data: projects, timestamp: Date.now() });
 
-    // Clean up old cache entries with strict size cap
-    if (projectsCache.size > 100) {
-      const now = Date.now();
-      const entries = Array.from(projectsCache.entries());
-      
-      // First, remove expired entries
-      for (const [key, value] of entries) {
-        if (now - value.timestamp > CACHE_TTL) {
-          projectsCache.delete(key);
-        }
+    // Enforce strict 100-entry cap after every cache set
+    const now = Date.now();
+    const entries = Array.from(projectsCache.entries());
+    
+    // First, remove expired entries
+    let expiredCount = 0;
+    for (const [key, value] of entries) {
+      if (now - value.timestamp > CACHE_TTL) {
+        projectsCache.delete(key);
+        expiredCount++;
       }
+    }
+    
+    // If still over MAX_CACHE_ENTRIES, evict oldest entries by timestamp
+    if (projectsCache.size > MAX_CACHE_ENTRIES) {
+      const remainingEntries = Array.from(projectsCache.entries());
+      const toEvict = projectsCache.size - MAX_CACHE_ENTRIES;
       
-      // If still over 100 entries, evict oldest (FIFO) until size == 100
-      if (projectsCache.size > 100) {
-        const remainingEntries = Array.from(projectsCache.entries());
-        // Sort by timestamp (oldest first) and remove excess
-        remainingEntries
-          .sort((a, b) => a[1].timestamp - b[1].timestamp)
-          .slice(0, projectsCache.size - 100)
-          .forEach(([key]) => projectsCache.delete(key));
-      }
+      // Sort by timestamp (oldest first) and remove excess
+      remainingEntries
+        .sort((a, b) => a[1].timestamp - b[1].timestamp)
+        .slice(0, toEvict)
+        .forEach(([key]) => projectsCache.delete(key));
+      
+      // Debug logging for evictions
+      console.log(`[Cache] Evicted ${toEvict} oldest entries, expired: ${expiredCount}, final size: ${projectsCache.size}`);
     }
 
     logApiResponse('GET', '/api/projects', Date.now() - startedAt, { cached: false, count: Array.isArray(projects) ? projects.length : 0 }, reqId);

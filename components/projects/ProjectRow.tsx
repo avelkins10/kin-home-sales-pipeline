@@ -27,6 +27,9 @@ export function ProjectRow({ project }: ProjectRowProps) {
   const projectStatus = project[PROJECT_FIELDS.PROJECT_STATUS]?.value || '';
   const systemSizeKw = parseFloat(project[PROJECT_FIELDS.SYSTEM_SIZE_KW]?.value || '0');
   const systemPrice = parseFloat(project[PROJECT_FIELDS.SYSTEM_PRICE]?.value || '0');
+  const salesDate = project[PROJECT_FIELDS.SALES_DATE]?.value || '';
+  const closerName = project[PROJECT_FIELDS.CLOSER_NAME]?.value || '';
+  const setterName = project[PROJECT_FIELDS.SETTER_NAME]?.value || '';
 
   // PPW fields - using the field IDs from quickbase-config.json
   const soldPPW = parseFloat(project[2292]?.value || '0') || null; // soldGross
@@ -38,6 +41,17 @@ export function ProjectRow({ project }: ProjectRowProps) {
   const projectAge = getProjectAge(project);
   const parsedName = parseCustomerName(customerName);
   const formattedAddress = formatAddress(customerAddress);
+
+  // Format sales date
+  const formatSalesDate = (date: string) => {
+    if (!date) return '';
+    try {
+      const d = new Date(date);
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch {
+      return '';
+    }
+  };
 
   // Format phone number for tel: link
   const phoneLink = customerPhone ? `tel:${customerPhone.replace(/\D/g, '')}` : '';
@@ -94,6 +108,25 @@ export function ProjectRow({ project }: ProjectRowProps) {
                 {customerPhone}
               </a>
             )}
+
+            {/* Sales Date & Team */}
+            <div className="pt-2 mt-2 border-t border-slate-200 space-y-0.5">
+              {salesDate && (
+                <div className="text-xs text-slate-500">
+                  <span className="font-medium">Sold:</span> {formatSalesDate(salesDate)}
+                </div>
+              )}
+              {closerName && (
+                <div className="text-xs text-slate-500">
+                  <span className="font-medium">Closer:</span> {closerName}
+                </div>
+              )}
+              {setterName && (
+                <div className="text-xs text-slate-500">
+                  <span className="font-medium">Setter:</span> {setterName}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Column 2 - Traffic Lights */}
