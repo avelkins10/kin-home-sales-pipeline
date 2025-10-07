@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
+import { Loader2 } from 'lucide-react';
 
 const filterChips = [
   { value: 'all', label: 'All Projects', count: null },
@@ -15,7 +16,7 @@ const filterChips = [
   { value: 'needs-attention', label: 'Needs Attention', count: null },
 ];
 
-export function ProjectFilterChips() {
+export function ProjectFilterChips({ isFetching = false }: { isFetching?: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -36,6 +37,16 @@ export function ProjectFilterChips() {
 
   return (
     <div className="relative">
+      {/* Loading overlay */}
+      {isFetching && (
+        <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-20 flex items-center justify-center">
+          <div className="flex items-center gap-2 text-indigo-600">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-sm font-medium">Loading...</span>
+          </div>
+        </div>
+      )}
+      
       {/* Fade gradient on left */}
       <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-slate-50 to-transparent pointer-events-none z-10" />
 
@@ -48,13 +59,15 @@ export function ProjectFilterChips() {
             <button
               key={chip.value}
               onClick={() => handleFilterChange(chip.value)}
+              disabled={isFetching}
               className={cn(
                 'px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap',
                 'transition-all duration-200 ease-in-out',
                 'focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2',
                 isActive
                   ? 'bg-indigo-600 text-white shadow-md hover:bg-indigo-700 scale-105'
-                  : 'bg-white text-slate-700 border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 shadow-sm'
+                  : 'bg-white text-slate-700 border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 shadow-sm',
+                isFetching && 'disabled:opacity-50 disabled:cursor-not-allowed'
               )}
               aria-pressed={isActive}
               aria-label={`Filter by ${chip.label}`}

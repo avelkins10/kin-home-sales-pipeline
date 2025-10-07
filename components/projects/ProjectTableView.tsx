@@ -1,10 +1,12 @@
 'use client';
 
+import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getProjectsForUserOffline } from '@/lib/offline/offlineQueries';
 import { ProjectRow } from './ProjectRow';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
 
 interface ProjectTableViewProps {
   userId: string;
@@ -12,15 +14,21 @@ interface ProjectTableViewProps {
   view: string;
   search: string;
   sort: string;
+  onFetchingChange?: (isFetching: boolean) => void;
 }
 
-export function ProjectTableView({ userId, role, view, search, sort }: ProjectTableViewProps) {
-  const { data: projects, isLoading, error, refetch } = useQuery({
+export function ProjectTableView({ userId, role, view, search, sort, onFetchingChange }: ProjectTableViewProps) {
+  const { data: projects, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['projects', userId, role, view, search, sort],
     queryFn: () => getProjectsForUserOffline(userId, role, view, search, sort),
     staleTime: 300000, // 5 minutes
     refetchInterval: 300000, // Option A: refresh every 5 minutes
   });
+
+  // Notify parent of fetching state changes
+  React.useEffect(() => {
+    onFetchingChange?.(isFetching);
+  }, [isFetching, onFetchingChange]);
 
   // Loading state
   if (isLoading) {
@@ -129,8 +137,21 @@ export function ProjectTableView({ userId, role, view, search, sort }: ProjectTa
     <div className="space-y-4">
       {/* Option B: Add a refresh button */}
       <div className="flex justify-end">
-        <Button onClick={() => refetch()} variant="outline" size="sm">
-          Refresh
+        <Button 
+          onClick={() => refetch()} 
+          variant="outline" 
+          size="sm"
+          disabled={isFetching}
+          className={isFetching ? "opacity-75 cursor-wait" : ""}
+        >
+          {isFetching ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Refreshing...
+            </>
+          ) : (
+            'Refresh'
+          )}
         </Button>
       </div>
       {projects.map((project) => {

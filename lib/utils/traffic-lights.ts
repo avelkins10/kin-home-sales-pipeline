@@ -236,61 +236,121 @@ export function getCurrentMilestoneId(project: QuickbaseProject): MilestoneId {
 
 // Get descriptive status text for current milestone
 export function getMilestoneStatusText(project: QuickbaseProject): string {
+  const projectStatus = project[PROJECT_FIELDS.PROJECT_STATUS]?.value || '';
   const currentMilestone = getCurrentMilestoneId(project);
-  
+
   switch (currentMilestone) {
     case 'intake':
-      return 'Intake: Scheduling survey';
-    
-    case 'survey':
-      const surveyScheduled = project[PROJECT_FIELDS.SURVEY_SUBMITTED]?.value;
-      if (surveyScheduled) {
-        return `Survey: Scheduled for ${formatDate(surveyScheduled)}`;
+      // Check if rejected
+      if (projectStatus.toLowerCase().includes('rejected')) {
+        return '⛔ Intake Rejected';
       }
-      return 'Survey: Awaiting schedule';
-    
+
+      const intakeComplete = project[PROJECT_FIELDS.WEBHOOK_INTAKE_COMPLETE]?.value;
+      const financeIntakeApproved = project[PROJECT_FIELDS.FINANCE_INTAKE_APPROVED]?.value;
+
+      if (intakeComplete || financeIntakeApproved) {
+        return '✅ Intake Approved • Ready for survey';
+      }
+
+      const projectAge = getProjectAge(project);
+      if (projectAge > 7) {
+        return `⚠️ Pending Intake • ${projectAge}d overdue`;
+      }
+
+      return `⏳ Pending Intake • ${projectAge}d waiting`;
+
+    case 'survey':
+      const surveyApproved = project[PROJECT_FIELDS.SURVEY_APPROVED]?.value;
+      const surveySubmitted = project[PROJECT_FIELDS.SURVEY_SUBMITTED]?.value;
+
+      if (surveyApproved) {
+        return `✅ Survey Approved ${formatDate(surveyApproved)}`;
+      }
+
+      if (surveySubmitted) {
+        const daysWaiting = calculateDaysWaiting(surveySubmitted);
+        return `📅 Survey Scheduled ${formatDate(surveySubmitted)} • ${daysWaiting}d ago`;
+      }
+      return '📋 Survey • Awaiting schedule';
+
     case 'design':
-      return 'Design: CAD in progress';
-    
+      const cadApproved = project[PROJECT_FIELDS.CAD_DESIGN_APPROVED]?.value;
+      const designCompleted = project[PROJECT_FIELDS.DESIGN_COMPLETED]?.value;
+
+      if (cadApproved) {
+        return `✅ Design Approved ${formatDate(cadApproved)}`;
+      }
+
+      if (designCompleted) {
+        return `🎨 Design • Awaiting CAD approval`;
+      }
+
+      return '🎨 Design • CAD in progress';
+
     case 'nem':
+      const nemApproved = project[PROJECT_FIELDS.NEM_APPROVED]?.value;
       const nemSubmitted = project[PROJECT_FIELDS.NEM_SUBMITTED]?.value;
+
+      if (nemApproved) {
+        return `✅ NEM Approved ${formatDate(nemApproved)}`;
+      }
+
       if (nemSubmitted) {
         const daysWaiting = calculateDaysWaiting(nemSubmitted);
-        return `NEM: Submitted ${formatDate(nemSubmitted)} • ${daysWaiting}d waiting`;
+        return `⚡ NEM • Submitted ${formatDate(nemSubmitted)} (${daysWaiting}d waiting)`;
       }
-      return 'NEM: Preparing submission';
-    
+      return '⚡ NEM • Preparing submission';
+
     case 'permit':
+      const permitApproved = project[PROJECT_FIELDS.PERMIT_APPROVED]?.value;
       const permitSubmitted = project[PROJECT_FIELDS.PERMIT_SUBMITTED]?.value;
+
+      if (permitApproved) {
+        return `✅ Permit Approved ${formatDate(permitApproved)}`;
+      }
+
       if (permitSubmitted) {
         const daysWaiting = calculateDaysWaiting(permitSubmitted);
-        return `Permit: Submitted ${formatDate(permitSubmitted)} • ${daysWaiting}d waiting`;
+        return `📄 Permit • Submitted ${formatDate(permitSubmitted)} (${daysWaiting}d waiting)`;
       }
-      return 'Permit: Preparing submission';
-    
+      return '📄 Permit • Preparing submission';
+
     case 'install':
+      const installCompleted = project[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value;
       const installStarted = project[PROJECT_FIELDS.INSTALL_STARTED_DATE]?.value;
       const installScheduled = project[PROJECT_FIELDS.INSTALL_SCHEDULED_DATE_CAPTURE]?.value;
       const estimatedInstall = project[PROJECT_FIELDS.ESTIMATED_INSTALL_DATE]?.value;
-      
+
+      if (installCompleted) {
+        return `✅ Install Complete ${formatDate(installCompleted)}`;
+      }
+
       if (installStarted) {
-        return `Install: Started ${formatDate(installStarted)}`;
+        return `🔧 Install • In progress since ${formatDate(installStarted)}`;
       }
       if (installScheduled) {
-        return `Install: Scheduled for ${formatDate(installScheduled)}`;
+        return `📅 Install • Scheduled ${formatDate(installScheduled)}`;
       }
       if (estimatedInstall) {
-        return `Install: Scheduled for ${formatDate(estimatedInstall)}`;
+        return `📅 Install • Estimated ${formatDate(estimatedInstall)}`;
       }
-      return 'Install: Ready to schedule';
-    
+      return '🔧 Install • Ready to schedule';
+
     case 'inspection':
+      const ptoApproved = project[PROJECT_FIELDS.PTO_APPROVED]?.value;
       const inspectionPassed = project[PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED]?.value;
-      if (inspectionPassed) {
-        return `Inspection: Passed ${formatDate(inspectionPassed)} • Awaiting PTO`;
+
+      if (ptoApproved) {
+        return `✅ PTO Approved ${formatDate(ptoApproved)} • Complete!`;
       }
-      return 'Inspection: Pending';
-    
+
+      if (inspectionPassed) {
+        const daysWaiting = calculateDaysWaiting(inspectionPassed);
+        return `✅ Inspection Passed ${formatDate(inspectionPassed)} • Awaiting PTO (${daysWaiting}d)`;
+      }
+      return '🔍 Inspection • Pending';
+
     default:
       return 'Project in progress';
   }

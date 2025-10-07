@@ -23,7 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { FileDown, Calendar as CalendarIcon, Search, Eye } from 'lucide-react'
+import { FileDown, Calendar as CalendarIcon, Search, Eye, Loader2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import type { AuditLog } from '@/lib/types/audit'
@@ -37,6 +37,7 @@ export function AuditLogsTab() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null)
   const [page, setPage] = useState(1)
+  const [isExporting, setIsExporting] = useState(false)
 
   // Fetch audit logs
   const { data: logsData, isLoading } = useQuery({
@@ -59,6 +60,7 @@ export function AuditLogsTab() {
   })
 
   const exportToCSV = async () => {
+    setIsExporting(true)
     try {
       const params = new URLSearchParams({
         from: dateRange.from.toISOString(),
@@ -83,6 +85,8 @@ export function AuditLogsTab() {
       toast.success('Audit logs exported successfully')
     } catch (error) {
       toast.error('Failed to export audit logs')
+    } finally {
+      setIsExporting(false)
     }
   }
 
@@ -158,9 +162,23 @@ export function AuditLogsTab() {
         </div>
 
         {/* Export Button */}
-        <Button variant="outline" onClick={exportToCSV}>
-          <FileDown className="w-4 h-4 mr-2" />
-          Export CSV
+        <Button 
+          variant="outline" 
+          onClick={exportToCSV}
+          disabled={isExporting}
+          className={isExporting ? "opacity-75 cursor-wait" : ""}
+        >
+          {isExporting ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Exporting...
+            </>
+          ) : (
+            <>
+              <FileDown className="w-4 h-4 mr-2" />
+              Export CSV
+            </>
+          )}
         </Button>
       </div>
 

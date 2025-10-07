@@ -2,7 +2,7 @@
 
 import { useSession } from 'next-auth/react'
 import { redirect } from 'next/navigation'
-import { Suspense } from 'react'
+import { Suspense, useState } from 'react'
 import { ProjectTableView } from '@/components/projects/ProjectTableView'
 import { ProjectFilterChips } from '@/components/projects/ProjectFilterChips'
 import { SearchBar } from '@/components/projects/SearchBar'
@@ -18,6 +18,7 @@ interface ProjectsPageProps {
 
 export default function ProjectsPage({ searchParams }: ProjectsPageProps) {
   const { data: session, status } = useSession()
+  const [isFetching, setIsFetching] = useState(false)
 
   if (status === 'loading') {
     return <div>Loading...</div>
@@ -41,13 +42,13 @@ export default function ProjectsPage({ searchParams }: ProjectsPageProps) {
           {/* Search Bar and Sort */}
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1">
-              <SearchBar defaultValue={searchParams.search} />
+              <SearchBar defaultValue={searchParams.search} isFetching={isFetching} />
             </div>
-            <SortDropdown />
+            <SortDropdown isFetching={isFetching} />
           </div>
 
           {/* Filter Chips */}
-          <ProjectFilterChips />
+          <ProjectFilterChips isFetching={isFetching} />
         </div>
 
         {/* Project Table */}
@@ -58,6 +59,7 @@ export default function ProjectsPage({ searchParams }: ProjectsPageProps) {
             view={searchParams.view || 'all'}
             search={searchParams.search || ''}
             sort={searchParams.sort || 'default'}
+            onFetchingChange={setIsFetching}
           />
         </Suspense>
       </div>

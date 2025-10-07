@@ -3,13 +3,14 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Input } from '@/components/ui/input'
-import { Search } from 'lucide-react'
+import { Search, Loader2 } from 'lucide-react'
 
 interface SearchBarProps {
   defaultValue?: string
+  isFetching?: boolean
 }
 
-export function SearchBar({ defaultValue }: SearchBarProps) {
+export function SearchBar({ defaultValue, isFetching = false }: SearchBarProps) {
   const [search, setSearch] = useState(defaultValue || '')
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -40,21 +41,26 @@ export function SearchBar({ defaultValue }: SearchBarProps) {
 
   return (
     <div className="relative max-w-md">
-      <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+      {isFetching ? (
+        <Loader2 className="absolute left-3.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-indigo-600 animate-spin" />
+      ) : (
+        <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+      )}
       <Input
         type="search"
         placeholder="Search by customer name, project ID, or address..."
         value={search}
         onChange={(e) => setSearch(e.target.value.slice(0, MAX_SEARCH_LENGTH))}
         maxLength={MAX_SEARCH_LENGTH}
-        className="
+        className={`
           pl-10 pr-4 py-2.5 w-full
-          bg-white border-slate-200
+          bg-white
+          ${isFetching ? 'border-indigo-300' : 'border-slate-200'}
           focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100
           placeholder:text-slate-400
           text-slate-900
           transition-all duration-200
-        "
+        `}
         aria-label="Search projects"
       />
     </div>

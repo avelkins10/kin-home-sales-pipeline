@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowUpDown, Clock, Calendar, AlertCircle, Zap } from 'lucide-react'
+import { ArrowUpDown, Clock, Calendar, AlertCircle, Zap, Loader2 } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,7 +19,7 @@ const SORT_OPTIONS = [
   { value: 'customer-desc', label: 'Customer Z-A', icon: ArrowUpDown },
 ]
 
-export function SortDropdown() {
+export function SortDropdown({ isFetching = false }: { isFetching?: boolean }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentSort = searchParams.get('sort') || 'default'
@@ -44,9 +44,14 @@ export function SortDropdown() {
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
-          className="flex items-center gap-2 bg-white"
+          className={`flex items-center gap-2 bg-white ${isFetching ? 'opacity-75 cursor-wait' : ''}`}
+          disabled={isFetching}
         >
-          <Icon className="h-4 w-4" />
+          {isFetching ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Icon className="h-4 w-4" />
+          )}
           <span className="hidden sm:inline">Sort:</span>
           <span>{currentOption.label}</span>
         </Button>

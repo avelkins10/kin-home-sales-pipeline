@@ -11,6 +11,8 @@ import {
   FileText,
   Wrench,
   CheckCircle,
+  X,
+  Clock,
   type LucideIcon
 } from 'lucide-react';
 
@@ -31,51 +33,86 @@ const milestones: Array<{ id: 'intake' | 'survey' | 'design' | 'nem' | 'permit' 
 function getTrafficLightClass(state: MilestoneState): string {
   switch (state) {
     case 'complete':
-      return 'bg-emerald-500 text-white shadow-sm';
+      return 'bg-emerald-500 text-white shadow-sm hover:bg-emerald-600';
     case 'in-progress':
-      return 'bg-orange-500 text-white shadow-md ring-2 ring-orange-200';
+      return 'bg-amber-500 text-white shadow-md ring-2 ring-amber-200 hover:bg-amber-600';
     case 'pending':
-      return 'bg-slate-100 text-slate-400 border border-slate-200';
+      return 'bg-slate-200 text-slate-400 border border-slate-300 hover:bg-slate-300';
     case 'on-hold':
-      return 'bg-rose-500 text-white shadow-sm';
+      return 'bg-rose-500 text-white shadow-sm hover:bg-rose-600';
     case 'overdue':
-      return 'bg-rose-600 text-white ring-2 ring-rose-300 shadow-md';
+      return 'bg-rose-600 text-white ring-2 ring-rose-300 shadow-md animate-pulse hover:bg-rose-700';
     default:
-      return 'bg-slate-100 text-slate-400 border border-slate-200';
+      return 'bg-slate-200 text-slate-400 border border-slate-300';
   }
+}
+
+function getStateIcon(state: MilestoneState, defaultIcon: LucideIcon) {
+  switch (state) {
+    case 'complete':
+      return CheckCircle;
+    case 'overdue':
+      return Clock;
+    default:
+      return defaultIcon;
+  }
+}
+
+function getTooltipText(milestone: string, state: MilestoneState): string {
+  const stateLabels = {
+    'complete': '✓ Complete',
+    'in-progress': '● In Progress',
+    'pending': '○ Pending',
+    'on-hold': '■ On Hold',
+    'overdue': '⚠ Overdue'
+  };
+  return `${milestone}: ${stateLabels[state] || state}`;
 }
 
 export function TrafficLightPipeline({ project }: TrafficLightPipelineProps) {
   return (
-    <div className="space-y-2.5">
-      {/* Traffic lights row */}
-      <div className="flex items-center gap-2">
+    <div className="space-y-3">
+      {/* Traffic lights row with labels */}
+      <div className="flex items-start gap-3">
         {milestones.map((milestone, index) => {
           const state = calculateMilestoneState(project, milestone.id);
           const isLast = index === milestones.length - 1;
-          const Icon = milestone.Icon;
+          const DisplayIcon = getStateIcon(state, milestone.Icon);
 
           return (
             <div key={milestone.id} className="flex items-center gap-2">
-              {/* Traffic light circle */}
-              <div
-                className={cn(
-                  'w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200',
-                  getTrafficLightClass(state),
-                  state === 'in-progress' && 'animate-pulse'
-                )}
-                title={`${milestone.label}: ${state}`}
-                role="status"
-                aria-label={`${milestone.label} status: ${state}`}
-              >
-                <Icon className="w-4 h-4" strokeWidth={2.5} />
+              {/* Milestone column */}
+              <div className="flex flex-col items-center gap-1 group">
+                {/* Traffic light circle */}
+                <div
+                  className={cn(
+                    'w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 cursor-help',
+                    getTrafficLightClass(state)
+                  )}
+                  title={getTooltipText(milestone.label, state)}
+                  role="status"
+                  aria-label={`${milestone.label} status: ${state}`}
+                >
+                  <DisplayIcon className="w-5 h-5" strokeWidth={2.5} />
+                </div>
+
+                {/* Label below circle */}
+                <span className={cn(
+                  "text-[10px] font-medium transition-colors duration-200",
+                  state === 'complete' ? 'text-emerald-600' :
+                  state === 'in-progress' ? 'text-amber-600' :
+                  state === 'overdue' ? 'text-rose-600' :
+                  'text-slate-400'
+                )}>
+                  {milestone.label}
+                </span>
               </div>
 
               {/* Connector line */}
               {!isLast && (
                 <div
                   className={cn(
-                    'h-0.5 w-3 transition-colors duration-200',
+                    'h-0.5 w-4 mt-[-10px] transition-colors duration-300',
                     state === 'complete' ? 'bg-emerald-400' : 'bg-slate-200'
                   )}
                   aria-hidden="true"
@@ -86,9 +123,11 @@ export function TrafficLightPipeline({ project }: TrafficLightPipelineProps) {
         })}
       </div>
 
-      {/* Status text below lights */}
-      <div className="text-xs font-medium text-slate-600">
-        {getMilestoneStatusText(project)}
+      {/* Enhanced status text with badge */}
+      <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-slate-50 to-transparent rounded-lg border-l-2 border-indigo-400">
+        <div className="text-xs font-semibold text-slate-700">
+          {getMilestoneStatusText(project)}
+        </div>
       </div>
     </div>
   );
