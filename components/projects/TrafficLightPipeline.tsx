@@ -42,6 +42,8 @@ function getTrafficLightClass(state: MilestoneState): string {
       return 'bg-rose-500 text-white shadow-sm hover:bg-rose-600';
     case 'overdue':
       return 'bg-rose-600 text-white ring-2 ring-rose-300 shadow-md animate-pulse hover:bg-rose-700';
+    case 'rejected':
+      return 'bg-red-500 text-white shadow-sm hover:bg-red-600';
     default:
       return 'bg-slate-200 text-slate-400 border border-slate-300';
   }
@@ -53,6 +55,8 @@ function getStateIcon(state: MilestoneState, defaultIcon: LucideIcon) {
       return CheckCircle;
     case 'overdue':
       return Clock;
+    case 'rejected':
+      return X;
     default:
       return defaultIcon;
   }
@@ -64,7 +68,8 @@ function getTooltipText(milestone: string, state: MilestoneState): string {
     'in-progress': '● In Progress',
     'pending': '○ Pending',
     'on-hold': '■ On Hold',
-    'overdue': '⚠ Overdue'
+    'overdue': '⚠ Overdue',
+    'rejected': '✗ Rejected'
   };
   return `${milestone}: ${stateLabels[state] || state}`;
 }

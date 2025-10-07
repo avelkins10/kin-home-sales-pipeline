@@ -6,7 +6,7 @@ import { getProjectAge } from './project-helpers';
 
 // Types for traffic light states
 export type MilestoneId = 'intake' | 'survey' | 'design' | 'nem' | 'permit' | 'install' | 'inspection';
-export type MilestoneState = 'complete' | 'in-progress' | 'pending' | 'on-hold' | 'overdue';
+export type MilestoneState = 'complete' | 'in-progress' | 'pending' | 'on-hold' | 'overdue' | 'rejected';
 
 // Helper function to detect if project is on hold
 function detectHoldStatus(status: string): boolean {
@@ -69,9 +69,10 @@ function calculateIntakeState(project: QuickbaseProject): MilestoneState {
   const financeIntakeApproved = project[PROJECT_FIELDS.FINANCE_INTAKE_APPROVED]?.value;
   const projectAge = getProjectAge(project); // Use calculated age from SALES_DATE
 
-  // Check if rejected
-  if (projectStatus.toLowerCase().includes('rejected')) {
-    return 'complete'; // Rejected means intake is "complete" (terminal state)
+  // Check if rejected or cancelled
+  const statusLower = projectStatus.toLowerCase();
+  if (statusLower.includes('rejected') || statusLower.includes('cancel')) {
+    return 'rejected'; // Intake was rejected/failed
   }
 
   // Check if intake approved/complete
