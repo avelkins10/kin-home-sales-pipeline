@@ -17,12 +17,15 @@ export const PROJECT_FIELDS = {
   CUSTOMER_STATE: 150,             // ✅ PRIMARY - 100%
   CUSTOMER_ZIP: 151,               // ✅ PRIMARY - 100%
 
-  // System Specs (5 fields)
+  // System Specs (8 fields)
   SYSTEM_SIZE_KW: 13,              // ✅ PRIMARY - 100% - Total kW
   SYSTEM_PRICE: 133,               // ✅ PRIMARY - 100% - Total price
-  NUMBER_OF_PANELS: 260,           // ✅ SECONDARY - Panel count
-  MODULE: 127,                     // ✅ SECONDARY - Panel manufacturer/model
-  INVERTER: 128,                   // ✅ SECONDARY - Inverter model
+  NUMBER_OF_PANELS: 16,            // ✅ PRIMARY - Panel count
+  MODULE: 131,                     // ✅ SECONDARY - Panel manufacturer/model
+  MODULE_BRAND: 368,               // ✅ SECONDARY - Panel brand (e.g., JA Solar)
+  INVERTER: 17,                    // ✅ SECONDARY - Inverter model
+  INVERTER_BRAND: 370,             // ✅ SECONDARY - Inverter brand (e.g., SolarEdge)
+  INVERTER_COUNT: 331,             // ✅ SECONDARY - Number of inverters
 
   // Battery (2 fields)
   BATTERY_MODEL: 1099,             // ✅ SECONDARY - Battery type

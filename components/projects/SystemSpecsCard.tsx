@@ -17,7 +17,10 @@ export function SystemSpecsCard({ project }: SystemSpecsCardProps) {
   const systemPrice = parseFloat(project[PROJECT_FIELDS.SYSTEM_PRICE]?.value || '0')
   const numPanels = parseInt(project[PROJECT_FIELDS.NUMBER_OF_PANELS]?.value || '0')
   const moduleType = project[PROJECT_FIELDS.MODULE]?.value || ''
+  const moduleBrand = project[PROJECT_FIELDS.MODULE_BRAND]?.value || ''
   const inverter = project[PROJECT_FIELDS.INVERTER]?.value || ''
+  const inverterBrand = project[PROJECT_FIELDS.INVERTER_BRAND]?.value || ''
+  const inverterCount = parseInt(project[PROJECT_FIELDS.INVERTER_COUNT]?.value || '0')
   const batteryModel = project[PROJECT_FIELDS.BATTERY_MODEL]?.value || ''
   const batteryQuantity = parseInt(project[PROJECT_FIELDS.BATTERY_QUANTITY]?.value || '0')
   const grossPPW = parseFloat(project[PROJECT_FIELDS.GROSS_PPW]?.value || '0')
@@ -65,25 +68,55 @@ export function SystemSpecsCard({ project }: SystemSpecsCardProps) {
             </div>
           </div>
 
-          {/* Module */}
+          {/* Module Brand */}
           <div className="flex items-center gap-3">
-            <div className="w-5 h-5 bg-gray-400 rounded" />
+            <div className="w-5 h-5 bg-amber-500 rounded flex items-center justify-center text-white text-xs font-bold">
+              ☀️
+            </div>
             <div>
-              <p className="text-sm text-gray-600 font-medium">Module</p>
+              <p className="text-sm text-gray-600 font-medium">Panel Brand</p>
               <p className="text-base text-gray-900 font-semibold">
-                {moduleType || 'N/A'}
+                {moduleBrand || moduleType || 'N/A'}
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Equipment Details */}
+        <div className="border-t border-gray-200 pt-4 space-y-3">
+          {/* Module Model */}
+          {moduleType && (
+            <div className="flex items-start gap-3">
+              <div className="w-5 h-5 bg-gray-400 rounded flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm text-gray-600 font-medium">Panel Model</p>
+                <p className="text-sm text-gray-900 font-mono">
+                  {moduleType}
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Inverter */}
-          <div className="flex items-center gap-3 md:col-span-2">
-            <div className="w-5 h-5 bg-gray-400 rounded" />
-            <div>
-              <p className="text-sm text-gray-600 font-medium">Inverter</p>
+          <div className="flex items-start gap-3">
+            <div className="w-5 h-5 bg-indigo-500 rounded flex-shrink-0 mt-0.5 flex items-center justify-center text-white text-xs font-bold">
+              ⚡
+            </div>
+            <div className="flex-1">
+              <p className="text-sm text-gray-600 font-medium">Inverter Brand</p>
               <p className="text-base text-gray-900 font-semibold">
-                {inverter || 'N/A'}
+                {inverterBrand || inverter || 'N/A'}
+                {inverterCount > 0 && (
+                  <Badge variant="secondary" className="ml-2">
+                    {inverterCount}x
+                  </Badge>
+                )}
               </p>
+              {inverter && (
+                <p className="text-xs text-gray-600 font-mono mt-1">
+                  {inverter}
+                </p>
+              )}
             </div>
           </div>
         </div>
