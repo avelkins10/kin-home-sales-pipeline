@@ -135,25 +135,33 @@ export function ProjectRow({ project }: ProjectRowProps) {
           </div>
 
           {/* Column 3 - Metrics */}
-          <div className="flex-shrink-0 w-44 space-y-2.5">
-            {/* Size row */}
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-500 font-medium">Size</span>
-              <span className="text-slate-900 font-semibold">
+          <div className="flex-shrink-0 w-64 bg-slate-50 rounded-lg p-3 space-y-2">
+            {/* System Size */}
+            <div className="flex items-baseline justify-between">
+              <span className="text-xs text-slate-500 uppercase tracking-wide">Size</span>
+              <span className="text-lg font-bold text-slate-900">
                 {formatSystemSize(systemSizeKw)}
               </span>
             </div>
 
-            {/* PPW row */}
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-500 font-medium">PPW</span>
-              <PPWDisplay soldPPW={soldPPW} commissionablePPW={commissionablePPW} />
+            {/* PPW Section */}
+            <div className="space-y-1 pt-1 border-t border-slate-200">
+              <div className="flex items-baseline justify-between">
+                <span className="text-xs text-slate-500">Sold PPW</span>
+                <span className="text-sm font-semibold text-slate-900">
+                  {soldPPW ? `$${soldPPW.toFixed(2)}/W` : 'N/A'}
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between">
+                <span className="text-xs text-slate-500">Comm. PPW</span>
+                <PPWDisplay soldPPW={soldPPW} commissionablePPW={commissionablePPW} />
+              </div>
             </div>
 
-            {/* Value row */}
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-500 font-medium">Value</span>
-              <span className="text-slate-900 font-semibold">
+            {/* Gross Cost */}
+            <div className="flex items-baseline justify-between pt-1 border-t border-slate-200">
+              <span className="text-xs text-slate-500 uppercase tracking-wide">Gross Cost</span>
+              <span className="text-lg font-bold text-emerald-600">
                 {formatCurrency(systemPrice)}
               </span>
             </div>
