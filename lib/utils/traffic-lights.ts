@@ -2,6 +2,7 @@
 
 import { PROJECT_FIELDS } from '@/lib/constants/fieldIds';
 import { QuickbaseProject } from '@/lib/types/project';
+import { getProjectAge } from './project-helpers';
 
 // Types for traffic light states
 export type MilestoneId = 'intake' | 'survey' | 'design' | 'nem' | 'permit' | 'install' | 'inspection';
@@ -63,17 +64,27 @@ export function calculateMilestoneState(project: QuickbaseProject, milestoneId: 
 
 // Intake milestone calculator
 function calculateIntakeState(project: QuickbaseProject): MilestoneState {
-  const surveyApproved = project[PROJECT_FIELDS.SURVEY_APPROVED]?.value;
-  const projectAge = parseInt(project[PROJECT_FIELDS.PROJECT_AGE]?.value || '0');
+  const projectStatus = project[PROJECT_FIELDS.PROJECT_STATUS]?.value || '';
+  const intakeComplete = project[PROJECT_FIELDS.WEBHOOK_INTAKE_COMPLETE]?.value;
+  const financeIntakeApproved = project[PROJECT_FIELDS.FINANCE_INTAKE_APPROVED]?.value;
+  const projectAge = getProjectAge(project); // Use calculated age from SALES_DATE
 
-  if (surveyApproved) {
+  // Check if rejected
+  if (projectStatus.toLowerCase().includes('rejected')) {
+    return 'complete'; // Rejected means intake is "complete" (terminal state)
+  }
+
+  // Check if intake approved/complete
+  if (intakeComplete || financeIntakeApproved) {
     return 'complete';
   }
 
+  // Check if overdue (more than 7 days waiting for intake)
   if (projectAge > 7) {
     return 'overdue';
   }
 
+  // Otherwise, intake is pending/in-progress
   return 'in-progress';
 }
 
@@ -98,7 +109,7 @@ function calculateDesignState(project: QuickbaseProject): MilestoneState {
   const surveyApproved = project[PROJECT_FIELDS.SURVEY_APPROVED]?.value;
   const cadDesignApproved = project[PROJECT_FIELDS.CAD_DESIGN_APPROVED]?.value;
   const designCompleted = project[PROJECT_FIELDS.DESIGN_COMPLETED]?.value;
-  const projectAge = parseInt(project[PROJECT_FIELDS.PROJECT_AGE]?.value || '0');
+  const projectAge = getProjectAge(project); // Use calculated age from SALES_DATE
 
   if (!surveyApproved) {
     return 'pending';

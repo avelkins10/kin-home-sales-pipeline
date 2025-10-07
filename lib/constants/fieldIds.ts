@@ -62,8 +62,11 @@ export const PROJECT_FIELDS = {
   NUM_APPROVED_ADDERS: 1046,       // ✅ SECONDARY - 67% - Approved count
   NUM_NEEDS_REVIEW_ADDERS: 2282,   // ✅ PRIMARY - 67% - CRITICAL bottleneck!
 
-  // MILESTONE 1: Intake (1 field)
+  // MILESTONE 1: Intake (4 fields)
   INTAKE_INSTALL_DATE_TENTATIVE: 902, // ✅ PRIMARY - 100% - Always filled at sale
+  FINANCE_INTAKE_APPROVED: 1548,   // ✅ PRIMARY - 100% - Finance approved checkbox
+  INTAKE_COMPLETE: 554,            // ✅ PRIMARY - 100% - Intake complete URL
+  WEBHOOK_INTAKE_COMPLETE: 603,    // ✅ PRIMARY - 100% - Intake complete checkbox
 
   // MILESTONE 2: Survey (4 fields)
   SURVEY_SUBMITTED: 164,           // ✅ PRIMARY - 26.5% - Survey sent to ops
