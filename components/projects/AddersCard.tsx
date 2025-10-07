@@ -19,8 +19,8 @@ export function AddersCard({ project }: AddersCardProps) {
   const approvedAdders = parseInt(project[PROJECT_FIELDS.NUM_APPROVED_ADDERS]?.value || '0')
   const needsReviewAdders = parseInt(project[PROJECT_FIELDS.NUM_NEEDS_REVIEW_ADDERS]?.value || '0')
 
-  // Parse adder list
-  const adderList = salesFacingAdderList
+  // Parse adder list - ensure it's a string before splitting
+  const adderList = salesFacingAdderList && typeof salesFacingAdderList === 'string'
     ? salesFacingAdderList.split(',').map((adder: string) => adder.trim()).filter(Boolean)
     : []
 

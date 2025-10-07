@@ -9,7 +9,7 @@ import { QuickbaseProject } from '@/lib/types/project';
  * @returns object with firstName and lastName
  */
 export function parseCustomerName(fullName: string): { firstName: string; lastName: string } {
-  if (!fullName || fullName.trim() === '') {
+  if (!fullName || typeof fullName !== 'string' || fullName.trim() === '') {
     return { firstName: 'Unknown', lastName: '' };
   }
 
@@ -36,7 +36,7 @@ export function parseCustomerName(fullName: string): { firstName: string; lastNa
  * @returns object with line1 and line2
  */
 export function formatAddress(address: string): { line1: string; line2: string } {
-  if (!address || address.trim() === '') {
+  if (!address || typeof address !== 'string' || address.trim() === '') {
     return { line1: '', line2: '' };
   }
 

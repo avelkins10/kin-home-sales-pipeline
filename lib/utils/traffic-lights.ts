@@ -24,9 +24,11 @@ function calculateDaysWaiting(submitDate?: string): number {
 
 // Helper function to format date as M/D
 function formatDate(dateStr?: string): string {
-  if (!dateStr) return '';
+  if (!dateStr || typeof dateStr !== 'string') return '';
   // Parse date string as local date to avoid timezone issues
-  const [year, month, day] = dateStr.split('T')[0].split('-');
+  const datePart = dateStr.split('T')[0];
+  if (!datePart) return '';
+  const [year, month, day] = datePart.split('-');
   return `${parseInt(month)}/${parseInt(day)}`;
 }
 
