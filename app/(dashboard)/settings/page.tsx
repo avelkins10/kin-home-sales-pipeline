@@ -15,29 +15,36 @@ import { Card, CardContent } from '@/components/ui/card'
 
 export default async function SettingsPage() {
   const session = await getServerSession(authOptions)
-  
+
   if (!session) {
     redirect('/login')
   }
 
-  // Fetch user data
-  const userQueryResult = await sql`
-    SELECT id, email, name, phone, role, quickbase_user_id, sales_office, is_active, created_at, updated_at
-    FROM users
-    WHERE id = ${session.user.id}
-  `
-  const userResult = userQueryResult.rows[0]
+  console.log('[SettingsPage] Loading settings for user:', session.user.id);
 
-  if (!userResult) {
-    redirect('/login')
-  }
+  try {
+    // Fetch user data
+    const userQueryResult = await sql`
+      SELECT id, email, name, phone, role, quickbase_user_id, sales_office, is_active, created_at, updated_at
+      FROM users
+      WHERE id = ${session.user.id}
+    `
+    const userResult = userQueryResult.rows[0]
 
-  // Fetch notification settings
-  const notificationQueryResult = await sql`
-    SELECT * FROM notification_settings
-    WHERE user_id = ${session.user.id}
-  `
-  const notificationSettings = notificationQueryResult.rows[0]
+    if (!userResult) {
+      console.error('[SettingsPage] User not found in database:', session.user.id);
+      redirect('/login')
+    }
+
+    console.log('[SettingsPage] User found:', userResult.email);
+
+    // Fetch notification settings
+    const notificationQueryResult = await sql`
+      SELECT * FROM notification_settings
+      WHERE user_id = ${session.user.id}
+    `
+    const notificationSettings = notificationQueryResult.rows[0]
+    console.log('[SettingsPage] Notification settings:', notificationSettings ? 'found' : 'not found');
 
   const user = {
     id: userResult.id,
@@ -75,11 +82,11 @@ export default async function SettingsPage() {
     installOverdueThreshold: notificationSettings.install_overdue_threshold
   } : defaultNotificationSettings
 
-  const role = session.user.role
-  const hasTeamAccess = ['office_leader', 'regional', 'super_admin'].includes(role)
-  const isSuperAdmin = role === 'super_admin'
+    const role = session.user.role
+    const hasTeamAccess = ['office_leader', 'regional', 'super_admin'].includes(role)
+    const isSuperAdmin = role === 'super_admin'
 
-  return (
+    return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-5xl mx-auto space-y-6">
         <div>
@@ -146,5 +153,9 @@ export default async function SettingsPage() {
         </Tabs>
       </div>
     </div>
-  )
+    )
+  } catch (error) {
+    console.error('[SettingsPage] Error loading settings:', error);
+    throw error;
+  }
 }
