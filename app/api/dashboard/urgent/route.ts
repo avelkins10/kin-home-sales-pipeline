@@ -28,8 +28,13 @@ export async function GET(req: Request) {
     logApiResponse('GET', '/api/dashboard/urgent', Date.now() - startedAt, { count: Array.isArray(urgent) ? urgent.length : 0 }, reqId);
     return NextResponse.json(urgent, { status: 200 });
   } catch (error) {
+    console.error('[/api/dashboard/urgent] ERROR:', error);
     logError('Failed to fetch urgent projects', error as Error, {});
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({
+      error: 'Internal Server Error',
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    }, { status: 500 });
   }
 }
 

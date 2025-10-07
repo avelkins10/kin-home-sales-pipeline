@@ -54,8 +54,13 @@ export async function GET(req: Request) {
     logApiResponse('GET', '/api/dashboard/metrics', Date.now() - startedAt, { cached: false }, reqId);
     return NextResponse.json(metrics, { status: 200 });
   } catch (error) {
+    console.error('[/api/dashboard/metrics] ERROR:', error);
     logError('Failed to fetch dashboard metrics', error as Error, {});
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({
+      error: 'Internal Server Error',
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    }, { status: 500 });
   }
 }
 

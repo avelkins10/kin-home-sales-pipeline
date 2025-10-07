@@ -286,10 +286,12 @@ export async function getDashboardMetrics(userId: string, role: string) {
 }
 
 export async function getDashboardMetricsOptimized(userId: string, role: string) {
+  console.log('[getDashboardMetricsOptimized] START - userId:', userId, 'role:', role);
   const startTime = Date.now();
-  
+
   // Use shared role scoping helper for consistency
   const whereClause = buildRoleClause(userId, role);
+  console.log('[getDashboardMetricsOptimized] WHERE clause:', whereClause);
 
   const userProjects = await qbClient.queryRecords({
     from: QB_TABLE_PROJECTS,
@@ -359,7 +361,9 @@ export const __test__ = {
 };
 
 export async function getUrgentProjects(userId: string, role: string) {
+  console.log('[getUrgentProjects] START - userId:', userId, 'role:', role);
   const holds = await getProjectsOnHold(userId, role);
+  console.log('[getUrgentProjects] Retrieved', holds?.length || 0, 'projects on hold');
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   
   const urgentProjects = holds
