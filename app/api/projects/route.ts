@@ -24,6 +24,7 @@ export async function GET(req: Request) {
     }
     const view = searchParams.get('view') || undefined;
     const search = searchParams.get('search')?.trim().slice(0, 100) || undefined; // Clamp to 100 chars and normalize whitespace
+    const sort = searchParams.get('sort') || undefined;
 
     // Validate view parameter against allowed values
     const allowedViews = ['all', 'active', 'on-hold', 'install-ready', 'install-scheduled', 'install-completed', 'pending-cancel', 'cancelled', 'needs-attention']
@@ -31,11 +32,17 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Invalid view parameter' }, { status: 400 });
     }
 
+    // Validate sort parameter
+    const allowedSorts = ['default', 'newest', 'oldest', 'age-desc', 'customer-asc', 'customer-desc']
+    if (sort && !allowedSorts.includes(sort)) {
+      return NextResponse.json({ error: 'Invalid sort parameter' }, { status: 400 });
+    }
+
     const { quickbaseUserId, role } = auth.session.user as any;
     const userId = quickbaseUserId as string;
 
     const { getProjectsForUser } = await import('@/lib/quickbase/queries');
-    const projects = await getProjectsForUser(userId, role, view, search);
+    const projects = await getProjectsForUser(userId, role, view, search, sort);
 
     logApiResponse('GET', '/api/projects', Date.now() - startedAt, { count: Array.isArray(projects) ? projects.length : 0 }, reqId);
     return NextResponse.json(projects, { status: 200 });

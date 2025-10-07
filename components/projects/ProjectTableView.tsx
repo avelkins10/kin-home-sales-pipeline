@@ -11,12 +11,13 @@ interface ProjectTableViewProps {
   role: string;
   view: string;
   search: string;
+  sort: string;
 }
 
-export function ProjectTableView({ userId, role, view, search }: ProjectTableViewProps) {
+export function ProjectTableView({ userId, role, view, search, sort }: ProjectTableViewProps) {
   const { data: projects, isLoading, error, refetch } = useQuery({
-    queryKey: ['projects', userId, role, view, search],
-    queryFn: () => getProjectsForUserOffline(userId, role, view, search),
+    queryKey: ['projects', userId, role, view, search, sort],
+    queryFn: () => getProjectsForUserOffline(userId, role, view, search, sort),
     staleTime: 30000, // 30 seconds
     refetchInterval: 60000, // 1 minute for auto-refresh
   });

@@ -6,11 +6,13 @@ import { Suspense } from 'react'
 import { ProjectTableView } from '@/components/projects/ProjectTableView'
 import { ProjectFilterChips } from '@/components/projects/ProjectFilterChips'
 import { SearchBar } from '@/components/projects/SearchBar'
+import { SortDropdown } from '@/components/projects/SortDropdown'
 
 interface ProjectsPageProps {
   searchParams: {
     search?: string
     view?: string
+    sort?: string
   }
 }
 
@@ -36,8 +38,13 @@ export default function ProjectsPage({ searchParams }: ProjectsPageProps) {
 
         {/* Controls Section */}
         <div className="mb-6 space-y-4">
-          {/* Search Bar */}
-          <SearchBar defaultValue={searchParams.search} />
+          {/* Search Bar and Sort */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1">
+              <SearchBar defaultValue={searchParams.search} />
+            </div>
+            <SortDropdown />
+          </div>
 
           {/* Filter Chips */}
           <ProjectFilterChips />
@@ -50,6 +57,7 @@ export default function ProjectsPage({ searchParams }: ProjectsPageProps) {
             role={session.user.role}
             view={searchParams.view || 'all'}
             search={searchParams.search || ''}
+            sort={searchParams.sort || 'default'}
           />
         </Suspense>
       </div>

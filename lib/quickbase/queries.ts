@@ -55,8 +55,8 @@ export function buildRoleClause(userId: string, role: string): string {
   return clause;
 }
 
-export async function getProjectsForUser(userId: string, role: string, view?: string, search?: string) {
-  console.log('[getProjectsForUser] START - userId:', userId, 'role:', role, 'view:', view, 'search:', search);
+export async function getProjectsForUser(userId: string, role: string, view?: string, search?: string, sort?: string) {
+  console.log('[getProjectsForUser] START - userId:', userId, 'role:', role, 'view:', view, 'search:', search, 'sort:', sort);
 
   // Build role-based where clause using shared helper
   const roleClause = buildRoleClause(userId, role);
@@ -78,8 +78,8 @@ export async function getProjectsForUser(userId: string, role: string, view?: st
 
   console.log('[getProjectsForUser] Final WHERE clause:', whereClause);
 
-  // Determine sort order based on view
-  const sortBy = getSortOrder(view);
+  // Determine sort order based on sort param or view
+  const sortBy = getSortOrder(view, sort);
 
   try {
     console.log('[getProjectsForUser] Querying QuickBase table:', QB_TABLE_PROJECTS);
@@ -203,8 +203,25 @@ export function buildSearchFilter(search?: string): string {
   return `({${PROJECT_FIELDS.CUSTOMER_NAME}.CT.'${searchTerm}'} OR {${PROJECT_FIELDS.PROJECT_ID}.CT.'${searchTerm}'})`;
 }
 
-// Helper function to get sort order based on view
-function getSortOrder(view?: string): { fieldId: number; order: 'ASC' | 'DESC' }[] {
+// Helper function to get sort order based on view and sort parameter
+function getSortOrder(view?: string, sort?: string): { fieldId: number; order: 'ASC' | 'DESC' }[] {
+  // If explicit sort is provided, use it (overrides view-based sorting)
+  if (sort && sort !== 'default') {
+    switch (sort) {
+      case 'newest':
+        return [{ fieldId: PROJECT_FIELDS.SALES_DATE, order: 'DESC' as const }];
+      case 'oldest':
+        return [{ fieldId: PROJECT_FIELDS.SALES_DATE, order: 'ASC' as const }];
+      case 'age-desc':
+        return [{ fieldId: PROJECT_FIELDS.PROJECT_AGE, order: 'DESC' as const }];
+      case 'customer-asc':
+        return [{ fieldId: PROJECT_FIELDS.CUSTOMER_NAME, order: 'ASC' as const }];
+      case 'customer-desc':
+        return [{ fieldId: PROJECT_FIELDS.CUSTOMER_NAME, order: 'DESC' as const }];
+    }
+  }
+
+  // Fall back to view-based sorting
   switch (view) {
     case 'on-hold':
       return [{ fieldId: PROJECT_FIELDS.DATE_ON_HOLD, order: 'ASC' as const }]; // Oldest first

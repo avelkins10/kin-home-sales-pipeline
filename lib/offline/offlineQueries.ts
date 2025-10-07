@@ -15,12 +15,18 @@ export async function getProjectsForUserOffline(
   userId: string,
   role: string,
   view?: string,
-  search?: string
+  search?: string,
+  sort?: string
 ): Promise<QuickbaseProject[]> {
   try {
     if (isOnline()) {
       // Online: fetch from API and cache result
-      const url = `/api/projects${view ? `?view=${encodeURIComponent(view)}` : ''}${!view && search ? `?search=${encodeURIComponent(search)}` : view && search ? `&search=${encodeURIComponent(search)}` : ''}`;
+      const params = new URLSearchParams();
+      if (view) params.set('view', view);
+      if (search) params.set('search', search);
+      if (sort && sort !== 'default') params.set('sort', sort);
+
+      const url = `/api/projects${params.toString() ? `?${params.toString()}` : ''}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error('Failed to fetch projects');
       const projects = await res.json();
@@ -36,12 +42,12 @@ export async function getProjectsForUserOffline(
     }
   } catch (error) {
     console.error('Failed to get projects (offline-aware):', error);
-    
+
     // Fallback to cache even if online request failed
     if (isOffline()) {
       return await getCachedProjectList(userId, role);
     }
-    
+
     return [];
   }
 }
