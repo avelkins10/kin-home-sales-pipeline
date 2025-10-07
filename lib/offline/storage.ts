@@ -192,10 +192,22 @@ export async function clearStaleCache(): Promise<void> {
 export async function queueMutation(
   type: 'hold-update',
   projectId: number,
-  data: any
+  data: any,
+  collapseDuplicates: boolean = false
 ): Promise<number> {
   try {
     const database = await initDB();
+    
+    // If collapsing duplicates, remove existing mutations for this project
+    if (collapseDuplicates) {
+      const existingMutations = await database.getAllFromIndex('pendingMutations', 'by-timestamp');
+      const duplicates = existingMutations.filter(m => m.type === type && m.projectId === projectId);
+      
+      for (const duplicate of duplicates) {
+        await database.delete('pendingMutations', duplicate.id);
+      }
+    }
+    
     const mutation = {
       id: 0, // Will be auto-incremented
       type,

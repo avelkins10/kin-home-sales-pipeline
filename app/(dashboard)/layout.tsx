@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { cn } from '@/lib/utils/cn';
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
+import { WebVitalsCollector } from '@/components/ui/WebVitalsCollector';
 import { Home, FolderKanban, Clock, BarChart3, Settings } from 'lucide-react';
 
 export default async function DashboardLayout({
@@ -33,6 +34,9 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-slate-50">
+      {/* Web Vitals Collection */}
+      <WebVitalsCollector />
+      
       {/* Offline Indicator */}
       <OfflineIndicator />
 

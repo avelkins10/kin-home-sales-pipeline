@@ -302,6 +302,13 @@
 - **Online sync:** Data invalidates and refreshes when coming back online
 - **Prefetch optimization:** Project details prefetch on row hover for instant navigation
 
+### Performance Monitoring
+- **Web Vitals collection:** 10% of sessions automatically sampled for performance metrics
+- **Metrics tracked:** LCP, FID, FCP, CLS, TTFB with navigation type and URL context
+- **Internal API:** `/api/internal/metrics` endpoint with secret header authentication
+- **Opt-out capability:** Controlled via `ENABLE_WEB_VITALS` environment variable
+- **Bundle optimization:** Web-vitals library loaded dynamically to avoid bundle bloat
+
 ### Lighthouse Audit Results
 
 **Test Date:** [TO BE FILLED]

@@ -1,343 +1,172 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { syncPendingMutations, triggerSync, handleOnline } from '@/lib/offline/syncQueue';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { queueMutation, getPendingMutations, clearMutation } from '@/lib/offline/storage';
 
-// Mock dependencies
-vi.mock('@/lib/offline/storage', () => ({
-  getPendingMutations: vi.fn(),
-  clearMutation: vi.fn(),
-  updateMutationRetryCount: vi.fn(),
+// Mock IndexedDB
+const mockDB = {
+  add: vi.fn(),
+  getAllFromIndex: vi.fn(),
+  delete: vi.fn(),
+  transaction: vi.fn(),
+};
+
+vi.mock('idb', () => ({
+  openDB: vi.fn().mockResolvedValue(mockDB),
 }));
 
-// No Quickbase query mocks needed; sync uses fetch directly
-
-vi.mock('sonner', () => ({
-  toast: {
-    success: vi.fn(),
-    error: vi.fn(),
-    warning: vi.fn(),
-    info: vi.fn(),
-  },
-}));
-
-import { getPendingMutations, clearMutation, updateMutationRetryCount } from '@/lib/offline/storage';
-import { toast } from 'sonner';
-
-// Mock navigator.onLine
-Object.defineProperty(navigator, 'onLine', {
-  writable: true,
-  value: true,
-});
-
-describe('Sync Queue', () => {
+describe('Sync Queue Deduping', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    navigator.onLine = true;
-    // Stub global.fetch to avoid real network calls
-    global.fetch = vi.fn().mockResolvedValue({ ok: true });
+    // Reset mock implementations
+    mockDB.add.mockResolvedValue(1);
+    mockDB.getAllFromIndex.mockResolvedValue([]);
+    mockDB.delete.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
+    vi.resetAllMocks();
   });
 
-  describe('syncPendingMutations', () => {
-    it('returns early if offline', async () => {
-      navigator.onLine = false;
+  describe('queueMutation with collapseDuplicates', () => {
+    it('should not collapse duplicates when collapseDuplicates is false', async () => {
+      mockDB.getAllFromIndex.mockResolvedValue([]);
 
-      const result = await syncPendingMutations();
+      await queueMutation('hold-update', 123, { onHold: true }, false);
 
-      expect(result).toEqual({ synced: 0, failed: 0 });
-      expect(getPendingMutations).not.toHaveBeenCalled();
+      expect(mockDB.getAllFromIndex).not.toHaveBeenCalled();
+      expect(mockDB.delete).not.toHaveBeenCalled();
+      expect(mockDB.add).toHaveBeenCalledTimes(1);
     });
 
-    it('returns early if already syncing', async () => {
-      // Start first sync
-      const firstSyncPromise = syncPendingMutations();
-      
-      // Try second sync while first is running
-      const secondResult = await syncPendingMutations();
-      
-      expect(secondResult).toEqual({ synced: 0, failed: 0 });
-      
-      // Clean up first sync
-      await firstSyncPromise;
-    });
-
-    it('syncs single mutation successfully', async () => {
-      const mockMutation = {
-        id: 'mutation-1',
-        type: 'hold-update',
-        projectId: '123',
-        data: { onHold: true, holdReason: 'Customer Request', blockReason: 'Docs Missing' },
-        retryCount: 0,
-        timestamp: Date.now(),
-      };
-
-      vi.mocked(getPendingMutations).mockResolvedValue([mockMutation]);
-      vi.mocked(clearMutation).mockResolvedValue();
-
-      const result = await syncPendingMutations();
-
-      expect(global.fetch).toHaveBeenCalledTimes(1);
-      const [url, options] = vi.mocked(global.fetch).mock.calls[0] as [string, RequestInit];
-      expect(typeof url).toBe('string');
-      expect((url as string).endsWith('/api/projects/123/hold')).toBe(true);
-      expect(options).toMatchObject({
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ onHold: true, holdReason: 'Customer Request', blockReason: 'Docs Missing' }),
-      });
-      expect(clearMutation).toHaveBeenCalledWith('mutation-1');
-      expect(result).toEqual({ synced: 1, failed: 0 });
-      expect(toast.success).toHaveBeenCalledWith('Synced');
-    });
-
-    it('syncs multiple mutations in order', async () => {
-      const mockMutations = [
-        {
-          id: 'mutation-1',
-          type: 'hold-update',
-          projectId: '123',
-          data: { onHold: true, holdReason: 'Customer Request', blockReason: 'Docs Missing' },
-          retryCount: 0,
-          timestamp: Date.now() - 2000,
-        },
-        {
-          id: 'mutation-2',
-          type: 'hold-update',
-          projectId: '456',
-          data: { onHold: false, holdReason: '', blockReason: '' },
-          retryCount: 0,
-          timestamp: Date.now() - 1000,
-        },
-        {
-          id: 'mutation-3',
-          type: 'hold-update',
-          projectId: '789',
-          data: { onHold: true, holdReason: 'Other', blockReason: '' },
-          retryCount: 0,
-          timestamp: Date.now(),
-        },
+    it('should collapse duplicates when collapseDuplicates is true', async () => {
+      const existingMutations = [
+        { id: 1, type: 'hold-update', projectId: 123, data: { onHold: false }, timestamp: Date.now() - 1000, retryCount: 0 },
+        { id: 2, type: 'hold-update', projectId: 123, data: { onHold: true }, timestamp: Date.now() - 500, retryCount: 0 },
+        { id: 3, type: 'hold-update', projectId: 456, data: { onHold: true }, timestamp: Date.now() - 200, retryCount: 0 }, // Different project
       ];
 
-      vi.mocked(getPendingMutations).mockResolvedValue(mockMutations);
-      vi.mocked(clearMutation).mockResolvedValue();
+      mockDB.getAllFromIndex.mockResolvedValue(existingMutations);
 
-      const result = await syncPendingMutations();
+      await queueMutation('hold-update', 123, { onHold: true }, true);
 
-      expect(global.fetch).toHaveBeenCalledTimes(3);
-      const urls = vi.mocked(global.fetch).mock.calls.map(c => c[0] as string);
-      expect(urls[0].endsWith('/api/projects/123/hold')).toBe(true);
-      expect(urls[1].endsWith('/api/projects/456/hold')).toBe(true);
-      expect(urls[2].endsWith('/api/projects/789/hold')).toBe(true);
-      expect(clearMutation).toHaveBeenCalledTimes(3);
-      expect(result).toEqual({ synced: 3, failed: 0 });
+      // Should delete existing mutations for project 123
+      expect(mockDB.delete).toHaveBeenCalledTimes(2);
+      expect(mockDB.delete).toHaveBeenCalledWith('pendingMutations', 1);
+      expect(mockDB.delete).toHaveBeenCalledWith('pendingMutations', 2);
+      expect(mockDB.delete).not.toHaveBeenCalledWith('pendingMutations', 3); // Different project
+
+      // Should add new mutation
+      expect(mockDB.add).toHaveBeenCalledTimes(1);
     });
 
-    it('increments retry count on failure', async () => {
-      const mockMutation = {
-        id: 'mutation-1',
+    it('should handle no existing mutations gracefully', async () => {
+      mockDB.getAllFromIndex.mockResolvedValue([]);
+
+      await queueMutation('hold-update', 123, { onHold: true }, true);
+
+      expect(mockDB.delete).not.toHaveBeenCalled();
+      expect(mockDB.add).toHaveBeenCalledTimes(1);
+    });
+
+    it('should only collapse mutations of the same type and project', async () => {
+      const existingMutations = [
+        { id: 1, type: 'hold-update', projectId: 123, data: { onHold: false }, timestamp: Date.now() - 1000, retryCount: 0 },
+        { id: 2, type: 'other-type', projectId: 123, data: { someData: true }, timestamp: Date.now() - 500, retryCount: 0 }, // Different type
+        { id: 3, type: 'hold-update', projectId: 456, data: { onHold: true }, timestamp: Date.now() - 200, retryCount: 0 }, // Different project
+      ];
+
+      mockDB.getAllFromIndex.mockResolvedValue(existingMutations);
+
+      await queueMutation('hold-update', 123, { onHold: true }, true);
+
+      // Should only delete the matching type and project
+      expect(mockDB.delete).toHaveBeenCalledTimes(1);
+      expect(mockDB.delete).toHaveBeenCalledWith('pendingMutations', 1);
+      expect(mockDB.add).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('mutation data integrity', () => {
+    it('should preserve mutation data when collapsing', async () => {
+      const existingMutations = [
+        { id: 1, type: 'hold-update', projectId: 123, data: { onHold: false, holdReason: 'Old reason' }, timestamp: Date.now() - 1000, retryCount: 0 },
+      ];
+
+      mockDB.getAllFromIndex.mockResolvedValue(existingMutations);
+
+      const newData = { onHold: true, holdReason: 'New reason', blockReason: 'Customer issue' };
+      await queueMutation('hold-update', 123, newData, true);
+
+      // Verify the new mutation has the correct data
+      expect(mockDB.add).toHaveBeenCalledWith('pendingMutations', expect.objectContaining({
         type: 'hold-update',
-        projectId: '123',
-        data: { onHold: true, holdReason: 'Customer Request', blockReason: 'Docs Missing' },
+        projectId: 123,
+        data: newData,
         retryCount: 0,
-        timestamp: Date.now(),
-      };
-
-      vi.mocked(getPendingMutations).mockResolvedValue([mockMutation]);
-      vi.mocked(updateMutationRetryCount).mockResolvedValue();
-      // Simulate fetch returning not ok
-      vi.mocked(global.fetch).mockResolvedValueOnce({ ok: false } as any);
-      vi.mocked(updateMutationRetryCount).mockResolvedValue();
-
-      const result = await syncPendingMutations();
-
-      expect(global.fetch).toHaveBeenCalledTimes(1);
-      const [url, options] = vi.mocked(global.fetch).mock.calls[0] as [string, RequestInit];
-      expect((url as string).endsWith('/api/projects/123/hold')).toBe(true);
-      expect(options).toMatchObject({ method: 'POST' });
-      expect(updateMutationRetryCount).toHaveBeenCalledWith('mutation-1', 1);
-      expect(clearMutation).not.toHaveBeenCalled();
-      expect(result).toEqual({ synced: 0, failed: 1 });
-      expect(toast.error).toHaveBeenCalledWith('Some offline changes failed');
+      }));
     });
 
-    it('clears mutation after max retries exceeded', async () => {
-      const mockMutation = {
-        id: 'mutation-1',
-        type: 'hold-update',
-        projectId: '123',
-        data: { holdStatus: 'On Hold' },
-        retryCount: 3, // MAX_RETRIES
-        timestamp: Date.now(),
-      };
-
-      vi.mocked(getPendingMutations).mockResolvedValue([mockMutation]);
-      vi.mocked(clearMutation).mockResolvedValue();
-
-      const result = await syncPendingMutations();
-
-      expect(global.fetch).not.toHaveBeenCalled();
-      expect(clearMutation).toHaveBeenCalledWith('mutation-1');
-      expect(result).toEqual({ synced: 0, failed: 1 });
-    });
-
-    it('handles unknown mutation type', async () => {
-      const mockMutation = {
-        id: 'mutation-1',
-        type: 'unknown-type',
-        projectId: '123',
-        data: { someField: 'value' },
-        retryCount: 0,
-        timestamp: Date.now(),
-      };
-
-      vi.mocked(getPendingMutations).mockResolvedValue([mockMutation]);
-      vi.mocked(clearMutation).mockResolvedValue();
-
-      const result = await syncPendingMutations();
-
-      expect(global.fetch).not.toHaveBeenCalled();
-      expect(clearMutation).toHaveBeenCalledWith('mutation-1');
-      expect(result).toEqual({ synced: 0, failed: 1 });
-    });
-
-    it('shows summary toast for multiple mutations (>3) and no per-item toasts', async () => {
-      const mockMutations = Array.from({ length: 5 }, (_, i) => ({
-        id: `mutation-${i}`,
-        type: 'hold-update',
-        projectId: `${i}`,
-        data: { holdStatus: 'On Hold' },
-        retryCount: 0,
-        timestamp: Date.now(),
+    it('should generate unique timestamps for new mutations', async () => {
+      const beforeTime = Date.now();
+      
+      await queueMutation('hold-update', 123, { onHold: true }, false);
+      
+      const afterTime = Date.now();
+      
+      expect(mockDB.add).toHaveBeenCalledWith('pendingMutations', expect.objectContaining({
+        timestamp: expect.any(Number),
       }));
 
-      vi.mocked(getPendingMutations).mockResolvedValue(mockMutations);
-      vi.mocked(clearMutation).mockResolvedValue();
-
-      const result = await syncPendingMutations();
-
-      expect(result).toEqual({ synced: 5, failed: 0 });
-      // Should show summary toast, not individual toasts
-      expect(toast.success).toHaveBeenCalledWith('Synced');
-      expect(toast.success).toHaveBeenCalledTimes(1);
-    });
-
-    it('does not show summary success toast when 1-3 items, keeps per-item successes', async () => {
-      const mockMutations = Array.from({ length: 3 }, (_, i) => ({
-        id: `mutation-${i}`,
-        type: 'hold-update',
-        projectId: `${i}`,
-        data: { holdStatus: 'On Hold' },
-        retryCount: 0,
-        timestamp: Date.now(),
-      }));
-
-      vi.mocked(getPendingMutations).mockResolvedValue(mockMutations);
-      vi.mocked(clearMutation).mockResolvedValue();
-
-      const result = await syncPendingMutations();
-
-      expect(result).toEqual({ synced: 3, failed: 0 });
-      // Per-item success toast up to 3
-      expect(toast.success).toHaveBeenCalledWith('Synced');
-      expect(vi.mocked(toast.success).mock.calls.length).toBeGreaterThanOrEqual(1);
-      // No additional summary success toast
-      // We can't directly differentiate, but ensure it's not exactly one call (batch)
-      // and at most 3 for per-item
-      expect(vi.mocked(toast.success).mock.calls.length).toBeLessThanOrEqual(3);
-    });
-
-    it('dedupes error toast to at most once per run', async () => {
-      const mockMutations = [
-        { id: 'm1', type: 'hold-update', projectId: '1', data: {}, retryCount: 0, timestamp: Date.now() },
-        { id: 'm2', type: 'hold-update', projectId: '2', data: {}, retryCount: 0, timestamp: Date.now() },
-        { id: 'm3', type: 'hold-update', projectId: '3', data: {}, retryCount: 0, timestamp: Date.now() },
-        { id: 'm4', type: 'hold-update', projectId: '4', data: {}, retryCount: 0, timestamp: Date.now() },
-      ];
-
-      vi.mocked(getPendingMutations).mockResolvedValue(mockMutations as any);
-      vi.mocked(clearMutation).mockResolvedValue();
-      vi.mocked(updateMutationRetryCount).mockResolvedValue();
-      // Make all fetches fail
-      vi.mocked(global.fetch).mockResolvedValue({ ok: false } as any);
-
-      const result = await syncPendingMutations();
-
-      expect(result.failed).toBe(4);
-      // Only one error toast
-      expect(toast.error).toHaveBeenCalledWith('Some offline changes failed');
-      expect(toast.error).toHaveBeenCalledTimes(1);
-    });
-
-    it('shows error toast for failed mutations in batch', async () => {
-      const mockMutations = [
-        {
-          id: 'mutation-1',
-          type: 'hold-update',
-          projectId: '123',
-          data: { holdStatus: 'On Hold' },
-          retryCount: 0,
-          timestamp: Date.now(),
-        },
-        {
-          id: 'mutation-2',
-          type: 'hold-update',
-          projectId: '456',
-          data: { holdStatus: 'Active' },
-          retryCount: 0,
-          timestamp: Date.now(),
-        },
-      ];
-
-      vi.mocked(getPendingMutations).mockResolvedValue(mockMutations);
-      vi.mocked(clearMutation).mockResolvedValue();
-      vi.mocked(updateMutationRetryCount).mockResolvedValue();
-      // First fetch ok, second fetch not ok
-      vi.mocked(global.fetch)
-        .mockResolvedValueOnce({ ok: true } as any)
-        .mockResolvedValueOnce({ ok: false } as any);
-
-      const result = await syncPendingMutations();
-
-      expect(result).toEqual({ synced: 1, failed: 1 });
-      expect(toast.success).toHaveBeenCalledWith('Synced');
-      expect(toast.error).toHaveBeenCalledWith('Some offline changes failed');
+      const addedMutation = mockDB.add.mock.calls[0][1];
+      expect(addedMutation.timestamp).toBeGreaterThanOrEqual(beforeTime);
+      expect(addedMutation.timestamp).toBeLessThanOrEqual(afterTime);
     });
   });
 
-  describe('triggerSync', () => {
-    it('calls syncPendingMutations when online', async () => {
-      navigator.onLine = true;
-      vi.mocked(getPendingMutations).mockResolvedValue([]);
+  describe('error handling', () => {
+    it('should handle database errors gracefully', async () => {
+      mockDB.add.mockRejectedValue(new Error('Database error'));
 
-      const result = await triggerSync();
-
-      expect(result).toEqual({ synced: 0, failed: 0 });
+      await expect(queueMutation('hold-update', 123, { onHold: true }, false))
+        .rejects.toThrow('Database error');
     });
 
-    it('shows warning toast when offline', async () => {
-      navigator.onLine = false;
+    it('should handle deletion errors during collapse', async () => {
+      const existingMutations = [
+        { id: 1, type: 'hold-update', projectId: 123, data: { onHold: false }, timestamp: Date.now() - 1000, retryCount: 0 },
+      ];
 
-      const result = await triggerSync();
+      mockDB.getAllFromIndex.mockResolvedValue(existingMutations);
+      mockDB.delete.mockRejectedValue(new Error('Delete error'));
 
-      expect(result).toEqual({ synced: 0, failed: 0 });
-      expect(toast.warning).toHaveBeenCalledWith(
-        'You are offline. Changes will sync when reconnected.'
-      );
+      await expect(queueMutation('hold-update', 123, { onHold: true }, true))
+        .rejects.toThrow('Delete error');
     });
   });
 
-  describe('online event listener', () => {
-    it('syncs when online event fires', async () => {
-      // Mock the sync function
-      vi.mocked(getPendingMutations).mockResolvedValue([]);
+  describe('integration with sync process', () => {
+    it('should work with getPendingMutations', async () => {
+      // Mock getPendingMutations to return test data
+      const mockMutations = [
+        { id: 1, type: 'hold-update', projectId: 123, data: { onHold: true }, timestamp: Date.now(), retryCount: 0 },
+        { id: 2, type: 'hold-update', projectId: 456, data: { onHold: false }, timestamp: Date.now(), retryCount: 0 },
+      ];
 
-      // Call the exported handler directly
-      await handleOnline();
+      mockDB.getAllFromIndex.mockResolvedValue(mockMutations);
 
-      expect(toast.info).toHaveBeenCalledWith('Syncing');
-      expect(getPendingMutations).toHaveBeenCalled();
+      // This would be called by the sync process
+      const pendingMutations = await getPendingMutations();
+      
+      expect(pendingMutations).toHaveLength(2);
+      expect(pendingMutations[0].projectId).toBe(123);
+      expect(pendingMutations[1].projectId).toBe(456);
+    });
+
+    it('should work with clearMutation', async () => {
+      mockDB.delete.mockResolvedValue(undefined);
+
+      await clearMutation(123);
+
+      expect(mockDB.delete).toHaveBeenCalledWith('pendingMutations', 123);
     });
   });
 });

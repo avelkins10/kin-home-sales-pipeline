@@ -11,43 +11,72 @@ interface CustomerContactCardProps {
 }
 
 export function CustomerContactCard({ project }: CustomerContactCardProps) {
-  // Extract customer contact data
+  // Extract customer contact data - Field IDs from fieldIds.ts
   const customerName = project[PROJECT_FIELDS.CUSTOMER_NAME]?.value || 'N/A'
-  const phoneRaw = project[PROJECT_FIELDS.CUSTOMER_PHONE]?.value || ''
-  const emailRaw = project[PROJECT_FIELDS.CUSTOMER_EMAIL]?.value || ''
-  const addressRaw = project[PROJECT_FIELDS.CUSTOMER_ADDRESS]?.value || ''
-  const city = project[PROJECT_FIELDS.CUSTOMER_CITY]?.value || ''
-  const state = project[PROJECT_FIELDS.CUSTOMER_STATE]?.value || ''
-  const zip = project[PROJECT_FIELDS.CUSTOMER_ZIP]?.value || ''
+  const phoneRaw = project[PROJECT_FIELDS.CUSTOMER_PHONE]?.value || '' // Field 148
+  const emailRaw = project[PROJECT_FIELDS.CUSTOMER_EMAIL]?.value || '' // Field 147
+  const addressRaw = project[PROJECT_FIELDS.CUSTOMER_ADDRESS]?.value || '' // Field 146 (polluted)
+  const city = project[PROJECT_FIELDS.CUSTOMER_CITY]?.value || '' // Field 149
+  const state = project[PROJECT_FIELDS.CUSTOMER_STATE]?.value || '' // Field 150
+  const zip = project[PROJECT_FIELDS.CUSTOMER_ZIP]?.value || '' // Field 151
 
-  // Clean phone - sometimes formatted as "(407) 924-3849" or might have extra data
-  const phone = typeof phoneRaw === 'string' ? phoneRaw.trim() : ''
+  // Debug: Log what we're getting from QuickBase
+  console.log('[CustomerContactCard] Raw data:', {
+    phone: phoneRaw,
+    email: emailRaw,
+    address: addressRaw,
+    city,
+    state,
+    zip
+  })
 
-  // Clean email - sometimes might have extra data
-  const email = typeof emailRaw === 'string' ? emailRaw.trim() : ''
+  // Clean phone - extract just the number part if it's an object or has extra data
+  let phone = ''
+  if (typeof phoneRaw === 'string') {
+    phone = phoneRaw.trim()
+  } else if (phoneRaw && typeof phoneRaw === 'object' && 'value' in phoneRaw) {
+    phone = String(phoneRaw.value).trim()
+  }
 
-  // The CUSTOMER_ADDRESS field (146) often contains concatenated data
-  // Use dedicated city/state/zip fields instead
-  // Only parse the raw address if the dedicated fields are empty
+  // Clean email - extract just the email part if it's an object or has extra data
+  let email = ''
+  if (typeof emailRaw === 'string') {
+    // Extract email using regex if it's buried in text
+    const emailMatch = emailRaw.match(/[\w.-]+@[\w.-]+\.\w+/)
+    email = emailMatch ? emailMatch[0] : emailRaw.trim()
+  } else if (emailRaw && typeof emailRaw === 'object' && 'value' in emailRaw) {
+    email = String(emailRaw.value).trim()
+  }
+
+  // The CUSTOMER_ADDRESS field (146) is heavily polluted with emails, URLs, and concatenated data
+  // Strategy: Use dedicated city/state/zip fields and extract ONLY the street address
   let address = ''
 
   if (addressRaw && typeof addressRaw === 'string') {
-    // If we have dedicated city/state/zip, just extract street from raw address
-    if (city || state || zip) {
-      // Remove URLs and emails, then take first part before comma
-      let cleaned = addressRaw.replace(/https?:\/\/[^\s,]+/g, '').trim()
-      cleaned = cleaned.replace(/[\w.-]+@[\w.-]+\.\w+/g, '').trim()
-      cleaned = cleaned.replace(/,+/g, ',').replace(/\s+/g, ' ').trim()
-      cleaned = cleaned.replace(/^,|,$/g, '').trim()
-      const parts = cleaned.split(',').map(p => p.trim()).filter(Boolean)
-      address = parts[0] || ''
-    } else {
-      // No dedicated fields, try to parse everything from raw address
-      address = addressRaw.trim()
-    }
+    // Remove emails first
+    let cleaned = addressRaw.replace(/[\w.-]+@[\w.-]+\.\w+/g, '').trim()
+    // Remove URLs
+    cleaned = cleaned.replace(/https?:\/\/[^\s,]+/g, '').trim()
+    // Remove any remaining "maps.google.com" fragments
+    cleaned = cleaned.replace(/maps\.google\.com[^\s,]*/g, '').trim()
+    // Clean up multiple commas and spaces
+    cleaned = cleaned.replace(/,+/g, ',').replace(/\s+/g, ' ').trim()
+    // Remove leading/trailing commas
+    cleaned = cleaned.replace(/^,|,$/g, '').trim()
+
+    // Split by comma and take the first part (should be street address)
+    const parts = cleaned.split(',').map(p => p.trim()).filter(Boolean)
+    address = parts[0] || ''
+
+    console.log('[CustomerContactCard] Address cleaning:', {
+      raw: addressRaw,
+      cleaned,
+      parts,
+      final: address
+    })
   }
 
-  // Build full address for display
+  // Build full address for display and maps
   const fullAddress = [address, city, state, zip].filter(Boolean).join(', ')
 
   // Build Google Maps URL

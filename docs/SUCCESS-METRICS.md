@@ -94,6 +94,8 @@
 - Track via Sentry Performance Monitoring
 - Lighthouse CI in GitHub Actions
 - Custom logging: `window.performance.timing`
+- Web Vitals collection: 10% of sessions sampled automatically
+- Internal metrics API: `/api/internal/metrics` with secret header
 
 **Baseline:** N/A (new app)
 
