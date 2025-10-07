@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AlertCircle, CheckCircle, Clock, Database, Settings, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import type { SystemSettings } from '@/lib/types/settings'
+import { getBaseUrl } from '@/lib/utils/baseUrl'
 
 // Extended type for API responses that includes the hasQuickbaseToken flag
 type SystemSettingsResponse = SystemSettings & {
@@ -28,7 +29,7 @@ export default function SystemTab() {
   const { data: settings, isLoading } = useQuery<SystemSettingsResponse>({
     queryKey: ['system-settings'],
     queryFn: async () => {
-      const res = await fetch('/api/admin/system/settings', { credentials: 'include' })
+      const res = await fetch(`${getBaseUrl()}/api/admin/system/settings`, { credentials: 'include' })
       if (!res.ok) throw new Error('Failed to load system settings')
       return res.json()
     },
@@ -47,7 +48,7 @@ export default function SystemTab() {
 
   const updateMutation = useMutation({
     mutationFn: async (body: Partial<SystemSettings>) => {
-      const res = await fetch('/api/admin/system/settings', {
+      const res = await fetch(`${getBaseUrl()}/api/admin/system/settings`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -82,7 +83,7 @@ export default function SystemTab() {
         return
       }
       
-      const res = await fetch('/api/admin/system/test-connection', {
+      const res = await fetch(`${getBaseUrl()}/api/admin/system/test-connection`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

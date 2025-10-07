@@ -1,36 +1,7 @@
 import { getPendingMutations, clearMutation, updateMutationRetryCount } from './storage';
 import { toast } from 'sonner';
 import { logSyncEvent, logError, logWarn, logInfo } from '@/lib/logging/logger';
-
-/**
- * Resolve base URL for fetch calls.
- * Precedence (tests/server): TEST_BASE_URL || NEXT_PUBLIC_APP_URL || NEXTAUTH_URL || 'http://localhost:3000'
- * Browser (non-test): allow '' for relative URLs only if window.location.origin matches TEST_BASE_URL when present; otherwise use window.location.origin.
- */
-function resolveBaseUrl(): string {
-  const inBrowser = typeof window !== 'undefined';
-  const inTest = process.env.NODE_ENV === 'test' || (process as any).env.VITEST || (process as any).env.JEST;
-
-  // In tests or on the server, always return an absolute base URL using precedence
-  if (!inBrowser || inTest) {
-    const base =
-      process.env.TEST_BASE_URL ||
-      process.env.NEXT_PUBLIC_APP_URL ||
-      process.env.NEXTAUTH_URL ||
-      'http://localhost:3000';
-    return base.replace(/\/$/, '');
-  }
-
-  // In the browser (non-test): prefer relative URLs for same-origin calls
-  // If TEST_BASE_URL is defined and differs from current origin, use absolute origin to avoid ambiguity
-  const origin = window.location?.origin || '';
-  const testBase = process.env.TEST_BASE_URL;
-  if (testBase && origin && origin !== testBase) {
-    return origin.replace(/\/$/, '');
-  }
-  // Otherwise allow relative URLs
-  return '';
-}
+import { getBaseUrl } from '@/lib/utils/baseUrl';
 
 let isSyncing = false;
 const MAX_RETRIES = 3;
@@ -48,7 +19,7 @@ export async function syncPendingMutations(): Promise<{ synced: number; failed: 
   try {
     const mutations = await getPendingMutations();
     logSyncEvent('start', { pendingCount: mutations.length });
-    const baseUrl = resolveBaseUrl();
+    const baseUrl = getBaseUrl();
     let errorToastShown = false;
     
     for (const mutation of mutations) {

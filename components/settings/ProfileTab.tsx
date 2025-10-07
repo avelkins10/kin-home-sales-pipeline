@@ -11,6 +11,7 @@ import { User, Mail, Phone, Shield, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 import { User as UserType } from '@/lib/types/user'
 import { signOut } from 'next-auth/react'
+import { getBaseUrl } from '@/lib/utils/baseUrl'
 
 interface ProfileTabProps {
   user: UserType
@@ -32,7 +33,7 @@ export function ProfileTab({ user }: ProfileTabProps) {
   // Profile update mutation
   const profileMutation = useMutation({
     mutationFn: async (data: { name: string; email: string; phone: string }) => {
-      const response = await fetch('/api/user/profile', {
+      const response = await fetch(`${getBaseUrl()}/api/user/profile`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -57,7 +58,7 @@ export function ProfileTab({ user }: ProfileTabProps) {
   // Password change mutation
   const passwordMutation = useMutation({
     mutationFn: async (data: { currentPassword: string; newPassword: string }) => {
-      const response = await fetch('/api/user/password', {
+      const response = await fetch(`${getBaseUrl()}/api/user/password`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),

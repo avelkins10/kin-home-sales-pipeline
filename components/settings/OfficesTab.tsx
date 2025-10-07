@@ -42,6 +42,7 @@ import { Building2, Search, Users, Briefcase, Edit, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Office, CreateOfficeInput } from '@/lib/types/office'
 import { User } from '@/lib/types/user'
+import { getBaseUrl } from '@/lib/utils/baseUrl'
 
 export default function OfficesTab() {
   const [searchQuery, setSearchQuery] = useState('')
@@ -62,7 +63,7 @@ export default function OfficesTab() {
       const params = new URLSearchParams()
       if (searchQuery) params.append('search', searchQuery)
 
-      const response = await fetch(`/api/admin/offices?${params}`)
+      const response = await fetch(`${getBaseUrl()}/api/admin/offices?${params}`)
       if (!response.ok) throw new Error('Failed to fetch offices')
       return response.json()
     },
@@ -72,7 +73,7 @@ export default function OfficesTab() {
   const { data: potentialLeaders = [] } = useQuery({
     queryKey: ['potential-leaders'],
     queryFn: async () => {
-      const response = await fetch('/api/admin/users?role=office_leader,regional,super_admin')
+      const response = await fetch(`${getBaseUrl()}/api/admin/users?role=office_leader,regional,super_admin`)
       if (!response.ok) throw new Error('Failed to fetch potential leaders')
       return response.json()
     },
@@ -81,7 +82,7 @@ export default function OfficesTab() {
   // Create office mutation
   const createOfficeMutation = useMutation({
     mutationFn: async (officeData: CreateOfficeInput) => {
-      const response = await fetch('/api/admin/offices', {
+      const response = await fetch(`${getBaseUrl()}/api/admin/offices`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(officeData),
@@ -110,7 +111,7 @@ export default function OfficesTab() {
   // Delete office mutation
   const deleteOfficeMutation = useMutation({
     mutationFn: async (officeId: string) => {
-      const response = await fetch(`/api/admin/offices/${officeId}`, {
+      const response = await fetch(`${getBaseUrl()}/api/admin/offices/${officeId}`, {
         method: 'DELETE',
       })
       if (!response.ok) {

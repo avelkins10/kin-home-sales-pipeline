@@ -31,19 +31,7 @@ export default function ProjectDetailPage({
     notFound()
   }
 
-  // Redirect if not authenticated - moved to useEffect to avoid router.push during render
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.replace('/login')
-    }
-  }, [status, router])
-
-  // Return null when unauthenticated to stop rendering the page
-  if (status === 'unauthenticated') {
-    return null
-  }
-
-  // Fetch project data with useQuery
+  // Fetch project data with useQuery - MUST be called before any conditional returns
   const { data: project, isLoading, error } = useQuery({
     queryKey: projectKey(projectId),
     queryFn: async () => {
@@ -66,8 +54,15 @@ export default function ProjectDetailPage({
     },
   })
 
-  // Handle loading state
-  if (isLoading || status === 'loading') {
+  // Redirect if not authenticated - using useEffect to avoid router.push during render
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.replace('/login')
+    }
+  }, [status, router])
+
+  // Handle loading and unauthenticated states
+  if (isLoading || status === 'loading' || status === 'unauthenticated') {
     return <ProjectDetailSkeleton />
   }
 

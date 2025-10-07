@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Bell, Mail, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { NotificationSettings } from '@/lib/types/user'
+import { getBaseUrl } from '@/lib/utils/baseUrl'
 
 interface NotificationsTabProps {
   userRole: string
@@ -25,7 +26,7 @@ export function NotificationsTab({ userRole, currentSettings }: NotificationsTab
   // Update settings mutation
   const updateMutation = useMutation({
     mutationFn: async (newSettings: NotificationSettings) => {
-      const response = await fetch('/api/user/notifications', {
+      const response = await fetch(`${getBaseUrl()}/api/user/notifications`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newSettings),
@@ -50,7 +51,7 @@ export function NotificationsTab({ userRole, currentSettings }: NotificationsTab
   // Test notification mutation
   const testNotificationMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch('/api/user/test-notification', {
+      const response = await fetch(`${getBaseUrl()}/api/user/test-notification`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       })

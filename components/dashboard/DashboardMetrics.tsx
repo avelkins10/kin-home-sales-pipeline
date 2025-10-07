@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Calendar, TrendingUp, Pause, CheckCircle } from 'lucide-react';
+import { getBaseUrl } from '@/lib/utils/baseUrl';
 // fetching via API route
 
 interface DashboardMetricsProps {
@@ -44,7 +45,7 @@ export function DashboardMetrics({ userId, role }: DashboardMetricsProps) {
   const { data: metrics, isLoading } = useQuery<DashboardMetricsData>({
     queryKey: ['dashboard-metrics', userId, role],
     queryFn: async () => {
-      const response = await fetch(`/api/dashboard/metrics`);
+      const response = await fetch(`${getBaseUrl()}/api/dashboard/metrics`);
       if (!response.ok) throw new Error('Failed to fetch metrics');
       return response.json();
     },

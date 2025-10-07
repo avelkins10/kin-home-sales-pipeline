@@ -34,6 +34,7 @@ import { Switch } from '@/components/ui/switch'
 import { UserPlus, Search, Edit, Key } from 'lucide-react'
 import { toast } from 'sonner'
 import { User, CreateUserInput } from '@/lib/types/user'
+import { getBaseUrl } from '@/lib/utils/baseUrl'
 
 export default function UsersTab() {
   const [searchQuery, setSearchQuery] = useState('')
@@ -62,7 +63,7 @@ export default function UsersTab() {
       if (roleFilter !== 'all') params.append('role', roleFilter)
       if (officeFilter !== 'all') params.append('office', officeFilter)
 
-      const response = await fetch(`/api/admin/users?${params}`)
+      const response = await fetch(`${getBaseUrl()}/api/admin/users?${params}`)
       if (!response.ok) throw new Error('Failed to fetch users')
       return response.json()
     },
@@ -71,7 +72,7 @@ export default function UsersTab() {
   // Create user mutation
   const createUserMutation = useMutation({
     mutationFn: async (userData: CreateUserInput) => {
-      const response = await fetch('/api/admin/users', {
+      const response = await fetch(`${getBaseUrl()}/api/admin/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData),
@@ -105,7 +106,7 @@ export default function UsersTab() {
   // Toggle active status mutation
   const toggleActiveMutation = useMutation({
     mutationFn: async ({ userId, isActive }: { userId: string; isActive: boolean }) => {
-      const response = await fetch(`/api/admin/users/${userId}`, {
+      const response = await fetch(`${getBaseUrl()}/api/admin/users/${userId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive }),
@@ -128,7 +129,7 @@ export default function UsersTab() {
   // Reset password mutation
   const resetPasswordMutation = useMutation({
     mutationFn: async (userId: string) => {
-      const response = await fetch(`/api/admin/users/${userId}/reset-password`, {
+      const response = await fetch(`${getBaseUrl()}/api/admin/users/${userId}/reset-password`, {
         method: 'POST',
       })
       if (!response.ok) {
