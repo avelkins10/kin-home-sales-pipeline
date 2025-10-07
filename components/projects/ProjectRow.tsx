@@ -36,18 +36,6 @@ export function ProjectRow({ project }: ProjectRowProps) {
   const isOnHold = detectHoldStatus(projectStatus);
   const holdType = extractHoldType(projectStatus);
   const projectAge = getProjectAge(project);
-
-  // Debug logging for project age
-  if (projectAge > 10000) {
-    console.warn('[ProjectRow] Abnormal project age detected:', {
-      recordId,
-      customerName,
-      projectAge,
-      rawAgeValue: project[PROJECT_FIELDS.PROJECT_AGE]?.value,
-      projectAgeFieldId: PROJECT_FIELDS.PROJECT_AGE
-    });
-  }
-
   const parsedName = parseCustomerName(customerName);
   const formattedAddress = formatAddress(customerAddress);
 

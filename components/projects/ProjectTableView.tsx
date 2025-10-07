@@ -19,7 +19,7 @@ export function ProjectTableView({ userId, role, view, search, sort }: ProjectTa
     queryKey: ['projects', userId, role, view, search, sort],
     queryFn: () => getProjectsForUserOffline(userId, role, view, search, sort),
     staleTime: 300000, // 5 minutes
-    refetchInterval: false, // Disable auto-refresh for auto-refresh
+    refetchInterval: 300000, // Option A: refresh every 5 minutes
   });
 
   // Loading state
@@ -127,6 +127,12 @@ export function ProjectTableView({ userId, role, view, search, sort }: ProjectTa
   // Success state
   return (
     <div className="space-y-4">
+      {/* Option B: Add a refresh button */}
+      <div className="flex justify-end">
+        <Button onClick={() => refetch()} variant="outline" size="sm">
+          Refresh
+        </Button>
+      </div>
       {projects.map((project) => {
         const recordId = project[3]?.value; // RECORD_ID field
         return (

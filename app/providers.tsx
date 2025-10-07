@@ -1,6 +1,6 @@
 'use client';
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { SessionProvider } from 'next-auth/react';
 import { Toaster } from 'sonner';
 import { useState, useEffect } from 'react';
@@ -39,6 +39,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
     const handleOnline = () => {
       console.log('Online');
       syncPendingMutations();
+      // Optionally invalidate the projects list
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
     };
 
     const handleOffline = () => {
@@ -52,7 +54,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
+  }, [queryClient]);
 
   return (
     <QueryClientProvider client={queryClient}>
