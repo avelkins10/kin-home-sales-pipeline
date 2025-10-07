@@ -17,7 +17,7 @@ const auditLogSchema = z.object({
 export async function POST(req: NextRequest) {
   const secret = req.headers.get('x-internal-secret') || ''
   if (!process.env.INTERNAL_API_SECRET || secret !== process.env.INTERNAL_API_SECRET) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   let body: unknown

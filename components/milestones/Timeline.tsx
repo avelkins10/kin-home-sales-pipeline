@@ -24,8 +24,17 @@ export function Timeline({ project }: TimelineProps) {
   // Check if project is on hold
   const onHold = project[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes'
 
+  // Check if project is rejected or cancelled
+  const projectStatus = (project[PROJECT_FIELDS.PROJECT_STATUS]?.value || '').toLowerCase()
+  const isRejected = projectStatus.includes('reject')
+  const isCancelled = projectStatus.includes('cancel')
+  const isFailedProject = isRejected || isCancelled
+
   // Get HOA status to determine if HOA milestone should be shown
   const hoaStatus = getHOAStatus(project)
+
+  // Determine intake status
+  const intakeStatus = isFailedProject ? ('rejected' as const) : ('complete' as const)
 
   // Build milestones array
   const milestones = [
@@ -33,7 +42,7 @@ export function Timeline({ project }: TimelineProps) {
       name: 'Intake',
       icon: '📋',
       color: 'gray',
-      status: 'complete' as const,
+      status: intakeStatus,
       date: project[PROJECT_FIELDS.FINANCE_INTAKE_APPROVED_DATE]?.value ?
         new Date(project[PROJECT_FIELDS.FINANCE_INTAKE_APPROVED_DATE].value) :
         (project[PROJECT_FIELDS.SALES_DATE]?.value ? new Date(project[PROJECT_FIELDS.SALES_DATE].value) : undefined)
@@ -142,6 +151,10 @@ export function Timeline({ project }: TimelineProps) {
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-red-500 rounded-full" />
             <span className="text-sm text-gray-600">Blocked</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 bg-rose-500 rounded-full" />
+            <span className="text-sm text-gray-600">Rejected</span>
           </div>
         </div>
       </div>

@@ -55,6 +55,13 @@ Add secrets under Repository → Settings → Secrets and variables → Actions.
 - Re-run jobs with "Re-run failed jobs".
 - Ensure secrets are set and `npm ci` succeeds.
 
+### Server-Only Module Testing
+- Server-only modules use `import 'server-only'` guard to prevent client bundling
+- Vitest config includes alias: `'server-only': './tests/mocks/server-only.ts'`
+- Mock file exports empty object to allow testing server modules
+- All server modules accessing env vars or Node.js APIs should include the guard
+- Test files can import server modules normally - vitest handles the mock
+
 ### Monitoring
 - Use GitHub checks for status and history.
 - Use Vercel dashboard for deployments and quick rollback.

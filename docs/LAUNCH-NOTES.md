@@ -295,6 +295,13 @@
 
 ## Performance Verification
 
+### Query Client Optimization
+- **Global staleTime:** Harmonized to 5 minutes across all queries
+- **Auto-refresh removed:** Projects list no longer auto-refreshes every 5 minutes
+- **Manual refresh:** Users can manually refresh via button when needed
+- **Online sync:** Data invalidates and refreshes when coming back online
+- **Prefetch optimization:** Project details prefetch on row hover for instant navigation
+
 ### Lighthouse Audit Results
 
 **Test Date:** [TO BE FILLED]

@@ -1,4 +1,5 @@
 // lib/auth/next-auth.config.ts
+import 'server-only'
 
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';

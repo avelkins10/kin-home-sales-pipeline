@@ -55,6 +55,92 @@ export function buildRoleClause(userId: string, role: string): string {
   return clause;
 }
 
+// Lean selector for list view - only essential fields for performance
+export async function getProjectsForUserList(userId: string, role: string, view?: string, search?: string, sort?: string) {
+  console.log('[getProjectsForUserList] START - userId:', userId, 'role:', role, 'view:', view, 'search:', search, 'sort:', sort);
+
+  // Build role-based where clause using shared helper
+  const roleClause = buildRoleClause(userId, role);
+
+  // Build view-based filter
+  const viewFilter = buildViewFilter(view);
+
+  // Build search filter
+  const searchFilter = buildSearchFilter(search);
+
+  // Combine all filters with proper spacing
+  let whereClause = roleClause;
+  if (viewFilter) {
+    whereClause = `(${whereClause}) AND ${viewFilter}`;
+  }
+  if (searchFilter) {
+    whereClause = `(${whereClause}) AND ${searchFilter}`;
+  }
+
+  console.log('[getProjectsForUserList] Final WHERE clause:', whereClause);
+
+  // Determine sort order based on sort param or view
+  const sortBy = getSortOrder(view, sort);
+
+  try {
+    console.log('[getProjectsForUserList] Querying QuickBase table:', QB_TABLE_PROJECTS);
+    const result = await qbClient.queryRecords({
+      from: QB_TABLE_PROJECTS,
+      select: [
+        // Essential fields for list view only
+        PROJECT_FIELDS.RECORD_ID,
+        PROJECT_FIELDS.PROJECT_ID,
+        PROJECT_FIELDS.CUSTOMER_NAME,
+        PROJECT_FIELDS.CUSTOMER_ADDRESS,
+        PROJECT_FIELDS.CUSTOMER_PHONE,
+        PROJECT_FIELDS.PROJECT_STATUS,
+        PROJECT_FIELDS.ON_HOLD,
+        PROJECT_FIELDS.HOLD_REASON,
+        PROJECT_FIELDS.BLOCK_REASON,
+        PROJECT_FIELDS.DATE_ON_HOLD,
+        PROJECT_FIELDS.PROJECT_PRIORITY,
+        PROJECT_FIELDS.SALES_OFFICE,
+        PROJECT_FIELDS.SALES_DATE,
+        PROJECT_FIELDS.PROJECT_AGE,
+        PROJECT_FIELDS.SYSTEM_SIZE_KW,
+        PROJECT_FIELDS.SYSTEM_PRICE,
+        PROJECT_FIELDS.CLOSER_NAME,
+        PROJECT_FIELDS.SETTER_NAME,
+        // PPW fields
+        2292, // soldGross PPW
+        2480, // commissionable PPW
+        // Key milestone dates for traffic light
+        PROJECT_FIELDS.INTAKE_INSTALL_DATE_TENTATIVE,
+        PROJECT_FIELDS.SURVEY_SUBMITTED,
+        PROJECT_FIELDS.DESIGN_COMPLETED,
+        PROJECT_FIELDS.PERMIT_APPROVED,
+        PROJECT_FIELDS.NEM_APPROVED,
+        PROJECT_FIELDS.INSTALL_SCHEDULED_DATE_CAPTURE,
+        PROJECT_FIELDS.INSTALL_COMPLETED_DATE,
+        PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED,
+        PROJECT_FIELDS.PTO_APPROVED,
+      ],
+      where: whereClause,
+      sortBy,
+    });
+
+    console.log('[getProjectsForUserList] QuickBase response:', {
+      totalRecords: result.data?.length || 0,
+      metadata: result.metadata
+    });
+
+    if (!result.data || result.data.length === 0) {
+      console.warn('[getProjectsForUserList] WARNING: No projects returned from QuickBase');
+    }
+
+    return result.data;
+  } catch (error) {
+    console.error('[getProjectsForUserList] ERROR:', error);
+    logError('Error fetching projects list', error as Error);
+    return [];
+  }
+}
+
 export async function getProjectsForUser(userId: string, role: string, view?: string, search?: string, sort?: string) {
   console.log('[getProjectsForUser] START - userId:', userId, 'role:', role, 'view:', view, 'search:', search, 'sort:', sort);
 

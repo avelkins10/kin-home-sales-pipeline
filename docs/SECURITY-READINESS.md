@@ -132,9 +132,11 @@
    - Input sanitization on API routes
 
 4. **API Security:**
-   - Quickbase token stored server-side only
-   - Rate limiting (10 req/sec) prevents abuse
-   - Error messages don't expose sensitive data
+- Quickbase token stored server-side only
+- Rate limiting (10 req/sec) prevents abuse
+- Error messages don't expose sensitive data
+- Internal audit API requires secret header (x-internal-secret)
+- Audit API returns 403 Forbidden for missing/invalid secrets
 
 5. **Observability:**
    - Request logging for audit trail

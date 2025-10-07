@@ -23,8 +23,7 @@ export function ProjectTableView({ userId, role, view, search, sort, onFetchingC
   const { data: projects, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['projects', userId, role, view, search, sort],
     queryFn: () => getProjectsForUserOffline(userId, role, view, search, sort),
-    staleTime: 300000, // 5 minutes
-    refetchInterval: 300000, // Option A: refresh every 5 minutes
+    staleTime: 300000, // 5 minutes - relies on global defaults, no auto-refresh
   });
 
   // Notify parent of fetching state changes with reason

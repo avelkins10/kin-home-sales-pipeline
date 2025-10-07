@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils/cn'
 interface MilestoneNodeProps {
   milestone: {
     name: string
-    status: 'complete' | 'in-progress' | 'pending' | 'blocked' | 'upcoming'
+    status: 'complete' | 'in-progress' | 'pending' | 'blocked' | 'upcoming' | 'rejected'
     date?: Date
     estimatedDate?: Date
     substeps?: Array<{ label: string; date: Date | null; status: string; note?: string }>
@@ -23,6 +23,9 @@ interface MilestoneNodeProps {
 
 export function MilestoneNode({ milestone, isBlocked }: MilestoneNodeProps) {
   const getStatusColor = () => {
+    if (milestone.status === 'rejected') {
+      return 'bg-rose-500 border-rose-600'
+    }
     if (isBlocked || milestone.status === 'blocked') {
       return 'bg-red-500 border-red-600'
     }
@@ -39,6 +42,7 @@ export function MilestoneNode({ milestone, isBlocked }: MilestoneNodeProps) {
   }
 
   const getStatusLabel = () => {
+    if (milestone.status === 'rejected') return 'Rejected'
     if (isBlocked) return 'Blocked'
     if (milestone.status === 'complete') return 'Complete'
     if (milestone.status === 'in-progress') return 'In Progress'

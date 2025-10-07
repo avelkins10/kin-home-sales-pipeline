@@ -5,10 +5,19 @@ import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/guards';
 import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
 
-// Simple in-memory cache for projects (60s TTL)
+// Simple in-memory cache for projects with configurable TTL
 const projectsCache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL = 60 * 1000; // 60 seconds
-const MAX_CACHE_ENTRIES = 100;
+const CACHE_TTL = parseInt(process.env.PROJECTS_CACHE_TTL_MS || '60000'); // Default 60 seconds
+const MAX_CACHE_ENTRIES = parseInt(process.env.PROJECTS_CACHE_MAX || '100'); // Default 100 entries
+
+// Cache statistics for monitoring
+let cacheStats = {
+  hits: 0,
+  misses: 0,
+  evictions: 0,
+  expiredRemovals: 0,
+  currentSize: 0
+};
 
 export async function GET(req: Request) {
   const startedAt = Date.now();
@@ -52,12 +61,20 @@ export async function GET(req: Request) {
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
       // Refresh timestamp to approximate LRU behavior
       projectsCache.set(cacheKey, { data: cached.data, timestamp: Date.now() });
-      logApiResponse('GET', '/api/projects', Date.now() - startedAt, { cached: true, count: Array.isArray(cached.data) ? cached.data.length : 0 }, reqId);
+      cacheStats.hits++;
+      cacheStats.currentSize = projectsCache.size;
+      logApiResponse('GET', '/api/projects', Date.now() - startedAt, { 
+        cached: true, 
+        count: Array.isArray(cached.data) ? cached.data.length : 0,
+        cacheStats: { ...cacheStats }
+      }, reqId);
       return NextResponse.json(cached.data, { status: 200 });
     }
+    
+    cacheStats.misses++;
 
-    const { getProjectsForUser } = await import('@/lib/quickbase/queries');
-    const projects = await getProjectsForUser(userId, role, view, search, sort);
+    const { getProjectsForUserList } = await import('@/lib/quickbase/queries');
+    const projects = await getProjectsForUserList(userId, role, view, search, sort);
 
     // Cache the result
     projectsCache.set(cacheKey, { data: projects, timestamp: Date.now() });
@@ -74,6 +91,7 @@ export async function GET(req: Request) {
         expiredCount++;
       }
     }
+    cacheStats.expiredRemovals += expiredCount;
     
     // If still over MAX_CACHE_ENTRIES, evict oldest entries by timestamp
     if (projectsCache.size > MAX_CACHE_ENTRIES) {
@@ -86,11 +104,16 @@ export async function GET(req: Request) {
         .slice(0, toEvict)
         .forEach(([key]) => projectsCache.delete(key));
       
-      // Debug logging for evictions
-      console.log(`[Cache] Evicted ${toEvict} oldest entries, expired: ${expiredCount}, final size: ${projectsCache.size}`);
+      cacheStats.evictions += toEvict;
     }
+    
+    cacheStats.currentSize = projectsCache.size;
 
-    logApiResponse('GET', '/api/projects', Date.now() - startedAt, { cached: false, count: Array.isArray(projects) ? projects.length : 0 }, reqId);
+    logApiResponse('GET', '/api/projects', Date.now() - startedAt, { 
+      cached: false, 
+      count: Array.isArray(projects) ? projects.length : 0,
+      cacheStats: { ...cacheStats }
+    }, reqId);
     return NextResponse.json(projects, { status: 200 });
   } catch (error) {
     logError('Failed to fetch projects', error as Error, {});

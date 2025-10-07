@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { Phone } from 'lucide-react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
+import { Phone, Loader2 } from 'lucide-react';
+import { useQueryClient, useIsFetching } from '@tanstack/react-query';
 import { PROJECT_FIELDS } from '@/lib/constants/fieldIds';
 import { QuickbaseProject } from '@/lib/types/project';
 import { TrafficLightPipeline } from './TrafficLightPipeline';
@@ -23,6 +24,7 @@ interface ProjectRowProps {
 
 export function ProjectRow({ project }: ProjectRowProps) {
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   // Extract data from project
   const recordId = project[PROJECT_FIELDS.RECORD_ID]?.value;
@@ -61,6 +63,9 @@ export function ProjectRow({ project }: ProjectRowProps) {
   // Format phone number for tel: link
   const phoneLink = customerPhone ? `tel:${customerPhone.replace(/\D/g, '')}` : '';
 
+  // Check if this project is currently being fetched
+  const isFetching = useIsFetching({ queryKey: ['project', recordId] }) > 0;
+
   // Prefetch project detail on hover for instant navigation
   const handlePrefetch = () => {
     // Guard against missing recordId to avoid prefetching /api/projects/undefined
@@ -69,6 +74,8 @@ export function ProjectRow({ project }: ProjectRowProps) {
     }
     
     const idKey = String(recordId);
+    
+    // Prefetch the query data
     queryClient.prefetchQuery({
       queryKey: projectKey(idKey),
       queryFn: async () => {
@@ -78,6 +85,9 @@ export function ProjectRow({ project }: ProjectRowProps) {
       },
       staleTime: 300000, // 5 minutes (matches detail page cache)
     });
+
+    // Prefetch the route for instant navigation
+    router.prefetch(`/projects/${recordId}`);
   };
 
   return (
@@ -195,9 +205,13 @@ export function ProjectRow({ project }: ProjectRowProps) {
             </div>
           </div>
 
-          {/* Column 4 - Age */}
+          {/* Column 4 - Age & Loading Indicator */}
           <div className="flex-shrink-0 w-20 flex items-center justify-end" data-testid="project-age">
-            <ProjectAgeIndicator age={projectAge} />
+            {isFetching ? (
+              <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
+            ) : (
+              <ProjectAgeIndicator age={projectAge} />
+            )}
           </div>
         </div>
       </Link>

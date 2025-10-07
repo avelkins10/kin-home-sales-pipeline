@@ -1,5 +1,6 @@
 // lib/quickbase/client.ts
 // This module should only be imported in server-side code (API routes, server components, server actions)
+import 'server-only'
 
 import { logQuickbaseRequest, logQuickbaseResponse, logQuickbaseError } from '@/lib/logging/logger';
 

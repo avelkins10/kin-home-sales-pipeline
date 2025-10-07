@@ -42,8 +42,8 @@ export async function updateProjectHoldOffline(
       }
       return { success: true };
     } else {
-      // Offline: queue mutation for later sync
-      await queueMutation('hold-update', recordId, updates);
+      // Offline: queue mutation for later sync (collapse duplicates by projectId)
+      await queueMutation('hold-update', recordId, updates, true); // true = collapse duplicates
       return { success: true, queued: true };
     }
   } catch (error) {

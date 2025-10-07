@@ -1,3 +1,4 @@
+import 'server-only'
 import nodeFetch from 'node-fetch'
 
 type MailParams = {

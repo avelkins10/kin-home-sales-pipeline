@@ -28,6 +28,7 @@ export function HoldManagementCard({ project }: HoldManagementCardProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isOffline, setIsOffline] = useState(!navigator.onLine)
   const [pendingCount, setPendingCount] = useState(0)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Extract project data
   const recordId = project[PROJECT_FIELDS.RECORD_ID]?.value
@@ -57,7 +58,12 @@ export function HoldManagementCard({ project }: HoldManagementCardProps) {
   // Mutation for updating hold status
   const holdMutation = useMutation({
     mutationFn: async (data: { onHold: boolean; holdReason: string; blockReason: string }) => {
-      return await updateProjectHoldOffline(recordId, data)
+      setIsSubmitting(true)
+      try {
+        return await updateProjectHoldOffline(recordId, data)
+      } finally {
+        setIsSubmitting(false)
+      }
     },
     onMutate: async (data) => {
       // Optimistic update
@@ -101,6 +107,7 @@ export function HoldManagementCard({ project }: HoldManagementCardProps) {
         queryClient.setQueryData(['project', recordId], context.previousProject)
       }
       
+      setIsSubmitting(false)
       toast.error(error.message || 'Failed to update hold status')
     },
   })
@@ -226,7 +233,8 @@ export function HoldManagementCard({ project }: HoldManagementCardProps) {
             <div className="flex flex-col sm:flex-row gap-2">
               <Button
                 onClick={handleReleaseHold}
-                disabled={holdMutation.isPending}
+                disabled={isSubmitting}
+                aria-busy={isSubmitting}
                 className={`flex-1 bg-green-600 hover:bg-green-700 ${isOffline ? 'opacity-75' : ''}`}
               >
                 <CheckCircle className="w-4 h-4 mr-2" />
@@ -235,7 +243,8 @@ export function HoldManagementCard({ project }: HoldManagementCardProps) {
               <Button
                 variant="outline"
                 onClick={() => openDialog(true)}
-                disabled={holdMutation.isPending}
+                disabled={isSubmitting}
+                aria-busy={isSubmitting}
                 className={`flex-1 ${isOffline ? 'opacity-75' : ''}`}
               >
                 Update Reason
@@ -296,15 +305,16 @@ export function HoldManagementCard({ project }: HoldManagementCardProps) {
                   <Button
                     variant="outline"
                     onClick={() => setIsDialogOpen(false)}
-                    disabled={holdMutation.isPending}
+                    disabled={isSubmitting}
                   >
                     Cancel
                   </Button>
                   <Button
                     onClick={handlePlaceOnHold}
-                    disabled={holdMutation.isPending || !holdReason.trim()}
+                    disabled={isSubmitting || !holdReason.trim()}
+                    aria-busy={isSubmitting}
                   >
-                    {holdMutation.isPending ? 'Placing...' : (isOffline ? 'Queue Hold' : 'Place on Hold')}
+                    {isSubmitting ? 'Placing...' : (isOffline ? 'Queue Hold' : 'Place on Hold')}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -349,15 +359,16 @@ export function HoldManagementCard({ project }: HoldManagementCardProps) {
                 <Button
                   variant="outline"
                   onClick={() => setIsDialogOpen(false)}
-                  disabled={holdMutation.isPending}
+                  disabled={isSubmitting}
                 >
                   Cancel
                 </Button>
                 <Button
                   onClick={handleUpdateReason}
-                  disabled={holdMutation.isPending || !holdReason.trim()}
+                  disabled={isSubmitting || !holdReason.trim()}
+                  aria-busy={isSubmitting}
                 >
-                  {holdMutation.isPending ? 'Updating...' : (isOffline ? 'Queue Update' : 'Update Reason')}
+                  {isSubmitting ? 'Updating...' : (isOffline ? 'Queue Update' : 'Update Reason')}
                 </Button>
               </DialogFooter>
             </DialogContent>

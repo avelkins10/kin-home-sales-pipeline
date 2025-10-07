@@ -11,7 +11,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 120000, // 2 minutes
+        staleTime: 300000, // 5 minutes - harmonized with page-level options
         refetchOnWindowFocus: false,
         networkMode: 'offlineFirst', // Try cache first when offline
       },
@@ -39,8 +39,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
     const handleOnline = () => {
       console.log('Online');
       syncPendingMutations();
-      // Optionally invalidate the projects list
+      // Invalidate queries to refresh data when back online
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] });
     };
 
     const handleOffline = () => {

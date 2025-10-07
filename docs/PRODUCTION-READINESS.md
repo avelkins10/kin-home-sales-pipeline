@@ -35,6 +35,13 @@
 ### Post-Launch Monitoring
 - Sentry (optional), Vercel analytics, user feedback, success metrics dashboard.
 
+### Performance Tuning
+- Projects API cache TTL: `PROJECTS_CACHE_TTL_MS` (default: 60000ms = 1 minute)
+- Projects API cache size: `PROJECTS_CACHE_MAX` (default: 100 entries)
+- Cache hit/miss ratios and eviction stats logged in API responses
+- Development-only cache inspection: `/api/_debug/cache/projects` (super_admin only)
+- Monitor cache performance via server logs and adjust TTL based on usage patterns
+
 ### Sign-Off
 - Technical lead, product owner, security, and QA approvals required.
 

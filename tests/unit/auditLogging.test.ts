@@ -1,130 +1,272 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { logAudit } from '@/lib/logging/logger'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { NextRequest } from 'next/server';
+import { POST } from '@/app/api/internal/audit/route';
 
-describe('logAudit', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
+// Mock the database client
+const mockSql = vi.fn();
+vi.mock('@/lib/db/client', () => ({
+  sql: mockSql,
+}));
 
-  it('does not throw on client and warns', async () => {
-    // Simulate browser
-    ;(global as any).window = {} as any
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+// Mock the logger
+vi.mock('@/lib/logging/logger', () => ({
+  logError: vi.fn(),
+  logInfo: vi.fn(),
+}));
 
-    await expect(
-      logAudit('test', 'res', '1', 'user-1', { f: { old: 1, new: 2 } }, { requestId: 'req-1' })
-    ).resolves.toBeUndefined()
-
-    expect(warnSpy).toHaveBeenCalled()
-    // cleanup
-    ;(global as any).window = undefined
-    warnSpy.mockRestore()
-  })
-
-  it('retries on server failure and logs once', async () => {
-    // Server env
-    ;(global as any).window = undefined
-    process.env.INTERNAL_API_SECRET = 'secret'
-    process.env.NEXTAUTH_URL = 'http://localhost:3000'
-
-    const fetchMock = vi.spyOn(global, 'fetch' as any).mockResolvedValue({ ok: false, status: 500, statusText: 'err' } as any)
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-
-    await logAudit('test', 'res', '1', 'user-1', undefined, { requestId: 'req-2' })
-    // Allow async retries to complete (approx 250ms + 500ms backoffs)
-    await new Promise(r => setTimeout(r, 900))
-    // 3 attempts total
-    expect(fetchMock).toHaveBeenCalledTimes(3)
-    warnSpy.mockRestore()
-    fetchMock.mockRestore()
-  })
-})
-
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { logAudit } from '@/lib/logging/logger'
-
-// Mock fetch globally
-const mockFetch = vi.fn()
-global.fetch = mockFetch
-
-describe('Audit Logging', () => {
-  let mockConsoleWarn: any
-  let mockConsoleError: any
+describe('Audit Logging API', () => {
+  const originalEnv = process.env;
 
   beforeEach(() => {
-    vi.clearAllMocks()
-    // Set up environment for server-side execution
-    Object.defineProperty(global, 'window', {
-      value: undefined,
-      writable: true,
-    })
-    process.env.INTERNAL_API_SECRET = 'test-secret'
-    process.env.NEXTAUTH_URL = 'http://localhost:3000'
-    process.env.NODE_ENV = 'development'
-    
-    // Mock console methods
-    mockConsoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    mockConsoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
-  })
+    vi.resetAllMocks();
+    process.env = { ...originalEnv };
+    process.env.INTERNAL_API_SECRET = 'test-secret-123';
+  });
 
   afterEach(() => {
-    vi.restoreAllMocks()
-  })
+    process.env = originalEnv;
+  });
 
-  it('should handle AbortError timeout gracefully', async () => {
-    // Create a proper AbortError
-    const abortError = new Error('The operation was aborted')
-    abortError.name = 'AbortError'
-    
-    // Mock fetch to reject with AbortError
-    mockFetch.mockRejectedValueOnce(abortError)
+  describe('Authentication', () => {
+    it('should reject requests without secret header', async () => {
+      const request = new NextRequest('http://localhost:3000/api/internal/audit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'test',
+          resource: 'user',
+          resourceId: '123',
+          userId: 'user-123',
+        }),
+      });
 
-    await logAudit('test-action', 'test-resource', 'test-id', 'test-user')
+      const response = await POST(request);
+      expect(response.status).toBe(403);
+      
+      const body = await response.json();
+      expect(body.error).toBe('Forbidden');
+    });
 
-    // Wait for async operations to complete
-    await new Promise(resolve => setTimeout(resolve, 200))
+    it('should reject requests with invalid secret', async () => {
+      const request = new NextRequest('http://localhost:3000/api/internal/audit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-internal-secret': 'wrong-secret',
+        },
+        body: JSON.stringify({
+          action: 'test',
+          resource: 'user',
+          resourceId: '123',
+          userId: 'user-123',
+        }),
+      });
 
-    // Verify call attempted
-    expect(mockFetch).toHaveBeenCalled()
-  })
+      const response = await POST(request);
+      expect(response.status).toBe(403);
+      
+      const body = await response.json();
+      expect(body.error).toBe('Forbidden');
+    });
 
-  it('should log audit failure with structured error context', async () => {
-    // Mock fetch to return a non-ok response
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      status: 500,
-      statusText: 'Internal Server Error',
-    })
+    it('should accept requests with valid secret', async () => {
+      // Mock successful database response
+      mockSql.mockResolvedValueOnce({
+        rows: [{ name: 'Test User' }]
+      });
+      mockSql.mockResolvedValueOnce({});
 
-    await logAudit('test-action', 'test-resource', 'test-id', 'test-user', undefined, {
-      requestId: 'test-request-id'
-    })
+      const request = new NextRequest('http://localhost:3000/api/internal/audit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-internal-secret': 'test-secret-123',
+        },
+        body: JSON.stringify({
+          action: 'update',
+          resource: 'user',
+          resourceId: '123',
+          userId: 'user-123',
+          changes: {
+            name: { old: 'Old Name', new: 'New Name' }
+          },
+        }),
+      });
 
-    // Wait for async operations to complete
-    await new Promise(resolve => setTimeout(resolve, 200))
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+      
+      const body = await response.json();
+      expect(body.success).toBe(true);
+    });
+  });
 
-    // Verify call attempted
-    expect(mockFetch).toHaveBeenCalled()
-  })
+  describe('Request Validation', () => {
+    it('should reject invalid JSON', async () => {
+      const request = new NextRequest('http://localhost:3000/api/internal/audit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-internal-secret': 'test-secret-123',
+        },
+        body: 'invalid json',
+      });
 
-  it('should log slow audit requests', async () => {
-    // Mock fetch to return a successful response after a delay
-    mockFetch.mockImplementationOnce(() => 
-      new Promise(resolve => 
-        setTimeout(() => resolve({
-          ok: true,
-          status: 200,
-        }), 100) // Short delay for testing
-      )
-    )
+      const response = await POST(request);
+      expect(response.status).toBe(400);
+      
+      const body = await response.json();
+      expect(body.error).toBe('Invalid JSON');
+    });
 
-    await logAudit('test-action', 'test-resource', 'test-id', 'test-user')
+    it('should reject requests missing required fields', async () => {
+      const request = new NextRequest('http://localhost:3000/api/internal/audit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-internal-secret': 'test-secret-123',
+        },
+        body: JSON.stringify({
+          action: 'test',
+          // missing resource, resourceId, userId
+        }),
+      });
 
-    // Wait for async operations to complete
-    await new Promise(resolve => setTimeout(resolve, 200))
+      const response = await POST(request);
+      expect(response.status).toBe(400);
+      
+      const body = await response.json();
+      expect(body.error).toBe('Validation failed');
+      expect(body.details).toBeDefined();
+    });
 
-    // The test verifies that the warning path is used for slow requests
-    // In this case, the request is fast enough that no warning is triggered
-    expect(mockFetch).toHaveBeenCalled()
-  })
-})
+    it('should accept valid requests with optional fields', async () => {
+      // Mock successful database response
+      mockSql.mockResolvedValueOnce({
+        rows: [{ name: 'Test User' }]
+      });
+      mockSql.mockResolvedValueOnce({});
+
+      const request = new NextRequest('http://localhost:3000/api/internal/audit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-internal-secret': 'test-secret-123',
+        },
+        body: JSON.stringify({
+          action: 'create',
+          resource: 'project',
+          resourceId: 'proj-456',
+          userId: 'user-789',
+          changes: {
+            status: { old: null, new: 'Active' }
+          },
+          ipAddress: '192.168.1.1',
+          userAgent: 'Mozilla/5.0...',
+        }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+      
+      const body = await response.json();
+      expect(body.success).toBe(true);
+    });
+  });
+
+  describe('Database Operations', () => {
+    it('should handle database errors gracefully', async () => {
+      // Mock database error
+      mockSql.mockRejectedValueOnce(new Error('Database connection failed'));
+
+      const request = new NextRequest('http://localhost:3000/api/internal/audit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-internal-secret': 'test-secret-123',
+        },
+        body: JSON.stringify({
+          action: 'delete',
+          resource: 'office',
+          resourceId: 'office-123',
+          userId: 'user-456',
+        }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(500);
+      
+      const body = await response.json();
+      expect(body.error).toBe('Internal Server Error');
+    });
+
+    it('should insert audit log with correct data', async () => {
+      // Mock successful database response
+      mockSql.mockResolvedValueOnce({
+        rows: [{ name: 'John Doe' }]
+      });
+      mockSql.mockResolvedValueOnce({});
+
+      const request = new NextRequest('http://localhost:3000/api/internal/audit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-internal-secret': 'test-secret-123',
+        },
+        body: JSON.stringify({
+          action: 'update',
+          resource: 'user',
+          resourceId: 'user-123',
+          userId: 'admin-456',
+          changes: {
+            role: { old: 'closer', new: 'office_leader' }
+          },
+        }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+
+      // Verify database calls
+      expect(mockSql).toHaveBeenCalledTimes(2);
+      
+      // First call: get user name
+      expect(mockSql).toHaveBeenNthCalledWith(1, 
+        expect.stringContaining('SELECT name FROM users WHERE id =')
+      );
+      
+      // Second call: insert audit log
+      expect(mockSql).toHaveBeenNthCalledWith(2, 
+        expect.stringContaining('INSERT INTO audit_logs')
+      );
+    });
+  });
+
+  describe('Environment Configuration', () => {
+    it('should reject requests when INTERNAL_API_SECRET is not configured', async () => {
+      delete process.env.INTERNAL_API_SECRET;
+
+      const request = new NextRequest('http://localhost:3000/api/internal/audit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-internal-secret': 'any-secret',
+        },
+        body: JSON.stringify({
+          action: 'test',
+          resource: 'user',
+          resourceId: '123',
+          userId: 'user-123',
+        }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(403);
+      
+      const body = await response.json();
+      expect(body.error).toBe('Forbidden');
+    });
+  });
+});
