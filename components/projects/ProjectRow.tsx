@@ -11,6 +11,8 @@ import { PPWDisplay } from './PPWDisplay';
 import { ProjectAgeIndicator } from './ProjectAgeIndicator';
 import { HoldBanner } from './HoldBanner';
 import { StatusBadge } from './StatusBadge';
+import { UnreadBadge } from '@/components/ui/UnreadBadge';
+import { useProjectUnreadCount } from '@/lib/hooks/useNotifications';
 import { parseCustomerName, formatAddress, getProjectAge } from '@/lib/utils/project-helpers';
 import { detectHoldStatus, extractHoldType } from '@/lib/utils/hold-detection';
 import { formatSystemSize, formatCurrency } from '@/lib/utils/formatters';
@@ -29,6 +31,9 @@ export function ProjectRow({ project }: ProjectRowProps) {
 
   // Extract data from project
   const recordId = project[PROJECT_FIELDS.RECORD_ID]?.value;
+
+  // Get unread notification count for this project
+  const unreadCount = useProjectUnreadCount(Number(recordId));
   const customerName = project[PROJECT_FIELDS.CUSTOMER_NAME]?.value || '';
   const customerAddress = project[PROJECT_FIELDS.CUSTOMER_ADDRESS]?.value || '';
   const customerPhone = project[PROJECT_FIELDS.CUSTOMER_PHONE]?.value || '';
@@ -122,6 +127,9 @@ export function ProjectRow({ project }: ProjectRowProps) {
                 {parsedName.firstName} {parsedName.lastName}
               </div>
               <StatusBadge status={projectStatus} />
+              {unreadCount > 0 && (
+                <UnreadBadge count={unreadCount} variant="default" size="small" />
+              )}
             </div>
             <div className="text-sm text-slate-600">
               {formattedAddress.line1}

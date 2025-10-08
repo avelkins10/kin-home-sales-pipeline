@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Loader2, MessageSquare, Plus, X } from 'lucide-react';
 import { getBaseUrl } from '@/lib/utils/baseUrl';
 import { toast } from 'sonner';
 import { NOTE_FIELDS } from '@/lib/constants/noteFieldIds';
+import { useProjectUnreadCount } from '@/lib/hooks/useNotifications';
 
 interface NotesSectionProps {
   projectId: string;
@@ -27,6 +28,39 @@ export function NotesSection({ projectId }: NotesSectionProps) {
       return response.json();
     },
   });
+
+  // Mark all notifications for this project as read when section is viewed
+  useEffect(() => {
+    async function markNotificationsAsRead() {
+      try {
+        // Get all unread notifications for this project
+        const response = await fetch(
+          `${getBaseUrl()}/api/notifications?projectId=${projectId}&unreadOnly=true`
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const notifications = data.notifications || [];
+
+          // Mark each unread notification as read
+          for (const notification of notifications) {
+            await fetch(`${getBaseUrl()}/api/notifications/${notification.id}/read`, {
+              method: 'POST',
+            });
+          }
+
+          // Invalidate notification queries to update counts
+          if (notifications.length > 0) {
+            queryClient.invalidateQueries({ queryKey: ['notifications'] });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to mark notifications as read:', error);
+      }
+    }
+
+    markNotificationsAsRead();
+  }, [projectId, queryClient]);
 
   // Create note mutation
   const createNoteMutation = useMutation({
