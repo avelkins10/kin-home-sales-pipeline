@@ -20,10 +20,5 @@
     "enabled": true,
     "autoAlias": true,
     "silent": false
-  },
-  "bypassDeploymentProtection": [
-    {
-      "matcher": "/api/webhooks/quickbase/notes"
-    }
-  ]
+  }
 }
