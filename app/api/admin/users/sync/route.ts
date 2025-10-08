@@ -4,7 +4,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/auth/guards'
 import { sql } from '@/lib/db/client'
 import { hash } from 'bcryptjs'
-import { logInfo, logError, logAudit } from '@/lib/logging/logger'
+import { randomBytes } from 'crypto'
+import { logInfo, logError, logAudit, logWarn } from '@/lib/logging/logger'
 import { getActiveUsersFromQuickbase } from '@/lib/quickbase/userQueries'
 
 /**
@@ -57,6 +58,12 @@ export async function POST(request: NextRequest) {
       role = 'both' 
     } = body
 
+    // Validate role parameter
+    const allowedRoles = new Set(['both', 'closer', 'setter'])
+    if (!allowedRoles.has(role)) {
+      return NextResponse.json({ error: 'role must be closer|setter|both' }, { status: 400 })
+    }
+
     if (monthsBack < 1 || monthsBack > 24) {
       return NextResponse.json(
         { error: 'monthsBack must be between 1 and 24' },
@@ -85,8 +92,8 @@ export async function POST(request: NextRequest) {
       created: 0,
       updated: 0,
       skipped: 0,
-      conflicts: [] as any[],
-      inactiveSkipped: activeUsers.length - usersToSync.length
+      errors: 0,
+      conflicts: [] as any[]
     }
 
     if (dryRun) {
@@ -112,7 +119,7 @@ export async function POST(request: NextRequest) {
         dryRun: true,
         results,
         usersToSync: usersToSync.slice(0, 10), // Preview first 10 users
-        message: `Would create ${results.created} users, update ${results.updated} users, skip ${results.inactiveSkipped} inactive users`
+        message: `Would create ${results.created} users, update ${results.updated} users, skip ${results.skipped} skipped (inactive), ${results.errors} errors`
       })
     }
 
@@ -130,15 +137,16 @@ export async function POST(request: NextRequest) {
 
           if (existingUser.rows.length === 0) {
             // Create new user
-            const tempPassword = Math.random().toString(36).slice(-12) // Generate temp password
+            const tempPassword = randomBytes(12).toString('base64url')
             const hashedPassword = await hash(tempPassword, 10)
 
-            await sql.query(`
+            const inserted = await sql.query(`
               INSERT INTO users (
                 email, name, phone, role, quickbase_user_id, sales_office, 
                 password_hash, is_active, last_project_date
               )
               VALUES ($1, $2, $3, $4, $5, ARRAY[$6]::text[], $7, $8, $9)
+              RETURNING id
             `, [
               userData.email,
               userData.name,
@@ -151,16 +159,24 @@ export async function POST(request: NextRequest) {
               userData.lastProjectDate
             ])
 
-            // Insert default notification settings
-            const newUser = await sql.query(
-              'SELECT id FROM users WHERE email = $1',
-              [userData.email]
-            )
-            
-            await sql.query(`
-              INSERT INTO notification_settings (user_id)
-              VALUES ($1)
-            `, [newUser.rows[0].id])
+            const newUserId = inserted.rows[0].id
+
+            // Insert default notification settings (schema from migration 002)
+            // The notification_settings table uses user_id as PRIMARY KEY
+            // and has default values for all notification preferences
+            try {
+              await sql.query(`
+                INSERT INTO notification_settings (user_id)
+                VALUES ($1)
+                ON CONFLICT (user_id) DO NOTHING
+              `, [newUserId])
+            } catch (notifError) {
+              // Log but don't fail the sync if notification settings insert fails
+              logWarn('Failed to create notification settings for user', {
+                userId: newUserId,
+                error: notifError instanceof Error ? notifError.message : String(notifError)
+              })
+            }
 
             results.created++
 
@@ -168,7 +184,7 @@ export async function POST(request: NextRequest) {
             await logAudit(
               'sync_create',
               'user',
-              newUser.rows[0].id,
+              newUserId,
               auth.session.user.id,
               {
                 email: { old: null, new: userData.email },
@@ -222,7 +238,7 @@ export async function POST(request: NextRequest) {
             user: userData,
             error: error instanceof Error ? error.message : String(error)
           })
-          results.skipped++
+          results.errors++
         }
       }
 
@@ -240,7 +256,7 @@ export async function POST(request: NextRequest) {
         success: true,
         dryRun: false,
         results,
-        message: `Sync completed: ${results.created} created, ${results.updated} updated, ${results.skipped} skipped, ${results.inactiveSkipped} inactive users not synced`
+        message: `Sync completed: ${results.created} created, ${results.updated} updated, ${results.skipped} skipped (inactive), ${results.errors} errors`
       })
     } catch (error) {
       await sql.query('ROLLBACK')

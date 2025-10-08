@@ -161,14 +161,15 @@ export interface Project {
  * This means managers see ALL projects in their offices, including projects where 
  * the rep doesn't have an active account in the app.
  */
-export type UserRole = 
-  | 'closer' 
-  | 'setter' 
-  | 'team_lead' 
-  | 'office_leader' 
-  | 'area_director' 
-  | 'divisional' 
-  | 'regional' 
+export type UserRole =
+  | 'closer'
+  | 'setter'
+  | 'coordinator'
+  | 'team_lead'
+  | 'office_leader'
+  | 'area_director'
+  | 'divisional'
+  | 'regional'
   | 'super_admin';
 
 export type ProjectStatus = 'Active' | 'On Hold' | 'Completed' | 'Cancelled';

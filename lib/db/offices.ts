@@ -98,49 +98,58 @@ export async function syncOfficesFromQuickBase(): Promise<{
   }
 
   try {
-    // Query QuickBase for all unique SALES_OFFICE values
+    // Query QuickBase for all unique SALES_OFFICE values with pagination
     console.log('[syncOfficesFromQuickBase] Querying QuickBase for unique offices...')
-    const response = await qbClient.queryRecords({
-      from: process.env.QUICKBASE_TABLE_PROJECTS || 'br9kwm8na',
-      select: [PROJECT_FIELDS.SALES_OFFICE],
-      where: `{${PROJECT_FIELDS.SALES_OFFICE}.XEX.''}`, // Not empty
-    })
-
-    // Extract unique office names
+    
+    const top = 1000
+    let skip = 0
     const officeNames = new Set<string>()
-    response.data?.forEach((record: any) => {
-      const officeName = record[PROJECT_FIELDS.SALES_OFFICE]?.value
-      if (officeName && typeof officeName === 'string') {
-        const normalized = normalizeOfficeName(officeName.trim())
-        if (normalized) {
-          officeNames.add(normalized)
+    
+    while (true) {
+      const response = await qbClient.queryRecords({
+        from: process.env.QUICKBASE_TABLE_PROJECTS || 'br9kwm8na',
+        select: [PROJECT_FIELDS.SALES_OFFICE],
+        where: `{${PROJECT_FIELDS.SALES_OFFICE}.XEX.''}`, // Not empty
+        options: { top, skip }
+      })
+
+      // Extract unique office names from this batch
+      response.data?.forEach((record: any) => {
+        const officeName = record[PROJECT_FIELDS.SALES_OFFICE]?.value
+        if (officeName && typeof officeName === 'string') {
+          const normalized = normalizeOfficeName(officeName.trim())
+          if (normalized) {
+            officeNames.add(normalized)
+          }
         }
+      })
+
+      // If we got fewer records than requested, we've reached the end
+      if (!response.data || response.data.length < top) {
+        break
       }
-    })
+      
+      skip += top
+    }
 
     console.log(`[syncOfficesFromQuickBase] Found ${officeNames.size} unique offices in QuickBase`)
 
-    // Insert offices into database
+    // Insert offices into database using UPSERT
     for (const officeName of officeNames) {
       try {
-        // Check if office already exists
-        const exists = await officeExists(officeName)
-        if (exists) {
+        // Use UPSERT to prevent race conditions
+        const result = await sql.query(
+          'INSERT INTO offices (name, is_active) VALUES ($1, TRUE) ON CONFLICT (name) DO NOTHING',
+          [officeName]
+        )
+        
+        if (result.rowCount && result.rowCount > 0) {
+          console.log(`[syncOfficesFromQuickBase] Created office: ${officeName}`)
+          results.created++
+        } else {
           console.log(`[syncOfficesFromQuickBase] Office already exists: ${officeName}`)
           results.skipped++
-          continue
         }
-
-        // Determine region based on office name (simple mapping)
-        const region = determineRegion(officeName)
-
-        // Insert office
-        await sql.query(
-          'INSERT INTO offices (name, region) VALUES ($1, $2)',
-          [officeName, region]
-        )
-        console.log(`[syncOfficesFromQuickBase] Created office: ${officeName} (${region})`)
-        results.created++
       } catch (error) {
         const errorMsg = `Failed to create office ${officeName}: ${error instanceof Error ? error.message : String(error)}`
         console.error(`[syncOfficesFromQuickBase] ${errorMsg}`)
@@ -156,23 +165,3 @@ export async function syncOfficesFromQuickBase(): Promise<{
   }
 }
 
-/**
- * Determine region for an office based on its name
- * Simple mapping based on common geographic knowledge
- */
-function determineRegion(officeName: string): string {
-  const southwest = ['Phoenix', 'Tucson', 'Las Vegas', 'Albuquerque', 'El Paso']
-  const southeast = ['Atlanta', 'Jacksonville', 'Miami', 'Orlando', 'Tampa', 'Charlotte', 'Raleigh', 'Richmond', 'Norfolk', 'Nashville', 'Memphis', 'Birmingham', 'Mobile', 'Montgomery', 'Tallahassee', 'Gainesville', 'Fort Lauderdale', 'West Palm Beach', 'Fort Myers', 'Sarasota', 'Clearwater', 'St. Petersburg', 'Lakeland', 'Daytona Beach', 'Melbourne', 'Vero Beach', 'Pensacola', 'Panama City', 'Gulfport', 'Biloxi', 'Hattiesburg', 'Meridian', 'Jackson', 'New Orleans', 'Baton Rouge', 'Little Rock']
-  const midwest = ['Chicago', 'Detroit', 'Cleveland', 'Cincinnati', 'Columbus', 'Indianapolis', 'Milwaukee', 'Minneapolis', 'Kansas City', 'St. Louis', 'Omaha', 'Des Moines', 'Wichita', 'Grand Rapids']
-  const northeast = ['New York', 'Boston', 'Philadelphia', 'Baltimore', 'Washington', 'Pittsburgh', 'Buffalo', 'Rochester', 'Syracuse', 'Albany', 'Hartford', 'Providence']
-  const west = ['Denver', 'Salt Lake City', 'Austin', 'Dallas', 'Houston', 'San Antonio', 'Oklahoma City']
-
-  if (southwest.includes(officeName)) return 'southwest'
-  if (southeast.includes(officeName)) return 'southeast'
-  if (midwest.includes(officeName)) return 'midwest'
-  if (northeast.includes(officeName)) return 'northeast'
-  if (west.includes(officeName)) return 'west'
-
-  // Default to west for unknown offices
-  return 'west'
-}

@@ -24,6 +24,8 @@ import {
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { getBaseUrl } from '@/lib/utils/baseUrl'
+import { getRoleBadgeVariant, getRoleDisplayName } from '@/lib/utils/roles'
+import type { UserRole } from '@/lib/types/project'
 import { 
   Users, 
   UserPlus, 
@@ -44,7 +46,7 @@ interface User {
   id: string
   name: string
   email: string
-  role: string
+  role: UserRole
   office?: string
   is_active: boolean
   manages?: string[]
@@ -208,7 +210,7 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
     setExpandedNodes(newExpanded)
   }
 
-  const getRoleIcon = (role: string) => {
+  const getRoleIcon = (role: UserRole) => {
     switch (role) {
       case 'super_admin':
         return <Crown className="h-4 w-4 text-red-500" />
@@ -223,20 +225,6 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
     }
   }
 
-  const getRoleBadgeVariant = (role: string) => {
-    switch (role) {
-      case 'super_admin':
-        return 'destructive'
-      case 'regional':
-      case 'divisional':
-      case 'area_director':
-        return 'default'
-      case 'office_leader':
-        return 'secondary'
-      default:
-        return 'outline'
-    }
-  }
 
   const renderNode = (node: HierarchyNode) => {
     const isExpanded = expandedNodes.has(node.user.id)
@@ -270,7 +258,7 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
                     <div className="flex items-center gap-2">
                       <h4 className="font-medium">{node.user.name}</h4>
                       <Badge variant={getRoleBadgeVariant(node.user.role)}>
-                        {node.user.role.replace('_', ' ')}
+                        {getRoleDisplayName(node.user.role)}
                       </Badge>
                       {!node.user.is_active && (
                         <Badge variant="outline" className="text-gray-500">
@@ -299,7 +287,7 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
                     setSelectedManager(node.user.id)
                     setAssignDialogOpen(true)
                   }}
-                  disabled={!['team_lead', 'office_leader', 'area_director', 'divisional', 'regional', 'super_admin'].includes(node.user.role)}
+                  disabled={!(['team_lead', 'office_leader', 'area_director', 'divisional', 'regional', 'super_admin'] as const satisfies readonly UserRole[]).includes(node.user.role)}
                 >
                   <UserPlus className="h-4 w-4 mr-1" />
                   Assign
@@ -335,11 +323,12 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
   }
 
   const hierarchyTree = buildHierarchyTree()
+  const ROLE_MANAGERS: readonly UserRole[] = ['team_lead', 'office_leader', 'area_director', 'divisional', 'regional', 'super_admin'] as const
   const availableManagers = users.filter((user: User) => 
-    ['team_lead', 'office_leader', 'area_director', 'divisional', 'regional', 'super_admin'].includes(user.role)
+    ROLE_MANAGERS.includes(user.role)
   )
   const availableUsers = users.filter((user: User) => 
-    !['super_admin'].includes(user.role) && user.is_active
+    !(['super_admin'] as const satisfies readonly UserRole[]).includes(user.role) && user.is_active
   )
 
   return (
@@ -394,7 +383,7 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
                 <SelectContent>
                   {availableManagers.map((manager) => (
                     <SelectItem key={manager.id} value={manager.id}>
-                      {manager.name} ({manager.role.replace('_', ' ')})
+                      {manager.name} ({getRoleDisplayName(manager.role)})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -415,7 +404,7 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
                     .filter(user => user.id !== selectedManager)
                     .map((user) => (
                       <SelectItem key={user.id} value={user.id}>
-                        {user.name} ({user.role.replace('_', ' ')})
+                        {user.name} ({getRoleDisplayName(user.role)})
                       </SelectItem>
                     ))}
                 </SelectContent>

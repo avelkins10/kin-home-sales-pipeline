@@ -24,12 +24,13 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS last_project_date TIMESTAMP;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS invited_at TIMESTAMP;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS invite_token TEXT UNIQUE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS invite_accepted_at TIMESTAMP;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
 
 -- Create user_hierarchies table for team lead relationships
 CREATE TABLE IF NOT EXISTS user_hierarchies (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  manager_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  manager_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW(),
   UNIQUE(manager_id, user_id)
@@ -38,7 +39,7 @@ CREATE TABLE IF NOT EXISTS user_hierarchies (
 -- Create office_assignments table for manager office access
 CREATE TABLE IF NOT EXISTS office_assignments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   office_name TEXT NOT NULL,
   access_level TEXT NOT NULL CHECK (access_level IN ('view', 'manage', 'admin')),
   assigned_at TIMESTAMP DEFAULT NOW(),
@@ -54,37 +55,29 @@ CREATE TABLE IF NOT EXISTS sync_logs (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Create notification_settings table for user notification preferences
-CREATE TABLE IF NOT EXISTS notification_settings (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  email_notifications BOOLEAN DEFAULT true,
-  push_notifications BOOLEAN DEFAULT true,
-  project_updates BOOLEAN DEFAULT true,
-  hold_alerts BOOLEAN DEFAULT true,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW(),
-  UNIQUE(user_id)
-);
+-- Note: notification_settings table is created in migration 002
+-- This migration does not recreate it to avoid schema conflicts
 
 -- Create indexes for efficient queries
 CREATE INDEX IF NOT EXISTS idx_user_hierarchies_manager_id ON user_hierarchies(manager_id);
 CREATE INDEX IF NOT EXISTS idx_user_hierarchies_user_id ON user_hierarchies(user_id);
 CREATE INDEX IF NOT EXISTS idx_users_last_project_date ON users(last_project_date);
+CREATE INDEX IF NOT EXISTS idx_users_is_active ON users(is_active);
 CREATE INDEX IF NOT EXISTS idx_users_invite_token ON users(invite_token);
 CREATE INDEX IF NOT EXISTS idx_office_assignments_user_id ON office_assignments(user_id);
 CREATE INDEX IF NOT EXISTS idx_office_assignments_office_name ON office_assignments(office_name);
 CREATE INDEX IF NOT EXISTS idx_sync_logs_sync_type ON sync_logs(sync_type);
 CREATE INDEX IF NOT EXISTS idx_sync_logs_created_at ON sync_logs(created_at);
-CREATE INDEX IF NOT EXISTS idx_notification_settings_user_id ON notification_settings(user_id);
+-- Note: notification_settings indexes are created in migration 002
 
 -- Add comments to document office-based visibility
 COMMENT ON TABLE user_hierarchies IS 'Team lead relationships - user-based visibility where team leads see projects for their managed users';
 COMMENT ON TABLE office_assignments IS 'Office access for managers - office-based visibility where managers see ALL projects in their assigned offices regardless of user accounts';
 COMMENT ON TABLE sync_logs IS 'Log of sync operations for tracking and debugging user synchronization from QuickBase';
-COMMENT ON TABLE notification_settings IS 'User notification preferences for email, push, and project update notifications';
+-- Note: notification_settings comments are in migration 002
 COMMENT ON COLUMN users.last_project_date IS 'Date of user''s most recent project - used for activity-based filtering to avoid creating thousands of inactive users';
 COMMENT ON COLUMN users.invite_token IS 'Token for invite-based user provisioning - recommended approach to avoid bulk user creation';
+COMMENT ON COLUMN users.is_active IS 'Whether user account is active - deactivated users cannot log in but their projects remain visible to managers via office-based visibility';
 
 -- Create function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -100,9 +93,7 @@ CREATE TRIGGER update_user_hierarchies_updated_at
   BEFORE UPDATE ON user_hierarchies 
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_notification_settings_updated_at 
-  BEFORE UPDATE ON notification_settings 
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- Note: notification_settings triggers are created in migration 002
 
 -- Create migrations_log table if it doesn't exist
 CREATE TABLE IF NOT EXISTS migrations_log (

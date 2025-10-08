@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import { getBaseUrl } from '@/lib/utils/baseUrl';
 import type { MentionedUser } from '@/lib/types/message';
+import { getRoleColorClasses, getRoleDisplayName } from '@/lib/utils/roles';
 
 interface MentionTextareaProps {
   value: string;
@@ -134,29 +135,6 @@ export function MentionTextarea({
     }
   }, [selectedIndex, showMentions]);
 
-  const getRoleBadgeColor = (role: string) => {
-    switch (role) {
-      case 'super_admin':
-      case 'regional':
-        return 'bg-purple-100 text-purple-700';
-      case 'office_leader':
-        return 'bg-blue-100 text-blue-700';
-      case 'coordinator':
-        return 'bg-green-100 text-green-700';
-      case 'closer':
-        return 'bg-indigo-100 text-indigo-700';
-      case 'setter':
-        return 'bg-orange-100 text-orange-700';
-      default:
-        return 'bg-slate-100 text-slate-700';
-    }
-  };
-
-  const getRoleLabel = (role: string) => {
-    return role.split('_').map(word =>
-      word.charAt(0).toUpperCase() + word.slice(1)
-    ).join(' ');
-  };
 
   return (
     <div className="relative">
@@ -200,8 +178,8 @@ export function MentionTextarea({
                     {user.office && ` • ${user.office}`}
                   </div>
                 </div>
-                <span className={`ml-2 px-2 py-0.5 text-xs font-medium rounded ${getRoleBadgeColor(user.role)}`}>
-                  {getRoleLabel(user.role)}
+                <span className={`ml-2 px-2 py-0.5 text-xs font-medium rounded ${getRoleColorClasses(user.role)}`}>
+                  {getRoleDisplayName(user.role)}
                 </span>
               </button>
             ))

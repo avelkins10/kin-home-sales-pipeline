@@ -12,6 +12,7 @@ import { toast } from 'sonner'
 import { User as UserType } from '@/lib/types/user'
 import { signOut } from 'next-auth/react'
 import { getBaseUrl } from '@/lib/utils/baseUrl'
+import { getRoleBadgeVariant, getRoleDisplayName } from '@/lib/utils/roles'
 
 interface ProfileTabProps {
   user: UserType
@@ -117,35 +118,6 @@ export function ProfileTab({ user }: ProfileTabProps) {
     })
   }
 
-  const getRoleBadgeVariant = (role: string) => {
-    switch (role) {
-      case 'super_admin':
-        return 'destructive'
-      case 'regional':
-        return 'default'
-      case 'office_leader':
-        return 'secondary'
-      default:
-        return 'outline'
-    }
-  }
-
-  const getRoleDisplayName = (role: string) => {
-    switch (role) {
-      case 'super_admin':
-        return 'Super Admin'
-      case 'regional':
-        return 'Regional Manager'
-      case 'office_leader':
-        return 'Office Leader'
-      case 'closer':
-        return 'Closer'
-      case 'setter':
-        return 'Setter'
-      default:
-        return role
-    }
-  }
 
   return (
     <div className="space-y-6">

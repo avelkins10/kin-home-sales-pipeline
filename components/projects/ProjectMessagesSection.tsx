@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, MessagesSquare, Plus, X, Send } from 'lucide-react';
 import { getBaseUrl } from '@/lib/utils/baseUrl';
 import { toast } from 'sonner';
+import { getRoleColorClasses, getRoleDisplayName } from '@/lib/utils/roles';
 import { MentionTextarea } from '@/components/ui/mention-textarea';
 import { MessageText } from '@/components/ui/message-text';
 import type { ProjectMessage } from '@/lib/types/message';
@@ -139,42 +140,6 @@ export function ProjectMessagesSection({ projectId, wrapped = true }: ProjectMes
     }
   };
 
-  const getRoleBadgeColor = (role: string) => {
-    switch (role) {
-      case 'super_admin':
-      case 'regional':
-        return 'bg-purple-100 text-purple-700';
-      case 'office_leader':
-        return 'bg-blue-100 text-blue-700';
-      case 'coordinator':
-        return 'bg-green-100 text-green-700';
-      case 'closer':
-        return 'bg-indigo-100 text-indigo-700';
-      case 'setter':
-        return 'bg-orange-100 text-orange-700';
-      default:
-        return 'bg-slate-100 text-slate-700';
-    }
-  };
-
-  const getRoleLabel = (role: string) => {
-    switch (role) {
-      case 'super_admin':
-        return 'Admin';
-      case 'regional':
-        return 'Regional';
-      case 'office_leader':
-        return 'Office Leader';
-      case 'coordinator':
-        return 'Coordinator';
-      case 'closer':
-        return 'Closer';
-      case 'setter':
-        return 'Setter';
-      default:
-        return role;
-    }
-  };
 
   const isOwnMessage = (message: ProjectMessage) => {
     const userEmail = session?.user?.email;
@@ -282,8 +247,8 @@ export function ProjectMessagesSection({ projectId, wrapped = true }: ProjectMes
                         {message.sender_name}
                         {isOwn && <span className="text-slate-500 ml-1">(you)</span>}
                       </span>
-                      <span className={`px-2 py-0.5 text-xs font-medium rounded ${getRoleBadgeColor(message.sender_role)}`}>
-                        {getRoleLabel(message.sender_role)}
+                      <span className={`px-2 py-0.5 text-xs font-medium rounded ${getRoleColorClasses(message.sender_role)}`}>
+                        {getRoleDisplayName(message.sender_role)}
                       </span>
                     </div>
                     <span className="text-xs text-slate-500">

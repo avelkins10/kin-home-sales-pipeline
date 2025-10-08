@@ -5,9 +5,12 @@
  * Run with: node scripts/update-user-activity.js
  */
 
-require('dotenv').config({ path: '.env.local' });
-const { sql } = require('../lib/db/client');
-const { getUserProjectActivity } = require('../lib/quickbase/userQueries');
+const { sql } = require('@vercel/postgres');
+const fs = require('fs');
+const path = require('path');
+
+// Load environment variables from .env.local
+require('dotenv').config({ path: path.join(__dirname, '../.env.local') });
 
 async function updateUserActivity() {
   console.log('🚀 Starting user activity update...');

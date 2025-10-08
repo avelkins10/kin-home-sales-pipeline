@@ -35,6 +35,7 @@ import { UserPlus, Search, Edit, Key, Mail, Users, RefreshCw, UserMinus, Eye } f
 import { toast } from 'sonner'
 import { User, CreateUserInput } from '@/lib/types/user'
 import { getBaseUrl } from '@/lib/utils/baseUrl'
+import { getRoleBadgeVariant, getRoleDisplayName } from '@/lib/utils/roles'
 import { InviteUserDialog } from './InviteUserDialog'
 import { QuickBaseLookupDialog } from './QuickBaseLookupDialog'
 import { SmartSyncDialog } from './SmartSyncDialog'
@@ -156,18 +157,6 @@ export default function UsersTab() {
     },
   })
 
-  const getRoleBadgeVariant = (role: string) => {
-    switch (role) {
-      case 'super_admin':
-        return 'destructive'
-      case 'regional':
-        return 'default'
-      case 'office_leader':
-        return 'secondary'
-      default:
-        return 'outline'
-    }
-  }
 
   const handleCreateUser = () => {
     if (!newUser.name || !newUser.email || !newUser.quickbaseUserId || !newUser.temporaryPassword) {
@@ -325,6 +314,7 @@ export default function UsersTab() {
           </DialogContent>
         </Dialog>
       </div>
+      </div>
 
       {/* Filters */}
       <div className="flex items-center gap-4">
@@ -405,7 +395,7 @@ export default function UsersTab() {
                     <TableCell>{user.email}</TableCell>
                     <TableCell>
                       <Badge variant={getRoleBadgeVariant(user.role)}>
-                        {user.role.replace('_', ' ')}
+                        {getRoleDisplayName(user.role)}
                       </Badge>
                     </TableCell>
                     <TableCell>{user.office || '-'}</TableCell>

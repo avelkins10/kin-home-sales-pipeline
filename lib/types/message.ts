@@ -1,12 +1,14 @@
 // Project Messages Types
 // Internal messaging system for project collaboration
 
+import type { UserRole } from '@/lib/types/project';
+
 export interface ProjectMessage {
   id: number;
   project_id: number;
   sender_id: string;          // User email or ID
   sender_name: string;
-  sender_role: string;         // closer, setter, coordinator, office_leader, admin
+  sender_role: UserRole;       // closer, setter, coordinator, office_leader, admin
   message: string;
   is_system_message: boolean;  // Automated system messages
   metadata: Record<string, any>;
@@ -22,7 +24,7 @@ export interface CreateMessageInput {
   project_id: number;
   sender_id: string;
   sender_name: string;
-  sender_role: string;
+  sender_role: UserRole;
   message: string;
   is_system_message?: boolean;
   metadata?: Record<string, any>;
@@ -50,7 +52,7 @@ export interface MentionedUser {
   id: string;
   name: string;
   email: string;
-  role: string;
+  role: UserRole;
   office: string | null;
 }
 

@@ -35,7 +35,7 @@ export const updateUserSchema = z.object({
   region: z.string().optional(),
   isActive: z.boolean().optional(),
   // Hierarchy and management fields
-  managedBy: z.string().uuid().optional(),
+  managedBy: z.string().uuid().nullable().optional(),
   manages: z.array(z.string().uuid()).optional(),
   officeAccess: z.array(z.object({
     officeName: z.string().refine((name) => isValidOffice(name), {
