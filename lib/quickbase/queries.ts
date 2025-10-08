@@ -663,7 +663,7 @@ export async function createNoteForProject(projectRecordId: string | number, not
   console.log('[createNoteForProject] Creating note for project:', projectRecordId);
 
   try {
-    const response = await qbClient.createRecord({
+    const response = await qbClient.updateRecord({
       to: QB_TABLE_NOTES,
       data: [
         {
