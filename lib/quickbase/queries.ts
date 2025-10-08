@@ -129,6 +129,9 @@ export async function getProjectsForUserList(userId: string, role: string, view?
         // PPW fields
         2292, // soldGross PPW
         2480, // commissionable PPW
+        // Intake approval fields for filter counts
+        PROJECT_FIELDS.FINANCE_INTAKE_APPROVED,
+        PROJECT_FIELDS.WEBHOOK_INTAKE_COMPLETE,
         // Key milestone dates for traffic light
         PROJECT_FIELDS.INTAKE_INSTALL_DATE_TENTATIVE,
         PROJECT_FIELDS.SURVEY_SUBMITTED,
@@ -259,34 +262,43 @@ export async function getProjectsForUser(userId: string, role: string, view?: st
 // Helper function to build view-based filter
 function buildViewFilter(view?: string): string {
   if (!view || view === 'all') return '';
-  
+
   switch (view) {
     case 'active':
-      return `{${PROJECT_FIELDS.PROJECT_STATUS}.CT.'Active'} AND {${PROJECT_FIELDS.ON_HOLD}.EX.'No'}`;
-    
+      // Active projects with approved intake (KCA)
+      return `{${PROJECT_FIELDS.PROJECT_STATUS}.CT.'Active'} AND {${PROJECT_FIELDS.ON_HOLD}.EX.'No'} AND ({${PROJECT_FIELDS.FINANCE_INTAKE_APPROVED}.EX.'Yes'} OR {${PROJECT_FIELDS.WEBHOOK_INTAKE_COMPLETE}.EX.'Yes'})`;
+
+    case 'pending-kca':
+      // Active projects WITHOUT intake approval yet (Pending KCA = Pending KIN Confirmed Account)
+      return `{${PROJECT_FIELDS.PROJECT_STATUS}.CT.'Active'} AND {${PROJECT_FIELDS.FINANCE_INTAKE_APPROVED}.EX.'No'} AND {${PROJECT_FIELDS.WEBHOOK_INTAKE_COMPLETE}.EX.'No'}`;
+
+    case 'rejected':
+      // Rejected projects
+      return `{${PROJECT_FIELDS.PROJECT_STATUS}.CT.'Reject'}`;
+
     case 'on-hold':
       return `{${PROJECT_FIELDS.ON_HOLD}.EX.'Yes'}`;
-    
+
     case 'install-ready':
       return `{${PROJECT_FIELDS.NEM_APPROVED}.EX.'Yes'} AND {${PROJECT_FIELDS.PERMIT_APPROVED}.EX.'Yes'} AND {${PROJECT_FIELDS.INSTALL_SCHEDULED_DATE_CAPTURE}.EX.''}`;
-    
+
     case 'install-scheduled':
       return `{${PROJECT_FIELDS.INSTALL_SCHEDULED_DATE_CAPTURE}.XEX.''} AND {${PROJECT_FIELDS.INSTALL_COMPLETED_DATE}.EX.''}`;
-    
+
     case 'install-completed':
       return `{${PROJECT_FIELDS.INSTALL_COMPLETED_DATE}.XEX.''} AND {${PROJECT_FIELDS.PTO_APPROVED}.EX.''}`;
-    
+
     case 'pending-cancel':
       return `{${PROJECT_FIELDS.PROJECT_STATUS}.CT.'Pending Cancel'}`;
-    
+
     case 'cancelled':
       return `{${PROJECT_FIELDS.PROJECT_STATUS}.CT.'Cancel'} AND {${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Pending'}`;
-    
+
     case 'needs-attention':
       // Projects older than 90 days OR on hold for more than 7 days
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       return `({${PROJECT_FIELDS.PROJECT_AGE}.GT.90} OR ({${PROJECT_FIELDS.ON_HOLD}.EX.'Yes'} AND {${PROJECT_FIELDS.DATE_ON_HOLD}.BF.'${sevenDaysAgo}'}))`;
-    
+
     default:
       return '';
   }
