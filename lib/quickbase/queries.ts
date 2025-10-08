@@ -620,3 +620,66 @@ export async function getAddersForProject(projectRecordId: string | number) {
     return [];
   }
 }
+
+/**
+ * Get rep-visible notes for a specific project
+ */
+export async function getNotesForProject(projectRecordId: string | number) {
+  const { NOTE_FIELDS } = await import('@/lib/constants/noteFieldIds');
+  const QB_TABLE_NOTES = 'bsb6bqt3b';
+
+  console.log('[getNotesForProject] Fetching notes for project:', projectRecordId);
+
+  try {
+    const response = await qbClient.queryRecords({
+      from: QB_TABLE_NOTES,
+      where: `{${NOTE_FIELDS.RELATED_PROJECT}.EX.${projectRecordId}} AND {${NOTE_FIELDS.REP_VISIBLE}.EX.'Rep Visible'}`,
+      select: [
+        NOTE_FIELDS.RECORD_ID,
+        NOTE_FIELDS.NOTE_CONTENT,
+        NOTE_FIELDS.CATEGORY,
+        NOTE_FIELDS.CREATED_BY,
+        NOTE_FIELDS.DATE_CREATED,
+        NOTE_FIELDS.REP_VISIBLE,
+      ],
+      sortBy: [{ fieldId: NOTE_FIELDS.DATE_CREATED, order: 'DESC' }],
+    });
+
+    console.log('[getNotesForProject] Found notes:', response.data?.length || 0);
+    return response.data || [];
+  } catch (error) {
+    logError('Failed to fetch notes for project', error as Error, { projectRecordId });
+    return [];
+  }
+}
+
+/**
+ * Create a new note for a project (auto-tagged as Sales/Rep Visible)
+ */
+export async function createNoteForProject(projectRecordId: string | number, noteContent: string, createdBy: string) {
+  const { NOTE_FIELDS, NOTE_CATEGORIES, REP_VISIBLE_FLAG } = await import('@/lib/constants/noteFieldIds');
+  const QB_TABLE_NOTES = 'bsb6bqt3b';
+
+  console.log('[createNoteForProject] Creating note for project:', projectRecordId);
+
+  try {
+    const response = await qbClient.createRecord({
+      to: QB_TABLE_NOTES,
+      data: [
+        {
+          [NOTE_FIELDS.RELATED_PROJECT]: { value: Number(projectRecordId) },
+          [NOTE_FIELDS.NOTE_CONTENT]: { value: noteContent },
+          [NOTE_FIELDS.CATEGORY]: { value: NOTE_CATEGORIES.SALES },
+          [NOTE_FIELDS.REP_VISIBLE]: { value: REP_VISIBLE_FLAG },
+          [NOTE_FIELDS.SALES_TEAM_FLAG]: { value: 1 },
+        },
+      ],
+    });
+
+    console.log('[createNoteForProject] Note created successfully');
+    return response;
+  } catch (error) {
+    logError('Failed to create note for project', error as Error, { projectRecordId, createdBy });
+    throw error;
+  }
+}
