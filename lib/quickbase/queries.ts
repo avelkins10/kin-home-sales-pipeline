@@ -13,9 +13,17 @@ import { ADDER_FIELDS } from '@/lib/constants/adderFieldIds';
 const QB_TABLE_PROJECTS = process.env.QUICKBASE_TABLE_PROJECTS || 'br9kwm8na';
 const QB_TABLE_ADDERS = 'bsaycczmf';
 
+// Helper function to get managed user IDs for team leads
+async function getManagedUserIds(managerId: string): Promise<string[]> {
+  // This would query the user_hierarchies table to get users managed by this team lead
+  // For now, return empty array - this will be implemented when the database migration is run
+  console.log('[getManagedUserIds] Getting managed users for team lead:', managerId);
+  return [];
+}
+
 // Shared role scoping helper
-export function buildRoleClause(userId: string, role: string, salesOffice?: string[]): string {
-  console.log('[buildRoleClause] Building clause for:', { userId, role, salesOffice });
+export function buildRoleClause(userId: string, role: string, salesOffice?: string[], managedUserIds?: string[]): string {
+  console.log('[buildRoleClause] Building clause for:', { userId, role, salesOffice, managedUserIds });
 
   const userIds = userId.split(',').map(id => id.trim());
 
@@ -44,14 +52,32 @@ export function buildRoleClause(userId: string, role: string, salesOffice?: stri
       console.log('[buildRoleClause] Admin role detected, returning all-projects clause:', clause);
       break;
     case 'office_leader':
-      // Office leaders see projects in their assigned offices
+    case 'area_director':
+    case 'divisional':
+      // Office-based roles see ALL projects in their assigned offices
+      // This filters by project.sales_office, NOT by user.is_active
+      // This means managers see projects even if the closer/setter doesn't have an active account
       if (salesOffice && salesOffice.length > 0) {
         clause = buildOfficeClause(salesOffice);
-        console.log('[buildRoleClause] Office leader role, filtering by offices:', clause);
+        console.log(`[buildRoleClause] ${role} role, filtering by offices (office-based visibility):`, clause);
       } else {
         // Fallback to least-privilege: restrict to no projects if no office assigned
         clause = '{3.EQ.0}'; // Record ID = 0 (matches no records)
-        console.log('[buildRoleClause] Office leader with no office assigned, returning no-projects clause:', clause);
+        console.log(`[buildRoleClause] ${role} with no office assigned, returning no-projects clause:`, clause);
+      }
+      break;
+    case 'team_lead':
+      // Team leads see projects for their managed users (user-based visibility)
+      if (managedUserIds && managedUserIds.length > 0) {
+        // Build clause that matches projects where closer_id OR setter_id is in managed users
+        const closerClause = buildClause(PROJECT_FIELDS.CLOSER_ID, managedUserIds);
+        const setterClause = buildClause(PROJECT_FIELDS.SETTER_ID, managedUserIds);
+        clause = `(${closerClause}) OR (${setterClause})`;
+        console.log('[buildRoleClause] Team lead role, filtering by managed users (user-based visibility):', clause);
+      } else {
+        // No managed users, see no projects
+        clause = '{3.EQ.0}'; // Record ID = 0 (matches no records)
+        console.log('[buildRoleClause] Team lead with no managed users, returning no-projects clause:', clause);
       }
       break;
     case 'closer':

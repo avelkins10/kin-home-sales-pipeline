@@ -139,7 +139,37 @@ export interface Project {
   statusBarHtml: string | null;
 }
 
-export type UserRole = 'closer' | 'setter' | 'office_leader' | 'regional' | 'super_admin';
+/**
+ * User role hierarchy and visibility rules:
+ * 
+ * User-based visibility (sees only assigned projects):
+ * - closer: Access to own projects as closer
+ * - setter: Access to own projects as setter
+ * - team_lead: Access to managed reps' projects (both closer and setter projects)
+ * 
+ * Office-based visibility (sees ALL projects in assigned offices):
+ * - office_leader: Access to ALL projects in assigned offices (regardless of user active status)
+ * - area_director: Access to ALL projects in assigned offices (same as office_leader, typically manages multiple offices)
+ * - divisional: Access to ALL projects in assigned offices/regions (larger scope than area_director)
+ * - regional: Access to ALL projects across all offices
+ * 
+ * Admin access:
+ * - super_admin: Access to all projects and admin features
+ * 
+ * Important: Office-based roles (office_leader, area_director, divisional) filter by 
+ * project.sales_office, NOT by whether the closer/setter has an active account. 
+ * This means managers see ALL projects in their offices, including projects where 
+ * the rep doesn't have an active account in the app.
+ */
+export type UserRole = 
+  | 'closer' 
+  | 'setter' 
+  | 'team_lead' 
+  | 'office_leader' 
+  | 'area_director' 
+  | 'divisional' 
+  | 'regional' 
+  | 'super_admin';
 
 export type ProjectStatus = 'Active' | 'On Hold' | 'Completed' | 'Cancelled';
 

@@ -1,0 +1,877 @@
+{
+  "$schema": "./milestone-schema.json",
+  "version": "1.0.0",
+  "description": "Unified milestone configuration - extracted from traffic-lights.ts, milestoneStatus.ts, and milestones.ts",
+
+  "milestones": [
+    {
+      "id": "intake",
+      "name": "Intake",
+      "order": 1,
+      "icon": "📋",
+      "color": "gray",
+      "description": "Finance intake and approval process",
+
+      "states": {
+        "complete": {
+          "condition": "OR",
+          "fields": [
+            {
+              "fieldId": "FINANCE_INTAKE_APPROVED",
+              "operator": "exists",
+              "source": "traffic-lights.ts:79, milestoneStatus.ts (not used), milestones.ts (not used)"
+            },
+            {
+              "fieldId": "WEBHOOK_INTAKE_COMPLETE",
+              "operator": "exists",
+              "source": "traffic-lights.ts:79, Timeline.tsx:38"
+            }
+          ],
+          "dateField": "FINANCE_INTAKE_APPROVED_DATE",
+          "fallbackDateField": "SALES_DATE",
+          "notes": "CONFLICT: milestoneStatus.ts doesn't check intake completion at all!"
+        },
+
+        "rejected": {
+          "condition": "OR",
+          "fields": [
+            {
+              "fieldId": "PROJECT_STATUS",
+              "operator": "contains",
+              "value": "rejected",
+              "caseInsensitive": true,
+              "source": "traffic-lights.ts:74, Timeline.tsx:29"
+            },
+            {
+              "fieldId": "PROJECT_STATUS",
+              "operator": "contains",
+              "value": "cancel",
+              "caseInsensitive": true,
+              "source": "traffic-lights.ts:74, Timeline.tsx:30"
+            }
+          ],
+          "dateField": "SALES_DATE",
+          "notes": "Rejected/cancelled projects show intake as rejected"
+        },
+
+        "overdue": {
+          "condition": "AND",
+          "rules": [
+            {
+              "type": "project_age",
+              "operator": ">",
+              "value": 7,
+              "source": "traffic-lights.ts:84"
+            },
+            {
+              "type": "not_complete"
+            }
+          ],
+          "notes": "More than 7 days waiting for intake approval"
+        },
+
+        "in-progress": {
+          "condition": "default",
+          "notes": "Default state when not complete, rejected, or overdue"
+        }
+      },
+
+      "dependencies": [],
+
+      "auditNotes": [
+        "⚠️ ISSUE: milestoneStatus.ts has no intake logic - assumes always complete",
+        "⚠️ QUESTION: Should we use INTAKE_COMPLETE (field 554) URL field?",
+        "⚠️ QUESTION: FINANCE_INTAKE_APPROVED_DATE only 0.3% populated - is this correct field?"
+      ]
+    },
+
+    {
+      "id": "survey",
+      "name": "Survey",
+      "order": 2,
+      "icon": "📐",
+      "color": "blue",
+      "description": "Site survey scheduling and approval",
+
+      "states": {
+        "complete": {
+          "condition": "OR",
+          "fields": [
+            {
+              "fieldId": "SURVEY_APPROVED",
+              "operator": "exists",
+              "source": "traffic-lights.ts:97, milestoneStatus.ts:27-29, milestones.ts:47"
+            }
+          ],
+          "dateField": "SURVEY_APPROVED"
+        },
+
+        "in-progress": {
+          "condition": "OR",
+          "fields": [
+            {
+              "fieldId": "SURVEY_SUBMITTED",
+              "operator": "exists",
+              "source": "traffic-lights.ts:101, milestoneStatus.ts:40-48"
+            },
+            {
+              "fieldId": "MAX_SURVEY_SUBMITTED",
+              "operator": "exists",
+              "source": "milestoneStatus.ts:25-26",
+              "notes": "Backup timestamp field"
+            }
+          ],
+          "dateField": "SURVEY_SUBMITTED",
+          "fallbackDateField": "MAX_SURVEY_SUBMITTED",
+          "substeps": [
+            {"label": "Submitted", "statusField": "SURVEY_SUBMITTED"},
+            {"label": "Approved", "statusField": "SURVEY_APPROVED"}
+          ]
+        },
+
+        "pending": {
+          "condition": "default"
+        }
+      },
+
+      "dependencies": ["intake"],
+
+      "auditNotes": [
+        "✅ CONSISTENT: All 3 systems use same fields",
+        "⚠️ QUESTION: SURVEY_SCHEDULED_DATE (field 164) same as SURVEY_SUBMITTED - use one?"
+      ]
+    },
+
+    {
+      "id": "design",
+      "name": "Design",
+      "order": 3,
+      "icon": "🎨",
+      "color": "purple",
+      "description": "CAD design and engineering approval",
+
+      "states": {
+        "complete": {
+          "condition": "OR",
+          "fields": [
+            {
+              "fieldId": "CAD_DESIGN_APPROVED",
+              "operator": "exists",
+              "source": "traffic-lights.ts:119, milestones.ts:42"
+            },
+            {
+              "fieldId": "DESIGN_COMPLETED",
+              "operator": "exists",
+              "source": "milestoneStatus.ts:68-77, milestones.ts:41"
+            }
+          ],
+          "dateField": "DESIGN_COMPLETED",
+          "fallbackDateField": "CAD_DESIGN_APPROVED",
+          "substeps": [
+            {"label": "Predesign", "statusField": "PREDESIGN_APPROVED"},
+            {"label": "CAD Approved", "statusField": "CAD_DESIGN_APPROVED"},
+            {"label": "Complete", "statusField": "DESIGN_COMPLETED"}
+          ],
+          "notes": "CONFLICT: traffic-lights.ts uses CAD_DESIGN_APPROVED, milestoneStatus.ts uses DESIGN_COMPLETED"
+        },
+
+        "in-progress": {
+          "condition": "OR",
+          "fields": [
+            {
+              "fieldId": "DESIGN_COMPLETED",
+              "operator": "exists",
+              "source": "traffic-lights.ts:123"
+            },
+            {
+              "fieldId": "CAD_DESIGN_APPROVED",
+              "operator": "exists",
+              "source": "milestoneStatus.ts:80-91"
+            },
+            {
+              "fieldId": "PREDESIGN_APPROVED",
+              "operator": "exists",
+              "source": "milestoneStatus.ts:94-105"
+            },
+            {
+              "fieldId": "SURVEY_APPROVED",
+              "operator": "exists",
+              "notes": "Design starts when survey approved"
+            }
+          ],
+          "urgency": {
+            "field": "DESIGN_SLA_DEADLINE",
+            "operator": "<=",
+            "value": 3,
+            "unit": "days",
+            "source": "milestoneStatus.ts:61-65"
+          }
+        },
+
+        "overdue": {
+          "condition": "AND",
+          "rules": [
+            {
+              "type": "project_age",
+              "operator": ">",
+              "value": 21,
+              "source": "traffic-lights.ts:127"
+            },
+            {
+              "type": "not_complete"
+            }
+          ]
+        },
+
+        "pending": {
+          "condition": "AND",
+          "rules": [
+            {
+              "fieldId": "SURVEY_APPROVED",
+              "operator": "not_exists"
+            }
+          ],
+          "source": "traffic-lights.ts:115, milestones.ts (implicit)"
+        }
+      },
+
+      "dependencies": ["survey"],
+
+      "auditNotes": [
+        "⚠️ MAJOR CONFLICT: traffic-lights considers CAD_DESIGN_APPROVED=complete, milestoneStatus considers it in-progress!",
+        "⚠️ QUESTION: What's the real complete state? DESIGN_COMPLETED or CAD_DESIGN_APPROVED?",
+        "⚠️ UNUSED: ENGINEERING_COMPLETED, CAD_DESIGN_SUBMITTED - should we use these?",
+        "✅ SLA: milestoneStatus.ts has DESIGN_SLA_DEADLINE urgency logic (3 days)"
+      ]
+    },
+
+    {
+      "id": "hoa",
+      "name": "HOA",
+      "order": 4,
+      "icon": "🏘️",
+      "color": "orange",
+      "description": "HOA application and approval (conditional)",
+      "conditional": true,
+
+      "states": {
+        "complete": {
+          "condition": "AND",
+          "fields": [
+            {
+              "fieldId": "HOA_APPLICATION_APPROVED",
+              "operator": "exists",
+              "source": "milestoneStatus.ts:126-135"
+            }
+          ],
+          "dateField": "HOA_APPLICATION_APPROVED",
+          "substeps": [
+            {"label": "Submitted", "statusField": "HOA_APPLICATION_SUBMITTED"},
+            {"label": "Approved", "statusField": "HOA_APPLICATION_APPROVED"}
+          ]
+        },
+
+        "in-progress": {
+          "condition": "AND",
+          "fields": [
+            {
+              "fieldId": "HOA_APPLICATION_SUBMITTED",
+              "operator": "exists",
+              "source": "milestoneStatus.ts:138-149"
+            }
+          ],
+          "dateField": "HOA_APPLICATION_SUBMITTED",
+          "warning": "HOA approval can take 30-90 days",
+          "substeps": [
+            {"label": "Submitted", "statusField": "HOA_APPLICATION_SUBMITTED"},
+            {"label": "Approved", "statusField": "HOA_APPLICATION_APPROVED"}
+          ]
+        },
+
+        "not_required": {
+          "condition": "AND",
+          "rules": [
+            {
+              "fieldId": "HOA_APPLICATION_SUBMITTED",
+              "operator": "not_exists"
+            },
+            {
+              "fieldId": "HOA_APPLICATION_APPROVED",
+              "operator": "not_exists"
+            }
+          ],
+          "source": "milestoneStatus.ts:122-123, Timeline.tsx:74"
+        }
+      },
+
+      "dependencies": ["design"],
+
+      "auditNotes": [
+        "⚠️ NOT IN TRAFFIC LIGHTS: HOA milestone missing from TrafficLightPipeline completely!",
+        "⚠️ NOT IN milestones.ts: getCurrentMilestone doesn't check HOA at all!",
+        "✅ ONLY IN: Timeline.tsx and milestoneStatus.ts",
+        "⚠️ QUESTION: Should HOA be conditional or always shown?",
+        "⚠️ QUESTION: How do we detect if HOA is required? Just check if fields exist?"
+      ]
+    },
+
+    {
+      "id": "nem",
+      "name": "NEM",
+      "order": 5,
+      "icon": "⚡",
+      "color": "yellow",
+      "description": "Net Energy Metering application and approval",
+
+      "states": {
+        "complete": {
+          "condition": "OR",
+          "fields": [
+            {
+              "fieldId": "NEM_APPROVED",
+              "operator": "exists",
+              "source": "traffic-lights.ts:144, milestoneStatus.ts:219-228, milestones.ts:31"
+            }
+          ],
+          "dateField": "NEM_APPROVED",
+          "fallbackDateField": "NEM_APPROVED_CAPTURED",
+          "substeps": [
+            {"label": "Signatures Sent", "statusField": "NEM_SIGNATURES_SENT"},
+            {"label": "Submitted", "statusField": "NEM_SUBMITTED"},
+            {"label": "Approved", "statusField": "NEM_APPROVED"}
+          ]
+        },
+
+        "in-progress": {
+          "condition": "OR",
+          "fields": [
+            {
+              "fieldId": "NEM_SUBMITTED",
+              "operator": "exists",
+              "source": "traffic-lights.ts:148, milestoneStatus.ts:231-240"
+            },
+            {
+              "fieldId": "NEM_SIGNATURES_SENT",
+              "operator": "exists",
+              "source": "milestoneStatus.ts:243-255"
+            }
+          ],
+          "dateField": "NEM_SUBMITTED",
+          "fallbackDateField": "NEM_SUBMITTED_CAPTURED",
+          "urgency": {
+            "field": "NEM_SIGNATURES_SENT",
+            "operator": ">",
+            "value": 7,
+            "unit": "days",
+            "message": "Customer signatures needed - follow up!",
+            "source": "milestoneStatus.ts:244-249"
+          },
+          "substeps": [
+            {"label": "Signatures Sent", "statusField": "NEM_SIGNATURES_SENT"},
+            {"label": "Submitted", "statusField": "NEM_SUBMITTED"},
+            {"label": "Approved", "statusField": "NEM_APPROVED"}
+          ]
+        },
+
+        "blocked": {
+          "condition": "AND",
+          "rules": [
+            {
+              "fieldId": "NEM_SIGNATURES_SENT",
+              "operator": "exists"
+            },
+            {
+              "fieldId": "NEM_SUBMITTED",
+              "operator": "not_exists"
+            },
+            {
+              "type": "days_since",
+              "field": "NEM_SIGNATURES_SENT",
+              "operator": ">",
+              "value": 7,
+              "source": "milestoneStatus.ts:246"
+            }
+          ],
+          "notes": "Blocked if signatures sent >7 days ago but not submitted"
+        },
+
+        "pending": {
+          "condition": "AND",
+          "rules": [
+            {
+              "fieldId": "CAD_DESIGN_APPROVED",
+              "operator": "not_exists"
+            }
+          ],
+          "source": "traffic-lights.ts:140"
+        }
+      },
+
+      "dependencies": ["design"],
+
+      "auditNotes": [
+        "⚠️ CONFLICT: traffic-lights.ts requires BOTH CAD_DESIGN_APPROVED AND NEM_APPROVED for pending check",
+        "⚠️ UNUSED: NEM_SIGNATURE_RECEIVED (field 1845) - should we check this?",
+        "⚠️ UNUSED: INTERCONNECTION_SIGNATURES_SENT (field 2198) - is this part of NEM?",
+        "✅ BLOCKED STATE: milestoneStatus.ts has sophisticated signature waiting logic"
+      ]
+    },
+
+    {
+      "id": "permit",
+      "name": "Permit",
+      "order": 6,
+      "icon": "📄",
+      "color": "indigo",
+      "description": "Building permit submission and approval",
+
+      "states": {
+        "complete": {
+          "condition": "OR",
+          "fields": [
+            {
+              "fieldId": "PERMIT_APPROVED",
+              "operator": "exists",
+              "source": "traffic-lights.ts:166, milestoneStatus.ts:187-194, milestones.ts:37"
+            },
+            {
+              "fieldId": "AS_BUILT_SUBMITTED_TO_AHJ",
+              "operator": "exists",
+              "source": "milestoneStatus.ts:175-184",
+              "notes": "As-built submission = permit fully complete"
+            }
+          ],
+          "dateField": "AS_BUILT_SUBMITTED_TO_AHJ",
+          "fallbackDateField": "PERMIT_APPROVED",
+          "substeps": [
+            {"label": "Submitted", "statusField": "PERMIT_SUBMITTED"},
+            {"label": "Approved", "statusField": "PERMIT_APPROVED"},
+            {"label": "As-Built", "statusField": "AS_BUILT_SUBMITTED_TO_AHJ"}
+          ]
+        },
+
+        "in-progress": {
+          "condition": "OR",
+          "fields": [
+            {
+              "fieldId": "PERMIT_SUBMITTED",
+              "operator": "exists",
+              "source": "traffic-lights.ts:170, milestoneStatus.ts:198-208"
+            },
+            {
+              "fieldId": "INSTALL_COMPLETED_DATE",
+              "operator": "exists",
+              "notes": "If install complete but no as-built, permit is still in-progress",
+              "source": "milestoneStatus.ts:162-172"
+            }
+          ],
+          "dateField": "PERMIT_SUBMITTED",
+          "warning": {
+            "condition": "days_since",
+            "field": "PERMIT_SUBMITTED",
+            "operator": ">",
+            "value": 30,
+            "message": "Permit taking longer than expected",
+            "source": "milestoneStatus.ts:203"
+          },
+          "substeps": [
+            {"label": "Submitted", "statusField": "PERMIT_SUBMITTED"},
+            {"label": "Approved", "statusField": "PERMIT_APPROVED"},
+            {"label": "As-Built", "statusField": "AS_BUILT_SUBMITTED_TO_AHJ"}
+          ]
+        },
+
+        "pending": {
+          "condition": "AND",
+          "rules": [
+            {
+              "fieldId": "CAD_DESIGN_APPROVED",
+              "operator": "not_exists"
+            },
+            {
+              "fieldId": "NEM_APPROVED",
+              "operator": "not_exists"
+            }
+          ],
+          "source": "traffic-lights.ts:162",
+          "notes": "CONFLICT: traffic-lights requires BOTH design AND NEM, milestones.ts only checks PERMIT_APPROVED"
+        }
+      },
+
+      "dependencies": ["design", "nem"],
+
+      "auditNotes": [
+        "⚠️ MAJOR FEATURE: milestoneStatus.ts tracks as-built submission as final permit step",
+        "⚠️ CONFLICT: traffic-lights.ts doesn't check as-built at all",
+        "⚠️ UNUSED: ESTIMATED_PERMIT_RETURN_DATE, PERMIT_RESUBMITTED - should we use these?",
+        "⚠️ QUESTION: Does permit complete require as-built? Or just PERMIT_APPROVED?"
+      ]
+    },
+
+    {
+      "id": "install",
+      "name": "Install",
+      "order": 7,
+      "icon": "🔧",
+      "color": "green",
+      "description": "Installation scheduling and completion",
+
+      "states": {
+        "complete": {
+          "condition": "OR",
+          "fields": [
+            {
+              "fieldId": "INSTALL_COMPLETED_DATE",
+              "operator": "exists",
+              "source": "traffic-lights.ts:191, milestoneStatus.ts:279-286, milestones.ts:21"
+            },
+            {
+              "fieldId": "INSTALLATION_COMPLETED_AT",
+              "operator": "exists",
+              "source": "traffic-lights.ts:191, milestones.ts:21"
+            },
+            {
+              "fieldId": "READY_FOR_COMMISSION",
+              "operator": "exists",
+              "source": "milestoneStatus.ts:267-276",
+              "notes": "Highest level of install completion"
+            }
+          ],
+          "dateField": "READY_FOR_COMMISSION",
+          "fallbackDateField": "INSTALL_COMPLETED_DATE",
+          "substeps": [
+            {"label": "Scheduled", "statusField": "INSTALL_SCHEDULED_DATE_CAPTURE"},
+            {"label": "Completed", "statusField": "INSTALL_COMPLETED_DATE"},
+            {"label": "Ready", "statusField": "READY_FOR_COMMISSION"}
+          ]
+        },
+
+        "upcoming": {
+          "condition": "AND",
+          "rules": [
+            {
+              "fieldId": "INSTALL_SCHEDULED_DATE_CAPTURE",
+              "operator": "exists"
+            },
+            {
+              "type": "days_until",
+              "field": "INSTALL_SCHEDULED_DATE_CAPTURE",
+              "operator": "<=",
+              "value": 7,
+              "source": "milestoneStatus.ts:296"
+            }
+          ],
+          "dateField": "INSTALL_SCHEDULED_DATE_CAPTURE",
+          "notes": "Special 'upcoming' state when install is within 7 days"
+        },
+
+        "in-progress": {
+          "condition": "OR",
+          "fields": [
+            {
+              "fieldId": "INSTALL_SCHEDULED_DATE_CAPTURE",
+              "operator": "exists",
+              "source": "traffic-lights.ts:195, milestoneStatus.ts:290-302"
+            },
+            {
+              "fieldId": "ESTIMATED_INSTALL_DATE",
+              "operator": "exists",
+              "source": "traffic-lights.ts:195"
+            },
+            {
+              "fieldId": "INSTALL_SCHEDULED_START_DATE",
+              "operator": "exists",
+              "source": "traffic-lights.ts:195"
+            }
+          ],
+          "dateField": "INSTALL_SCHEDULED_DATE_CAPTURE",
+          "fallbackDateField": "ESTIMATED_INSTALL_DATE",
+          "substeps": [
+            {"label": "Scheduled", "statusField": "INSTALL_SCHEDULED_DATE_CAPTURE"},
+            {"label": "Completed", "statusField": "INSTALL_COMPLETED_DATE"}
+          ]
+        },
+
+        "pending": {
+          "condition": "AND",
+          "rules": [
+            {
+              "fieldId": "NEM_APPROVED",
+              "operator": "not_exists"
+            },
+            {
+              "fieldId": "PERMIT_APPROVED",
+              "operator": "not_exists"
+            }
+          ],
+          "source": "traffic-lights.ts:187"
+        }
+      },
+
+      "dependencies": ["nem", "permit"],
+
+      "auditNotes": [
+        "⚠️ CONFLICT: milestones.ts only checks INSTALL_SCHEDULED_DATE_CAPTURE, traffic-lights checks 3 fields",
+        "⚠️ UNUSED: INSTALL_STARTED_DATE, INSTALL_FUNDING_SUBMITTED, INSTALL_FUNDING_RECEIVED",
+        "✅ UPCOMING STATE: milestoneStatus.ts has special 'upcoming' state for installs within 7 days",
+        "⚠️ QUESTION: Should we show M2 funding status somewhere?"
+      ]
+    },
+
+    {
+      "id": "verification",
+      "name": "Verification",
+      "order": 8,
+      "icon": "✅",
+      "color": "cyan",
+      "description": "System verification after install (calculated, 1-3 days)",
+      "calculated": true,
+
+      "states": {
+        "complete": {
+          "condition": "OR",
+          "fields": [
+            {
+              "fieldId": "PASSING_INSPECTION_COMPLETED",
+              "operator": "exists",
+              "source": "milestoneStatus.ts:312-316"
+            },
+            {
+              "type": "days_since",
+              "field": "INSTALL_COMPLETED_DATE",
+              "operator": ">=",
+              "value": 1,
+              "source": "milestoneStatus.ts:324-333",
+              "notes": "Auto-complete 1 day after install"
+            }
+          ],
+          "dateField": "PASSING_INSPECTION_COMPLETED",
+          "calculatedDateField": {
+            "baseField": "INSTALL_COMPLETED_DATE",
+            "addDays": 2,
+            "source": "milestoneStatus.ts:325-326"
+          }
+        },
+
+        "in-progress": {
+          "condition": "AND",
+          "rules": [
+            {
+              "fieldId": "INSTALL_COMPLETED_DATE",
+              "operator": "exists"
+            },
+            {
+              "type": "days_since",
+              "field": "INSTALL_COMPLETED_DATE",
+              "operator": "<",
+              "value": 1,
+              "source": "milestoneStatus.ts:334-338"
+            }
+          ],
+          "dateField": "INSTALL_COMPLETED_DATE"
+        },
+
+        "pending": {
+          "condition": "AND",
+          "rules": [
+            {
+              "fieldId": "INSTALL_COMPLETED_DATE",
+              "operator": "not_exists"
+            }
+          ]
+        }
+      },
+
+      "dependencies": ["install"],
+
+      "auditNotes": [
+        "⚠️ NOT IN TRAFFIC LIGHTS: Verification milestone completely missing!",
+        "⚠️ NOT IN milestones.ts: getCurrentMilestone doesn't check verification!",
+        "✅ ONLY IN: Timeline.tsx and milestoneStatus.ts",
+        "⚠️ QUESTION: Should this be shown in traffic lights? Or is it too fast/automatic?",
+        "✅ AUTO-COMPLETE: Automatically completes 1 day after install"
+      ]
+    },
+
+    {
+      "id": "inspection",
+      "name": "Inspection",
+      "order": 9,
+      "icon": "🔍",
+      "color": "teal",
+      "description": "Final inspection and approval",
+
+      "states": {
+        "complete": {
+          "condition": "OR",
+          "fields": [
+            {
+              "fieldId": "PASSING_INSPECTION_COMPLETED",
+              "operator": "exists",
+              "source": "traffic-lights.ts:214, milestoneStatus.ts:349-357, milestones.ts:16"
+            }
+          ],
+          "dateField": "PASSING_INSPECTION_COMPLETED",
+          "substeps": [
+            {"label": "As-Built", "statusField": "AS_BUILT_SUBMITTED_TO_AHJ"},
+            {"label": "Passed", "statusField": "PASSING_INSPECTION_COMPLETED"}
+          ]
+        },
+
+        "in-progress": {
+          "condition": "OR",
+          "fields": [
+            {
+              "fieldId": "AS_BUILT_SUBMITTED_TO_AHJ",
+              "operator": "exists",
+              "source": "milestoneStatus.ts:360-368"
+            },
+            {
+              "fieldId": "INSTALL_COMPLETED_DATE",
+              "operator": "exists",
+              "notes": "Inspection starts after install complete",
+              "source": "traffic-lights.ts:218"
+            },
+            {
+              "fieldId": "INSTALLATION_COMPLETED_AT",
+              "operator": "exists",
+              "source": "traffic-lights.ts:218"
+            }
+          ],
+          "dateField": "AS_BUILT_SUBMITTED_TO_AHJ",
+          "fallbackDateField": "INSTALL_COMPLETED_DATE",
+          "substeps": [
+            {"label": "As-Built", "statusField": "AS_BUILT_SUBMITTED_TO_AHJ"},
+            {"label": "Passed", "statusField": "PASSING_INSPECTION_COMPLETED"}
+          ]
+        },
+
+        "pending": {
+          "condition": "AND",
+          "rules": [
+            {
+              "fieldId": "INSTALL_COMPLETED_DATE",
+              "operator": "not_exists"
+            },
+            {
+              "fieldId": "INSTALLATION_COMPLETED_AT",
+              "operator": "not_exists"
+            }
+          ],
+          "source": "traffic-lights.ts:209"
+        }
+      },
+
+      "dependencies": ["install"],
+
+      "auditNotes": [
+        "⚠️ UNUSED: INSPECTION_SCHEDULED_DATE, FIRST_INSPECTION_SCHEDULED - should we use these?",
+        "✅ CONSISTENT: All systems use PASSING_INSPECTION_COMPLETED for completion"
+      ]
+    },
+
+    {
+      "id": "pto",
+      "name": "PTO",
+      "order": 10,
+      "icon": "🎉",
+      "color": "emerald",
+      "description": "Permission to Operate - Final milestone!",
+
+      "states": {
+        "complete": {
+          "condition": "OR",
+          "fields": [
+            {
+              "fieldId": "PTO_APPROVED",
+              "operator": "exists",
+              "source": "traffic-lights.ts:214 (WRONG - uses inspection), milestoneStatus.ts:392-401, milestones.ts:11"
+            },
+            {
+              "fieldId": "PTO_UPLOADED_TO_LENDER",
+              "operator": "exists",
+              "source": "milestoneStatus.ts:379-389",
+              "notes": "M3 funding = celebration! 🎉"
+            }
+          ],
+          "dateField": "PTO_UPLOADED_TO_LENDER",
+          "fallbackDateField": "PTO_APPROVED",
+          "celebration": true,
+          "substeps": [
+            {"label": "Submitted", "statusField": "PTO_SUBMITTED"},
+            {"label": "Approved", "statusField": "PTO_APPROVED"},
+            {"label": "Uploaded", "statusField": "PTO_UPLOADED_TO_LENDER", "note": "M3 Funded!"}
+          ]
+        },
+
+        "in-progress": {
+          "condition": "OR",
+          "fields": [
+            {
+              "fieldId": "PTO_SUBMITTED",
+              "operator": "exists",
+              "source": "milestoneStatus.ts:404-415"
+            }
+          ],
+          "dateField": "PTO_SUBMITTED",
+          "warning": {
+            "condition": "days_since",
+            "field": "PTO_SUBMITTED",
+            "operator": ">",
+            "value": 42,
+            "message": "Taking longer than expected",
+            "source": "milestoneStatus.ts:409"
+          },
+          "substeps": [
+            {"label": "Submitted", "statusField": "PTO_SUBMITTED"},
+            {"label": "Approved", "statusField": "PTO_APPROVED"},
+            {"label": "Uploaded", "statusField": "PTO_UPLOADED_TO_LENDER"}
+          ]
+        },
+
+        "pending": {
+          "condition": "default"
+        }
+      },
+
+      "dependencies": ["inspection"],
+
+      "auditNotes": [
+        "🚨 CRITICAL BUG: TrafficLightPipeline shows 'PTO' but actually displays INSPECTION state!",
+        "🚨 TrafficLightPipeline line 30: label='PTO' but milestoneId='inspection'",
+        "⚠️ PTO milestone completely missing from traffic lights!",
+        "✅ milestoneStatus.ts has sophisticated 3-step PTO tracking",
+        "⚠️ QUESTION: Should we track PTO_UPLOADED_TO_LENDER separately for M3 celebration?"
+      ]
+    }
+  ],
+
+  "globalRules": {
+    "onHold": {
+      "fields": [
+        {
+          "fieldId": "PROJECT_STATUS",
+          "operator": "contains_any",
+          "values": ["On Hold", "Finance Hold", "Roof Hold", "Customer Hold", "Permit Hold", "HOA Hold"],
+          "source": "traffic-lights.ts:13, hold-detection.ts"
+        },
+        {
+          "fieldId": "ON_HOLD",
+          "operator": "equals",
+          "value": "Yes",
+          "source": "Timeline.tsx:25, hold-detection.ts"
+        }
+      ],
+      "effect": "override_in_progress_to_on_hold",
+      "notes": "When project is on hold, all in-progress milestones show 'on-hold' state"
+    }
+  },
+
+  "criticalIssues": [
+    "🚨 TRAFFIC LIGHTS MISSING: HOA, Verification, and PTO milestones completely absent",
+    "🚨 MISLABELED: Traffic light labeled 'PTO' actually shows Inspection state",
+    "⚠️ DESIGN CONFLICT: Different complete conditions in traffic-lights vs milestoneStatus",
+    "⚠️ PERMIT CONFLICT: As-built logic only in milestoneStatus, not in traffic-lights",
+    "⚠️ INTAKE MISSING: milestoneStatus.ts has no intake completion logic"
+  ]
+}

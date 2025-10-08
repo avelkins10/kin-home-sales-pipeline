@@ -14,6 +14,55 @@ export interface User {
   lastLoginAt?: string
   createdAt: string
   updatedAt: string
+  
+  // Hierarchy and management fields
+  managedBy?: string // ID of team lead who manages this user
+  manages?: string[] // Array of user IDs this team lead manages
+  officeAccess?: OfficeAccess[] // Complex office/region assignments for managers
+  
+  // QuickBase contact data (multiple emails/phones possible)
+  quickbaseEmails?: string[]
+  quickbasePhones?: string[]
+  
+  // Activity tracking for smart user provisioning
+  lastProjectDate?: string // Date of user's most recent project
+  invitedAt?: string // When user was invited
+  inviteToken?: string // Token for invite link
+  inviteAcceptedAt?: string // When user accepted invite
+}
+
+export interface OfficeAccess {
+  officeName: string
+  accessLevel: 'view' | 'manage' | 'admin'
+  assignedAt: string
+}
+
+export interface UserHierarchy {
+  id: string
+  managerId: string
+  userId: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface QuickBaseUserData {
+  quickbaseUserId: string
+  name: string
+  email?: string
+  phone?: string
+  role: 'closer' | 'setter'
+  office?: string
+  lastProjectDate?: string
+  projectCount?: number
+}
+
+export interface InviteUserInput {
+  email: string
+  name: string
+  role: string
+  office?: string
+  offices?: string[] // For area directors/divisionals
+  sendEmail: boolean
 }
 
 export interface NotificationSettings {

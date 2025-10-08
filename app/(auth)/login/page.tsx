@@ -3,6 +3,7 @@
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -43,8 +44,17 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            Kin Home Sales Pipeline
+          <div className="flex justify-center mb-6">
+            <Image
+              src="/logo.png"
+              alt="KINETIC"
+              width={64}
+              height={64}
+              className="h-16 w-16"
+            />
+          </div>
+          <h2 className="text-4xl font-extrabold text-gray-900 tracking-tight">
+            KINETIC
           </h2>
           <p className="mt-2 text-sm text-gray-600">
             Sign in to your account

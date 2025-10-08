@@ -42,8 +42,12 @@ export const PROJECT_FIELDS = {
   // Team Members (6 fields)
   CLOSER_ID: 516,                  // ✅ PRIMARY - 100% - User object
   CLOSER_NAME: 517,                // ✅ PRIMARY - 100% - Display name
+  CLOSER_EMAIL: 518,               // ✅ PRIMARY - ~95% - Closer email address
+  CLOSER_PHONE: 519,               // ✅ PRIMARY - ~90% - Closer phone number
   SETTER_ID: 329,                  // ✅ SECONDARY - 82% - User object
   SETTER_NAME: 330,                // ✅ SECONDARY - 82% - Display name
+  SETTER_EMAIL: 331,               // ✅ SECONDARY - ~80% - Setter email address
+  SETTER_PHONE: 332,               // ✅ SECONDARY - ~75% - Setter phone number
   PROJECT_COORDINATOR_ID: 819,     // ✅ SECONDARY - 67% - User object
   PROJECT_COORDINATOR: 820,        // ✅ SECONDARY - 67% - Display name
 
