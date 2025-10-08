@@ -55,9 +55,35 @@ export function NotesSection({ projectId }: NotesSectionProps) {
     createNoteMutation.mutate(noteContent.trim());
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateValue: any) => {
+    if (!dateValue) return 'Unknown date';
+
     try {
-      const date = new Date(dateString);
+      let date: Date;
+
+      // Handle Quickbase timestamp (milliseconds since epoch)
+      if (typeof dateValue === 'number') {
+        date = new Date(dateValue);
+      }
+      // Handle ISO string
+      else if (typeof dateValue === 'string') {
+        date = new Date(dateValue);
+      }
+      // Handle Date object
+      else if (dateValue instanceof Date) {
+        date = dateValue;
+      }
+      else {
+        console.log('[NotesSection] Unknown date format:', dateValue);
+        return 'Unknown date';
+      }
+
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        console.log('[NotesSection] Invalid date:', dateValue);
+        return 'Unknown date';
+      }
+
       const now = new Date();
       const diffMs = now.getTime() - date.getTime();
       const diffMins = Math.floor(diffMs / 60000);
@@ -69,16 +95,41 @@ export function NotesSection({ projectId }: NotesSectionProps) {
       if (diffHours < 24) return `${diffHours}h ago`;
       if (diffDays < 7) return `${diffDays}d ago`;
 
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    } catch {
-      return dateString;
+      // For older dates, show formatted date
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+      });
+    } catch (error) {
+      console.error('[NotesSection] Error formatting date:', dateValue, error);
+      return 'Unknown date';
     }
   };
 
   const getUserName = (userObj: any) => {
+    // Handle null/undefined
+    if (!userObj) return 'Unknown User';
+
+    // Handle string (direct username)
     if (typeof userObj === 'string') return userObj;
-    if (userObj?.name) return userObj.name;
-    if (userObj?.email) return userObj.email.split('@')[0];
+
+    // Handle Quickbase user object format
+    // Quickbase returns: { email: 'user@example.com', name: 'User Name', id: 12345 }
+    if (userObj?.name && userObj.name.trim()) {
+      return userObj.name;
+    }
+
+    if (userObj?.email) {
+      // Extract name from email (before @)
+      const emailName = userObj.email.split('@')[0];
+      // Convert user.name or username to "User Name" or "Username"
+      return emailName
+        .split('.')
+        .map((part: string) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
+    }
+
     return 'Unknown User';
   };
 
@@ -171,6 +222,14 @@ export function NotesSection({ projectId }: NotesSectionProps) {
               const category = note[NOTE_FIELDS.CATEGORY]?.value;
               const createdBy = note[NOTE_FIELDS.CREATED_BY]?.value;
               const dateCreated = note[NOTE_FIELDS.DATE_CREATED]?.value;
+
+              // Debug logging
+              console.log('[NotesSection] Note data:', {
+                recordId,
+                createdBy,
+                dateCreated,
+                fullNote: note
+              });
 
               return (
                 <div
