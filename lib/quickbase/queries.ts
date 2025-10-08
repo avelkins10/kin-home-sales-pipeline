@@ -145,6 +145,9 @@ export async function getProjectsForUserList(userId: string, role: string, view?
       ],
       where: whereClause,
       sortBy,
+      options: {
+        top: 250 // Limit to first 250 projects for faster loading
+      }
     });
 
     console.log('[getProjectsForUserList] QuickBase response:', {
