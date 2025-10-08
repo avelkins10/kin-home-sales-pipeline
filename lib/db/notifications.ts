@@ -70,6 +70,8 @@ export async function createNotification(
 /**
  * Get all notifications for a user, ordered by priority and date
  * Supports pagination with limit and offset
+ *
+ * FIXED: Properly builds WHERE clause without nesting sql template literals
  */
 export async function getNotificationsForUser(
   userId: string,
@@ -87,43 +89,78 @@ export async function getNotificationsForUser(
     projectId,
   } = options;
 
-  let query = sql<Notification>`
-    SELECT *
-    FROM notifications
-    WHERE user_id = ${userId}
-  `;
+  // Build query based on filter combinations
+  let result;
 
-  if (unreadOnly) {
-    query = sql<Notification>`
-      SELECT *
-      FROM notifications
-      WHERE user_id = ${userId}
-        AND is_read = false
-    `;
-  }
-
-  if (projectId !== undefined) {
-    query = sql<Notification>`
+  if (projectId !== undefined && unreadOnly) {
+    // Filter by project AND unread
+    result = await sql<Notification>`
       SELECT *
       FROM notifications
       WHERE user_id = ${userId}
         AND project_id = ${projectId}
-        ${unreadOnly ? sql`AND is_read = false` : sql``}
+        AND is_read = false
+      ORDER BY
+        CASE priority
+          WHEN 'critical' THEN 1
+          WHEN 'normal' THEN 2
+          WHEN 'info' THEN 3
+        END,
+        created_at DESC
+      LIMIT ${limit}
+      OFFSET ${offset}
+    `;
+  } else if (projectId !== undefined) {
+    // Filter by project only
+    result = await sql<Notification>`
+      SELECT *
+      FROM notifications
+      WHERE user_id = ${userId}
+        AND project_id = ${projectId}
+      ORDER BY
+        CASE priority
+          WHEN 'critical' THEN 1
+          WHEN 'normal' THEN 2
+          WHEN 'info' THEN 3
+        END,
+        created_at DESC
+      LIMIT ${limit}
+      OFFSET ${offset}
+    `;
+  } else if (unreadOnly) {
+    // Filter by unread only
+    result = await sql<Notification>`
+      SELECT *
+      FROM notifications
+      WHERE user_id = ${userId}
+        AND is_read = false
+      ORDER BY
+        CASE priority
+          WHEN 'critical' THEN 1
+          WHEN 'normal' THEN 2
+          WHEN 'info' THEN 3
+        END,
+        created_at DESC
+      LIMIT ${limit}
+      OFFSET ${offset}
+    `;
+  } else {
+    // No filters, just user
+    result = await sql<Notification>`
+      SELECT *
+      FROM notifications
+      WHERE user_id = ${userId}
+      ORDER BY
+        CASE priority
+          WHEN 'critical' THEN 1
+          WHEN 'normal' THEN 2
+          WHEN 'info' THEN 3
+        END,
+        created_at DESC
+      LIMIT ${limit}
+      OFFSET ${offset}
     `;
   }
-
-  const result = await sql<Notification>`
-    ${query}
-    ORDER BY
-      CASE priority
-        WHEN 'critical' THEN 1
-        WHEN 'normal' THEN 2
-        WHEN 'info' THEN 3
-      END,
-      created_at DESC
-    LIMIT ${limit}
-    OFFSET ${offset}
-  `;
 
   return result.rows;
 }

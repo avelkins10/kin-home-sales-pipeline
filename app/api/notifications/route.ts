@@ -135,6 +135,35 @@ export async function POST(req: Request) {
       );
     }
 
+    // Validate action_url (prevent open redirects and XSS)
+    if (body.action_url) {
+      const url = body.action_url.trim();
+
+      // Must be relative path (starts with / or #)
+      if (!url.startsWith('/') && !url.startsWith('#')) {
+        return NextResponse.json(
+          { error: 'action_url must be a relative path (starting with / or #)' },
+          { status: 400 }
+        );
+      }
+
+      // Prevent path traversal attacks
+      if (url.includes('..')) {
+        return NextResponse.json(
+          { error: 'action_url contains invalid characters (..)' },
+          { status: 400 }
+        );
+      }
+
+      // Limit length to prevent abuse
+      if (url.length > 500) {
+        return NextResponse.json(
+          { error: 'action_url too long (max 500 characters)' },
+          { status: 400 }
+        );
+      }
+    }
+
     // Add sender information for internal messages
     const notificationInput: CreateNotificationInput = {
       ...body,

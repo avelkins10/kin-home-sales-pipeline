@@ -1,6 +1,7 @@
 'use client';
 
 import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { NotificationErrorBoundary } from '@/components/errors/NotificationErrorBoundary';
 
 export function DashboardHeader() {
   return (
@@ -8,7 +9,9 @@ export function DashboardHeader() {
       <h1 className="text-lg font-bold text-slate-900">
         Kin Home Sales
       </h1>
-      <NotificationBell />
+      <NotificationErrorBoundary>
+        <NotificationBell />
+      </NotificationErrorBoundary>
     </div>
   );
 }

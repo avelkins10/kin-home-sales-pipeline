@@ -34,6 +34,10 @@
     "setup:all": "npm run setup:env && npm run setup:db && npm run setup:seed && npm run setup:health",
     "setup:all:with-data": "npm run setup:all && npm run setup:test-data",
     "migrate:settings": "node scripts/run-settings-migration.js",
+    "migrate:offices": "node scripts/run-offices-migration.js",
+    "migrate:system": "node scripts/run-system-migration.js",
+    "migrate:audit": "node scripts/run-audit-migration.js",
+    "migrate:notifications": "node scripts/run-notifications-migration.js",
     "audit:prod": "npm audit --production",
     "audit:fix": "npm audit fix --production",
     "audit:report": "npm audit --production --json > docs/audit-report.json",
@@ -41,10 +45,7 @@
     "deploy:preview": "vercel",
     "test:critical": "vitest run && playwright test --grep @critical",
     "predeploy": "npm run type-check && npm run lint && npm run test:critical && npm run audit:prod",
-    "deploy:production": "npm run predeploy && vercel --prod",
-    "migrate:offices": "node scripts/run-offices-migration.js",
-    "migrate:system": "node scripts/run-system-migration.js",
-    "migrate:audit": "node scripts/run-audit-migration.js"
+    "deploy:production": "npm run predeploy && vercel --prod"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.1",
