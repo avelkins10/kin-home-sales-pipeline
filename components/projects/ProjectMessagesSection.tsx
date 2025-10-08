@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Loader2, MessagesSquare, Plus, X, Send } from 'lucide-react';
 import { getBaseUrl } from '@/lib/utils/baseUrl';
 import { toast } from 'sonner';
+import { MentionTextarea } from '@/components/ui/mention-textarea';
+import { MessageText } from '@/components/ui/message-text';
 import type { ProjectMessage } from '@/lib/types/message';
 
 interface ProjectMessagesSectionProps {
@@ -220,13 +222,13 @@ export function ProjectMessagesSection({ projectId, wrapped = true }: ProjectMes
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <textarea
+            <MentionTextarea
               value={messageContent}
-              onChange={(e) => setMessageContent(e.target.value)}
-              placeholder="Message the team about this project..."
-              className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px] resize-y"
+              onChange={setMessageContent}
+              placeholder="Message the team about this project... Type @ to mention someone"
               maxLength={10000}
-              autoFocus
+              disabled={createMessageMutation.isPending}
+              className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px] resize-y"
             />
             <div className="flex items-center justify-between mt-2">
               <div className="text-xs text-slate-500">
@@ -290,9 +292,10 @@ export function ProjectMessagesSection({ projectId, wrapped = true }: ProjectMes
                   </div>
 
                   {/* Message Content */}
-                  <p className="text-sm text-slate-700 whitespace-pre-wrap">
-                    {message.message}
-                  </p>
+                  <MessageText
+                    text={message.message}
+                    className="text-sm text-slate-700 whitespace-pre-wrap"
+                  />
 
                   {/* System Message Indicator */}
                   {message.is_system_message && (

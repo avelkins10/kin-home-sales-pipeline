@@ -6,8 +6,8 @@
  */
 
 require('dotenv').config({ path: '.env.local' });
-const { sql } = require('@/lib/db/client');
-const { getUserProjectActivity } = require('@/lib/quickbase/userQueries');
+const { sql } = require('../lib/db/client');
+const { getUserProjectActivity } = require('../lib/quickbase/userQueries');
 
 async function updateUserActivity() {
   console.log('🚀 Starting user activity update...');

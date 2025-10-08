@@ -42,8 +42,20 @@ export interface MessageMentionMetadata {
   mentions?: Array<{
     user_id: string;
     user_name: string;
+    user_email: string;
   }>;
 }
+
+export interface MentionedUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  office: string | null;
+}
+
+// Combined metadata type
+export interface MessageMetadata extends MessageAttachmentMetadata, MessageMentionMetadata {}
 
 // API response types
 export interface MessagesResponse {

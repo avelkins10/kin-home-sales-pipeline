@@ -8,6 +8,7 @@ import { qbClient } from './client';
 import { logError } from '@/lib/logging/logger';
 import { PROJECT_FIELDS } from '@/lib/constants/fieldIds';
 import { ADDER_FIELDS } from '@/lib/constants/adderFieldIds';
+import { sql } from '@/lib/db/client';
 
 // Quickbase table IDs
 const QB_TABLE_PROJECTS = process.env.QUICKBASE_TABLE_PROJECTS || 'br9kwm8na';
@@ -15,10 +16,50 @@ const QB_TABLE_ADDERS = 'bsaycczmf';
 
 // Helper function to get managed user IDs for team leads
 async function getManagedUserIds(managerId: string): Promise<string[]> {
-  // This would query the user_hierarchies table to get users managed by this team lead
-  // For now, return empty array - this will be implemented when the database migration is run
   console.log('[getManagedUserIds] Getting managed users for team lead:', managerId);
-  return [];
+  
+  try {
+    const result = await sql`
+      SELECT u.quickbase_user_id 
+      FROM user_hierarchies uh
+      JOIN users u ON uh.user_id = u.id
+      WHERE uh.manager_id = ${managerId}
+      AND u.quickbase_user_id IS NOT NULL
+    `;
+    
+    const managedUserIds = result.rows
+      .map(row => row.quickbase_user_id)
+      .filter(Boolean)
+      .flatMap(id => id.split(',').map(id => id.trim())); // Handle comma-separated IDs
+    
+    console.log('[getManagedUserIds] Found managed users:', managedUserIds);
+    return managedUserIds;
+  } catch (error) {
+    console.error('[getManagedUserIds] Error:', error);
+    logError('Failed to get managed user IDs', error as Error);
+    return [];
+  }
+}
+
+// Helper function to get assigned offices for managers
+async function getAssignedOffices(userId: string): Promise<string[]> {
+  console.log('[getAssignedOffices] Getting assigned offices for user:', userId);
+  
+  try {
+    const result = await sql`
+      SELECT office_name 
+      FROM office_assignments 
+      WHERE user_id = ${userId}
+    `;
+    
+    const assignedOffices = result.rows.map(row => row.office_name);
+    console.log('[getAssignedOffices] Found assigned offices:', assignedOffices);
+    return assignedOffices;
+  } catch (error) {
+    console.error('[getAssignedOffices] Error:', error);
+    logError('Failed to get assigned offices', error as Error);
+    return [];
+  }
 }
 
 // Shared role scoping helper
@@ -105,8 +146,20 @@ export function buildRoleClause(userId: string, role: string, salesOffice?: stri
 export async function getProjectsForUserList(userId: string, role: string, view?: string, search?: string, sort?: string, salesOffice?: string[]) {
   console.log('[getProjectsForUserList] START - userId:', userId, 'role:', role, 'view:', view, 'search:', search, 'sort:', sort, 'salesOffice:', salesOffice);
 
+  // Get managed user IDs for team leads
+  let managedUserIds: string[] | undefined;
+  if (role === 'team_lead') {
+    managedUserIds = await getManagedUserIds(userId);
+  }
+
+  // Get assigned offices for office-based roles if no offices provided
+  let effectiveSalesOffice = salesOffice;
+  if (!effectiveSalesOffice && ['office_leader', 'area_director', 'divisional'].includes(role)) {
+    effectiveSalesOffice = await getAssignedOffices(userId);
+  }
+
   // Build role-based where clause using shared helper
-  const roleClause = buildRoleClause(userId, role, salesOffice);
+  const roleClause = buildRoleClause(userId, role, effectiveSalesOffice, managedUserIds);
 
   // Build view-based filter
   const viewFilter = buildViewFilter(view);
@@ -153,8 +206,8 @@ export async function getProjectsForUserList(userId: string, role: string, view?
         PROJECT_FIELDS.CLOSER_NAME,
         PROJECT_FIELDS.SETTER_NAME,
         // PPW fields
-        2292, // soldGross PPW
-        2480, // commissionable PPW
+        PROJECT_FIELDS.SOLD_GROSS_PPW, // soldGross PPW
+        PROJECT_FIELDS.COMMISSIONABLE_PPW, // commissionable PPW
         // Intake approval fields for filter counts
         PROJECT_FIELDS.FINANCE_INTAKE_APPROVED,
         PROJECT_FIELDS.WEBHOOK_INTAKE_COMPLETE,
@@ -196,8 +249,20 @@ export async function getProjectsForUserList(userId: string, role: string, view?
 export async function getProjectsForUser(userId: string, role: string, view?: string, search?: string, sort?: string, salesOffice?: string[]) {
   console.log('[getProjectsForUser] START - userId:', userId, 'role:', role, 'view:', view, 'search:', search, 'sort:', sort, 'salesOffice:', salesOffice);
 
+  // Get managed user IDs for team leads
+  let managedUserIds: string[] | undefined;
+  if (role === 'team_lead') {
+    managedUserIds = await getManagedUserIds(userId);
+  }
+
+  // Get assigned offices for office-based roles if no offices provided
+  let effectiveSalesOffice = salesOffice;
+  if (!effectiveSalesOffice && ['office_leader', 'area_director', 'divisional'].includes(role)) {
+    effectiveSalesOffice = await getAssignedOffices(userId);
+  }
+
   // Build role-based where clause using shared helper
-  const roleClause = buildRoleClause(userId, role, salesOffice);
+  const roleClause = buildRoleClause(userId, role, effectiveSalesOffice, managedUserIds);
 
   // Build view-based filter
   const viewFilter = buildViewFilter(view);
@@ -241,8 +306,8 @@ export async function getProjectsForUser(userId: string, role: string, view?: st
         PROJECT_FIELDS.SYSTEM_SIZE_KW,
         PROJECT_FIELDS.SYSTEM_PRICE,
         // PPW fields
-        2292, // soldGross PPW
-        2480, // commissionable PPW
+        PROJECT_FIELDS.SOLD_GROSS_PPW, // soldGross PPW
+        PROJECT_FIELDS.COMMISSIONABLE_PPW, // commissionable PPW
         // Milestone dates for current stage calculation
         PROJECT_FIELDS.INTAKE_INSTALL_DATE_TENTATIVE,
         PROJECT_FIELDS.SURVEY_SUBMITTED,
@@ -453,8 +518,20 @@ export async function getDashboardMetricsOptimized(userId: string, role: string,
   console.log('[getDashboardMetricsOptimized] START - userId:', userId, 'role:', role, 'salesOffice:', salesOffice);
   const startTime = Date.now();
 
+  // Get managed user IDs for team leads
+  let managedUserIds: string[] | undefined;
+  if (role === 'team_lead') {
+    managedUserIds = await getManagedUserIds(userId);
+  }
+
+  // Get assigned offices for office-based roles if no offices provided
+  let effectiveSalesOffice = salesOffice;
+  if (!effectiveSalesOffice && ['office_leader', 'area_director', 'divisional'].includes(role)) {
+    effectiveSalesOffice = await getAssignedOffices(userId);
+  }
+
   // Use shared role scoping helper for consistency
-  const whereClause = buildRoleClause(userId, role, salesOffice);
+  const whereClause = buildRoleClause(userId, role, effectiveSalesOffice, managedUserIds);
   console.log('[getDashboardMetricsOptimized] WHERE clause:', whereClause);
 
   const userProjects = await qbClient.queryRecords({
@@ -582,8 +659,20 @@ export async function getProjectById(recordId: number) {
 }
 
 export async function getProjectsOnHold(userId: string, role: string, salesOffice?: string[]) {
+  // Get managed user IDs for team leads
+  let managedUserIds: string[] | undefined;
+  if (role === 'team_lead') {
+    managedUserIds = await getManagedUserIds(userId);
+  }
+
+  // Get assigned offices for office-based roles if no offices provided
+  let effectiveSalesOffice = salesOffice;
+  if (!effectiveSalesOffice && ['office_leader', 'area_director', 'divisional'].includes(role)) {
+    effectiveSalesOffice = await getAssignedOffices(userId);
+  }
+
   // Use shared role scoping helper and consistent ON_HOLD value
-  const roleClause = buildRoleClause(userId, role, salesOffice);
+  const roleClause = buildRoleClause(userId, role, effectiveSalesOffice, managedUserIds);
   const whereClause = `(${roleClause}) AND {${PROJECT_FIELDS.ON_HOLD}.EX.'Yes'}`;
 
   const result = await qbClient.queryRecords({

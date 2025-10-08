@@ -18,6 +18,38 @@ export async function POST(request: NextRequest) {
       return auth.response
     }
 
+    // Rate limiting: Check if sync is already running or was executed recently
+    const lockKey = 'user_sync_lock'
+    const lockResult = await sql.query(`
+      SELECT pg_try_advisory_lock(hashtext($1)) as acquired
+    `, [lockKey])
+    
+    if (!lockResult.rows[0].acquired) {
+      return NextResponse.json(
+        { error: 'Sync is already running or was executed recently. Please wait before trying again.' },
+        { status: 429 }
+      )
+    }
+
+    // Check for recent sync (within last minute)
+    const recentSyncResult = await sql.query(`
+      SELECT created_at 
+      FROM sync_logs 
+      WHERE sync_type = 'user_sync' 
+      AND created_at > NOW() - INTERVAL '1 minute'
+      ORDER BY created_at DESC 
+      LIMIT 1
+    `)
+    
+    if (recentSyncResult.rows.length > 0) {
+      // Release the lock
+      await sql.query(`SELECT pg_advisory_unlock(hashtext($1))`, [lockKey])
+      return NextResponse.json(
+        { error: 'Sync was executed recently. Please wait at least 1 minute before trying again.' },
+        { status: 429 }
+      )
+    }
+
     const body = await request.json()
     const { 
       dryRun = true, 
@@ -72,6 +104,9 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // Release the lock for dry run
+      await sql.query(`SELECT pg_advisory_unlock(hashtext($1))`, [lockKey])
+      
       return NextResponse.json({
         success: true,
         dryRun: true,
@@ -210,8 +245,18 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       await sql.query('ROLLBACK')
       throw error
+    } finally {
+      // Always release the advisory lock
+      await sql.query(`SELECT pg_advisory_unlock(hashtext($1))`, [lockKey])
     }
   } catch (error) {
+    // Release the lock in case of error
+    try {
+      await sql.query(`SELECT pg_advisory_unlock(hashtext($1))`, [lockKey])
+    } catch (lockError) {
+      // Ignore lock release errors
+    }
+    
     logError('Failed to sync users', error instanceof Error ? error : new Error(String(error)))
     return NextResponse.json(
       { error: 'Failed to sync users' },

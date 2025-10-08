@@ -38,7 +38,7 @@ export async function getActiveUsersFromQuickbase(monthsBack: number = 6): Promi
         PROJECT_FIELDS.SALES_OFFICE,
         PROJECT_FIELDS.SALES_DATE,
       ],
-      where: `{${PROJECT_FIELDS.SALES_DATE}.BF.'${dateString}'} AND {${PROJECT_FIELDS.CLOSER_ID}.XEX.''}`,
+      where: `{${PROJECT_FIELDS.SALES_DATE}.AF.'${dateString}'} AND {${PROJECT_FIELDS.CLOSER_ID}.XEX.''}`,
     });
 
     // Query projects table for unique setters with projects in last N months
@@ -52,7 +52,7 @@ export async function getActiveUsersFromQuickbase(monthsBack: number = 6): Promi
         PROJECT_FIELDS.SALES_OFFICE,
         PROJECT_FIELDS.SALES_DATE,
       ],
-      where: `{${PROJECT_FIELDS.SALES_DATE}.BF.'${dateString}'} AND {${PROJECT_FIELDS.SETTER_ID}.XEX.''}`,
+      where: `{${PROJECT_FIELDS.SALES_DATE}.AF.'${dateString}'} AND {${PROJECT_FIELDS.SETTER_ID}.XEX.''}`,
     });
 
     // Build map of unique users with their data and most recent project date

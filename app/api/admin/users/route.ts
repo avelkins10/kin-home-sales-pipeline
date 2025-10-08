@@ -6,6 +6,8 @@ import { hash } from 'bcryptjs'
 import { logInfo, logError, logAudit, logApiRequest, logApiResponse } from '@/lib/logging/logger'
 import { z } from 'zod'
 import { createUserSchema } from '@/lib/validation/admin'
+import { validateOffices } from '@/lib/db/offices'
+import { normalizeOfficeName } from '@/lib/constants/offices'
 
 export async function GET(request: NextRequest) {
   const startedAt = Date.now();
@@ -13,7 +15,7 @@ export async function GET(request: NextRequest) {
   logApiRequest('GET', '/api/admin/users', undefined, reqId);
 
   try {
-    const auth = await requireRole(['super_admin', 'office_leader'])
+    const auth = await requireRole(['super_admin', 'office_leader', 'area_director', 'divisional', 'regional'])
     if (!auth.authorized) {
       logApiResponse('GET', '/api/admin/users', Date.now() - startedAt, { status: 403 }, reqId);
       return auth.response
@@ -186,6 +188,35 @@ export async function POST(request: NextRequest) {
       if (managedUsersResult.rows.length !== manages.length) {
         return NextResponse.json(
           { error: 'One or more managed users not found' },
+          { status: 400 }
+        )
+      }
+    }
+
+    // Validate office names
+    const officesToValidate: string[] = []
+    if (office) officesToValidate.push(office)
+    if (officeAccess && officeAccess.length > 0) {
+      officesToValidate.push(...officeAccess.map(access => access.officeName))
+    }
+    
+    if (officesToValidate.length > 0) {
+      try {
+        const validatedOffices = await validateOffices(officesToValidate)
+        // Use validated office names
+        if (office) {
+          const validatedOffice = validatedOffices.find(o => o === office || o === normalizeOfficeName(office))
+          if (validatedOffice) office = validatedOffice
+        }
+        if (officeAccess && officeAccess.length > 0) {
+          officeAccess = officeAccess.map(access => ({
+            ...access,
+            officeName: validatedOffices.find(o => o === access.officeName || o === normalizeOfficeName(access.officeName)) || access.officeName
+          }))
+        }
+      } catch (error) {
+        return NextResponse.json(
+          { error: error instanceof Error ? error.message : 'Invalid office names' },
           { status: 400 }
         )
       }

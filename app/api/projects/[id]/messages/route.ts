@@ -6,6 +6,8 @@ import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
 import { getMessagesForProject, createMessage, getMessageCount } from '@/lib/db/messages';
 import { createNotification } from '@/lib/db/notifications';
 import { getNotificationRecipientsForProject } from '@/lib/quickbase/notificationRecipients';
+import { parseMentions } from '@/lib/utils/mentions';
+import { sql } from '@/lib/db/client';
 import type { CreateMessageInput } from '@/lib/types/message';
 import type { InternalMessageMetadata } from '@/lib/types/notification';
 
@@ -134,7 +136,11 @@ export async function POST(
       );
     }
 
-    // Create message
+    // Parse @mentions from message
+    const mentions = await parseMentions(body.message.trim());
+    const mentionedUserIds = mentions.map(m => m.user_id);
+
+    // Create message with mention metadata
     const messageInput: CreateMessageInput = {
       project_id: projectId,
       sender_id: user.email || user.id,
@@ -142,18 +148,73 @@ export async function POST(
       sender_role: user.role,
       message: body.message.trim(),
       is_system_message: false,
-      metadata: body.metadata || {},
+      metadata: {
+        ...(body.metadata || {}),
+        mentions: mentions.length > 0 ? mentions : undefined,
+      },
     };
 
     const createdMessage = await createMessage(messageInput);
 
-    // Create notifications for all authorized users (except sender)
-    const recipients = await getNotificationRecipientsForProject(projectId);
-    const notificationRecipients = recipients.filter(r => r.userId !== messageInput.sender_id);
+    // Get project name for notification title
+    const projectResult = await sql`
+      SELECT p.project_id, p.customer_name
+      FROM projects p
+      WHERE p.record_id = ${projectId}
+      LIMIT 1
+    `;
+    const projectName = projectResult.rows[0]?.project_id || projectResult.rows[0]?.customer_name || `Project #${projectId}`;
 
     let notificationsSent = 0;
 
-    for (const recipient of notificationRecipients) {
+    // 1. Create HIGH PRIORITY notifications for mentioned users
+    if (mentions.length > 0) {
+      for (const mention of mentions) {
+        // Don't notify yourself
+        if (mention.user_email === messageInput.sender_id || mention.user_id === user.id) {
+          continue;
+        }
+
+        try {
+          const metadata: InternalMessageMetadata = {
+            message_id: createdMessage.id.toString(),
+          };
+
+          await createNotification({
+            user_id: mention.user_id,
+            project_id: projectId,
+            type: 'internal_message',
+            priority: 'critical', // High priority for mentions
+            source: 'internal',
+            title: `${messageInput.sender_name} mentioned you in ${projectName}`,
+            message: createdMessage.message.substring(0, 200), // First 200 chars
+            metadata,
+            sender_id: messageInput.sender_id,
+            sender_name: messageInput.sender_name,
+            sender_role: messageInput.sender_role,
+            icon: 'at-sign',
+            color: 'orange',
+            action_url: `/projects/${projectId}#messages`,
+          });
+
+          notificationsSent++;
+        } catch (error) {
+          logError('Failed to create mention notification', error as Error, {
+            userId: mention.user_id,
+            messageId: createdMessage.id,
+          });
+        }
+      }
+    }
+
+    // 2. Create NORMAL notifications for other project team members (not mentioned)
+    const recipients = await getNotificationRecipientsForProject(projectId);
+    const otherRecipients = recipients.filter(r =>
+      r.userId !== messageInput.sender_id && // Not sender
+      !mentionedUserIds.includes(r.userId) // Not already mentioned
+    );
+
+    for (const recipient of otherRecipients) {
       try {
         const metadata: InternalMessageMetadata = {
           message_id: createdMessage.id.toString(),

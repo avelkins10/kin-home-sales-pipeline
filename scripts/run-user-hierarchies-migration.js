@@ -6,7 +6,7 @@
  */
 
 require('dotenv').config({ path: '.env.local' });
-const { sql } = require('@/lib/db/client');
+const { sql } = require('../lib/db/client');
 const fs = require('fs');
 const path = require('path');
 

@@ -31,16 +31,26 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { UserPlus, Search, Edit, Key } from 'lucide-react'
+import { UserPlus, Search, Edit, Key, Mail, Users, RefreshCw, UserMinus, Eye } from 'lucide-react'
 import { toast } from 'sonner'
 import { User, CreateUserInput } from '@/lib/types/user'
 import { getBaseUrl } from '@/lib/utils/baseUrl'
+import { InviteUserDialog } from './InviteUserDialog'
+import { QuickBaseLookupDialog } from './QuickBaseLookupDialog'
+import { SmartSyncDialog } from './SmartSyncDialog'
+import { DeactivateInactiveDialog } from './DeactivateInactiveDialog'
+import { HierarchyTreeView } from './HierarchyTreeView'
 
 export default function UsersTab() {
   const [searchQuery, setSearchQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState('all')
   const [officeFilter, setOfficeFilter] = useState('all')
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false)
+  const [isLookupDialogOpen, setIsLookupDialogOpen] = useState(false)
+  const [isSmartSyncDialogOpen, setIsSmartSyncDialogOpen] = useState(false)
+  const [isDeactivateDialogOpen, setIsDeactivateDialogOpen] = useState(false)
+  const [isHierarchyView, setIsHierarchyView] = useState(false)
   const [newUser, setNewUser] = useState<CreateUserInput>({
     name: '',
     email: '',
@@ -175,13 +185,49 @@ export default function UsersTab() {
           <h2 className="text-2xl font-bold">User Management</h2>
           <p className="text-gray-600">Manage user accounts and permissions</p>
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <UserPlus className="h-4 w-4 mr-2" />
-              Add User
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setIsHierarchyView(!isHierarchyView)}
+          >
+            <Eye className="h-4 w-4 mr-2" />
+            {isHierarchyView ? 'Table View' : 'Hierarchy View'}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setIsSmartSyncDialogOpen(true)}
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Smart Sync
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setIsDeactivateDialogOpen(true)}
+          >
+            <UserMinus className="h-4 w-4 mr-2" />
+            Deactivate Inactive
+          </Button>
+          <Button 
+            variant="outline"
+            onClick={() => setIsLookupDialogOpen(true)}
+          >
+            <Search className="h-4 w-4 mr-2" />
+            Add from QuickBase
+          </Button>
+          <Button 
+            variant="outline"
+            onClick={() => setIsInviteDialogOpen(true)}
+          >
+            <Mail className="h-4 w-4 mr-2" />
+            Invite
+          </Button>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <UserPlus className="h-4 w-4 mr-2" />
+                Add User
+              </Button>
+            </DialogTrigger>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Add New User</DialogTitle>
@@ -227,7 +273,10 @@ export default function UsersTab() {
                   <SelectContent>
                     <SelectItem value="closer">Closer</SelectItem>
                     <SelectItem value="setter">Setter</SelectItem>
+                    <SelectItem value="team_lead">Team Lead</SelectItem>
                     <SelectItem value="office_leader">Office Leader</SelectItem>
+                    <SelectItem value="area_director">Area Director</SelectItem>
+                    <SelectItem value="divisional">Divisional</SelectItem>
                     <SelectItem value="regional">Regional Manager</SelectItem>
                     <SelectItem value="super_admin">Super Admin</SelectItem>
                   </SelectContent>
@@ -296,7 +345,10 @@ export default function UsersTab() {
             <SelectItem value="all">All Roles</SelectItem>
             <SelectItem value="closer">Closers</SelectItem>
             <SelectItem value="setter">Setters</SelectItem>
+            <SelectItem value="team_lead">Team Leads</SelectItem>
             <SelectItem value="office_leader">Office Leaders</SelectItem>
+            <SelectItem value="area_director">Area Directors</SelectItem>
+            <SelectItem value="divisional">Divisional</SelectItem>
             <SelectItem value="regional">Regional</SelectItem>
             <SelectItem value="super_admin">Super Admin</SelectItem>
           </SelectContent>
@@ -315,79 +367,105 @@ export default function UsersTab() {
         </Select>
       </div>
 
-      {/* Users Table */}
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Office</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Last Login</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
+      {/* Main Content */}
+      {isHierarchyView ? (
+        <HierarchyTreeView />
+      ) : (
+        /* Users Table */
+        <div className="border rounded-lg">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
-                  Loading users...
-                </TableCell>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Office</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Last Login</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
-            ) : users.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
-                  No users found
-                </TableCell>
-              </TableRow>
-            ) : (
-              users.map((user: User) => (
-                <TableRow key={user.id}>
-                  <TableCell className="font-medium">{user.name}</TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>
-                    <Badge variant={getRoleBadgeVariant(user.role)}>
-                      {user.role.replace('_', ' ')}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{user.office || '-'}</TableCell>
-                  <TableCell>
-                    <Switch
-                      checked={user.isActive}
-                      onCheckedChange={(checked) =>
-                        toggleActiveMutation.mutate({ userId: user.id, isActive: checked })
-                      }
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {user.lastLoginAt 
-                      ? new Date(user.lastLoginAt).toLocaleDateString()
-                      : 'Never'
-                    }
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Button variant="ghost" size="sm">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => resetPasswordMutation.mutate(user.id)}
-                        disabled={resetPasswordMutation.isPending}
-                      >
-                        <Key className="h-4 w-4" />
-                      </Button>
-                    </div>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8">
+                    Loading users...
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              ) : users.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8">
+                    No users found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                users.map((user: User) => (
+                  <TableRow key={user.id}>
+                    <TableCell className="font-medium">{user.name}</TableCell>
+                    <TableCell>{user.email}</TableCell>
+                    <TableCell>
+                      <Badge variant={getRoleBadgeVariant(user.role)}>
+                        {user.role.replace('_', ' ')}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{user.office || '-'}</TableCell>
+                    <TableCell>
+                      <Switch
+                        checked={user.isActive}
+                        onCheckedChange={(checked) =>
+                          toggleActiveMutation.mutate({ userId: user.id, isActive: checked })
+                        }
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {user.lastLoginAt 
+                        ? new Date(user.lastLoginAt).toLocaleDateString()
+                        : 'Never'
+                      }
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="sm">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => resetPasswordMutation.mutate(user.id)}
+                          disabled={resetPasswordMutation.isPending}
+                        >
+                          <Key className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {/* Dialog Components */}
+      <InviteUserDialog 
+        open={isInviteDialogOpen} 
+        onOpenChange={setIsInviteDialogOpen} 
+      />
+      
+      <QuickBaseLookupDialog 
+        open={isLookupDialogOpen} 
+        onOpenChange={setIsLookupDialogOpen} 
+      />
+      
+      <SmartSyncDialog 
+        open={isSmartSyncDialogOpen} 
+        onOpenChange={setIsSmartSyncDialogOpen} 
+      />
+      
+      <DeactivateInactiveDialog 
+        open={isDeactivateDialogOpen} 
+        onOpenChange={setIsDeactivateDialogOpen} 
+      />
     </div>
   )
 }

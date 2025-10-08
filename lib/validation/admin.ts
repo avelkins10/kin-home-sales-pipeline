@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { roleEnum, regionEnum } from '@/lib/validation/constants'
+import { CANONICAL_OFFICES, isValidOffice } from '@/lib/constants/offices'
 
 export const createUserSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100),
@@ -7,14 +8,18 @@ export const createUserSchema = z.object({
   phone: z.string().optional(),
   role: roleEnum,
   quickbaseUserId: z.string().min(1, 'Quickbase User ID is required'),
-  office: z.string().optional(),
+  office: z.string().optional().refine((office) => !office || isValidOffice(office), {
+    message: 'Invalid office name. Must be a canonical office from the approved list.',
+  }),
   region: z.string().optional(),
   temporaryPassword: z.string().min(8, 'Password must be at least 8 characters'),
   // Hierarchy and management fields
   managedBy: z.string().uuid().optional(),
   manages: z.array(z.string().uuid()).optional(),
   officeAccess: z.array(z.object({
-    officeName: z.string(),
+    officeName: z.string().refine((name) => isValidOffice(name), {
+      message: 'Invalid office name. Must be a canonical office from the approved list.',
+    }),
     accessLevel: z.enum(['view', 'manage', 'admin']),
   })).optional(),
 })
@@ -24,14 +29,18 @@ export const updateUserSchema = z.object({
   email: z.string().email().optional(),
   phone: z.string().optional(),
   role: roleEnum.optional(),
-  office: z.string().optional(),
+  office: z.string().optional().refine((office) => !office || isValidOffice(office), {
+    message: 'Invalid office name. Must be a canonical office from the approved list.',
+  }),
   region: z.string().optional(),
   isActive: z.boolean().optional(),
   // Hierarchy and management fields
   managedBy: z.string().uuid().optional(),
   manages: z.array(z.string().uuid()).optional(),
   officeAccess: z.array(z.object({
-    officeName: z.string(),
+    officeName: z.string().refine((name) => isValidOffice(name), {
+      message: 'Invalid office name. Must be a canonical office from the approved list.',
+    }),
     accessLevel: z.enum(['view', 'manage', 'admin']),
   })).optional(),
 })
@@ -40,8 +49,12 @@ export const inviteUserSchema = z.object({
   email: z.string().email('Invalid email address'),
   name: z.string().min(2, 'Name must be at least 2 characters').max(100),
   role: roleEnum,
-  office: z.string().optional(),
-  offices: z.array(z.string()).optional(), // For area directors/divisionals
+  office: z.string().optional().refine((office) => !office || isValidOffice(office), {
+    message: 'Invalid office name. Must be a canonical office from the approved list.',
+  }),
+  offices: z.array(z.string()).optional().refine((offices) => !offices || offices.every(isValidOffice), {
+    message: 'Invalid office names. All offices must be canonical offices from the approved list.',
+  }), // For area directors/divisionals
   sendEmail: z.boolean(),
 })
 
@@ -55,7 +68,9 @@ export const assignTeamLeadSchema = z.object({
 
 export const officeAccessSchema = z.object({
   userId: z.string().uuid('Invalid user ID'),
-  officeNames: z.array(z.string()).min(1, 'At least one office is required'),
+  officeNames: z.array(z.string()).min(1, 'At least one office is required').refine((offices) => offices.every(isValidOffice), {
+    message: 'Invalid office names. All offices must be canonical offices from the approved list.',
+  }),
   accessLevel: z.enum(['view', 'manage', 'admin']),
 })
 
@@ -65,13 +80,17 @@ export const quickbaseLookupSchema = z.object({
 })
 
 export const createOfficeSchema = z.object({
-  name: z.string().min(1, 'Office name is required').max(100),
+  name: z.string().min(1, 'Office name is required').max(100).refine((name) => isValidOffice(name), {
+    message: 'Invalid office name. Must be a canonical office from the approved list.',
+  }),
   region: regionEnum,
   leaderId: z.string().min(1, 'Office leader is required'),
 })
 
 export const updateOfficeSchema = z.object({
-  name: z.string().min(1).max(100).optional(),
+  name: z.string().min(1).max(100).optional().refine((name) => !name || isValidOffice(name), {
+    message: 'Invalid office name. Must be a canonical office from the approved list.',
+  }),
   region: regionEnum.optional(),
   leaderId: z.string().optional(),
 })

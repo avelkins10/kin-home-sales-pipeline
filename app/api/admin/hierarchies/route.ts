@@ -13,7 +13,7 @@ import { assignTeamLeadSchema } from '@/lib/validation/admin'
  */
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireRole(['super_admin', 'office_leader'])
+    const auth = await requireRole(['super_admin', 'office_leader', 'area_director', 'divisional', 'regional'])
     if (!auth.authorized) {
       return auth.response
     }

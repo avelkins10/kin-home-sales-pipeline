@@ -8,6 +8,9 @@ import { logInfo, logError, logAudit } from '@/lib/logging/logger'
 import { z } from 'zod'
 import { inviteUserSchema } from '@/lib/validation/admin'
 import { v4 as uuidv4 } from 'uuid'
+import { searchQuickbaseUsers } from '@/lib/quickbase/userQueries'
+import { validateOffices } from '@/lib/db/offices'
+import { normalizeOfficeName } from '@/lib/constants/offices'
 
 /**
  * POST /api/admin/users/invite
@@ -24,6 +27,35 @@ export async function POST(request: NextRequest) {
     const validatedData = inviteUserSchema.parse(body)
 
     const { email, name, role, office, offices, sendEmail } = validatedData
+
+    // Validate office names
+    const officesToValidate: string[] = []
+    if (office) officesToValidate.push(office)
+    if (offices && offices.length > 0) {
+      officesToValidate.push(...offices)
+    }
+    
+    let validatedOffice = office
+    let validatedOffices = offices
+    
+    if (officesToValidate.length > 0) {
+      try {
+        const validated = await validateOffices(officesToValidate)
+        if (office) {
+          validatedOffice = validated.find(o => o === office || o === normalizeOfficeName(office)) || office
+        }
+        if (offices && offices.length > 0) {
+          validatedOffices = offices.map(origOffice => 
+            validated.find(o => o === origOffice || o === normalizeOfficeName(origOffice)) || origOffice
+          )
+        }
+      } catch (error) {
+        return NextResponse.json(
+          { error: error instanceof Error ? error.message : 'Invalid office names' },
+          { status: 400 }
+        )
+      }
+    }
 
     // Check if user already exists
     const existingUser = await sql.query('SELECT id FROM users WHERE email = $1', [email])
@@ -55,7 +87,7 @@ export async function POST(request: NextRequest) {
         name, 
         role, 
         '', // quickbase_user_id will be filled when user accepts invite
-        office || null, 
+        validatedOffice || null, 
         false, // is_active
         inviteToken, 
         invitedAt
@@ -64,8 +96,8 @@ export async function POST(request: NextRequest) {
       const user = userResult.rows[0]
 
       // Insert office access assignments for area directors/divisionals
-      if (offices && offices.length > 0) {
-        for (const officeName of offices) {
+      if (validatedOffices && validatedOffices.length > 0) {
+        for (const officeName of validatedOffices) {
           await sql.query(`
             INSERT INTO office_assignments (user_id, office_name, access_level)
             VALUES ($1, $2, $3)
@@ -106,8 +138,8 @@ export async function POST(request: NextRequest) {
           email: { old: null, new: email },
           name: { old: null, new: name },
           role: { old: null, new: role },
-          office: { old: null, new: office },
-          offices: { old: null, new: offices },
+          office: { old: null, new: validatedOffice },
+          offices: { old: null, new: validatedOffices },
           sendEmail: { old: null, new: sendEmail }
         }
       )
@@ -286,19 +318,74 @@ export async function PUT(request: NextRequest) {
     const hashedPassword = await hash(password, 10)
     const acceptedAt = new Date().toISOString()
 
-    // Update user: set password, activate account, clear invite token
+    // Look up user's QuickBase data using email and update user record
+    let quickbaseUserId = '';
+    let phone = user.phone || '';
+    let defaultOffice = user.sales_office?.[0] || '';
+    
+    try {
+      const quickbaseUsers = await searchQuickbaseUsers(user.email);
+      if (quickbaseUsers.length > 0) {
+        // Find best match by email
+        const bestMatch = quickbaseUsers.find(qbUser => 
+          qbUser.email?.toLowerCase() === user.email.toLowerCase()
+        ) || quickbaseUsers[0]; // Fall back to first result
+        
+        quickbaseUserId = bestMatch.quickbaseUserId;
+        phone = bestMatch.phone || phone;
+        
+        // Set default office if not already set and QuickBase user has office
+        if (!defaultOffice && bestMatch.office) {
+          defaultOffice = bestMatch.office;
+        }
+        
+        logInfo('QuickBase user data found for invite acceptance', {
+          userId: user.id,
+          email: user.email,
+          quickbaseUserId,
+          phone: phone ? '***' : 'none',
+          office: defaultOffice
+        });
+      }
+    } catch (error) {
+      logError('Failed to lookup QuickBase user data during invite acceptance', error as Error, {
+        userId: user.id,
+        email: user.email
+      });
+      // Continue with activation even if QuickBase lookup fails
+    }
+
+    // Update user: set password, activate account, clear invite token, and back-fill QuickBase data
     await sql.query(`
       UPDATE users 
       SET 
         password_hash = $1,
         is_active = true,
         invite_accepted_at = $2,
-        invite_token = NULL
+        invite_token = NULL,
+        quickbase_user_id = $4,
+        phone = $5,
+        sales_office = CASE 
+          WHEN $6 IS NOT NULL AND $6 != '' THEN ARRAY[$6]::text[]
+          ELSE sales_office
+        END
       WHERE id = $3
-    `, [hashedPassword, acceptedAt, user.id])
+    `, [hashedPassword, acceptedAt, user.id, quickbaseUserId, phone, defaultOffice])
 
-    // TODO: Look up user's QuickBase data using email and update user record
-    // This would call getUserByQuickbaseId and update quickbase_user_id, phone, etc.
+    // Log audit event for QuickBase data back-fill
+    if (quickbaseUserId || phone || defaultOffice) {
+      await logAudit(
+        'backfill_quickbase_data',
+        'user',
+        user.id,
+        'system', // System action
+        {
+          quickbase_user_id: { old: '', new: quickbaseUserId },
+          phone: { old: user.phone || '', new: phone },
+          default_office: { old: user.sales_office?.[0] || '', new: defaultOffice }
+        }
+      );
+    }
 
     logInfo('User accepted invite', { 
       userId: user.id, 
