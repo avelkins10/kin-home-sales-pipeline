@@ -38,6 +38,7 @@
     "migrate:system": "node scripts/run-system-migration.js",
     "migrate:audit": "node scripts/run-audit-migration.js",
     "migrate:notifications": "node scripts/run-notifications-migration.js",
+    "migrate:messages": "node scripts/run-messages-migration.js",
     "audit:prod": "npm audit --production",
     "audit:fix": "npm audit fix --production",
     "audit:report": "npm audit --production --json > docs/audit-report.json",
