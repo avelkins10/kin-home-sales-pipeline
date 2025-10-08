@@ -86,7 +86,7 @@ export function ProjectFilterChips({ isFetching = false }: ProjectFilterChipsPro
 
   // Calculate counts for each filter
   const filterCounts = filterChips.reduce((acc, chip) => {
-    acc[chip.value] = projects.filter(p => projectMatchesFilter(p, chip.value)).length;
+    acc[chip.value] = projects.filter((p: QuickbaseProject) => projectMatchesFilter(p, chip.value)).length;
     return acc;
   }, {} as Record<string, number>);
 
