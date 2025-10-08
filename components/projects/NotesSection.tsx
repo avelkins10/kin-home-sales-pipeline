@@ -207,7 +207,7 @@ export function NotesSection({ projectId }: NotesSectionProps) {
             <MessageSquare className="h-12 w-12 text-slate-300 mx-auto mb-3" />
             <p className="text-sm text-slate-600">No notes yet</p>
             <p className="text-xs text-slate-500 mt-1">
-              Click "Add Note" to start a conversation with operations
+              Click &ldquo;Add Note&rdquo; to start a conversation with operations
             </p>
           </div>
         )}
