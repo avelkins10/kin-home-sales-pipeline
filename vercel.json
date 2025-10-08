@@ -2,7 +2,7 @@
   "buildCommand": "npm run build",
   "installCommand": "npm install",
   "framework": "nextjs",
-  
+
   "functions": {
     "app/api/admin/audit-logs/export/route.ts": { "maxDuration": 30, "memory": 1024 },
     "app/api/**/route.ts": { "maxDuration": 15, "memory": 1024 }
@@ -20,5 +20,10 @@
     "enabled": true,
     "autoAlias": true,
     "silent": false
-  }
+  },
+  "bypassDeploymentProtection": [
+    {
+      "matcher": "/api/webhooks/quickbase/notes"
+    }
+  ]
 }
