@@ -12,9 +12,10 @@ import type { ProjectMessage } from '@/lib/types/message';
 
 interface ProjectMessagesSectionProps {
   projectId: string;
+  wrapped?: boolean; // Whether to wrap in Card component (default true)
 }
 
-export function ProjectMessagesSection({ projectId }: ProjectMessagesSectionProps) {
+export function ProjectMessagesSection({ projectId, wrapped = true }: ProjectMessagesSectionProps) {
   const [isAddingMessage, setIsAddingMessage] = useState(false);
   const [messageContent, setMessageContent] = useState('');
   const queryClient = useQueryClient();
@@ -178,32 +179,31 @@ export function ProjectMessagesSection({ projectId }: ProjectMessagesSectionProp
     return message.sender_id === userEmail;
   };
 
-  return (
-    <Card id="messages">
-      <CardContent className="p-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <MessagesSquare className="h-5 w-5 text-blue-600" />
-            <h3 className="text-lg font-semibold text-slate-900">Team Messages</h3>
-            {messages.length > 0 && (
-              <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">
-                {messages.length}
-              </span>
-            )}
-          </div>
-
-          {!isAddingMessage && (
-            <Button
-              onClick={() => setIsAddingMessage(true)}
-              size="sm"
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              New Message
-            </Button>
+  const content = (
+    <>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <MessagesSquare className="h-5 w-5 text-blue-600" />
+          <h3 className="text-lg font-semibold text-slate-900">Team Messages</h3>
+          {messages.length > 0 && (
+            <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">
+              {messages.length}
+            </span>
           )}
         </div>
+
+        {!isAddingMessage && (
+          <Button
+            onClick={() => setIsAddingMessage(true)}
+            size="sm"
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            New Message
+          </Button>
+        )}
+      </div>
 
         {/* Add Message Form */}
         {isAddingMessage && (
@@ -315,7 +315,18 @@ export function ProjectMessagesSection({ projectId }: ProjectMessagesSectionProp
             </p>
           </div>
         )}
-      </CardContent>
-    </Card>
+    </>
   );
+
+  if (wrapped) {
+    return (
+      <Card id="messages">
+        <CardContent className="p-6">
+          {content}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return content;
 }

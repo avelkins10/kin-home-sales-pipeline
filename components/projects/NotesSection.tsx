@@ -12,9 +12,10 @@ import { useProjectUnreadCount } from '@/lib/hooks/useNotifications';
 
 interface NotesSectionProps {
   projectId: string;
+  wrapped?: boolean; // Whether to wrap in Card component (default true)
 }
 
-export function NotesSection({ projectId }: NotesSectionProps) {
+export function NotesSection({ projectId, wrapped = true }: NotesSectionProps) {
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [noteContent, setNoteContent] = useState('');
   const queryClient = useQueryClient();
@@ -167,32 +168,31 @@ export function NotesSection({ projectId }: NotesSectionProps) {
     return 'Unknown User';
   };
 
-  return (
-    <Card>
-      <CardContent className="p-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5 text-indigo-600" />
-            <h3 className="text-lg font-semibold text-slate-900">Project Notes</h3>
-            {notes && notes.length > 0 && (
-              <span className="px-2 py-0.5 text-xs bg-indigo-100 text-indigo-700 rounded-full">
-                {notes.length}
-              </span>
-            )}
-          </div>
-
-          {!isAddingNote && (
-            <Button
-              onClick={() => setIsAddingNote(true)}
-              size="sm"
-              className="bg-indigo-600 hover:bg-indigo-700 text-white"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Add Note
-            </Button>
+  const content = (
+    <>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <MessageSquare className="h-5 w-5 text-indigo-600" />
+          <h3 className="text-lg font-semibold text-slate-900">Project Notes</h3>
+          {notes && notes.length > 0 && (
+            <span className="px-2 py-0.5 text-xs bg-indigo-100 text-indigo-700 rounded-full">
+              {notes.length}
+            </span>
           )}
         </div>
+
+        {!isAddingNote && (
+          <Button
+            onClick={() => setIsAddingNote(true)}
+            size="sm"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Add Note
+          </Button>
+        )}
+      </div>
 
         {/* Add Note Form */}
         {isAddingNote && (
@@ -311,7 +311,18 @@ export function NotesSection({ projectId }: NotesSectionProps) {
             </p>
           </div>
         )}
-      </CardContent>
-    </Card>
+    </>
   );
+
+  if (wrapped) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          {content}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return content;
 }

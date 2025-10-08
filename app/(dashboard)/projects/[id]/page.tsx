@@ -10,11 +10,10 @@ import { ProjectHeader } from '@/components/projects/ProjectHeader'
 import { CustomerContactCard } from '@/components/projects/CustomerContactCard'
 import { SystemSpecsCard } from '@/components/projects/SystemSpecsCard'
 import { TeamMembersCard } from '@/components/projects/TeamMembersCard'
-import { AddersCard } from '@/components/projects/AddersCard'
+import { PricingBreakdownCard } from '@/components/projects/PricingBreakdownCard'
 import { Timeline } from '@/components/milestones/Timeline'
 import { HoldManagementCard } from '@/components/projects/HoldManagementCard'
-import { NotesSection } from '@/components/projects/NotesSection'
-import { ProjectMessagesSection } from '@/components/projects/ProjectMessagesSection'
+import { ProjectCommunicationTabs } from '@/components/projects/ProjectCommunicationTabs'
 import { ProjectDetailSkeleton } from '@/components/projects/ProjectDetailSkeleton'
 import { projectKey } from '@/lib/queryKeys'
 import { getBaseUrl } from '@/lib/utils/baseUrl'
@@ -118,11 +117,8 @@ export default function ProjectDetailPage({
               </Suspense>
             </div>
 
-            {/* Project Notes */}
-            <NotesSection projectId={projectId} />
-
-            {/* Team Messages */}
-            <ProjectMessagesSection projectId={projectId} />
+            {/* Communication Tabs (Notes & Messages) */}
+            <ProjectCommunicationTabs projectId={projectId} />
           </div>
 
           {/* Right Column - 1/3 width */}
@@ -130,8 +126,8 @@ export default function ProjectDetailPage({
             {/* Team Members */}
             <TeamMembersCard project={project} />
 
-            {/* Adders */}
-            <AddersCard project={project} />
+            {/* Pricing & Adders */}
+            <PricingBreakdownCard project={project} />
 
             {/* Hold Management */}
             <HoldManagementCard project={project} />

@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { PROJECT_FIELDS } from '@/lib/constants/fieldIds'
 import { QuickbaseProject } from '@/lib/types/project'
-import { formatCurrency, formatSystemSize, formatPPW } from '@/lib/utils/formatters'
+import { formatCurrency, formatSystemSize } from '@/lib/utils/formatters'
 
 interface SystemSpecsCardProps {
   project: QuickbaseProject
@@ -23,9 +23,6 @@ export function SystemSpecsCard({ project }: SystemSpecsCardProps) {
   const inverterCount = parseInt(project[PROJECT_FIELDS.INVERTER_COUNT]?.value || '0')
   const batteryModel = project[PROJECT_FIELDS.BATTERY_MODEL]?.value || ''
   const batteryQuantity = parseInt(project[PROJECT_FIELDS.BATTERY_QUANTITY]?.value || '0')
-  const grossPPW = parseFloat(project[PROJECT_FIELDS.GROSS_PPW]?.value || '0')
-  const netPPW = parseFloat(project[PROJECT_FIELDS.NET_PPW]?.value || '0')
-  const commissionablePPW = parseFloat(project[PROJECT_FIELDS.COMMISSIONABLE_PPW]?.value || '0')
 
   return (
     <Card>
@@ -83,40 +80,42 @@ export function SystemSpecsCard({ project }: SystemSpecsCardProps) {
         </div>
 
         {/* Equipment Details */}
-        <div className="border-t border-gray-200 pt-4 space-y-3">
-          {/* Module Model */}
-          {moduleType && (
-            <div className="flex items-start gap-3">
-              <div className="w-5 h-5 bg-gray-400 rounded flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-sm text-gray-600 font-medium">Panel Model</p>
-                <p className="text-sm text-gray-900 font-mono">
-                  {moduleType}
-                </p>
+        <div className="border-t border-gray-200 pt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Module Model */}
+            {moduleType && (
+              <div className="flex items-start gap-3">
+                <div className="w-5 h-5 bg-gray-400 rounded flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm text-gray-600 font-medium">Panel Model</p>
+                  <p className="text-sm text-gray-900 font-mono">
+                    {moduleType}
+                  </p>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Inverter */}
-          <div className="flex items-start gap-3">
-            <div className="w-5 h-5 bg-indigo-500 rounded flex-shrink-0 mt-0.5 flex items-center justify-center text-white text-xs font-bold">
-              ⚡
-            </div>
-            <div className="flex-1">
-              <p className="text-sm text-gray-600 font-medium">Inverter Brand</p>
-              <p className="text-base text-gray-900 font-semibold">
-                {inverterBrand || inverter || 'N/A'}
-                {inverterCount > 0 && (
-                  <Badge variant="secondary" className="ml-2">
-                    {inverterCount}x
-                  </Badge>
-                )}
-              </p>
-              {inverter && (
-                <p className="text-xs text-gray-600 font-mono mt-1">
-                  {inverter}
+            {/* Inverter */}
+            <div className="flex items-start gap-3">
+              <div className="w-5 h-5 bg-indigo-500 rounded flex-shrink-0 mt-0.5 flex items-center justify-center text-white text-xs font-bold">
+                ⚡
+              </div>
+              <div className="flex-1">
+                <p className="text-sm text-gray-600 font-medium">Inverter Brand</p>
+                <p className="text-base text-gray-900 font-semibold">
+                  {inverterBrand || inverter || 'N/A'}
+                  {inverterCount > 0 && (
+                    <Badge variant="secondary" className="ml-2">
+                      {inverterCount}x
+                    </Badge>
+                  )}
                 </p>
-              )}
+                {inverter && (
+                  <p className="text-xs text-gray-600 font-mono mt-1">
+                    {inverter}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -136,36 +135,6 @@ export function SystemSpecsCard({ project }: SystemSpecsCardProps) {
             </div>
           </div>
         )}
-
-        {/* Pricing Breakdown */}
-        <div className="border-t border-gray-200 pt-4">
-          <h4 className="text-sm font-medium text-gray-600 mb-3">Pricing Breakdown</h4>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Gross PPW */}
-            <div className="text-center">
-              <p className="text-xs text-gray-500 font-medium">Gross PPW</p>
-              <p className="text-lg font-semibold text-gray-900">
-                {formatPPW(grossPPW)}
-              </p>
-            </div>
-
-            {/* Net PPW */}
-            <div className="text-center">
-              <p className="text-xs text-gray-500 font-medium">Net PPW</p>
-              <p className="text-lg font-semibold text-gray-900">
-                {formatPPW(netPPW)}
-              </p>
-            </div>
-
-            {/* Commissionable PPW */}
-            <div className="text-center">
-              <p className="text-xs text-gray-500 font-medium">Commissionable PPW</p>
-              <p className="text-lg font-semibold text-gray-900">
-                {formatPPW(commissionablePPW)}
-              </p>
-            </div>
-          </div>
-        </div>
       </CardContent>
     </Card>
   )
