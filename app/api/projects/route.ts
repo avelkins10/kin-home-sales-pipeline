@@ -34,7 +34,7 @@ export async function GET(req: Request) {
     const sort = searchParams.get('sort') || undefined;
 
     // Validate view parameter against allowed values
-    const allowedViews = ['all', 'active', 'on-hold', 'install-ready', 'install-scheduled', 'install-completed', 'pending-cancel', 'cancelled', 'needs-attention']
+    const allowedViews = ['all', 'active', 'pending-kca', 'rejected', 'on-hold', 'install-ready', 'install-scheduled', 'install-completed', 'pending-cancel', 'cancelled', 'needs-attention']
     if (view && !allowedViews.includes(view)) {
       return NextResponse.json({ error: 'Invalid view parameter' }, { status: 400 });
     }
