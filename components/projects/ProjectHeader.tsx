@@ -8,6 +8,7 @@ import { PROJECT_FIELDS } from '@/lib/constants/fieldIds'
 import { QuickbaseProject } from '@/lib/types/project'
 import { getCurrentMilestone, getProjectUrgency, getMilestoneColor } from '@/lib/utils/milestones'
 import { cn } from '@/lib/utils/cn'
+import { SalesSupportButton } from '@/components/support/SalesSupportButton'
 
 interface ProjectHeaderProps {
   project: QuickbaseProject
@@ -18,7 +19,8 @@ export function ProjectHeader({ project }: ProjectHeaderProps) {
 
   // Extract project data
   const customerName = project[PROJECT_FIELDS.CUSTOMER_NAME]?.value || 'Unknown Customer'
-  const projectId = project[PROJECT_FIELDS.RECORD_ID]?.value || 'Unknown'
+  const recordId = project[PROJECT_FIELDS.RECORD_ID]?.value
+  const projectId = project[PROJECT_FIELDS.PROJECT_ID]?.value || recordId || 'Unknown'
   const projectStatus = project[PROJECT_FIELDS.PROJECT_STATUS]?.value || 'Active'
   const priority = project[PROJECT_FIELDS.PROJECT_PRIORITY]?.value
   const onHold = project[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes'
@@ -42,15 +44,29 @@ export function ProjectHeader({ project }: ProjectHeaderProps) {
 
   return (
     <div className="space-y-4" data-testid="project-header">
-      {/* Back Button */}
-      <Button
-        variant="ghost"
-        onClick={handleBackClick}
-        className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back to Projects
-      </Button>
+      {/* Back Button and Support Button */}
+      <div className="flex items-center justify-between">
+        <Button
+          variant="ghost"
+          onClick={handleBackClick}
+          className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Projects
+        </Button>
+
+        {recordId && (
+          <SalesSupportButton
+            projectContext={{
+              projectId: String(projectId),
+              customerName,
+              recordId: Number(recordId),
+            }}
+            variant="outline"
+            size="sm"
+          />
+        )}
+      </div>
 
       {/* Header Row */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

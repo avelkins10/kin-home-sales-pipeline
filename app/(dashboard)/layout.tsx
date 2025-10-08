@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils/cn';
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { WebVitalsCollector } from '@/components/ui/WebVitalsCollector';
+import { FrontChatProvider } from '@/components/providers/FrontChatProvider';
+import { DashboardHeader } from '@/components/layout/DashboardHeader';
 import { Home, FolderKanban, Clock, BarChart3, Settings, ExternalLink } from 'lucide-react';
 
 export default async function DashboardLayout({
@@ -34,22 +36,19 @@ export default async function DashboardLayout({
   );
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Web Vitals Collection */}
-      <WebVitalsCollector />
-      
-      {/* Offline Indicator */}
-      <OfflineIndicator />
+    <FrontChatProvider>
+      <div className="min-h-screen bg-slate-50">
+        {/* Web Vitals Collection */}
+        <WebVitalsCollector />
 
-      {/* Sidebar Navigation */}
+        {/* Offline Indicator */}
+        <OfflineIndicator />
+
+        {/* Sidebar Navigation */}
       <div className="fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-200">
         <div className="flex h-full flex-col">
-          {/* Logo */}
-          <div className="flex h-16 items-center justify-center border-b border-slate-200">
-            <h1 className="text-lg font-bold text-slate-900">
-              Kin Home Sales
-            </h1>
-          </div>
+          {/* Logo and Notifications */}
+          <DashboardHeader />
 
           {/* Navigation */}
           <nav className="flex-1 space-y-1 px-3 py-4">
@@ -133,12 +132,13 @@ export default async function DashboardLayout({
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="pl-64">
-        <main className="min-h-screen">
-          {children}
-        </main>
+        {/* Main Content */}
+        <div className="pl-64">
+          <main className="min-h-screen">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </FrontChatProvider>
   );
 }
