@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
       setters: filteredUsers.filter(u => u.role === 'setter').length,
       withEmail: filteredUsers.filter(u => u.email).length,
       withPhone: filteredUsers.filter(u => u.phone).length,
-      uniqueOffices: [...new Set(filteredUsers.map(u => u.office).filter(Boolean))].length
+      uniqueOffices: Array.from(new Set(filteredUsers.map(u => u.office).filter(Boolean))).length
     }
 
     logInfo('Active users lookup', { 
