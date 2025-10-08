@@ -14,6 +14,7 @@ import { AddersCard } from '@/components/projects/AddersCard'
 import { Timeline } from '@/components/milestones/Timeline'
 import { HoldManagementCard } from '@/components/projects/HoldManagementCard'
 import { NotesSection } from '@/components/projects/NotesSection'
+import { ProjectMessagesSection } from '@/components/projects/ProjectMessagesSection'
 import { ProjectDetailSkeleton } from '@/components/projects/ProjectDetailSkeleton'
 import { projectKey } from '@/lib/queryKeys'
 import { getBaseUrl } from '@/lib/utils/baseUrl'
@@ -119,6 +120,9 @@ export default function ProjectDetailPage({
 
             {/* Project Notes */}
             <NotesSection projectId={projectId} />
+
+            {/* Team Messages */}
+            <ProjectMessagesSection projectId={projectId} />
           </div>
 
           {/* Right Column - 1/3 width */}
