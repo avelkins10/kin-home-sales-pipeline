@@ -5,8 +5,8 @@ export const NOTE_FIELDS = {
   RECORD_ID: 3,
   NOTE_CONTENT: 6,
   CATEGORY: 7,
-  CREATED_BY: 8,
-  DATE_CREATED: 9,
+  DATE_CREATED: 8,  // Field 8 = date string
+  CREATED_BY: 9,     // Field 9 = user object
   SALES_TEAM_FLAG: 10,
   RELATED_PROJECT: 13,
   NOTE_TYPE: 39,

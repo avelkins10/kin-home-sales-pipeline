@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils/cn';
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { WebVitalsCollector } from '@/components/ui/WebVitalsCollector';
-import { Home, FolderKanban, Clock, BarChart3, Settings } from 'lucide-react';
+import { Home, FolderKanban, Clock, BarChart3, Settings, ExternalLink } from 'lucide-react';
 
 export default async function DashboardLayout({
   children,
@@ -25,6 +25,7 @@ export default async function DashboardLayout({
     { name: 'Holds', href: '/holds', icon: Clock, roles: ['closer', 'setter', 'office_leader', 'regional', 'super_admin'] },
     { name: 'Analytics', href: '/analytics', icon: BarChart3, roles: ['office_leader', 'regional', 'super_admin'] },
     { name: 'Settings', href: '/settings', icon: Settings, roles: ['closer', 'setter', 'office_leader', 'regional', 'super_admin'] },
+    { name: 'KIN Sales Hub', href: 'https://sites.google.com/kinhome.com/kinhomesalesnetwork/home', icon: ExternalLink, roles: ['closer', 'setter', 'office_leader', 'regional', 'super_admin'], external: true },
   ];
 
   // Filter navigation items based on user role
@@ -58,23 +59,43 @@ export default async function DashboardLayout({
               // We'll use a simple check for now - could be improved with client component wrapper
               const isActive = false; // Simplified for server component
 
+              const linkClassName = cn(
+                'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
+                'hover:bg-indigo-50 hover:text-indigo-700',
+                'focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2',
+                isActive
+                  ? 'bg-indigo-50 text-indigo-700'
+                  : 'text-slate-700'
+              );
+
+              const iconClassName = cn(
+                'h-5 w-5 transition-colors',
+                isActive ? 'text-indigo-600' : 'text-slate-400 group-hover:text-indigo-600'
+              );
+
+              // Render external links differently
+              if (item.external) {
+                return (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={linkClassName}
+                  >
+                    <Icon className={iconClassName} />
+                    {item.name}
+                  </a>
+                );
+              }
+
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={cn(
-                    'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
-                    'hover:bg-indigo-50 hover:text-indigo-700',
-                    'focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2',
-                    isActive
-                      ? 'bg-indigo-50 text-indigo-700'
-                      : 'text-slate-700'
-                  )}
+                  className={linkClassName}
                 >
-                  <Icon className={cn(
-                    'h-5 w-5 transition-colors',
-                    isActive ? 'text-indigo-600' : 'text-slate-400 group-hover:text-indigo-600'
-                  )} />
+                  <Icon className={iconClassName} />
                   {item.name}
                 </Link>
               );

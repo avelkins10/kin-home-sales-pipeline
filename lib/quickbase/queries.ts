@@ -649,6 +649,19 @@ export async function getNotesForProject(projectRecordId: string | number) {
     });
 
     console.log('[getNotesForProject] Found notes:', response.data?.length || 0);
+
+    // Debug: Log first note's structure to understand data format
+    if (response.data && response.data.length > 0) {
+      const firstNote = response.data[0];
+      console.log('[getNotesForProject] First note structure:', {
+        keys: Object.keys(firstNote),
+        field_8_raw: firstNote[8],
+        field_9_raw: firstNote[9],
+        field_8_value: firstNote[8]?.value,
+        field_9_value: firstNote[9]?.value,
+      });
+    }
+
     return response.data || [];
   } catch (error) {
     logError('Failed to fetch notes for project', error as Error, { projectRecordId });

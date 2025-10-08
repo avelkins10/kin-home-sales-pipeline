@@ -217,19 +217,26 @@ export function NotesSection({ projectId }: NotesSectionProps) {
         ) : notes && notes.length > 0 ? (
           <div className="space-y-3">
             {notes.map((note: any) => {
+              // Quickbase returns data in format: { "3": { "value": ... }, "6": { "value": ... }, ... }
               const recordId = note[NOTE_FIELDS.RECORD_ID]?.value;
               const content = note[NOTE_FIELDS.NOTE_CONTENT]?.value;
               const category = note[NOTE_FIELDS.CATEGORY]?.value;
               const createdBy = note[NOTE_FIELDS.CREATED_BY]?.value;
               const dateCreated = note[NOTE_FIELDS.DATE_CREATED]?.value;
 
-              // Debug logging
-              console.log('[NotesSection] Note data:', {
-                recordId,
-                createdBy,
-                dateCreated,
-                fullNote: note
-              });
+              // Debug logging - console log the full note object to understand structure
+              if (recordId === note[NOTE_FIELDS.RECORD_ID]?.value) {
+                console.log('[NotesSection] Processing note:', {
+                  recordId,
+                  content: content?.substring(0, 50),
+                  category,
+                  createdBy,
+                  dateCreated,
+                  createdByType: typeof createdBy,
+                  dateCreatedType: typeof dateCreated,
+                  rawFields: Object.keys(note).join(', ')
+                });
+              }
 
               return (
                 <div
