@@ -1,12 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ChevronDown, ChevronUp, Settings, Info } from 'lucide-react'
-import milestonesConfig from '@/lib/config/milestones.json'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { ChevronDown, ChevronUp, Settings, Info, Save, X, RotateCcw, Edit2, Check } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { toast } from 'sonner'
+import { getBaseUrl } from '@/lib/utils/baseUrl'
 
 interface MilestoneConfigTabProps {
   // Future: Add ability to edit and save configurations
@@ -14,6 +19,73 @@ interface MilestoneConfigTabProps {
 
 export function MilestoneConfigTab({}: MilestoneConfigTabProps) {
   const [expandedMilestones, setExpandedMilestones] = useState<Set<string>>(new Set())
+  const [editingMilestone, setEditingMilestone] = useState<string | null>(null)
+  const [editedConfig, setEditedConfig] = useState<any>(null)
+
+  const queryClient = useQueryClient()
+
+  // Fetch milestone configurations
+  const { data: milestonesConfig, isLoading } = useQuery({
+    queryKey: ['milestone-config'],
+    queryFn: async () => {
+      const response = await fetch(`${getBaseUrl()}/api/admin/milestones/config`)
+      if (!response.ok) throw new Error('Failed to fetch milestone config')
+      return response.json()
+    },
+    staleTime: 300000, // 5 minutes
+  })
+
+  // Save milestone configuration mutation
+  const saveMutation = useMutation({
+    mutationFn: async ({ milestoneId, configuration, notes }: {
+      milestoneId: string
+      configuration: any
+      notes?: string
+    }) => {
+      const response = await fetch(`${getBaseUrl()}/api/admin/milestones/config`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ milestoneId, configuration, notes })
+      })
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to save configuration')
+      }
+      return response.json()
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['milestone-config'] })
+      setEditingMilestone(null)
+      setEditedConfig(null)
+      toast.success(`Milestone configuration saved for ${data.milestoneId}`)
+    },
+    onError: (error: Error) => {
+      toast.error(error.message)
+    }
+  })
+
+  // Reset milestone configuration mutation
+  const resetMutation = useMutation({
+    mutationFn: async (milestoneId: string) => {
+      const response = await fetch(`${getBaseUrl()}/api/admin/milestones/config/reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ milestoneId })
+      })
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to reset configuration')
+      }
+      return response.json()
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['milestone-config'] })
+      toast.success(`Reset ${data.milestoneId} to default configuration`)
+    },
+    onError: (error: Error) => {
+      toast.error(error.message)
+    }
+  })
 
   const toggleMilestone = (milestoneId: string) => {
     const newExpanded = new Set(expandedMilestones)
@@ -25,12 +97,63 @@ export function MilestoneConfigTab({}: MilestoneConfigTabProps) {
     setExpandedMilestones(newExpanded)
   }
 
+  const startEditing = (milestone: any) => {
+    setEditingMilestone(milestone.id)
+    setEditedConfig(JSON.parse(JSON.stringify(milestone))) // Deep clone
+  }
+
+  const cancelEditing = () => {
+    setEditingMilestone(null)
+    setEditedConfig(null)
+  }
+
+  const saveEditing = () => {
+    if (!editedConfig) return
+
+    saveMutation.mutate({
+      milestoneId: editedConfig.id,
+      configuration: editedConfig,
+      notes: `Updated via Settings UI`
+    })
+  }
+
+  const resetToDefault = (milestoneId: string) => {
+    if (confirm(`Are you sure you want to reset "${milestoneId}" to default configuration? This will delete any custom overrides.`)) {
+      resetMutation.mutate(milestoneId)
+    }
+  }
+
+  const updateEditedField = (path: string[], value: any) => {
+    if (!editedConfig) return
+
+    const newConfig = JSON.parse(JSON.stringify(editedConfig))
+    let current = newConfig
+
+    for (let i = 0; i < path.length - 1; i++) {
+      if (!current[path[i]]) {
+        current[path[i]] = {}
+      }
+      current = current[path[i]]
+    }
+
+    current[path[path.length - 1]] = value
+    setEditedConfig(newConfig)
+  }
+
   const getUsageColor = (usage: string) => {
     const percent = parseFloat(usage.replace('%', ''))
     if (percent >= 80) return 'text-green-600 bg-green-50'
     if (percent >= 50) return 'text-blue-600 bg-blue-50'
     if (percent >= 20) return 'text-orange-600 bg-orange-50'
     return 'text-red-600 bg-red-50'
+  }
+
+  if (isLoading) {
+    return <div className="text-center py-8">Loading milestone configurations...</div>
+  }
+
+  if (!milestonesConfig) {
+    return <div className="text-center py-8 text-red-600">Failed to load milestone configurations</div>
   }
 
   return (
@@ -42,12 +165,6 @@ export function MilestoneConfigTab({}: MilestoneConfigTabProps) {
           <p className="mt-2 text-sm text-slate-600">
             View and manage how milestones are calculated across your application.
           </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" disabled>
-            <Settings className="w-4 h-4 mr-2" />
-            Edit Config
-          </Button>
         </div>
       </div>
 
@@ -64,6 +181,9 @@ export function MilestoneConfigTab({}: MilestoneConfigTabProps) {
                 <li>Fallback/backup timestamp fields</li>
                 <li>Calculated or estimated fields</li>
               </ol>
+              <p className="mt-3 text-xs text-blue-700">
+                💡 <strong>Tip:</strong> Custom configurations override defaults. Click &quot;Edit&quot; on any milestone to customize field mappings.
+              </p>
             </div>
           </div>
         </CardContent>
@@ -71,33 +191,101 @@ export function MilestoneConfigTab({}: MilestoneConfigTabProps) {
 
       {/* Milestones */}
       <div className="space-y-4">
-        {milestonesConfig.milestones.map((milestone) => {
+        {milestonesConfig.milestones.map((milestone: any) => {
           const isExpanded = expandedMilestones.has(milestone.id)
+          const isEditing = editingMilestone === milestone.id
+          const config = isEditing ? editedConfig : milestone
+          const isCustom = milestone._metadata?.isCustom
 
           return (
-            <Card key={milestone.id} className="overflow-hidden">
+            <Card key={milestone.id} className={cn("overflow-hidden", isCustom && "border-purple-300 bg-purple-50/30")}>
               <CardHeader
                 className="cursor-pointer hover:bg-slate-50 transition-colors"
-                onClick={() => toggleMilestone(milestone.id)}
+                onClick={() => !isEditing && toggleMilestone(milestone.id)}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="text-2xl">{milestone.icon}</div>
                     <div>
-                      <CardTitle className="text-lg">{milestone.name}</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-lg">{milestone.name}</CardTitle>
+                        {isCustom && (
+                          <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-xs">
+                            Custom
+                          </Badge>
+                        )}
+                      </div>
                       <CardDescription className="text-sm mt-1">
                         {milestone.description}
                       </CardDescription>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <Badge variant="outline" className={cn('font-mono text-xs', milestone.color)}>
+                  <div className="flex items-center gap-2">
+                    {!isEditing && isExpanded && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            startEditing(milestone)
+                          }}
+                        >
+                          <Edit2 className="w-3 h-3 mr-1" />
+                          Edit
+                        </Button>
+                        {isCustom && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              resetToDefault(milestone.id)
+                            }}
+                            disabled={resetMutation.isPending}
+                          >
+                            <RotateCcw className="w-3 h-3 mr-1" />
+                            Reset
+                          </Button>
+                        )}
+                      </>
+                    )}
+                    {isEditing && (
+                      <>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            saveEditing()
+                          }}
+                          disabled={saveMutation.isPending}
+                        >
+                          <Check className="w-3 h-3 mr-1" />
+                          Save
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            cancelEditing()
+                          }}
+                        >
+                          <X className="w-3 h-3 mr-1" />
+                          Cancel
+                        </Button>
+                      </>
+                    )}
+                    <Badge variant="outline" className={cn('font-mono text-xs')}>
                       {milestone.id}
                     </Badge>
-                    {isExpanded ? (
-                      <ChevronUp className="w-5 h-5 text-slate-400" />
-                    ) : (
-                      <ChevronDown className="w-5 h-5 text-slate-400" />
+                    {!isEditing && (
+                      isExpanded ? (
+                        <ChevronUp className="w-5 h-5 text-slate-400" />
+                      ) : (
+                        <ChevronDown className="w-5 h-5 text-slate-400" />
+                      )
                     )}
                   </div>
                 </div>
@@ -107,178 +295,67 @@ export function MilestoneConfigTab({}: MilestoneConfigTabProps) {
                 <CardContent className="pt-0 pb-6">
                   <div className="space-y-6">
                     {/* Status Field */}
-                    {milestone.statusField && (
+                    {config.statusField && (
                       <div>
                         <h4 className="text-sm font-semibold text-slate-900 mb-3">
                           ⭐ Status Field (Primary)
                         </h4>
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <p className="font-mono text-sm text-slate-900">
-                                {milestone.statusField.fieldName}
-                              </p>
-                              <p className="text-xs text-slate-600 mt-1">
-                                Field ID: {milestone.statusField.fieldId}
-                              </p>
-                              {milestone.statusField.notes && (
-                                <p className="text-xs text-slate-600 mt-2">
-                                  {milestone.statusField.notes}
-                                </p>
-                              )}
+                        <div className={cn("border rounded-lg p-4", isEditing ? "bg-white" : "bg-green-50 border-green-200")}>
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <Label className="text-xs">Field ID</Label>
+                                <Input
+                                  type="number"
+                                  value={config.statusField.fieldId}
+                                  onChange={(e) => updateEditedField(['statusField', 'fieldId'], parseInt(e.target.value))}
+                                  disabled={!isEditing}
+                                  className="mt-1"
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-xs">Usage %</Label>
+                                <Input
+                                  value={config.statusField.usage}
+                                  onChange={(e) => updateEditedField(['statusField', 'usage'], e.target.value)}
+                                  disabled={!isEditing}
+                                  className="mt-1"
+                                />
+                              </div>
                             </div>
-                            <Badge className={getUsageColor(milestone.statusField.usage)}>
-                              {milestone.statusField.usage} usage
-                            </Badge>
+                            <div>
+                              <Label className="text-xs">Field Name</Label>
+                              <Input
+                                value={config.statusField.fieldName}
+                                onChange={(e) => updateEditedField(['statusField', 'fieldName'], e.target.value)}
+                                disabled={!isEditing}
+                                className="mt-1"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Notes</Label>
+                              <Textarea
+                                value={config.statusField.notes || ''}
+                                onChange={(e) => updateEditedField(['statusField', 'notes'], e.target.value)}
+                                disabled={!isEditing}
+                                className="mt-1"
+                                rows={2}
+                              />
+                            </div>
                           </div>
                         </div>
                       </div>
                     )}
 
-                    {/* Completion Fields */}
-                    {milestone.completionFields && (
-                      <div>
-                        <h4 className="text-sm font-semibold text-slate-900 mb-3">
-                          ✅ Completion Detection
-                        </h4>
-                        <div className="space-y-3">
-                          {/* Primary */}
-                          {milestone.completionFields.primary && milestone.completionFields.primary.length > 0 && (
-                            <div>
-                              <p className="text-xs font-medium text-slate-600 mb-2">Primary Fields:</p>
-                              <div className="space-y-2">
-                                {milestone.completionFields.primary.map((field: any, idx: number) => (
-                                  <div
-                                    key={idx}
-                                    className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm"
-                                  >
-                                    <div className="flex items-start justify-between">
-                                      <div>
-                                        <p className="font-mono text-slate-900">{field.fieldName}</p>
-                                        <p className="text-xs text-slate-600 mt-1">
-                                          ID: {field.fieldId}
-                                        </p>
-                                        {field.notes && (
-                                          <p className="text-xs text-slate-600 mt-2">{field.notes}</p>
-                                        )}
-                                      </div>
-                                      <Badge className={getUsageColor(field.usage)} variant="secondary">
-                                        {field.usage}
-                                      </Badge>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Dates */}
-                          {milestone.completionFields.dates && (
-                            <div>
-                              <p className="text-xs font-medium text-slate-600 mb-2">Date Fields:</p>
-                              <div className="space-y-2">
-                                {milestone.completionFields.dates.primary && Array.isArray(milestone.completionFields.dates.primary) && milestone.completionFields.dates.primary.map((field: any, idx: number) => (
-                                  <div
-                                    key={idx}
-                                    className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm"
-                                  >
-                                    <div className="flex items-start justify-between">
-                                      <div>
-                                        <p className="font-mono text-slate-900">{field.fieldName}</p>
-                                        <p className="text-xs text-slate-600 mt-1">
-                                          ID: {field.fieldId}
-                                        </p>
-                                      </div>
-                                      <Badge className={getUsageColor(field.usage)} variant="secondary">
-                                        {field.usage}
-                                      </Badge>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* In-Progress Fields */}
-                    {milestone.inProgressFields && (
-                      <div>
-                        <h4 className="text-sm font-semibold text-slate-900 mb-3">
-                          ⏳ In-Progress Detection
-                        </h4>
-                        <div className="space-y-3">
-                          {/* Substeps */}
-                          {milestone.inProgressFields.substeps && milestone.inProgressFields.substeps.length > 0 && (
-                            <div>
-                              <p className="text-xs font-medium text-slate-600 mb-2">
-                                Substeps ({milestone.inProgressFields.substeps.length} total):
-                              </p>
-                              <div className="space-y-2">
-                                {milestone.inProgressFields.substeps.map((substep: any, idx: number) => (
-                                  <div
-                                    key={idx}
-                                    className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm"
-                                  >
-                                    <div className="flex items-start justify-between">
-                                      <div>
-                                        <p className="font-semibold text-slate-900">
-                                          {idx + 1}. {substep.label}
-                                        </p>
-                                        <p className="text-xs text-slate-600 mt-1">
-                                          ID: {substep.fieldId} • {substep.fieldName}
-                                        </p>
-                                      </div>
-                                      <Badge className={getUsageColor(substep.usage)} variant="secondary">
-                                        {substep.usage}
-                                      </Badge>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Helper Fields */}
-                    {milestone.helperFields && milestone.helperFields.length > 0 && (
-                      <div>
-                        <h4 className="text-sm font-semibold text-slate-900 mb-3">
-                          🔧 Helper Fields ({milestone.helperFields.length})
-                        </h4>
-                        <div className="grid grid-cols-2 gap-2">
-                          {milestone.helperFields.map((helper: any, idx: number) => (
-                            <div
-                              key={idx}
-                              className="bg-blue-50 border border-blue-200 rounded p-2 text-xs"
-                            >
-                              <p className="font-mono text-slate-900">{helper.fieldName}</p>
-                              <p className="text-slate-600 mt-1">
-                                ID: {helper.fieldId} • Type: {helper.type}
-                              </p>
-                              {helper.usage && (
-                                <Badge className={cn('mt-2 text-xs', getUsageColor(helper.usage))} variant="secondary">
-                                  {helper.usage}
-                                </Badge>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
                     {/* Dependencies */}
-                    {milestone.dependencies && milestone.dependencies.length > 0 && (
+                    {config.dependencies && config.dependencies.length > 0 && (
                       <div>
                         <h4 className="text-sm font-semibold text-slate-900 mb-3">
                           🔗 Dependencies
                         </h4>
                         <div className="flex gap-2 flex-wrap">
-                          {milestone.dependencies.map((depId: string) => {
-                            const depMilestone = milestonesConfig.milestones.find(m => m.id === depId)
+                          {config.dependencies.map((depId: string) => {
+                            const depMilestone = milestonesConfig.milestones.find((m: any) => m.id === depId)
                             return (
                               <Badge key={depId} variant="outline">
                                 {depMilestone?.icon} {depMilestone?.name || depId}
@@ -286,6 +363,14 @@ export function MilestoneConfigTab({}: MilestoneConfigTabProps) {
                             )
                           })}
                         </div>
+                      </div>
+                    )}
+
+                    {!isEditing && (
+                      <div className="pt-4 border-t border-slate-200">
+                        <p className="text-xs text-slate-500">
+                          💡 Click &quot;Edit&quot; to customize field IDs, usage percentages, and other configuration details
+                        </p>
                       </div>
                     )}
                   </div>
