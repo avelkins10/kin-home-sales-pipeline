@@ -36,19 +36,16 @@ export async function POST(req: Request) {
   logApiRequest('POST', '/api/webhooks/quickbase/notes', undefined, reqId);
 
   try {
-    // 1. Verify webhook signature for security
+    // 1. Get raw body for parsing
+    const rawBody = await req.text();
+
+    // 2. Optional signature verification (QuickBase doesn't natively support HMAC signatures)
+    // Security is provided by Vercel Deployment Protection bypass token in the URL
     const signature = req.headers.get('x-quickbase-signature');
     const webhookSecret = process.env.QUICKBASE_WEBHOOK_SECRET;
 
-    if (!webhookSecret) {
-      logError('QUICKBASE_WEBHOOK_SECRET not configured', new Error('Missing webhook secret'));
-      return NextResponse.json({ error: 'Webhook not configured' }, { status: 500 });
-    }
-
-    // Get raw body for signature verification
-    const rawBody = await req.text();
-
-    if (signature) {
+    if (webhookSecret && signature) {
+      // Both secret and signature present - verify it
       const expectedSignature = crypto
         .createHmac('sha256', webhookSecret)
         .update(rawBody)
@@ -58,16 +55,13 @@ export async function POST(req: Request) {
         logError('Invalid webhook signature', new Error('Signature mismatch'));
         return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
       }
+      console.log('[WEBHOOK] ✅ Signature verified');
     } else {
-      // In development, allow webhooks without signature for testing
-      if (process.env.NODE_ENV === 'production') {
-        logError('Missing webhook signature', new Error('No signature provided'));
-        return NextResponse.json({ error: 'Missing signature' }, { status: 401 });
-      }
-      console.warn('[WEBHOOK] No signature provided - allowing in development mode');
+      // No signature verification - relying on Vercel bypass token for security
+      console.log('[WEBHOOK] ⚠️  No signature verification (using Vercel bypass token for security)');
     }
 
-    // 2. Parse webhook payload
+    // 3. Parse webhook payload
     const payload = JSON.parse(rawBody);
     const noteId = payload.recordid;
     const fieldChanges = payload.fieldChanges || {};
@@ -86,7 +80,7 @@ export async function POST(req: Request) {
       fieldChanges: Object.keys(fieldChanges || {}),
     });
 
-    // 3. Check if this is a rep-visible note
+    // 4. Check if this is a rep-visible note
     if (repVisibleValue !== REP_VISIBLE_FLAG) {
       console.log('[WEBHOOK] ⏭️  FILTERED OUT - Note not marked as rep-visible:', {
         noteId,
@@ -109,7 +103,7 @@ export async function POST(req: Request) {
       }, { status: 200 });
     }
 
-    // 4. Extract note fields for processing
+    // 5. Extract note fields for processing
     const noteContent = fieldChanges[NOTE_FIELDS.NOTE_CONTENT]?.value || '';
     const createdBy = fieldChanges[NOTE_FIELDS.CREATED_BY]?.value || {};
 
@@ -131,13 +125,13 @@ export async function POST(req: Request) {
       contentPreview: noteContent.substring(0, 100)
     });
 
-    // 4. Determine notification priority based on category
+    // 6. Determine notification priority based on category
     const priority = getNotePriority(category);
 
-    // 5. Get all users who should receive this notification
+    // 7. Get all users who should receive this notification
     let recipients = await getNotificationRecipientsForProject(projectId);
 
-    // 5a. Filter out the sender so they don't get notified about their own note
+    // 7a. Filter out the sender so they don't get notified about their own note
     const senderEmail = createdBy.email;
     if (senderEmail) {
       const originalCount = recipients.length;
@@ -165,14 +159,14 @@ export async function POST(req: Request) {
       userIds: recipients.map(r => r.userId),
     });
 
-    // 6. Create notification metadata
+    // 8. Create notification metadata
     const metadata: QuickbaseNoteMetadata = {
       note_id: noteId,
       category,
       quickbase_url: `https://kinhome.quickbase.com/db/bsb6bqt3b?a=dr&rid=${noteId}`,
     };
 
-    // 7. Create notifications for each recipient
+    // 9. Create notifications for each recipient
     const createdNotifications = [];
     for (const recipient of recipients) {
       try {
