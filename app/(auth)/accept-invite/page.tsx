@@ -2,7 +2,7 @@
 
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -30,7 +30,7 @@ interface InviteData {
   accepted: boolean;
 }
 
-export default function AcceptInvitePage() {
+function AcceptInviteContent() {
   const [inviteData, setInviteData] = useState<InviteData | null>(null);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -113,7 +113,7 @@ export default function AcceptInvitePage() {
 
     try {
       // Accept invite
-      const response = await fetch('/api/admin/users/invite/accept', {
+      const response = await fetch('/api/admin/users/invite', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -362,5 +362,35 @@ export default function AcceptInvitePage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function AcceptInvitePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-8">
+          <div className="text-center">
+            <div className="flex justify-center mb-6">
+              <Image
+                src="/logo.png"
+                alt="KINETIC"
+                width={64}
+                height={64}
+                className="h-16 w-16"
+              />
+            </div>
+            <h2 className="text-4xl font-extrabold text-gray-900 tracking-tight">
+              KINETIC
+            </h2>
+            <p className="mt-2 text-sm text-gray-600">
+              Loading...
+            </p>
+          </div>
+        </div>
+      </div>
+    }>
+      <AcceptInviteContent />
+    </Suspense>
   );
 }
