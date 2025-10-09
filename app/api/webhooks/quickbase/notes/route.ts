@@ -135,7 +135,22 @@ export async function POST(req: Request) {
     const priority = getNotePriority(category);
 
     // 5. Get all users who should receive this notification
-    const recipients = await getNotificationRecipientsForProject(projectId);
+    let recipients = await getNotificationRecipientsForProject(projectId);
+
+    // 5a. Filter out the sender so they don't get notified about their own note
+    const senderEmail = createdBy.email;
+    if (senderEmail) {
+      const originalCount = recipients.length;
+      recipients = recipients.filter(r => r.userId?.toLowerCase() !== senderEmail.toLowerCase());
+
+      if (recipients.length < originalCount) {
+        console.log('[WEBHOOK] 🚫 Filtered out sender from recipients:', {
+          senderEmail,
+          originalCount,
+          filteredCount: recipients.length
+        });
+      }
+    }
 
     if (recipients.length === 0) {
       console.warn('[WEBHOOK] No recipients found for project:', projectId);
