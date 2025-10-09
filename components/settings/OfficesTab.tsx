@@ -57,12 +57,12 @@ export default function OfficesTab() {
   const [newOffice, setNewOffice] = useState<CreateOfficeInput>({
     name: '',
     region: 'southwest',
-    leaderId: '',
+    leaderId: 'none',
   })
   const [editOffice, setEditOffice] = useState<UpdateOfficeInput>({
     name: '',
     region: 'southwest',
-    leaderId: '',
+    leaderId: 'none',
     isActive: true,
   })
 
@@ -113,7 +113,7 @@ export default function OfficesTab() {
       setNewOffice({
         name: '',
         region: 'southwest',
-        leaderId: '',
+        leaderId: 'none',
       })
       toast.success('Office created successfully')
     },
@@ -217,7 +217,7 @@ export default function OfficesTab() {
     setEditOffice({
       name: office.name,
       region: office.region,
-      leaderId: office.leaderId || '',
+      leaderId: office.leaderId || 'none',
       isActive: office.isActive,
     })
     setIsEditDialogOpen(true)
@@ -288,12 +288,12 @@ export default function OfficesTab() {
               </div>
               <div>
                 <Label htmlFor="leader">Office Leader</Label>
-                <Select value={newOffice.leaderId || ''} onValueChange={(value) => setNewOffice({ ...newOffice, leaderId: value })}>
+                <Select value={newOffice.leaderId || 'none'} onValueChange={(value) => setNewOffice({ ...newOffice, leaderId: value === 'none' ? '' : value })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a leader" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No leader</SelectItem>
+                    <SelectItem value="none">No leader</SelectItem>
                     {potentialLeaders.map((leader: User) => (
                       <SelectItem key={leader.id} value={leader.id}>
                         {leader.name} ({leader.role.replace('_', ' ')})
@@ -485,12 +485,12 @@ export default function OfficesTab() {
             </div>
             <div>
               <Label htmlFor="editLeader">Office Leader</Label>
-              <Select value={editOffice.leaderId || ''} onValueChange={(value) => setEditOffice({ ...editOffice, leaderId: value })}>
+              <Select value={editOffice.leaderId || 'none'} onValueChange={(value) => setEditOffice({ ...editOffice, leaderId: value === 'none' ? '' : value })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a leader" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No leader</SelectItem>
+                  <SelectItem value="none">No leader</SelectItem>
                   {potentialLeaders.map((leader: User) => (
                     <SelectItem key={leader.id} value={leader.id}>
                       {leader.name} ({leader.role.replace('_', ' ')})
