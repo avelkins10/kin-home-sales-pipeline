@@ -7,6 +7,8 @@ export interface Office {
   leaderName: string;
   /** Count of managers with office-based roles assigned to this office */
   managerCount: number;
+  /** Total count of all users assigned to this office */
+  userCount: number;
   activeProjects: number;
   createdAt: string;
   updatedAt: string;
