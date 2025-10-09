@@ -312,9 +312,47 @@ export async function searchQuickbaseUsers(searchTerm: string, monthsBack?: numb
       }
     });
 
-    const results = Array.from(userMap.values()).slice(0, 50); // Limit to 50 results
-    console.log('[searchQuickbaseUsers] Found', results.length, 'matching users');
-    
+    // Deduplicate by email and combine project counts + offices
+    const emailMap = new Map<string, QuickBaseUserData>();
+    Array.from(userMap.values()).forEach((user) => {
+      if (!user.email) {
+        // Keep users without emails as separate entries
+        emailMap.set(user.quickbaseUserId, user);
+        return;
+      }
+
+      const existing = emailMap.get(user.email);
+      if (!existing) {
+        // First time seeing this email - add with offices array
+        emailMap.set(user.email, {
+          ...user,
+          offices: user.office ? [user.office] : [],
+          projectCount: user.projectCount || 1,
+        });
+      } else {
+        // Merge with existing entry
+        existing.projectCount = (existing.projectCount || 0) + (user.projectCount || 1);
+
+        // Add office to offices array if not already present
+        if (user.office && !existing.offices?.includes(user.office)) {
+          existing.offices = [...(existing.offices || []), user.office];
+        }
+
+        // Keep the most recent project date
+        if (user.lastProjectDate && (!existing.lastProjectDate || user.lastProjectDate > existing.lastProjectDate)) {
+          existing.lastProjectDate = user.lastProjectDate;
+        }
+
+        // Prefer the quickbaseUserId with more recent activity
+        if (user.lastProjectDate && existing.lastProjectDate && user.lastProjectDate > existing.lastProjectDate) {
+          existing.quickbaseUserId = user.quickbaseUserId;
+        }
+      }
+    });
+
+    const results = Array.from(emailMap.values()).slice(0, 50);
+    console.log('[searchQuickbaseUsers] Found', results.length, 'unique users (deduplicated by email)');
+
     return results;
   } catch (error) {
     console.error('[searchQuickbaseUsers] Error:', error);

@@ -52,8 +52,10 @@ export interface QuickBaseUserData {
   phone?: string
   role: 'closer' | 'setter'
   office?: string
+  offices?: string[] // Multiple offices for users with projects across offices
   lastProjectDate?: string
   projectCount?: number
+  activeProjectCount?: number // Projects in last 6 months
 }
 
 export interface InviteUserInput {
