@@ -323,19 +323,21 @@ export async function searchQuickbaseUsers(searchTerm: string, monthsBack?: numb
 
       const existing = emailMap.get(user.email);
       if (!existing) {
-        // First time seeing this email - add with offices array
+        // First time seeing this email - add with offices array (filter out empty/invalid values)
+        const validOffice = user.office && user.office.trim() && user.office.toLowerCase() !== 'text' && user.office.toLowerCase() !== 'n/a' ? user.office : null;
         emailMap.set(user.email, {
           ...user,
-          offices: user.office ? [user.office] : [],
+          offices: validOffice ? [validOffice] : [],
           projectCount: user.projectCount || 1,
         });
       } else {
         // Merge with existing entry
         existing.projectCount = (existing.projectCount || 0) + (user.projectCount || 1);
 
-        // Add office to offices array if not already present
-        if (user.office && !existing.offices?.includes(user.office)) {
-          existing.offices = [...(existing.offices || []), user.office];
+        // Add office to offices array if not already present (filter out empty/invalid values)
+        const validOffice = user.office && user.office.trim() && user.office.toLowerCase() !== 'text' && user.office.toLowerCase() !== 'n/a' ? user.office : null;
+        if (validOffice && !existing.offices?.includes(validOffice)) {
+          existing.offices = [...(existing.offices || []), validOffice];
         }
 
         // Keep the most recent project date
