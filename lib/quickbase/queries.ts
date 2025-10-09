@@ -30,7 +30,7 @@ async function getManagedUserIds(managerId: string): Promise<string[]> {
     const managedUserIds = result.rows
       .map(row => row.quickbase_user_id)
       .filter(Boolean)
-      .flatMap(id => id.split(',').map(id => id.trim())); // Handle comma-separated IDs
+      .flatMap(id => id.split(',').map((subId: string) => subId.trim())); // Handle comma-separated IDs
     
     console.log('[getManagedUserIds] Found managed users:', managedUserIds);
     return managedUserIds;

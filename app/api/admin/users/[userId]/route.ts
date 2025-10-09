@@ -23,12 +23,14 @@ export async function PATCH(
     const validatedData = updateUserSchema.parse(body)
 
     // Extract hierarchy and office access fields
-    const { 
-      managedBy, 
-      manages, 
-      officeAccess,
-      ...basicFields 
+    const {
+      managedBy,
+      manages,
+      ...basicFields
     } = validatedData
+
+    // Extract officeAccess separately to allow reassignment after validation
+    let officeAccess = validatedData.officeAccess
 
     // Create canonical office access for mapped values
     let canonicalOfficeAccess = officeAccess
@@ -185,14 +187,15 @@ export async function PATCH(
         const validatedOffices = await validateOffices(officesToValidate)
         // Use validated office names
         if (basicFields.office) {
-          const validatedOffice = validatedOffices.find(o => o === basicFields.office || o === normalizeOfficeName(basicFields.office))
+          const officeToValidate = basicFields.office
+          const validatedOffice = validatedOffices.find(o => o === officeToValidate || o === normalizeOfficeName(officeToValidate))
           if (validatedOffice) basicFields.office = validatedOffice
         }
         if (canonicalOfficeAccess && canonicalOfficeAccess.length > 0) {
           canonicalOfficeAccess = canonicalOfficeAccess.map(access => ({
             ...access,
             officeName: validatedOffices.find(o => o === access.officeName || o === normalizeOfficeName(access.officeName)) || access.officeName
-          }))
+          })) as typeof canonicalOfficeAccess
         }
       } catch (error) {
         return NextResponse.json(

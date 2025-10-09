@@ -181,7 +181,7 @@ export function InviteUserDialog({ open, onOpenChange }: InviteUserDialogProps) 
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="">No office</SelectItem>
-                {availableOffices.map((office) => (
+                {availableOffices.map((office: string) => (
                   <SelectItem key={office} value={office}>
                     {office}
                   </SelectItem>

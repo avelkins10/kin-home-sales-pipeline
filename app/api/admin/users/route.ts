@@ -144,10 +144,13 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = createUserSchema.parse(body)
 
-    const { 
-      name, email, phone, role, quickbaseUserId, office, region, temporaryPassword,
-      managedBy, manages, officeAccess 
+    const {
+      name, email, phone, role, quickbaseUserId, region, temporaryPassword,
+      managedBy, manages
     } = validatedData
+
+    // Extract office and officeAccess separately to allow reassignment after validation
+    let { office, officeAccess } = validatedData
 
     // Check email uniqueness
     const existingUser = await sql.query('SELECT id FROM users WHERE email = $1', [email])
@@ -199,20 +202,21 @@ export async function POST(request: NextRequest) {
     if (officeAccess && officeAccess.length > 0) {
       officesToValidate.push(...officeAccess.map(access => access.officeName))
     }
-    
+
     if (officesToValidate.length > 0) {
       try {
         const validatedOffices = await validateOffices(officesToValidate)
         // Use validated office names
         if (office) {
-          const validatedOffice = validatedOffices.find(o => o === office || o === normalizeOfficeName(office))
+          const officeToValidate = office
+          const validatedOffice = validatedOffices.find(o => o === officeToValidate || o === normalizeOfficeName(officeToValidate))
           if (validatedOffice) office = validatedOffice
         }
         if (officeAccess && officeAccess.length > 0) {
           officeAccess = officeAccess.map(access => ({
             ...access,
             officeName: validatedOffices.find(o => o === access.officeName || o === normalizeOfficeName(access.officeName)) || access.officeName
-          }))
+          })) as typeof officeAccess
         }
       } catch (error) {
         return NextResponse.json(

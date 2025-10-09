@@ -5,7 +5,16 @@ import { NextResponse } from 'next/server';
 import { authOptions } from './next-auth.config';
 import type { Session } from 'next-auth';
 
-export type UserRole = 'closer' | 'setter' | 'office_leader' | 'regional' | 'super_admin';
+export type UserRole =
+  | 'closer'
+  | 'setter'
+  | 'coordinator'
+  | 'team_lead'
+  | 'office_leader'
+  | 'area_director'
+  | 'divisional'
+  | 'regional'
+  | 'super_admin';
 
 export type AuthGuardResult = 
   | { authorized: true; session: Session }

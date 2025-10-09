@@ -139,7 +139,7 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
       }
     }
 
-    return rootUsers.map(user => buildNode(user, 0))
+    return rootUsers.map((user: User) => buildNode(user, 0))
   }
 
   // Assign users mutation
@@ -287,7 +287,7 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
                     setSelectedManager(node.user.id)
                     setAssignDialogOpen(true)
                   }}
-                  disabled={!(['team_lead', 'office_leader', 'area_director', 'divisional', 'regional', 'super_admin'] as const satisfies readonly UserRole[]).includes(node.user.role)}
+                  disabled={!(['team_lead', 'office_leader', 'area_director', 'divisional', 'regional', 'super_admin'] as const).includes(node.user.role as any)}
                 >
                   <UserPlus className="h-4 w-4 mr-1" />
                   Assign
@@ -327,8 +327,8 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
   const availableManagers = users.filter((user: User) => 
     ROLE_MANAGERS.includes(user.role)
   )
-  const availableUsers = users.filter((user: User) => 
-    !(['super_admin'] as const satisfies readonly UserRole[]).includes(user.role) && user.is_active
+  const availableUsers = users.filter((user: User) =>
+    !(['super_admin'] as const).includes(user.role as any) && user.is_active
   )
 
   return (
@@ -381,7 +381,7 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
                   <SelectValue placeholder="Select manager" />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableManagers.map((manager) => (
+                  {availableManagers.map((manager: User) => (
                     <SelectItem key={manager.id} value={manager.id}>
                       {manager.name} ({getRoleDisplayName(manager.role)})
                     </SelectItem>
@@ -401,8 +401,8 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
                 </SelectTrigger>
                 <SelectContent>
                   {availableUsers
-                    .filter(user => user.id !== selectedManager)
-                    .map((user) => (
+                    .filter((user: User) => user.id !== selectedManager)
+                    .map((user: User) => (
                       <SelectItem key={user.id} value={user.id}>
                         {user.name} ({getRoleDisplayName(user.role)})
                       </SelectItem>
@@ -436,7 +436,7 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
           <DialogHeader>
             <DialogTitle>Remove Assignment</DialogTitle>
             <DialogDescription>
-              Are you sure you want to remove this user from their manager's team?
+              Are you sure you want to remove this user from their manager&apos;s team?
             </DialogDescription>
           </DialogHeader>
           

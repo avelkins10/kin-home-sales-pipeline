@@ -11,6 +11,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { searchQuickbaseUsers } from '@/lib/quickbase/userQueries'
 import { validateOffices } from '@/lib/db/offices'
 import { normalizeOfficeName } from '@/lib/constants/offices'
+import { sendInviteEmail, sendWelcomeEmail, validateEmailConfig } from '@/lib/utils/email-helpers'
 
 /**
  * POST /api/admin/users/invite
@@ -27,6 +28,19 @@ export async function POST(request: NextRequest) {
     const validatedData = inviteUserSchema.parse(body)
 
     const { email, name, role, office, offices, sendEmail } = validatedData
+
+    // Validate email configuration if sending email
+    if (sendEmail) {
+      const emailConfig = validateEmailConfig()
+      if (!emailConfig.valid) {
+        logInfo('Email not configured, invite will be created without sending email', { 
+          missingVars: emailConfig.missingVars,
+          email,
+          name,
+          role
+        })
+      }
+    }
 
     // Validate office names
     const officesToValidate: string[] = []
@@ -45,9 +59,9 @@ export async function POST(request: NextRequest) {
           validatedOffice = validated.find(o => o === office || o === normalizeOfficeName(office)) || office
         }
         if (offices && offices.length > 0) {
-          validatedOffices = offices.map(origOffice => 
+          validatedOffices = offices.map(origOffice =>
             validated.find(o => o === origOffice || o === normalizeOfficeName(origOffice)) || origOffice
-          )
+          ) as typeof offices
         }
       } catch (error) {
         return NextResponse.json(
@@ -115,17 +129,33 @@ export async function POST(request: NextRequest) {
       await sql.query('COMMIT')
 
       // Send invite email if requested
+      let emailSent = false
       if (sendEmail) {
         const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL}/accept-invite?token=${inviteToken}`
         
-        // TODO: Implement email sending
-        // await sendInviteEmail(email, name, role, inviteLink)
-        
-        logInfo('Invite email would be sent', { 
+        const emailResult = await sendInviteEmail(
           email, 
-          inviteLink,
-          note: 'Email sending not implemented yet'
-        })
+          name, 
+          role, 
+          inviteLink, 
+          auth.session.user.name,
+          validatedOffice,
+          validatedOffices
+        )
+        
+        emailSent = emailResult.success
+        
+        if (emailResult.success) {
+          logInfo('Invite email sent successfully', { 
+            userId: user.id, 
+            email 
+          })
+        } else {
+          logInfo('Invite created but email failed to send', { 
+            userId: user.id, 
+            error: emailResult.error 
+          })
+        }
       }
 
       // Log audit event
@@ -140,7 +170,8 @@ export async function POST(request: NextRequest) {
           role: { old: null, new: role },
           office: { old: null, new: validatedOffice },
           offices: { old: null, new: validatedOffices },
-          sendEmail: { old: null, new: sendEmail }
+          sendEmail: { old: null, new: sendEmail },
+          emailSent: { old: null, new: emailSent }
         }
       )
 
@@ -160,7 +191,8 @@ export async function POST(request: NextRequest) {
           role: user.role,
           inviteToken: user.invite_token,
           inviteLink: `${process.env.NEXT_PUBLIC_APP_URL}/accept-invite?token=${inviteToken}`,
-          invitedAt: user.invited_at
+          invitedAt: user.invited_at,
+          emailSent
         }
       })
     } catch (error) {
@@ -392,6 +424,14 @@ export async function PUT(request: NextRequest) {
       email: user.email,
       role: user.role
     })
+
+    // Send welcome email (fire and forget)
+    try {
+      await sendWelcomeEmail(user.email, user.name, user.role)
+      logInfo('Welcome email sent', { userId: user.id })
+    } catch (error) {
+      logError('Failed to send welcome email', error as Error, { userId: user.id })
+    }
 
     return NextResponse.json({
       success: true,

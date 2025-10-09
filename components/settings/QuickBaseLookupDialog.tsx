@@ -250,7 +250,7 @@ export function QuickBaseLookupDialog({ open, onOpenChange }: QuickBaseLookupDia
                 </div>
               ) : (
                 <div className="text-center py-4 text-gray-500">
-                  No users found for "{searchQuery}"
+                  No users found for &quot;{searchQuery}&quot;
                 </div>
               )}
             </div>
@@ -327,7 +327,7 @@ export function QuickBaseLookupDialog({ open, onOpenChange }: QuickBaseLookupDia
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="">No office</SelectItem>
-                        {availableOffices.map((office) => (
+                        {availableOffices.map((office: string) => (
                           <SelectItem key={office} value={office}>
                             {office}
                           </SelectItem>

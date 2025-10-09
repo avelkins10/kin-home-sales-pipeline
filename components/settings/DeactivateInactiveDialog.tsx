@@ -144,7 +144,7 @@ export function DeactivateInactiveDialog({ open, onOpenChange }: DeactivateInact
         <DialogHeader>
           <DialogTitle>Deactivate Inactive Users</DialogTitle>
           <DialogDescription>
-            Deactivate users who haven't had project activity in the specified time period.
+            Deactivate users who haven&apos;t had project activity in the specified time period.
           </DialogDescription>
         </DialogHeader>
         

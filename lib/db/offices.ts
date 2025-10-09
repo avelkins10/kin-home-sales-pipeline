@@ -21,7 +21,7 @@ export async function validateOffices(names: string[]): Promise<string[]> {
   const dbOffices = result.rows.map(row => row.name)
   
   // Combine with canonical offices from constants
-  const allCanonicalOffices = [...new Set([...CANONICAL_OFFICES, ...dbOffices])]
+  const allCanonicalOffices = Array.from(new Set([...CANONICAL_OFFICES, ...dbOffices]))
   
   const validatedOffices: string[] = []
   const invalidOffices: string[] = []
@@ -55,7 +55,7 @@ export async function getAvailableOffices(): Promise<string[]> {
     const dbOffices = result.rows.map(row => row.name)
     
     // Combine with canonical offices from constants
-    const allOffices = [...new Set([...CANONICAL_OFFICES, ...dbOffices])]
+    const allOffices = Array.from(new Set([...CANONICAL_OFFICES, ...dbOffices]))
     
     return allOffices.sort()
   } catch (error) {
@@ -135,7 +135,7 @@ export async function syncOfficesFromQuickBase(): Promise<{
     console.log(`[syncOfficesFromQuickBase] Found ${officeNames.size} unique offices in QuickBase`)
 
     // Insert offices into database using UPSERT
-    for (const officeName of officeNames) {
+    for (const officeName of Array.from(officeNames)) {
       try {
         // Use UPSERT to prevent race conditions
         const result = await sql.query(

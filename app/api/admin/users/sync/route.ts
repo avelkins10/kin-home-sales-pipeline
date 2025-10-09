@@ -13,6 +13,8 @@ import { getActiveUsersFromQuickbase } from '@/lib/quickbase/userQueries'
  * Smart QuickBase user synchronization (only active users)
  */
 export async function POST(request: NextRequest) {
+  const lockKey = 'user_sync_lock'
+
   try {
     const auth = await requireRole(['super_admin'])
     if (!auth.authorized) {
@@ -20,7 +22,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Rate limiting: Check if sync is already running or was executed recently
-    const lockKey = 'user_sync_lock'
     const lockResult = await sql.query(`
       SELECT pg_try_advisory_lock(hashtext($1)) as acquired
     `, [lockKey])

@@ -37,11 +37,17 @@ let lastMissingSecretWarnAt: number | null = null;
  * @param context - Additional context object
  */
 export function logInfo(message: string, context?: Record<string, any>) {
+  // Add email category for email-related logs
+  const enhancedContext = context ? { ...context } : {};
+  if (message.toLowerCase().includes('email')) {
+    enhancedContext.category = 'email';
+  }
+
   if (isDev) {
-    console.log('[INFO]', message, redactSensitive(context));
-  } else if (context?.important) {
-    // Only log important info in production
-    console.log(message, redactSensitive(context));
+    console.log('[INFO]', message, redactSensitive(enhancedContext));
+  } else if (enhancedContext?.important || enhancedContext?.category === 'email') {
+    // Log important info and email logs in production
+    console.log(message, redactSensitive(enhancedContext));
   }
 }
 
@@ -210,6 +216,37 @@ export function logSyncEvent(event: 'start' | 'success' | 'failure', context: { 
   }
 }
 
+/**
+ * Log email send events with metrics
+ * @param event - Email event type
+ * @param context - Event context with recipient, type, success/failure
+ */
+export function logEmailEvent(
+  event: 'send_attempt' | 'send_success' | 'send_failure' | 'send_skipped',
+  context: { 
+    recipient: string; 
+    emailType: 'invite' | 'welcome' | 'password_reset' | 'custom';
+    success?: boolean;
+    error?: string;
+    duration?: number;
+  }
+) {
+  const baseContext = {
+    category: 'email',
+    ...context
+  };
+
+  if (event === 'send_attempt') {
+    logInfo(`[EMAIL] Sending ${context.emailType} email to ${context.recipient}`, baseContext);
+  } else if (event === 'send_success') {
+    logInfo(`[EMAIL] ${context.emailType} email sent successfully to ${context.recipient}`, baseContext);
+  } else if (event === 'send_failure') {
+    logError(`[EMAIL] Failed to send ${context.emailType} email to ${context.recipient}`, undefined, baseContext);
+  } else if (event === 'send_skipped') {
+    logInfo(`[EMAIL] ${context.emailType} email skipped for ${context.recipient} (email disabled/not configured)`, baseContext);
+  }
+}
+
 export async function logAudit(
   action: string,
   resource: string,
@@ -226,6 +263,13 @@ export async function logAudit(
     userId,
     changes: changes || {},
     requestId: meta?.requestId,
+    // Add email-specific metadata for email audit events
+    ...(action.includes('email') && {
+      emailType: action.includes('invite') ? 'invite' : action.includes('welcome') ? 'welcome' : 'other',
+      recipient: changes?.email?.new || changes?.to?.new,
+      success: changes?.emailSent?.new !== false,
+      error: changes?.error?.new
+    })
   };
 
   // Log to console in development

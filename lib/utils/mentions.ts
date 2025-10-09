@@ -29,12 +29,10 @@ export async function resolveMentions(userIds: string[]): Promise<ParsedMention[
   }
 
   try {
-    const result = await sql`
-      SELECT id, name, email
-      FROM users
-      WHERE id = ANY(${userIds}::uuid[])
-        AND is_active = true
-    `;
+    const result = await sql.query(
+      'SELECT id, name, email FROM users WHERE id = ANY($1::uuid[]) AND is_active = true',
+      [userIds]
+    );
 
     return result.rows.map(row => ({
       user_id: row.id,

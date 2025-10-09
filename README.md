@@ -142,6 +142,36 @@ npm run dev
 
 ## Key Features
 
+### Email Configuration (Optional)
+
+The invite system can send email invitations automatically. Email is **optional** - the app works without it by sharing invite links manually.
+
+**Supported Providers:**
+- **Resend** (recommended) - Simple setup, excellent deliverability
+- **SendGrid** - Alternative for existing users
+
+**Setup Steps:**
+1. Choose a provider and sign up for an account
+2. Verify your sender domain (required for production)
+3. Get your API key from the provider dashboard
+4. Add to `.env.local`:
+   ```
+   EMAIL_ENABLED=true
+   MAIL_PROVIDER=resend
+   RESEND_API_KEY=your_api_key_here
+   MAIL_FROM=Kin Home Sales <no-reply@yourdomain.com>
+   ```
+5. Test by creating an invite with "Send email" checked
+
+**Without Email:**
+If email is not configured, admins can still create invites and share the invite link manually (copy/paste). The invite system works identically, just without automatic email delivery.
+
+**Troubleshooting:**
+- Check server logs for email send errors
+- Verify sender domain is verified in your email provider
+- Ensure API key has send permissions
+- Test with a personal email first (not corporate email that may block)
+
 ### 9-Milestone Project Timeline
 1. **Intake** - Project initiation and tentative install date
 2. **Survey** - Site survey and approval
@@ -166,6 +196,12 @@ npm run dev
 - Request queuing and exponential backoff
 - 30-second cache with React Query
 - Optimistic updates for instant feedback
+
+### User Provisioning
+- 📧 Invite-based user provisioning with optional email delivery
+- Role-based access control with office assignments
+- QuickBase data auto-sync on account activation
+- Secure token-based invite system with 7-day expiration
 
 ## Security
 
