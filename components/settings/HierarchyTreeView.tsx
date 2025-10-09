@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useDebounce } from 'use-debounce'
 import { DndContext, DragOverlay, useDraggable, useDroppable, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
@@ -43,6 +43,7 @@ import { getRoleBadgeVariant, getRoleDisplayName } from '@/lib/utils/roles'
 import { getActivityStatus, getActivityColor, getActivityLabel, formatLastActivity } from '@/lib/utils/activity'
 import { getInitials, getAvatarColor, getAvatarTextColor } from '@/lib/utils/avatar'
 import type { UserRole } from '@/lib/types/project'
+import { UserDetailsDialog } from './UserDetailsDialog'
 import { 
   Users, 
   UserPlus, 
@@ -113,6 +114,8 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
   const [selectedUsers, setSelectedUsers] = useState<string[]>([])
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false)
   const [removalTarget, setRemovalTarget] = useState<{ managerId: string; userId: string } | null>(null)
+  const [userDetailsOpen, setUserDetailsOpen] = useState(false)
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   
   // Search and filter state
   const [searchTerm, setSearchTerm] = useState('')
@@ -150,9 +153,51 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
     },
   })
 
-  // Filter users based on search and filter criteria
-  const filteredUsers = useMemo(() => {
-    return users.filter((user: User) => {
+
+  // Build hierarchy tree from all users, then apply filtering
+  const buildHierarchyTree = (): HierarchyNode[] => {
+    const userMap = new Map<string, User>()
+    const childrenMap = new Map<string, string[]>()
+    const managerMap = new Map<string, string>()
+
+    // Build user map from ALL users
+    users.forEach((user: User) => {
+      userMap.set(user.id, user)
+    })
+
+    // Build relationships from hierarchies (for ALL users)
+    hierarchies.forEach((hierarchy: Hierarchy) => {
+      if (userMap.has(hierarchy.manager_id) && userMap.has(hierarchy.user_id)) {
+        if (!childrenMap.has(hierarchy.manager_id)) {
+          childrenMap.set(hierarchy.manager_id, [])
+        }
+        childrenMap.get(hierarchy.manager_id)!.push(hierarchy.user_id)
+        managerMap.set(hierarchy.user_id, hierarchy.manager_id)
+      }
+    })
+
+    // Find root nodes (users with no manager AND roles super_admin or regional)
+    const rootUsers = users.filter((user: User) => 
+      !managerMap.has(user.id) && ['super_admin', 'regional'].includes(user.role)
+    )
+
+    const buildNode = (user: User, level: number): HierarchyNode => {
+      const children = childrenMap.get(user.id) || []
+      return {
+        user,
+        children: children.map(childId => {
+          const childUser = userMap.get(childId)
+          return childUser ? buildNode(childUser, level + 1) : null
+        }).filter(Boolean) as HierarchyNode[],
+        level
+      }
+    }
+
+    // Build complete tree from all users
+    const completeTree = rootUsers.map((user: User) => buildNode(user, 0))
+
+    // Apply recursive filter that preserves parents of matching children
+    const matches = (user: User): boolean => {
       // Search filter
       if (debouncedSearchTerm) {
         const searchLower = debouncedSearchTerm.toLowerCase()
@@ -189,47 +234,25 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
       }
 
       return true
-    })
-  }, [users, debouncedSearchTerm, roleFilter, activityFilter, officeFilter])
-
-  // Build hierarchy tree with filtered users
-  const buildHierarchyTree = (): HierarchyNode[] => {
-    const userMap = new Map<string, User>()
-    const childrenMap = new Map<string, string[]>()
-    const managerMap = new Map<string, string>()
-
-    // Build user map from filtered users
-    filteredUsers.forEach((user: User) => {
-      userMap.set(user.id, user)
-    })
-
-    // Build relationships from hierarchies (only for filtered users)
-    hierarchies.forEach((hierarchy: Hierarchy) => {
-      if (userMap.has(hierarchy.manager_id) && userMap.has(hierarchy.user_id)) {
-        if (!childrenMap.has(hierarchy.manager_id)) {
-          childrenMap.set(hierarchy.manager_id, [])
-        }
-        childrenMap.get(hierarchy.manager_id)!.push(hierarchy.user_id)
-        managerMap.set(hierarchy.user_id, hierarchy.manager_id)
-      }
-    })
-
-    // Find root nodes (users with no manager in filtered set)
-    const rootUsers = filteredUsers.filter((user: User) => !managerMap.has(user.id))
-
-    const buildNode = (user: User, level: number): HierarchyNode => {
-      const children = childrenMap.get(user.id) || []
-      return {
-        user,
-        children: children.map(childId => {
-          const childUser = userMap.get(childId)
-          return childUser ? buildNode(childUser, level + 1) : null
-        }).filter(Boolean) as HierarchyNode[],
-        level
-      }
     }
 
-    return rootUsers.map((user: User) => buildNode(user, 0))
+    const filterTree = (nodes: HierarchyNode[]): HierarchyNode[] => {
+      return nodes.map(node => {
+        const filteredChildren = filterTree(node.children)
+        const userMatches = matches(node.user)
+        
+        // Include node if it matches OR has matching children
+        if (userMatches || filteredChildren.length > 0) {
+          return {
+            ...node,
+            children: filteredChildren
+          }
+        }
+        return null
+      }).filter(Boolean) as HierarchyNode[]
+    }
+
+    return filterTree(completeTree)
   }
 
   // Assign users mutation
@@ -300,6 +323,45 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
     setExpandedNodes(newExpanded)
   }
 
+  const openUserDetails = (userId: string) => {
+    setSelectedUserId(userId)
+    setUserDetailsOpen(true)
+  }
+
+  // Highlight search terms in text
+  const highlightSearchTerm = (text: string, searchTerm: string) => {
+    if (!searchTerm) return text
+    
+    const regex = new RegExp(`(${searchTerm})`, 'gi')
+    const parts = text.split(regex)
+    
+    return parts.map((part, index) => 
+      regex.test(part) ? (
+        <mark key={index} className="bg-yellow-200 px-1 rounded">
+          {part}
+        </mark>
+      ) : part
+    )
+  }
+
+  // Check if a drop is valid based on role hierarchy
+  const canDrop = (dragRole: UserRole, targetRole: UserRole): boolean => {
+    // Only allow dragging for setter, closer, team_lead
+    if (!['setter', 'closer', 'team_lead'].includes(dragRole)) {
+      return false
+    }
+    
+    // Restrict drops: setter|closer -> team_lead and team_lead -> office_leader
+    if (['setter', 'closer'].includes(dragRole) && targetRole === 'team_lead') {
+      return true
+    }
+    if (dragRole === 'team_lead' && targetRole === 'office_leader') {
+      return true
+    }
+    
+    return false
+  }
+
   // Drag and drop handlers
   const handleDragStart = (event: any) => {
     setActiveId(event.active.id)
@@ -316,10 +378,9 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
 
     if (!draggedUser || !targetManager) return
 
-    // Validate drop target
-    const validManagerRoles: UserRole[] = ['team_lead', 'office_leader', 'area_director', 'divisional', 'regional', 'super_admin']
-    if (!validManagerRoles.includes(targetManager.role)) {
-      toast.error('Cannot assign to this role')
+    // Check if drop is valid based on role hierarchy
+    if (!canDrop(draggedUser.role, targetManager.role)) {
+      toast.error('Invalid role assignment')
       return
     }
 
@@ -329,9 +390,24 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
       return
     }
 
-    // Prevent circular hierarchy
-    if (draggedUser.role === 'super_admin') {
-      toast.error('Cannot reassign super admin')
+    // Prevent circular hierarchy by checking if target is a descendant
+    const getDescendants = (userId: string): string[] => {
+      const descendants: string[] = []
+      const directChildren = hierarchies
+        .filter((h: Hierarchy) => h.manager_id === userId)
+        .map((h: Hierarchy) => h.user_id)
+      
+      directChildren.forEach((childId: string) => {
+        descendants.push(childId)
+        descendants.push(...getDescendants(childId))
+      })
+      
+      return descendants
+    }
+
+    const descendants = getDescendants(draggedUser.id)
+    if (descendants.includes(targetManager.id)) {
+      toast.error('Cannot create circular hierarchy')
       return
     }
 
@@ -380,9 +456,10 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
 
   // Draggable User Node Component
   function DraggableUserNode({ node, children }: { node: HierarchyNode; children: React.ReactNode }) {
+    const canDrag = ['setter', 'closer', 'team_lead'].includes(node.user.role)
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
       id: node.user.id,
-      disabled: node.user.role === 'super_admin'
+      disabled: !canDrag
     })
 
     const style = transform ? {
@@ -395,7 +472,7 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
         style={style}
         {...attributes}
         {...listeners}
-        className={`${isDragging ? 'opacity-50' : ''} ${node.user.role === 'super_admin' ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'}`}
+        className={`${isDragging ? 'opacity-50' : ''} ${canDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-not-allowed'}`}
       >
         {children}
       </div>
@@ -404,18 +481,29 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
 
   // Droppable Manager Node Component
   function DroppableManagerNode({ node, children }: { node: HierarchyNode; children: React.ReactNode }) {
-    const validManagerRoles: UserRole[] = ['team_lead', 'office_leader', 'area_director', 'divisional', 'regional', 'super_admin']
-    const isDroppable = validManagerRoles.includes(node.user.role)
-    
     const { isOver, setNodeRef } = useDroppable({
-      id: node.user.id,
-      disabled: !isDroppable
+      id: node.user.id
     })
+
+    // Check if current drag would be valid
+    const isDragValid = activeId ? (() => {
+      const draggedUser = users.find((u: User) => u.id === activeId)
+      return draggedUser ? canDrop(draggedUser.role, node.user.role) : false
+    })() : false
+
+    const getDropStyles = () => {
+      if (!isOver) return ''
+      if (isDragValid) {
+        return 'ring-2 ring-green-500 ring-opacity-50'
+      } else {
+        return 'ring-2 ring-red-500 ring-opacity-50 cursor-not-allowed'
+      }
+    }
 
     return (
       <div
         ref={setNodeRef}
-        className={`${isOver && isDroppable ? 'ring-2 ring-green-500 ring-opacity-50' : ''}`}
+        className={getDropStyles()}
       >
         {children}
       </div>
@@ -434,8 +522,8 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
     const avatarColor = getAvatarColor(node.user.role)
     const textColor = getAvatarTextColor()
 
-    // Get managed user count
-    const managedCount = node.user.manages?.length || 0
+    // Get managed user count from constructed hierarchy
+    const managedCount = node.children.length
 
     // Get office information
     const allOffices = [
@@ -447,7 +535,10 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
     const nodeContent = (
       <ContextMenu>
         <ContextMenuTrigger asChild>
-          <Card className={`mb-2 ${node.level > 0 ? 'ml-6' : ''} transition-all hover:shadow-md`}>
+          <Card 
+            className={`mb-2 ${node.level > 0 ? 'ml-6' : ''} transition-all hover:shadow-md cursor-pointer`}
+            onClick={() => openUserDetails(node.user.id)}
+          >
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -484,7 +575,7 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
 
                     <div className="flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="font-medium">{node.user.name}</h4>
+                        <h4 className="font-medium">{highlightSearchTerm(node.user.name, debouncedSearchTerm)}</h4>
                         <Badge variant={getRoleBadgeVariant(node.user.role)}>
                           {getRoleDisplayName(node.user.role)}
                         </Badge>
@@ -496,7 +587,7 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
                       </div>
                       
                       <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
-                        <span>{node.user.email}</span>
+                        <span>{highlightSearchTerm(node.user.email, debouncedSearchTerm)}</span>
                         
                         {/* Office display */}
                         {node.user.office && (
@@ -576,10 +667,7 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
         </ContextMenuTrigger>
         
         <ContextMenuContent>
-          <ContextMenuItem onClick={() => {
-            // Navigate to user profile if exists
-            toast.info('User profile view not implemented yet')
-          }}>
+          <ContextMenuItem onClick={() => openUserDetails(node.user.id)}>
             <Eye className="h-4 w-4 mr-2" />
             View Profile
           </ContextMenuItem>
@@ -673,6 +761,60 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
   }
 
   const hierarchyTree = buildHierarchyTree()
+
+  // Auto-expand nodes when filters change
+  useEffect(() => {
+    if (hasActiveFilters) {
+      const newExpanded = new Set<string>()
+      
+      // Find all nodes that should be expanded (those with matching children)
+      const findNodesToExpand = (nodes: HierarchyNode[]) => {
+        nodes.forEach(node => {
+          // Check if this node or any of its descendants match the filter
+          const hasMatchingDescendants = (n: HierarchyNode): boolean => {
+            if (n.children.length === 0) return false
+            return n.children.some(child => hasMatchingDescendants(child)) || 
+                   n.children.some(child => {
+                     // Check if child matches current filters
+                     const matches = (user: User): boolean => {
+                       if (debouncedSearchTerm) {
+                         const searchLower = debouncedSearchTerm.toLowerCase()
+                         const matchesSearch = 
+                           user.name.toLowerCase().includes(searchLower) ||
+                           user.email.toLowerCase().includes(searchLower)
+                         if (!matchesSearch) return false
+                       }
+                       if (roleFilter !== 'all' && user.role !== roleFilter) return false
+                       if (activityFilter !== 'all') {
+                         const activityStatus = getActivityStatus(user.lastProjectDate)
+                         if (activityStatus !== activityFilter) return false
+                       }
+                       if (officeFilter !== 'all') {
+                         const userOffices = [
+                           user.office,
+                           ...(user.salesOffice || []),
+                           ...(user.officeAccess?.map(oa => oa.officeName) || [])
+                         ].filter(Boolean)
+                         if (!userOffices.includes(officeFilter)) return false
+                       }
+                       return true
+                     }
+                     return matches(child.user)
+                   })
+          }
+          
+          if (hasMatchingDescendants(node)) {
+            newExpanded.add(node.user.id)
+            findNodesToExpand(node.children)
+          }
+        })
+      }
+      
+      findNodesToExpand(hierarchyTree)
+      setExpandedNodes(newExpanded)
+    }
+  }, [debouncedSearchTerm, roleFilter, activityFilter, officeFilter, hierarchyTree, hasActiveFilters])
+
   const ROLE_MANAGERS: readonly UserRole[] = ['team_lead', 'office_leader', 'area_director', 'divisional', 'regional', 'super_admin'] as const
   const availableManagers = users.filter((user: User) => 
     ROLE_MANAGERS.includes(user.role)
@@ -770,7 +912,7 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
 
             {/* Results count */}
             <div className="text-sm text-gray-600">
-              Showing {filteredUsers.length} of {users.length} users
+              Showing {hierarchyTree.length} of {users.length} users
             </div>
           </div>
         </CardContent>
@@ -937,6 +1079,16 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* User Details Dialog */}
+      <UserDetailsDialog
+        userId={selectedUserId}
+        isOpen={userDetailsOpen}
+        onClose={() => {
+          setUserDetailsOpen(false)
+          setSelectedUserId(null)
+        }}
+      />
     </div>
   )
 }
