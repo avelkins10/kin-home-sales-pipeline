@@ -680,6 +680,9 @@ export function getMilestoneStatus(project: QuickbaseProject, milestoneId: strin
 export function getCurrentMilestone(project: QuickbaseProject): string {
   const allConfigs = getAllMilestoneConfigs();
 
+  // Track the first incomplete milestone (fallback for blocked projects)
+  let firstIncomplete: string | null = null;
+
   // Find the first milestone that is either in-progress or pending (and not blocked)
   for (const config of allConfigs) {
     const status = getMilestoneStatus(project, config.id);
@@ -689,8 +692,18 @@ export function getCurrentMilestone(project: QuickbaseProject): string {
       continue;
     }
 
+    // Track first incomplete milestone (for fallback)
+    if (!firstIncomplete && status.state !== 'complete') {
+      firstIncomplete = config.id;
+    }
+
     // If in-progress or overdue, this is the current milestone
     if (status.state === 'in-progress' || status.state === 'overdue') {
+      return config.id;
+    }
+
+    // If ready to start, this is the current milestone
+    if (status.state === 'ready-for') {
       return config.id;
     }
 
@@ -698,6 +711,16 @@ export function getCurrentMilestone(project: QuickbaseProject): string {
     if (status.state === 'pending') {
       return config.id;
     }
+
+    // If blocked, this is the current milestone (stuck here)
+    if (status.state === 'blocked') {
+      return config.id;
+    }
+  }
+
+  // If we had an incomplete milestone, return it
+  if (firstIncomplete) {
+    return firstIncomplete;
   }
 
   // If all milestones are complete, return the last one
