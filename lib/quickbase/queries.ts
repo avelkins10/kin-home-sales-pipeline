@@ -122,12 +122,12 @@ export function buildRoleClause(userId: string, role: string, salesOffice?: stri
       }
       break;
     case 'closer':
-      clause = buildClause(PROJECT_FIELDS.CLOSER_ID, userIds);
-      console.log('[buildRoleClause] Closer role, filtering by closer ID:', clause);
-      break;
     case 'setter':
-      clause = buildClause(PROJECT_FIELDS.SETTER_ID, userIds);
-      console.log('[buildRoleClause] Setter role, filtering by setter ID:', clause);
+      // Show projects where user is EITHER closer OR setter (handles users who work in both capacities)
+      const closerClauseRep = buildClause(PROJECT_FIELDS.CLOSER_ID, userIds);
+      const setterClauseRep = buildClause(PROJECT_FIELDS.SETTER_ID, userIds);
+      clause = `(${closerClauseRep}) OR (${setterClauseRep})`;
+      console.log('[buildRoleClause] Rep role (closer/setter), showing both closer AND setter projects:', clause);
       break;
     case 'coordinator':
       clause = buildClause(PROJECT_FIELDS.PROJECT_COORDINATOR_ID, userIds);

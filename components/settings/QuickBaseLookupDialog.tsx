@@ -317,17 +317,15 @@ export function QuickBaseLookupDialog({ open, onOpenChange }: QuickBaseLookupDia
                         <TableHead>Role</TableHead>
                         <TableHead>Last Project</TableHead>
                         <TableHead>Projects</TableHead>
-                        <TableHead>Offices</TableHead>
                         <TableHead className="text-right">Action</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {searchResults.users.map((user: QuickBaseUser) => {
                         const activityStatus = getActivityStatus(user.lastProjectDate)
-                        const officesText = Array.isArray(user.offices) ? user.offices.join(', ') : (user.office || undefined)
                         return (
-                          <TableRow 
-                            key={user.quickbaseUserId} 
+                          <TableRow
+                            key={user.quickbaseUserId}
                             className={cn(
                               selectedUser?.quickbaseUserId === user.quickbaseUserId && 'ring-2 ring-blue-500'
                             )}
@@ -349,7 +347,6 @@ export function QuickBaseLookupDialog({ open, onOpenChange }: QuickBaseLookupDia
                                 </Badge>
                               )}
                             </TableCell>
-                            <TableCell>{officesText || '-'}</TableCell>
                             <TableCell className="text-right">
                               <Button size="sm" onClick={() => handleUserSelect(user)}>Select</Button>
                             </TableCell>
@@ -382,14 +379,9 @@ export function QuickBaseLookupDialog({ open, onOpenChange }: QuickBaseLookupDia
                         <p className="font-medium">✓ Found in QuickBase: {selectedUser.name}</p>
                         {activityStats.lastProjectDate && (
                           <p className="text-sm text-gray-600 mt-1">
-                            Last project: {formatRelativeDate(activityStats.lastProjectDate)} • 
-                            {activityStats.totalProjects || 0} total projects • 
+                            Last project: {formatRelativeDate(activityStats.lastProjectDate)} •
+                            {activityStats.totalProjects || 0} total projects •
                             {activityStats.activeProjects || 0} active
-                          </p>
-                        )}
-                        {activityStats.offices && activityStats.offices.length > 0 && (
-                          <p className="text-sm text-gray-600 mt-1">
-                            Offices: {activityStats.offices.join(', ')}
                           </p>
                         )}
                       </div>

@@ -312,7 +312,7 @@ export async function searchQuickbaseUsers(searchTerm: string, monthsBack?: numb
       }
     });
 
-    // Deduplicate by email and combine project counts + offices
+    // Deduplicate by email and combine project counts
     const emailMap = new Map<string, QuickBaseUserData>();
     Array.from(userMap.values()).forEach((user) => {
       if (!user.email) {
@@ -323,22 +323,14 @@ export async function searchQuickbaseUsers(searchTerm: string, monthsBack?: numb
 
       const existing = emailMap.get(user.email);
       if (!existing) {
-        // First time seeing this email - add with offices array (filter out empty/invalid values)
-        const validOffice = user.office && user.office.trim() && user.office.toLowerCase() !== 'text' && user.office.toLowerCase() !== 'n/a' ? user.office : null;
+        // First time seeing this email - add to map
         emailMap.set(user.email, {
           ...user,
-          offices: validOffice ? [validOffice] : [],
           projectCount: user.projectCount || 1,
         });
       } else {
-        // Merge with existing entry
+        // Merge with existing entry - combine project counts
         existing.projectCount = (existing.projectCount || 0) + (user.projectCount || 1);
-
-        // Add office to offices array if not already present (filter out empty/invalid values)
-        const validOffice = user.office && user.office.trim() && user.office.toLowerCase() !== 'text' && user.office.toLowerCase() !== 'n/a' ? user.office : null;
-        if (validOffice && !existing.offices?.includes(validOffice)) {
-          existing.offices = [...(existing.offices || []), validOffice];
-        }
 
         // Keep the most recent project date
         if (user.lastProjectDate && (!existing.lastProjectDate || user.lastProjectDate > existing.lastProjectDate)) {
