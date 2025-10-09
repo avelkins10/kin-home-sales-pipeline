@@ -23,7 +23,7 @@ export async function PATCH(
 
     // Get old office data for audit log
     const oldOfficeResult = await sql`
-      SELECT name, region, leader_id FROM offices WHERE id = ${officeId}
+      SELECT name, region, leader_id, is_active FROM offices WHERE id = ${officeId}
     `
     const oldOffice = oldOfficeResult.rows[0]
 
@@ -89,7 +89,7 @@ export async function PATCH(
       UPDATE offices 
       SET ${updateFields.join(', ')}
       WHERE id = $${paramIndex}
-      RETURNING id, name, region, leader_id, created_at, updated_at
+      RETURNING id, name, region, leader_id, is_active, created_at, updated_at
     `
 
     const result = await sql.query(query, values)
@@ -106,13 +106,15 @@ export async function PATCH(
     // Fetch office with stats
     const statsResult = await sql.query(`
       SELECT 
-        o.id, o.name, o.region, o.leader_id, o.created_at, o.updated_at,
+        o.id, o.name, o.is_active, o.region, o.leader_id, o.created_at, o.updated_at,
         u.name as leader_name,
         (
           SELECT COUNT(*) FROM users u2 
-          WHERE o.name = ANY(u2.sales_office) AND u2.is_active = true
-        ) as user_count,
-        0 as active_projects
+          WHERE o.name = ANY(u2.sales_office) 
+            AND u2.is_active = true
+            AND u2.role IN ('office_leader','area_director','divisional','regional','super_admin')
+        ) as manager_count,
+        0 as project_count
       FROM offices o
       LEFT JOIN users u ON o.leader_id = u.id
       WHERE o.id = $1
@@ -122,11 +124,12 @@ export async function PATCH(
     const resultWithStats = {
       id: officeWithStats.id,
       name: officeWithStats.name,
+      is_active: officeWithStats.is_active,
+      manager_count: Number(officeWithStats.manager_count) || 0,
+      project_count: Number(officeWithStats.project_count) || 0,
       region: officeWithStats.region,
       leaderId: officeWithStats.leader_id,
       leaderName: officeWithStats.leader_name || 'Unassigned',
-      userCount: parseInt(officeWithStats.user_count) || 0,
-      activeProjects: parseInt(officeWithStats.active_projects) || 0,
       createdAt: officeWithStats.created_at,
       updatedAt: officeWithStats.updated_at,
     }
@@ -194,7 +197,7 @@ export async function DELETE(
 
     // Get office data for audit log
     const officeResult = await sql`
-      SELECT name, region, leader_id FROM offices WHERE id = ${officeId}
+      SELECT name, region, leader_id, is_active FROM offices WHERE id = ${officeId}
     `
     const office = officeResult.rows[0]
 

@@ -94,8 +94,19 @@ export interface CreateUserInput {
   role: string;
   quickbaseUserId: string;
   office?: string;
+  offices?: string[]; // Array of office names for multi-select
   region?: string;
   temporaryPassword: string;
+  
+  // Hierarchy fields
+  managedBy?: string; // ID of team lead who manages this user
+  manages?: string[]; // Array of user IDs this team lead manages
+  
+  // Office access for managers
+  officeAccess?: Array<{
+    officeName: string;
+    accessLevel: 'view' | 'manage' | 'admin';
+  }>;
 }
 
 export interface UpdateUserInput {

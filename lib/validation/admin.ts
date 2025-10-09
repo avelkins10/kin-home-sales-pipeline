@@ -84,7 +84,7 @@ export const createOfficeSchema = z.object({
     message: 'Invalid office name. Must be a canonical office from the approved list.',
   }),
   region: regionEnum,
-  leaderId: z.string().min(1, 'Office leader is required'),
+  leaderId: z.string().optional(),
 })
 
 export const updateOfficeSchema = z.object({

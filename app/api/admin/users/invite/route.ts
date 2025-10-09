@@ -29,6 +29,28 @@ export async function POST(request: NextRequest) {
 
     const { email, name, role, office, offices, sendEmail } = validatedData
 
+    // RBAC guard: prevent privilege escalation
+    const inviterRole = auth.session.user.role
+    const canInviteRole = (inviterRole: string, targetRole: string): boolean => {
+      // Super admin can invite anyone
+      if (inviterRole === 'super_admin') return true
+      
+      // Office leaders can only invite closers and setters
+      if (inviterRole === 'office_leader') {
+        return ['closer', 'setter'].includes(targetRole)
+      }
+      
+      // Other roles cannot invite anyone
+      return false
+    }
+
+    if (!canInviteRole(inviterRole, role)) {
+      return NextResponse.json(
+        { error: `Insufficient privileges to invite users with role: ${role}` },
+        { status: 403 }
+      )
+    }
+
     // Validate email configuration if sending email
     if (sendEmail) {
       const emailConfig = validateEmailConfig()
@@ -92,10 +114,10 @@ export async function POST(request: NextRequest) {
       const userResult = await sql.query(`
         INSERT INTO users (
           email, name, role, quickbase_user_id, sales_office, 
-          is_active, invite_token, invited_at
+          is_active, invite_token, invited_at, invited_by
         )
-        VALUES ($1, $2, $3, $4, ARRAY[$5]::text[], $6, $7, $8)
-        RETURNING id, email, name, role, sales_office, invite_token, invited_at
+        VALUES ($1, $2, $3, $4, CASE WHEN $5 IS NOT NULL THEN ARRAY[$5]::text[] ELSE NULL END, $6, $7, $8, $9)
+        RETURNING id, email, name, role, sales_office, invite_token, invited_at, invited_by
       `, [
         email, 
         name, 
@@ -104,7 +126,8 @@ export async function POST(request: NextRequest) {
         validatedOffice || null, 
         false, // is_active
         inviteToken, 
-        invitedAt
+        invitedAt,
+        auth.session.user.id // invited_by
       ])
 
       const user = userResult.rows[0]
@@ -130,6 +153,7 @@ export async function POST(request: NextRequest) {
 
       // Send invite email if requested
       let emailSent = false
+      let emailSkipped = false
       if (sendEmail) {
         const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL}/accept-invite?token=${inviteToken}`
         
@@ -144,15 +168,23 @@ export async function POST(request: NextRequest) {
         )
         
         emailSent = emailResult.success
+        emailSkipped = !!emailResult.skipped
         
         if (emailResult.success) {
           logInfo('Invite email sent successfully', { 
             userId: user.id, 
             email 
           })
+        } else if (emailResult.skipped) {
+          logInfo('Invite created but email skipped (disabled/not configured)', { 
+            userId: user.id, 
+            email,
+            error: emailResult.error
+          })
         } else {
           logInfo('Invite created but email failed to send', { 
             userId: user.id, 
+            email,
             error: emailResult.error 
           })
         }
@@ -171,7 +203,8 @@ export async function POST(request: NextRequest) {
           office: { old: null, new: validatedOffice },
           offices: { old: null, new: validatedOffices },
           sendEmail: { old: null, new: sendEmail },
-          emailSent: { old: null, new: emailSent }
+          emailSent: { old: null, new: emailSent },
+          emailSkipped: { old: null, new: emailSkipped }
         }
       )
 
@@ -192,7 +225,8 @@ export async function POST(request: NextRequest) {
           inviteToken: user.invite_token,
           inviteLink: `${process.env.NEXT_PUBLIC_APP_URL}/accept-invite?token=${inviteToken}`,
           invitedAt: user.invited_at,
-          emailSent
+          emailSent,
+          emailSkipped
         }
       })
     } catch (error) {
@@ -240,7 +274,7 @@ export async function GET(request: NextRequest) {
 
     // Look up invite by token
     const result = await sql.query(`
-      SELECT id, email, name, role, sales_office, invited_at, invite_accepted_at
+      SELECT id, email, name, role, sales_office, invited_at, invite_accepted_at, invited_by
       FROM users 
       WHERE invite_token = $1
     `, [token])
@@ -272,12 +306,24 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Query office assignments for the user
+    const officeResult = await sql.query(`
+      SELECT office_name
+      FROM office_assignments
+      WHERE user_id = $1
+      ORDER BY office_name
+    `, [user.id])
+
+    const offices = officeResult.rows.map(row => row.office_name)
+
     return NextResponse.json({
       email: user.email,
       name: user.name,
       role: user.role,
-      office: user.sales_office?.[0],
+      office: user.sales_office?.[0], // Backward compatibility
+      offices: offices, // New field with all assigned offices
       invitedAt: user.invited_at,
+      invitedBy: user.invited_by,
       accepted: !!user.invite_accepted_at
     })
   } catch (error) {
@@ -289,168 +335,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-/**
- * POST /api/admin/users/invite/accept
- * Accept invite and set password
- */
-export async function PUT(request: NextRequest) {
-  try {
-    const body = await request.json()
-    const { token, password } = body
-
-    if (!token || !password) {
-      return NextResponse.json(
-        { error: 'Token and password are required' },
-        { status: 400 }
-      )
-    }
-
-    if (password.length < 8) {
-      return NextResponse.json(
-        { error: 'Password must be at least 8 characters' },
-        { status: 400 }
-      )
-    }
-
-    // Look up invite by token
-    const result = await sql.query(`
-      SELECT id, email, name, role, sales_office, invited_at, invite_accepted_at
-      FROM users 
-      WHERE invite_token = $1
-    `, [token])
-
-    if (result.rows.length === 0) {
-      return NextResponse.json(
-        { error: 'Invalid or expired invite token' },
-        { status: 404 }
-      )
-    }
-
-    const user = result.rows[0]
-    const invitedAt = new Date(user.invited_at)
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-
-    // Check if invite is expired (7 days)
-    if (invitedAt < sevenDaysAgo) {
-      return NextResponse.json(
-        { error: 'Invite has expired' },
-        { status: 410 }
-      )
-    }
-
-    // Check if already accepted
-    if (user.invite_accepted_at) {
-      return NextResponse.json(
-        { error: 'Invite has already been used' },
-        { status: 410 }
-      )
-    }
-
-    // Hash password
-    const hashedPassword = await hash(password, 10)
-    const acceptedAt = new Date().toISOString()
-
-    // Look up user's QuickBase data using email and update user record
-    let quickbaseUserId = '';
-    let phone = user.phone || '';
-    let defaultOffice = user.sales_office?.[0] || '';
-    
-    try {
-      const quickbaseUsers = await searchQuickbaseUsers(user.email);
-      if (quickbaseUsers.length > 0) {
-        // Find best match by email
-        const bestMatch = quickbaseUsers.find(qbUser => 
-          qbUser.email?.toLowerCase() === user.email.toLowerCase()
-        ) || quickbaseUsers[0]; // Fall back to first result
-        
-        quickbaseUserId = bestMatch.quickbaseUserId;
-        phone = bestMatch.phone || phone;
-        
-        // Set default office if not already set and QuickBase user has office
-        if (!defaultOffice && bestMatch.office) {
-          defaultOffice = bestMatch.office;
-        }
-        
-        logInfo('QuickBase user data found for invite acceptance', {
-          userId: user.id,
-          email: user.email,
-          quickbaseUserId,
-          phone: phone ? '***' : 'none',
-          office: defaultOffice
-        });
-      }
-    } catch (error) {
-      logError('Failed to lookup QuickBase user data during invite acceptance', error as Error, {
-        userId: user.id,
-        email: user.email
-      });
-      // Continue with activation even if QuickBase lookup fails
-    }
-
-    // Update user: set password, activate account, clear invite token, and back-fill QuickBase data
-    await sql.query(`
-      UPDATE users 
-      SET 
-        password_hash = $1,
-        is_active = true,
-        invite_accepted_at = $2,
-        invite_token = NULL,
-        quickbase_user_id = $4,
-        phone = $5,
-        sales_office = CASE 
-          WHEN $6 IS NOT NULL AND $6 != '' THEN ARRAY[$6]::text[]
-          ELSE sales_office
-        END
-      WHERE id = $3
-    `, [hashedPassword, acceptedAt, user.id, quickbaseUserId, phone, defaultOffice])
-
-    // Log audit event for QuickBase data back-fill
-    if (quickbaseUserId || phone || defaultOffice) {
-      await logAudit(
-        'backfill_quickbase_data',
-        'user',
-        user.id,
-        'system', // System action
-        {
-          quickbase_user_id: { old: '', new: quickbaseUserId },
-          phone: { old: user.phone || '', new: phone },
-          default_office: { old: user.sales_office?.[0] || '', new: defaultOffice }
-        }
-      );
-    }
-
-    logInfo('User accepted invite', { 
-      userId: user.id, 
-      email: user.email,
-      role: user.role
-    })
-
-    // Send welcome email (fire and forget)
-    try {
-      await sendWelcomeEmail(user.email, user.name, user.role)
-      logInfo('Welcome email sent', { userId: user.id })
-    } catch (error) {
-      logError('Failed to send welcome email', error as Error, { userId: user.id })
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: 'Account created successfully',
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role
-      }
-    })
-  } catch (error) {
-    logError('Failed to accept invite', error instanceof Error ? error : new Error(String(error)))
-    return NextResponse.json(
-      { error: 'Failed to accept invite' },
-      { status: 500 }
-    )
-  }
-}
 
 /**
  * DELETE /api/admin/users/invite?userId=xxx

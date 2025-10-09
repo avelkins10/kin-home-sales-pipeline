@@ -2,120 +2,52 @@
 
 import { MilestoneNode } from './MilestoneNode'
 import { MilestoneConnector } from './MilestoneConnector'
-import { PROJECT_FIELDS } from '@/lib/constants/fieldIds'
-import {
-  getSurveyStatus,
-  getDesignStatus,
-  getHOAStatus,
-  getPermitStatus,
-  getNEMStatus,
-  getInstallStatus,
-  getVerificationStatus,
-  getInspectionStatus,
-  getPTOStatus
-} from '@/lib/utils/milestoneStatus'
+import { getAllMilestoneStatuses, isProjectOnHold } from '@/lib/utils/milestone-engine'
 import { QuickbaseProject } from '@/lib/types/project'
 
 interface TimelineProps {
   project: QuickbaseProject
 }
 
+// Milestone icon and color mapping
+const milestoneConfig: Record<string, { icon: string; color: string; calculated?: boolean }> = {
+  intake: { icon: '📋', color: 'gray' },
+  survey: { icon: '📐', color: 'blue' },
+  design: { icon: '🎨', color: 'purple' },
+  hoa: { icon: '🏘️', color: 'orange' },
+  nem: { icon: '⚡', color: 'yellow' },
+  permit: { icon: '📄', color: 'indigo' },
+  install: { icon: '🔧', color: 'green' },
+  verification: { icon: '✅', color: 'cyan', calculated: true },
+  inspection: { icon: '🔍', color: 'teal' },
+  pto: { icon: '🎉', color: 'emerald' }
+}
+
 export function Timeline({ project }: TimelineProps) {
   // Check if project is on hold
-  const onHold = project[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes'
+  const onHold = isProjectOnHold(project)
 
-  // Check if project is rejected or cancelled
-  const projectStatus = (project[PROJECT_FIELDS.PROJECT_STATUS]?.value || '').toLowerCase()
-  const isRejected = projectStatus.includes('reject')
-  const isCancelled = projectStatus.includes('cancel')
-  const isFailedProject = isRejected || isCancelled
+  // Get all milestone statuses from the engine
+  const allStatuses = getAllMilestoneStatuses(project)
 
-  // Get HOA status to determine if HOA milestone should be shown
-  const hoaStatus = getHOAStatus(project)
+  // Build milestones array, filtering out not-applicable ones
+  const milestones = allStatuses
+    .filter(status => status.state !== 'not-applicable')
+    .map(status => {
+      const config = milestoneConfig[status.id] || { icon: '•', color: 'gray' }
 
-  // Check intake status fields
-  const financeIntakeApproved = project[PROJECT_FIELDS.FINANCE_INTAKE_APPROVED]?.value
-  const webhookIntakeComplete = project[PROJECT_FIELDS.WEBHOOK_INTAKE_COMPLETE]?.value
-  const financeIntakeApprovedDate = project[PROJECT_FIELDS.FINANCE_INTAKE_APPROVED_DATE]?.value
-
-  // Determine if intake is actually complete
-  const isIntakeComplete = !!(financeIntakeApproved || webhookIntakeComplete || financeIntakeApprovedDate)
-
-  // Build milestones array
-  const milestones = [
-    {
-      name: 'Intake',
-      icon: '📋',
-      color: 'gray',
-      // For rejected/cancelled projects, intake was rejected
-      // For active projects, check if intake is actually approved/complete
-      status: isFailedProject
-        ? ('rejected' as const)
-        : (isIntakeComplete ? ('complete' as const) : ('in-progress' as const)),
-      date: isFailedProject
-        ? (project[PROJECT_FIELDS.SALES_DATE]?.value ? new Date(project[PROJECT_FIELDS.SALES_DATE].value) : undefined)
-        : (financeIntakeApprovedDate ?
-            new Date(financeIntakeApprovedDate) :
-            (project[PROJECT_FIELDS.SALES_DATE]?.value ? new Date(project[PROJECT_FIELDS.SALES_DATE].value) : undefined))
-    },
-    {
-      name: 'Survey',
-      icon: '📐',
-      color: 'blue',
-      ...getSurveyStatus(project)
-    },
-    {
-      name: 'Design',
-      icon: '🎨',
-      color: 'purple',
-      ...getDesignStatus(project)
-    },
-    // HOA milestone - only include if project requires HOA
-    ...(hoaStatus.hasHOA ? [{
-      name: 'HOA',
-      icon: '🏘️',
-      color: 'orange',
-      conditional: true,
-      ...hoaStatus
-    }] : []),
-    {
-      name: 'NEM',
-      icon: '⚡',
-      color: 'yellow',
-      ...getNEMStatus(project)
-    },
-    {
-      name: 'Permit',
-      icon: '📄',
-      color: 'indigo',
-      ...getPermitStatus(project)
-    },
-    {
-      name: 'Install',
-      icon: '🔧',
-      color: 'green',
-      ...getInstallStatus(project)
-    },
-    {
-      name: 'Verification',
-      icon: '✅',
-      color: 'cyan',
-      calculated: true,
-      ...getVerificationStatus(project)
-    },
-    {
-      name: 'Inspection',
-      icon: '🔍',
-      color: 'teal',
-      ...getInspectionStatus(project)
-    },
-    {
-      name: 'PTO',
-      icon: '🎉',
-      color: 'emerald',
-      ...getPTOStatus(project)
-    }
-  ]
+      return {
+        name: status.name,
+        icon: config.icon,
+        color: config.color,
+        calculated: config.calculated,
+        status: status.state,
+        date: status.date,
+        substeps: status.substeps,
+        blockedReason: status.blockedReason,
+        urgency: status.urgency
+      }
+    })
 
   return (
     <div className="space-y-6" data-testid="timeline">
@@ -142,7 +74,7 @@ export function Timeline({ project }: TimelineProps) {
 
       {/* Legend */}
       <div className="border-t border-gray-200 pt-4">
-        <div className="flex justify-center items-center space-x-6">
+        <div className="flex flex-wrap justify-center items-center gap-x-6 gap-y-2">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-green-500 rounded-full" />
             <span className="text-sm text-gray-600">Complete</span>
@@ -153,7 +85,7 @@ export function Timeline({ project }: TimelineProps) {
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-blue-500 rounded-full" />
-            <span className="text-sm text-gray-600">Upcoming</span>
+            <span className="text-sm text-gray-600">Ready to Start</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-gray-300 rounded-full" />
@@ -164,8 +96,8 @@ export function Timeline({ project }: TimelineProps) {
             <span className="text-sm text-gray-600">Blocked</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-rose-500 rounded-full" />
-            <span className="text-sm text-gray-600">Rejected</span>
+            <div className="w-3 h-3 bg-rose-600 rounded-full" />
+            <span className="text-sm text-gray-600">Overdue</span>
           </div>
         </div>
       </div>

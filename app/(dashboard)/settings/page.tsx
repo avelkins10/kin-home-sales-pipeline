@@ -11,6 +11,7 @@ import OfficesTab from '@/components/settings/OfficesTab'
 import { Skeleton } from '@/components/ui/skeleton'
 import SystemTab from '@/components/settings/SystemTab'
 import { AuditLogsTab } from '@/components/settings/AuditLogsTab'
+import { MilestoneConfigTab } from '@/components/settings/MilestoneConfigTab'
 import { Card, CardContent } from '@/components/ui/card'
 
 export default async function SettingsPage() {
@@ -100,6 +101,7 @@ export default async function SettingsPage() {
             <TabsTrigger value="notifications">Notifications</TabsTrigger>
             {isSuperAdmin && (
               <>
+                <TabsTrigger value="milestones">Milestones</TabsTrigger>
                 <TabsTrigger value="users">Users</TabsTrigger>
                 <TabsTrigger value="offices">Offices</TabsTrigger>
                 <TabsTrigger value="system">System</TabsTrigger>
@@ -125,6 +127,12 @@ export default async function SettingsPage() {
 
           {isSuperAdmin && (
             <>
+              <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+                <TabsContent value="milestones">
+                  <MilestoneConfigTab />
+                </TabsContent>
+              </Suspense>
+
               <Suspense fallback={<Skeleton className="h-96 w-full" />}>
                 <TabsContent value="users">
                   <UsersTab />

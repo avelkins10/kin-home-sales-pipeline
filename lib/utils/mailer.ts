@@ -15,7 +15,7 @@ export async function sendMail(params: MailParams): Promise<void> {
   if (provider === 'resend') {
     const key = process.env.RESEND_API_KEY
     if (!key) return
-    await nodeFetch('https://api.resend.com/emails', {
+    const res = await nodeFetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${key}`,
@@ -28,13 +28,20 @@ export async function sendMail(params: MailParams): Promise<void> {
         html: params.html
       })
     })
+    
+    if (!res.ok) {
+      const body = await res.text()
+      throw new Error(
+        `Email provider error (${provider}) ${res.status} ${res.statusText}: ${body}`
+      )
+    }
     return
   }
 
   if (provider === 'sendgrid') {
     const key = process.env.SENDGRID_API_KEY
     if (!key) return
-    await nodeFetch('https://api.sendgrid.com/v3/mail/send', {
+    const res = await nodeFetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${key}`,
@@ -47,6 +54,13 @@ export async function sendMail(params: MailParams): Promise<void> {
         content: [{ type: 'text/html', value: params.html }]
       })
     })
+    
+    if (!res.ok) {
+      const body = await res.text()
+      throw new Error(
+        `Email provider error (${provider}) ${res.status} ${res.statusText}: ${body}`
+      )
+    }
     return
   }
 }

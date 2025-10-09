@@ -1,12 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useDebounce } from 'use-debounce'
+import { DndContext, DragOverlay, useDraggable, useDroppable, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   Select,
   SelectContent,
@@ -22,9 +25,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu'
 import { toast } from 'sonner'
 import { getBaseUrl } from '@/lib/utils/baseUrl'
 import { getRoleBadgeVariant, getRoleDisplayName } from '@/lib/utils/roles'
+import { getActivityStatus, getActivityColor, getActivityLabel, formatLastActivity } from '@/lib/utils/activity'
+import { getInitials, getAvatarColor, getAvatarTextColor } from '@/lib/utils/avatar'
 import type { UserRole } from '@/lib/types/project'
 import { 
   Users, 
@@ -35,7 +52,16 @@ import {
   Crown, 
   Shield,
   Building,
-  MapPin
+  MapPin,
+  Search,
+  Filter,
+  X,
+  Copy,
+  Edit,
+  UserCheck,
+  UserX,
+  Eye,
+  MoreHorizontal
 } from 'lucide-react'
 
 interface HierarchyTreeViewProps {
@@ -48,9 +74,15 @@ interface User {
   email: string
   role: UserRole
   office?: string
+  salesOffice?: string[]
+  officeAccess?: Array<{
+    officeName: string
+    accessLevel: 'view' | 'manage' | 'admin'
+  }>
   is_active: boolean
   manages?: string[]
   managed_by?: string
+  lastProjectDate?: string
 }
 
 interface Hierarchy {
@@ -81,6 +113,20 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
   const [selectedUsers, setSelectedUsers] = useState<string[]>([])
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false)
   const [removalTarget, setRemovalTarget] = useState<{ managerId: string; userId: string } | null>(null)
+  
+  // Search and filter state
+  const [searchTerm, setSearchTerm] = useState('')
+  const [roleFilter, setRoleFilter] = useState<string>('all')
+  const [activityFilter, setActivityFilter] = useState<string>('all')
+  const [officeFilter, setOfficeFilter] = useState<string>('all')
+  const [debouncedSearchTerm] = useDebounce(searchTerm, 300)
+  
+  // Drag and drop state
+  const [activeId, setActiveId] = useState<string | null>(null)
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor)
+  )
 
   const queryClient = useQueryClient()
 
@@ -104,28 +150,72 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
     },
   })
 
-  // Build hierarchy tree
+  // Filter users based on search and filter criteria
+  const filteredUsers = useMemo(() => {
+    return users.filter((user: User) => {
+      // Search filter
+      if (debouncedSearchTerm) {
+        const searchLower = debouncedSearchTerm.toLowerCase()
+        const matchesSearch = 
+          user.name.toLowerCase().includes(searchLower) ||
+          user.email.toLowerCase().includes(searchLower)
+        if (!matchesSearch) return false
+      }
+
+      // Role filter
+      if (roleFilter !== 'all' && user.role !== roleFilter) {
+        return false
+      }
+
+      // Activity filter
+      if (activityFilter !== 'all') {
+        const activityStatus = getActivityStatus(user.lastProjectDate)
+        if (activityStatus !== activityFilter) {
+          return false
+        }
+      }
+
+      // Office filter
+      if (officeFilter !== 'all') {
+        const userOffices = [
+          user.office,
+          ...(user.salesOffice || []),
+          ...(user.officeAccess?.map(oa => oa.officeName) || [])
+        ].filter(Boolean)
+        
+        if (!userOffices.includes(officeFilter)) {
+          return false
+        }
+      }
+
+      return true
+    })
+  }, [users, debouncedSearchTerm, roleFilter, activityFilter, officeFilter])
+
+  // Build hierarchy tree with filtered users
   const buildHierarchyTree = (): HierarchyNode[] => {
     const userMap = new Map<string, User>()
     const childrenMap = new Map<string, string[]>()
     const managerMap = new Map<string, string>()
 
-    // Build user map
-    users.forEach((user: User) => {
+    // Build user map from filtered users
+    filteredUsers.forEach((user: User) => {
       userMap.set(user.id, user)
     })
 
-    // Build relationships from hierarchies
+    // Build relationships from hierarchies (only for filtered users)
     hierarchies.forEach((hierarchy: Hierarchy) => {
-      if (!childrenMap.has(hierarchy.manager_id)) {
-        childrenMap.set(hierarchy.manager_id, [])
+      if (userMap.has(hierarchy.manager_id) && userMap.has(hierarchy.user_id)) {
+        if (!childrenMap.has(hierarchy.manager_id)) {
+          childrenMap.set(hierarchy.manager_id, [])
+        }
+        childrenMap.get(hierarchy.manager_id)!.push(hierarchy.user_id)
+        managerMap.set(hierarchy.user_id, hierarchy.manager_id)
       }
-      childrenMap.get(hierarchy.manager_id)!.push(hierarchy.user_id)
-      managerMap.set(hierarchy.user_id, hierarchy.manager_id)
     })
 
-    // Find root nodes (users with no manager)
-    const rootUsers = users.filter((user: User) => !managerMap.has(user.id))
+    // Find root nodes (users with no manager in filtered set)
+    const rootUsers = filteredUsers.filter((user: User) => !managerMap.has(user.id))
 
     const buildNode = (user: User, level: number): HierarchyNode => {
       const children = childrenMap.get(user.id) || []
@@ -210,6 +300,69 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
     setExpandedNodes(newExpanded)
   }
 
+  // Drag and drop handlers
+  const handleDragStart = (event: any) => {
+    setActiveId(event.active.id)
+  }
+
+  const handleDragEnd = (event: any) => {
+    const { active, over } = event
+    setActiveId(null)
+
+    if (!over || active.id === over.id) return
+
+    const draggedUser = users.find((u: User) => u.id === active.id)
+    const targetManager = users.find((u: User) => u.id === over.id)
+
+    if (!draggedUser || !targetManager) return
+
+    // Validate drop target
+    const validManagerRoles: UserRole[] = ['team_lead', 'office_leader', 'area_director', 'divisional', 'regional', 'super_admin']
+    if (!validManagerRoles.includes(targetManager.role)) {
+      toast.error('Cannot assign to this role')
+      return
+    }
+
+    // Prevent self-assignment
+    if (draggedUser.id === targetManager.id) {
+      toast.error('Cannot assign user to themselves')
+      return
+    }
+
+    // Prevent circular hierarchy
+    if (draggedUser.role === 'super_admin') {
+      toast.error('Cannot reassign super admin')
+      return
+    }
+
+    assignMutation.mutate({ 
+      managerId: targetManager.id, 
+      userIds: [draggedUser.id] 
+    })
+  }
+
+  // Clear all filters
+  const clearFilters = () => {
+    setSearchTerm('')
+    setRoleFilter('all')
+    setActivityFilter('all')
+    setOfficeFilter('all')
+  }
+
+  // Get unique offices for filter
+  const uniqueOffices = useMemo(() => {
+    const offices = new Set<string>()
+    users.forEach((user: User) => {
+      if (user.office) offices.add(user.office)
+      if (user.salesOffice) user.salesOffice.forEach(office => offices.add(office))
+      if (user.officeAccess) user.officeAccess.forEach(oa => offices.add(oa.officeName))
+    })
+    return Array.from(offices).sort()
+  }, [users])
+
+  // Check if any filters are active
+  const hasActiveFilters = searchTerm || roleFilter !== 'all' || activityFilter !== 'all' || officeFilter !== 'all'
+
   const getRoleIcon = (role: UserRole) => {
     switch (role) {
       case 'super_admin':
@@ -225,93 +378,290 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
     }
   }
 
+  // Draggable User Node Component
+  function DraggableUserNode({ node, children }: { node: HierarchyNode; children: React.ReactNode }) {
+    const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+      id: node.user.id,
+      disabled: node.user.role === 'super_admin'
+    })
+
+    const style = transform ? {
+      transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+    } : undefined
+
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        {...attributes}
+        {...listeners}
+        className={`${isDragging ? 'opacity-50' : ''} ${node.user.role === 'super_admin' ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'}`}
+      >
+        {children}
+      </div>
+    )
+  }
+
+  // Droppable Manager Node Component
+  function DroppableManagerNode({ node, children }: { node: HierarchyNode; children: React.ReactNode }) {
+    const validManagerRoles: UserRole[] = ['team_lead', 'office_leader', 'area_director', 'divisional', 'regional', 'super_admin']
+    const isDroppable = validManagerRoles.includes(node.user.role)
+    
+    const { isOver, setNodeRef } = useDroppable({
+      id: node.user.id,
+      disabled: !isDroppable
+    })
+
+    return (
+      <div
+        ref={setNodeRef}
+        className={`${isOver && isDroppable ? 'ring-2 ring-green-500 ring-opacity-50' : ''}`}
+      >
+        {children}
+      </div>
+    )
+  }
+
 
   const renderNode = (node: HierarchyNode) => {
     const isExpanded = expandedNodes.has(node.user.id)
     const hasChildren = node.children.length > 0
+    const activityStatus = getActivityStatus(node.user.lastProjectDate)
+    const activityColor = getActivityColor(activityStatus)
+    const activityLabel = getActivityLabel(activityStatus)
+    const lastActivity = formatLastActivity(node.user.lastProjectDate)
+    const initials = getInitials(node.user.name)
+    const avatarColor = getAvatarColor(node.user.role)
+    const textColor = getAvatarTextColor()
 
-    return (
-      <div key={node.user.id} className="ml-4">
-        <Card className={`mb-2 ${node.level > 0 ? 'ml-6' : ''}`}>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                {hasChildren && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => toggleNode(node.user.id)}
-                    className="h-6 w-6 p-0"
-                  >
-                    {isExpanded ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4" />
-                    )}
-                  </Button>
-                )}
-                {!hasChildren && <div className="w-6" />}
-                
-                <div className="flex items-center gap-2">
-                  {getRoleIcon(node.user.role)}
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-medium">{node.user.name}</h4>
-                      <Badge variant={getRoleBadgeVariant(node.user.role)}>
-                        {getRoleDisplayName(node.user.role)}
-                      </Badge>
-                      {!node.user.is_active && (
-                        <Badge variant="outline" className="text-gray-500">
-                          Inactive
-                        </Badge>
+    // Get managed user count
+    const managedCount = node.user.manages?.length || 0
+
+    // Get office information
+    const allOffices = [
+      ...(node.user.salesOffice || []),
+      ...(node.user.officeAccess?.map(oa => oa.officeName) || [])
+    ].filter(Boolean)
+    const hasMultipleOffices = allOffices.length > 1
+
+    const nodeContent = (
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <Card className={`mb-2 ${node.level > 0 ? 'ml-6' : ''} transition-all hover:shadow-md`}>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {hasChildren && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => toggleNode(node.user.id)}
+                      className="h-6 w-6 p-0"
+                    >
+                      {isExpanded ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
                       )}
+                    </Button>
+                  )}
+                  {!hasChildren && <div className="w-6" />}
+                  
+                  <div className="flex items-center gap-3">
+                    {/* Avatar with activity indicator */}
+                    <div className="relative">
+                      <Avatar size="md" className={`${avatarColor} ${textColor}`}>
+                        <AvatarFallback size="md">
+                          {initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      {/* Activity indicator dot */}
+                      <div 
+                        className={`absolute -top-1 -right-1 w-3 h-3 rounded-full ${activityColor} border-2 border-white`}
+                        title={`${activityLabel} - ${lastActivity}`}
+                      />
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-gray-600">
-                      <span>{node.user.email}</span>
-                      {node.user.office && (
-                        <div className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {node.user.office}
-                        </div>
-                      )}
+
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="font-medium">{node.user.name}</h4>
+                        <Badge variant={getRoleBadgeVariant(node.user.role)}>
+                          {getRoleDisplayName(node.user.role)}
+                        </Badge>
+                        {!node.user.is_active && (
+                          <Badge variant="outline" className="text-gray-500">
+                            Inactive
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
+                        <span>{node.user.email}</span>
+                        
+                        {/* Office display */}
+                        {node.user.office && (
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            {node.user.office}
+                          </div>
+                        )}
+                        
+                        {/* Multiple offices badge */}
+                        {hasMultipleOffices && (
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Badge variant="secondary" className="cursor-pointer hover:bg-secondary/80">
+                                {allOffices.length} offices
+                              </Badge>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-64">
+                              <div className="space-y-2">
+                                <h4 className="font-medium">Offices</h4>
+                                {allOffices.map((office, index) => (
+                                  <div key={index} className="flex items-center gap-2 text-sm">
+                                    <MapPin className="h-3 w-3" />
+                                    {office}
+                                  </div>
+                                ))}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        )}
+
+                        {/* Managed users count */}
+                        {managedCount > 0 && (
+                          <Badge variant="outline" className="cursor-pointer hover:bg-accent">
+                            <Users className="h-3 w-3 mr-1" />
+                            Manages {managedCount} {managedCount === 1 ? 'user' : 'users'}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setSelectedManager(node.user.id)
-                    setAssignDialogOpen(true)
-                  }}
-                  disabled={!(['team_lead', 'office_leader', 'area_director', 'divisional', 'regional', 'super_admin'] as const).includes(node.user.role as any)}
-                >
-                  <UserPlus className="h-4 w-4 mr-1" />
-                  Assign
-                </Button>
-                {node.level > 0 && (
+                
+                <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      const managerId = hierarchies.find((h: Hierarchy) => h.user_id === node.user.id)?.manager_id
-                      if (managerId) {
-                        setRemovalTarget({ managerId, userId: node.user.id })
-                        setRemoveDialogOpen(true)
-                      }
+                      setSelectedManager(node.user.id)
+                      setAssignDialogOpen(true)
                     }}
+                    disabled={!(['team_lead', 'office_leader', 'area_director', 'divisional', 'regional', 'super_admin'] as const).includes(node.user.role as any)}
                   >
-                    <UserMinus className="h-4 w-4 mr-1" />
-                    Remove
+                    <UserPlus className="h-4 w-4 mr-1" />
+                    Assign
                   </Button>
-                )}
+                  {node.level > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const managerId = hierarchies.find((h: Hierarchy) => h.user_id === node.user.id)?.manager_id
+                        if (managerId) {
+                          setRemovalTarget({ managerId, userId: node.user.id })
+                          setRemoveDialogOpen(true)
+                        }
+                      }}
+                    >
+                      <UserMinus className="h-4 w-4 mr-1" />
+                      Remove
+                    </Button>
+                  )}
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </ContextMenuTrigger>
+        
+        <ContextMenuContent>
+          <ContextMenuItem onClick={() => {
+            // Navigate to user profile if exists
+            toast.info('User profile view not implemented yet')
+          }}>
+            <Eye className="h-4 w-4 mr-2" />
+            View Profile
+          </ContextMenuItem>
+          
+          {(['team_lead', 'office_leader', 'area_director', 'divisional', 'regional', 'super_admin'] as const).includes(node.user.role as any) && (
+            <ContextMenuItem onClick={() => {
+              setSelectedManager(node.user.id)
+              setAssignDialogOpen(true)
+            }}>
+              <UserPlus className="h-4 w-4 mr-2" />
+              Assign Users
+            </ContextMenuItem>
+          )}
+          
+          {node.level > 0 && (
+            <ContextMenuItem onClick={() => {
+              const managerId = hierarchies.find((h: Hierarchy) => h.user_id === node.user.id)?.manager_id
+              if (managerId) {
+                setRemovalTarget({ managerId, userId: node.user.id })
+                setRemoveDialogOpen(true)
+              }
+            }}>
+              <UserMinus className="h-4 w-4 mr-2" />
+              Remove from Team
+            </ContextMenuItem>
+          )}
+          
+          <ContextMenuSeparator />
+          
+          <ContextMenuItem onClick={() => {
+            // Navigate to edit user page
+            toast.info('Edit user not implemented yet')
+          }}>
+            <Edit className="h-4 w-4 mr-2" />
+            Edit User
+          </ContextMenuItem>
+          
+          <ContextMenuItem onClick={() => {
+            // Toggle active status
+            toast.info('Toggle user status not implemented yet')
+          }}>
+            {node.user.is_active ? (
+              <>
+                <UserX className="h-4 w-4 mr-2" />
+                Deactivate User
+              </>
+            ) : (
+              <>
+                <UserCheck className="h-4 w-4 mr-2" />
+                Activate User
+              </>
+            )}
+          </ContextMenuItem>
+          
+          <ContextMenuSeparator />
+          
+          <ContextMenuItem onClick={() => {
+            navigator.clipboard.writeText(node.user.id)
+            toast.success('User ID copied to clipboard')
+          }}>
+            <Copy className="h-4 w-4 mr-2" />
+            Copy User ID
+          </ContextMenuItem>
+          
+          <ContextMenuItem onClick={() => {
+            navigator.clipboard.writeText(node.user.email)
+            toast.success('Email copied to clipboard')
+          }}>
+            <Copy className="h-4 w-4 mr-2" />
+            Copy Email
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+    )
+
+    return (
+      <div key={node.user.id} className="ml-4">
+        <DroppableManagerNode node={node}>
+          <DraggableUserNode node={node}>
+            {nodeContent}
+          </DraggableUserNode>
+        </DroppableManagerNode>
         
         {isExpanded && hasChildren && (
           <div>
@@ -336,29 +686,158 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
       <div className="mb-6">
         <h3 className="text-lg font-semibold mb-2">User Hierarchy</h3>
         <p className="text-sm text-gray-600">
-          Manage team lead assignments and organizational structure.
+          Manage team lead assignments and organizational structure. Drag users to reassign, right-click for more options.
         </p>
       </div>
 
-      {hierarchyTree.length === 0 ? (
-        <Card>
-          <CardContent className="p-8 text-center">
-            <Users className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium mb-2">No hierarchy data</h3>
-            <p className="text-gray-600 mb-4">
-              Start by assigning users to managers to build your organizational structure.
-            </p>
-            <Button onClick={() => setAssignDialogOpen(true)}>
-              <UserPlus className="h-4 w-4 mr-2" />
-              Create First Assignment
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-2">
-          {hierarchyTree.map(node => renderNode(node))}
-        </div>
-      )}
+      {/* Search and Filter UI */}
+      <Card className="mb-6">
+        <CardContent className="p-4">
+          <div className="space-y-4">
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search by name or email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            {/* Filters */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <Label htmlFor="role-filter">Role</Label>
+                <Select value={roleFilter} onValueChange={setRoleFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All roles" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All roles</SelectItem>
+                    <SelectItem value="super_admin">Super Admin</SelectItem>
+                    <SelectItem value="regional">Regional</SelectItem>
+                    <SelectItem value="divisional">Divisional</SelectItem>
+                    <SelectItem value="area_director">Area Director</SelectItem>
+                    <SelectItem value="office_leader">Office Leader</SelectItem>
+                    <SelectItem value="team_lead">Team Lead</SelectItem>
+                    <SelectItem value="closer">Closer</SelectItem>
+                    <SelectItem value="setter">Setter</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="activity-filter">Activity</Label>
+                <Select value={activityFilter} onValueChange={setActivityFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All activity" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All activity</SelectItem>
+                    <SelectItem value="active">Active (0-6 months)</SelectItem>
+                    <SelectItem value="inactive">Inactive (6-12 months)</SelectItem>
+                    <SelectItem value="dormant">Dormant (12+ months)</SelectItem>
+                    <SelectItem value="unknown">No activity data</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="office-filter">Office</Label>
+                <Select value={officeFilter} onValueChange={setOfficeFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All offices" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All offices</SelectItem>
+                    {uniqueOffices.map(office => (
+                      <SelectItem key={office} value={office}>{office}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-end">
+                {hasActiveFilters && (
+                  <Button variant="outline" onClick={clearFilters} className="w-full">
+                    <X className="h-4 w-4 mr-2" />
+                    Clear Filters
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Results count */}
+            <div className="text-sm text-gray-600">
+              Showing {filteredUsers.length} of {users.length} users
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        {hierarchyTree.length === 0 ? (
+          <Card>
+            <CardContent className="p-8 text-center">
+              <Users className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+              <h3 className="text-lg font-medium mb-2">
+                {hasActiveFilters ? 'No users found' : 'No hierarchy data'}
+              </h3>
+              <p className="text-gray-600 mb-4">
+                {hasActiveFilters 
+                  ? 'No users match the selected filters. Try adjusting your search criteria.'
+                  : 'Start by assigning users to managers to build your organizational structure.'
+                }
+              </p>
+              {hasActiveFilters ? (
+                <Button onClick={clearFilters}>
+                  <X className="h-4 w-4 mr-2" />
+                  Clear Filters
+                </Button>
+              ) : (
+                <Button onClick={() => setAssignDialogOpen(true)}>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Create First Assignment
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {hierarchyTree.map(node => renderNode(node))}
+          </div>
+        )}
+
+        <DragOverlay>
+          {activeId ? (
+            <Card className="opacity-90 shadow-lg">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <Avatar size="md" className="bg-blue-500 text-white">
+                    <AvatarFallback size="md">
+                      {getInitials(users.find((u: User) => u.id === activeId)?.name || '')}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h4 className="font-medium">
+                      {users.find((u: User) => u.id === activeId)?.name}
+                    </h4>
+                    <p className="text-sm text-gray-600">
+                      {users.find((u: User) => u.id === activeId)?.email}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
 
       {/* Assign Users Dialog */}
       <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
@@ -366,7 +845,7 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
           <DialogHeader>
             <DialogTitle>Assign Users to Manager</DialogTitle>
             <DialogDescription>
-              Select a manager and users to assign to them.
+              Select a manager and users to assign to them. You can also drag and drop users directly onto managers in the tree view.
             </DialogDescription>
           </DialogHeader>
           

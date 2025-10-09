@@ -6,7 +6,7 @@
  */
 
 import { sendMail } from './mailer';
-import { logInfo, logError } from '@/lib/logging/logger';
+import { logInfo, logError, logEmailEvent } from '@/lib/logging/logger';
 import { 
   getInviteEmailTemplate, 
   getWelcomeEmailTemplate, 
@@ -16,6 +16,7 @@ import {
 interface EmailResult {
   success: boolean;
   error?: string;
+  skipped?: boolean;
 }
 
 interface RetryOptions {
@@ -105,23 +106,18 @@ export async function sendInviteEmail(
   try {
     // Check if email is enabled
     if (process.env.EMAIL_ENABLED !== 'true') {
-      logInfo('Email sending disabled, skipping invite email', { to, name, role });
-      return { success: true };
+      logEmailEvent('send_skipped', { recipient: to, emailType: 'invite' });
+      return { success: false, error: 'email_disabled', skipped: true };
     }
 
     // Validate email configuration
     const config = validateEmailConfig();
     if (!config.valid) {
-      logInfo('Email not configured, skipping invite email', { 
-        to, 
-        name, 
-        role, 
-        missingVars: config.missingVars 
-      });
-      return { success: true };
+      logEmailEvent('send_skipped', { recipient: to, emailType: 'invite' });
+      return { success: false, error: 'email_disabled', skipped: true };
     }
 
-    logInfo('Sending invite email', { to, name, role, invitedBy });
+    logEmailEvent('send_attempt', { recipient: to, emailType: 'invite' });
 
     // Generate HTML template
     const html = getInviteEmailTemplate(name, role, inviteLink, invitedBy, office, offices);
@@ -135,16 +131,12 @@ export async function sendInviteEmail(
       });
     });
 
-    logInfo('Invite email sent successfully', { to, name, role });
+    logEmailEvent('send_success', { recipient: to, emailType: 'invite' });
     return { success: true };
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logError('Failed to send invite email', error instanceof Error ? error : new Error(errorMessage), {
-      to,
-      name,
-      role
-    });
+    logEmailEvent('send_failure', { recipient: to, emailType: 'invite', error: errorMessage });
     
     return { 
       success: false, 
@@ -164,23 +156,18 @@ export async function sendWelcomeEmail(
   try {
     // Check if email is enabled
     if (process.env.EMAIL_ENABLED !== 'true') {
-      logInfo('Email sending disabled, skipping welcome email', { to, name, role });
-      return { success: true };
+      logEmailEvent('send_skipped', { recipient: to, emailType: 'welcome' });
+      return { success: false, error: 'email_disabled', skipped: true };
     }
 
     // Validate email configuration
     const config = validateEmailConfig();
     if (!config.valid) {
-      logInfo('Email not configured, skipping welcome email', { 
-        to, 
-        name, 
-        role, 
-        missingVars: config.missingVars 
-      });
-      return { success: true };
+      logEmailEvent('send_skipped', { recipient: to, emailType: 'welcome' });
+      return { success: false, error: 'email_disabled', skipped: true };
     }
 
-    logInfo('Sending welcome email', { to, name, role });
+    logEmailEvent('send_attempt', { recipient: to, emailType: 'welcome' });
 
     // Get dashboard URL
     const dashboardUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://dashboard.kinhome.com';
@@ -197,16 +184,12 @@ export async function sendWelcomeEmail(
       });
     });
 
-    logInfo('Welcome email sent successfully', { to, name, role });
+    logEmailEvent('send_success', { recipient: to, emailType: 'welcome' });
     return { success: true };
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logError('Failed to send welcome email', error instanceof Error ? error : new Error(errorMessage), {
-      to,
-      name,
-      role
-    });
+    logEmailEvent('send_failure', { recipient: to, emailType: 'welcome', error: errorMessage });
     
     return { 
       success: false, 
@@ -226,22 +209,18 @@ export async function sendPasswordResetEmail(
   try {
     // Check if email is enabled
     if (process.env.EMAIL_ENABLED !== 'true') {
-      logInfo('Email sending disabled, skipping password reset email', { to, name });
-      return { success: true };
+      logEmailEvent('send_skipped', { recipient: to, emailType: 'password_reset' });
+      return { success: false, error: 'email_disabled', skipped: true };
     }
 
     // Validate email configuration
     const config = validateEmailConfig();
     if (!config.valid) {
-      logInfo('Email not configured, skipping password reset email', { 
-        to, 
-        name, 
-        missingVars: config.missingVars 
-      });
-      return { success: true };
+      logEmailEvent('send_skipped', { recipient: to, emailType: 'password_reset' });
+      return { success: false, error: 'email_disabled', skipped: true };
     }
 
-    logInfo('Sending password reset email', { to, name });
+    logEmailEvent('send_attempt', { recipient: to, emailType: 'password_reset' });
 
     // Generate HTML template
     const html = getPasswordResetEmailTemplate(name, resetLink);
@@ -255,15 +234,12 @@ export async function sendPasswordResetEmail(
       });
     });
 
-    logInfo('Password reset email sent successfully', { to, name });
+    logEmailEvent('send_success', { recipient: to, emailType: 'password_reset' });
     return { success: true };
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logError('Failed to send password reset email', error instanceof Error ? error : new Error(errorMessage), {
-      to,
-      name
-    });
+    logEmailEvent('send_failure', { recipient: to, emailType: 'password_reset', error: errorMessage });
     
     return { 
       success: false, 
@@ -284,22 +260,18 @@ export async function sendCustomEmail(
   try {
     // Check if email is enabled
     if (process.env.EMAIL_ENABLED !== 'true') {
-      logInfo('Email sending disabled, skipping custom email', { to, subject });
-      return { success: true };
+      logEmailEvent('send_skipped', { recipient: to, emailType: 'custom' });
+      return { success: false, error: 'email_disabled', skipped: true };
     }
 
     // Validate email configuration
     const config = validateEmailConfig();
     if (!config.valid) {
-      logInfo('Email not configured, skipping custom email', { 
-        to, 
-        subject, 
-        missingVars: config.missingVars 
-      });
-      return { success: true };
+      logEmailEvent('send_skipped', { recipient: to, emailType: 'custom' });
+      return { success: false, error: 'email_disabled', skipped: true };
     }
 
-    logInfo('Sending custom email', { to, subject });
+    logEmailEvent('send_attempt', { recipient: to, emailType: 'custom' });
 
     // Send email with retry logic
     await retryWithBackoff(async () => {
@@ -310,15 +282,12 @@ export async function sendCustomEmail(
       });
     }, options.retryOptions);
 
-    logInfo('Custom email sent successfully', { to, subject });
+    logEmailEvent('send_success', { recipient: to, emailType: 'custom' });
     return { success: true };
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logError('Failed to send custom email', error instanceof Error ? error : new Error(errorMessage), {
-      to,
-      subject
-    });
+    logEmailEvent('send_failure', { recipient: to, emailType: 'custom', error: errorMessage });
     
     return { 
       success: false, 

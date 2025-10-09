@@ -5,6 +5,7 @@ import { sql } from '@/lib/db/client'
 import { logInfo, logError, logAudit } from '@/lib/logging/logger'
 import { z } from 'zod'
 import { createOfficeSchema } from '@/lib/validation/admin'
+import { normalizeOfficeName } from '@/lib/constants/offices'
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,14 +19,16 @@ export async function GET(request: NextRequest) {
 
     let query = `
       SELECT 
-        o.id, o.name, o.region, o.leader_id, o.created_at, o.updated_at,
+        o.id, o.name, o.is_active, o.region, o.leader_id, o.created_at, o.updated_at,
         u.name as leader_name,
         (
           SELECT COUNT(*) 
           FROM users u2 
-          WHERE o.name = ANY(u2.sales_office) AND u2.is_active = true
-        ) as user_count,
-        0 as active_projects
+          WHERE o.name = ANY(u2.sales_office) 
+            AND u2.is_active = true
+            AND u2.role IN ('office_leader','area_director','divisional','regional','super_admin')
+        ) as manager_count,
+        0 as project_count
       FROM offices o
       LEFT JOIN users u ON o.leader_id = u.id
     `
@@ -38,11 +41,12 @@ export async function GET(request: NextRequest) {
     const offices = result.rows.map(row => ({
       id: row.id,
       name: row.name,
+      is_active: row.is_active,
+      manager_count: Number(row.manager_count) || 0,
+      project_count: Number(row.project_count) || 0,
       region: row.region,
       leaderId: row.leader_id,
       leaderName: row.leader_name || 'Unassigned',
-      userCount: parseInt(row.user_count) || 0,
-      activeProjects: parseInt(row.active_projects) || 0,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }))
@@ -70,9 +74,10 @@ export async function POST(request: NextRequest) {
     const validatedData = createOfficeSchema.parse(body)
 
     const { name, region, leaderId } = validatedData
+    const normalizedName = normalizeOfficeName(name)
 
     // Check name uniqueness
-    const existingOffice = await sql.query('SELECT id FROM offices WHERE name = $1', [name])
+    const existingOffice = await sql.query('SELECT id FROM offices WHERE name = $1', [normalizedName])
     if (existingOffice.rows.length > 0) {
       return NextResponse.json(
         { error: 'Office name already exists' },
@@ -80,42 +85,50 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verify leader exists and has appropriate role
-    const leaderResult = await sql.query('SELECT id, role FROM users WHERE id = $1', [leaderId])
-    if (leaderResult.rows.length === 0) {
-      return NextResponse.json(
-        { error: 'Invalid office leader' },
-        { status: 400 }
-      )
-    }
+    // Handle optional leaderId
+    let leaderIdToUse: string | null = null
+    if (leaderId) {
+      // Verify leader exists and has appropriate role
+      const leaderResult = await sql.query('SELECT id, role FROM users WHERE id = $1', [leaderId])
+      if (leaderResult.rows.length === 0) {
+        return NextResponse.json(
+          { error: 'Invalid office leader' },
+          { status: 400 }
+        )
+      }
 
-    const leader = leaderResult.rows[0]
-    if (!['office_leader', 'regional', 'super_admin'].includes(leader.role)) {
-      return NextResponse.json(
-        { error: 'User must be office leader or above' },
-        { status: 400 }
-      )
+      const leader = leaderResult.rows[0]
+      if (!['office_leader', 'area_director', 'divisional', 'regional', 'super_admin'].includes(leader.role)) {
+        return NextResponse.json(
+          { error: 'User must be office leader or above' },
+          { status: 400 }
+        )
+      }
+      leaderIdToUse = leaderId
     }
 
     // Insert office
-    const officeResult = await sql.query(`
-      INSERT INTO offices (name, region, leader_id)
-      VALUES ($1, $2, $3)
-      RETURNING id, name, region, leader_id, created_at, updated_at
-    `, [name, region, leaderId])
+    const insertSql = leaderIdToUse
+      ? `INSERT INTO offices (name, region, leader_id, is_active) VALUES ($1, $2, $3, $4) RETURNING id, name, region, leader_id, is_active, created_at, updated_at`
+      : `INSERT INTO offices (name, region, is_active) VALUES ($1, $2, $3) RETURNING id, name, region, leader_id, is_active, created_at, updated_at`
+    
+    const params = leaderIdToUse ? [normalizedName, region, leaderIdToUse, true] : [normalizedName, region, true]
+    const officeResult = await sql.query(insertSql, params)
 
     const office = officeResult.rows[0]
 
     // Fetch office with stats
     const statsResult = await sql.query(`
       SELECT 
-        o.id, o.name, o.region, o.leader_id, o.created_at, o.updated_at,
+        o.id, o.name, o.is_active, o.region, o.leader_id, o.created_at, o.updated_at,
         u.name as leader_name,
         (
           SELECT COUNT(*) FROM users u2 
-          WHERE o.name = ANY(u2.sales_office) AND u2.is_active = true
-        ) as user_count,
-        0 as active_projects
+          WHERE o.name = ANY(u2.sales_office) 
+            AND u2.is_active = true
+            AND u2.role IN ('office_leader','area_director','divisional','regional','super_admin')
+        ) as manager_count,
+        0 as project_count
       FROM offices o
       LEFT JOIN users u ON o.leader_id = u.id
       WHERE o.id = $1
@@ -125,20 +138,21 @@ export async function POST(request: NextRequest) {
     const result = {
       id: officeWithStats.id,
       name: officeWithStats.name,
+      is_active: officeWithStats.is_active,
+      manager_count: Number(officeWithStats.manager_count) || 0,
+      project_count: Number(officeWithStats.project_count) || 0,
       region: officeWithStats.region,
       leaderId: officeWithStats.leader_id,
       leaderName: officeWithStats.leader_name || 'Unassigned',
-      userCount: parseInt(officeWithStats.user_count) || 0,
-      activeProjects: parseInt(officeWithStats.active_projects) || 0,
       createdAt: officeWithStats.created_at,
       updatedAt: officeWithStats.updated_at,
     }
 
     // Log audit event for creation
     const changes: Record<string, { old: any; new: any }> = {
-      name: { old: null, new: name },
+      name: { old: null, new: normalizedName },
       region: { old: null, new: region },
-      leaderId: { old: null, new: leaderId }
+      leaderId: { old: null, new: leaderIdToUse }
     }
     await logAudit(
       'create',
@@ -148,7 +162,7 @@ export async function POST(request: NextRequest) {
       changes
     )
 
-    logInfo('Office created', { officeId: office.id, name, leaderId })
+    logInfo('Office created', { officeId: office.id, name: normalizedName, leaderId: leaderIdToUse })
 
     return NextResponse.json(result)
   } catch (error) {

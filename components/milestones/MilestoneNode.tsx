@@ -3,28 +3,31 @@
 import { AlertTriangle, Clock } from 'lucide-react'
 import { formatDate } from '@/lib/utils/formatters'
 import { cn } from '@/lib/utils/cn'
+import type { MilestoneState } from '@/lib/utils/milestone-engine'
 
 interface MilestoneNodeProps {
   milestone: {
     name: string
-    status: 'complete' | 'in-progress' | 'pending' | 'blocked' | 'upcoming' | 'rejected'
-    date?: Date
-    estimatedDate?: Date
-    substeps?: Array<{ label: string; date: Date | null; status: string; note?: string }>
+    status: MilestoneState
+    date?: Date | null
+    estimatedDate?: Date | null
+    substeps?: Array<{ name: string; date: Date | null; state: string; }>
     warning?: string
     urgent?: boolean
     calculated?: boolean
     conditional?: boolean
     celebration?: boolean
     icon: string
+    blockedReason?: string
   }
   isBlocked?: boolean
 }
 
 export function MilestoneNode({ milestone, isBlocked }: MilestoneNodeProps) {
   const getStatusColor = () => {
-    if (milestone.status === 'rejected') {
-      return 'bg-rose-500 border-rose-600'
+    // Overdue has highest priority for visual feedback
+    if (milestone.status === 'overdue') {
+      return 'bg-rose-600 border-rose-700'
     }
     if (isBlocked || milestone.status === 'blocked') {
       return 'bg-red-500 border-red-600'
@@ -35,18 +38,22 @@ export function MilestoneNode({ milestone, isBlocked }: MilestoneNodeProps) {
     if (milestone.status === 'in-progress') {
       return 'bg-yellow-500 border-yellow-600'
     }
-    if (milestone.status === 'upcoming') {
+    if (milestone.status === 'ready-for') {
       return 'bg-blue-500 border-blue-600'
+    }
+    if (milestone.status === 'not-applicable') {
+      return 'bg-gray-200 border-gray-300'
     }
     return 'bg-gray-300 border-gray-400'
   }
 
   const getStatusLabel = () => {
-    if (milestone.status === 'rejected') return 'Rejected'
-    if (isBlocked) return 'Blocked'
+    if (milestone.status === 'overdue') return 'Overdue'
+    if (isBlocked || milestone.status === 'blocked') return milestone.blockedReason || 'Blocked'
     if (milestone.status === 'complete') return 'Complete'
     if (milestone.status === 'in-progress') return 'In Progress'
-    if (milestone.status === 'upcoming') return 'Upcoming'
+    if (milestone.status === 'ready-for') return `Ready for ${milestone.name}`
+    if (milestone.status === 'not-applicable') return 'N/A'
     return 'Pending'
   }
 
@@ -117,14 +124,14 @@ export function MilestoneNode({ milestone, isBlocked }: MilestoneNodeProps) {
               <div
                 className={cn(
                   'w-2 h-2 rounded-full',
-                  substep.status === 'complete' ? 'bg-green-500' :
-                  substep.status === 'pending' ? 'bg-gray-300' : 'bg-yellow-500'
+                  substep.state === 'complete' ? 'bg-green-500' :
+                  substep.state === 'pending' ? 'bg-gray-300' : 'bg-yellow-500'
                 )}
               />
               <div className="text-xs text-gray-700">
-                <span>{substep.label}</span>
-                {substep.note && (
-                  <span className="text-gray-500 ml-1">({substep.note})</span>
+                <span>{substep.name}</span>
+                {substep.date && (
+                  <span className="text-gray-500 ml-1">({formatDate(substep.date)})</span>
                 )}
               </div>
             </div>

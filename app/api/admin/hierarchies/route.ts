@@ -3,9 +3,36 @@ export const runtime = 'nodejs'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/auth/guards'
 import { sql } from '@/lib/db/client'
-import { logInfo, logError, logAudit } from '@/lib/logging/logger'
+import { logInfo, logError, logAudit, logWarn } from '@/lib/logging/logger'
 import { z } from 'zod'
 import { assignTeamLeadSchema } from '@/lib/validation/admin'
+
+/**
+ * Check if assigning a user to a manager would create a circular hierarchy
+ * 
+ * @param managerId - The ID of the proposed manager
+ * @param userId - The ID of the user being assigned
+ * @returns true if circular hierarchy detected, false otherwise
+ * 
+ * @example
+ * If A manages B, and B manages C, prevent C from managing A
+ * createsCycle('A', 'C') would return true
+ */
+async function createsCycle(managerId: string, userId: string): Promise<boolean> {
+  let current: string | null = managerId
+  const seen = new Set<string>()
+  
+  while (current) {
+    if (current === userId) return true
+    if (seen.has(current)) return true
+    seen.add(current)
+
+    const result: { rows: Array<{ manager_id: string | null }> } = await sql.query('SELECT manager_id FROM user_hierarchies WHERE user_id = $1', [current])
+    current = result.rows[0]?.manager_id ?? null
+  }
+  
+  return false
+}
 
 /**
  * GET /api/admin/hierarchies?managerId=xxx&userId=xxx
@@ -146,6 +173,21 @@ export async function POST(request: NextRequest) {
         },
         { status: 400 }
       )
+    }
+
+    // Check for circular hierarchy for each user being assigned
+    for (const userId of userIds) {
+      if (await createsCycle(managerId, userId)) {
+        logWarn('Circular hierarchy prevented', { managerId, userId })
+        return NextResponse.json(
+          { 
+            error: 'Circular hierarchy detected',
+            message: `Cannot assign user ${userId} to manager ${managerId} as it would create a circular management chain`,
+            userId 
+          },
+          { status: 400 }
+        )
+      }
     }
 
     // Start transaction

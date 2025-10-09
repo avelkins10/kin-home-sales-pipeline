@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { PROJECT_FIELDS } from '@/lib/constants/fieldIds'
 import { QuickbaseProject } from '@/lib/types/project'
-import { getCurrentMilestone, getProjectUrgency, getMilestoneColor } from '@/lib/utils/milestones'
+import { getCurrentMilestone, getMilestoneStatus, isProjectOnHold, getHoldReason } from '@/lib/utils/milestone-engine'
 import { cn } from '@/lib/utils/cn'
 import { SalesSupportButton } from '@/components/support/SalesSupportButton'
 
@@ -23,13 +23,36 @@ export function ProjectHeader({ project }: ProjectHeaderProps) {
   const projectId = project[PROJECT_FIELDS.PROJECT_ID]?.value || recordId || 'Unknown'
   const projectStatus = project[PROJECT_FIELDS.PROJECT_STATUS]?.value || 'Active'
   const priority = project[PROJECT_FIELDS.PROJECT_PRIORITY]?.value
-  const onHold = project[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes'
-  const holdReason = project[PROJECT_FIELDS.HOLD_REASON]?.value
+  const onHold = isProjectOnHold(project)
+  const holdReason = getHoldReason(project)
 
-  // Get milestone and urgency info
-  const currentMilestone = getCurrentMilestone(project)
-  const urgency = getProjectUrgency(project)
-  const milestoneColor = getMilestoneColor(currentMilestone)
+  // Get milestone and urgency info from engine
+  const currentMilestoneId = getCurrentMilestone(project)
+  const milestoneStatus = getMilestoneStatus(project, currentMilestoneId)
+  const currentMilestone = milestoneStatus.name
+  const urgency = milestoneStatus.urgency
+
+  // Get color based on milestone state and urgency
+  const getMilestoneColor = () => {
+    if (milestoneStatus.state === 'complete') {
+      return 'border-green-500 text-green-700 bg-green-50'
+    }
+    if (milestoneStatus.state === 'overdue') {
+      return 'border-rose-600 text-rose-700 bg-rose-50'
+    }
+    if (milestoneStatus.state === 'blocked') {
+      return 'border-red-500 text-red-700 bg-red-50'
+    }
+    if (urgency === 'critical' || urgency === 'urgent') {
+      return 'border-orange-500 text-orange-700 bg-orange-50'
+    }
+    if (milestoneStatus.state === 'in-progress') {
+      return 'border-amber-500 text-amber-700 bg-amber-50'
+    }
+    return 'border-slate-400 text-slate-700 bg-slate-50'
+  }
+
+  const milestoneColor = getMilestoneColor()
 
   const handleBackClick = () => {
     router.back()
