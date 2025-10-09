@@ -52,7 +52,7 @@ export async function PATCH(
       }
 
       const leader = leaderResult.rows[0]
-      if (!['office_leader', 'regional', 'super_admin'].includes(leader.role)) {
+      if (!['office_leader', 'area_director', 'divisional', 'regional', 'super_admin'].includes(leader.role)) {
         return NextResponse.json(
           { error: 'User must be office leader or above' },
           { status: 400 }
@@ -67,7 +67,7 @@ export async function PATCH(
 
     Object.entries(validatedData).forEach(([key, value]) => {
       if (value !== undefined) {
-        const dbKey = key === 'leaderId' ? 'leader_id' : key
+        const dbKey = key === 'leaderId' ? 'leader_id' : key === 'isActive' ? 'is_active' : key
         updateFields.push(`${dbKey} = $${paramIndex}`)
         values.push(value)
         paramIndex++
@@ -114,24 +114,39 @@ export async function PATCH(
             AND u2.is_active = true
             AND u2.role IN ('office_leader','area_director','divisional','regional','super_admin')
         ) as manager_count,
-        0 as project_count
+        0 as project_count,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'userId', u2.id,
+              'userName', u2.name,
+              'userRole', u2.role,
+              'accessLevel', oa.access_level
+            )
+          ) FILTER (WHERE u2.id IS NOT NULL),
+          '[]'::json
+        ) as assigned_managers
       FROM offices o
       LEFT JOIN users u ON o.leader_id = u.id
+      LEFT JOIN office_assignments oa ON o.name = oa.office_name
+      LEFT JOIN users u2 ON oa.user_id = u2.id
       WHERE o.id = $1
+      GROUP BY o.id, o.name, o.is_active, o.region, o.leader_id, o.created_at, o.updated_at, u.name
     `, [office.id])
 
     const officeWithStats = statsResult.rows[0]
     const resultWithStats = {
       id: officeWithStats.id,
       name: officeWithStats.name,
-      is_active: officeWithStats.is_active,
-      manager_count: Number(officeWithStats.manager_count) || 0,
-      project_count: Number(officeWithStats.project_count) || 0,
+      isActive: officeWithStats.is_active,
+      managerCount: Number(officeWithStats.manager_count) || 0,
+      activeProjects: Number(officeWithStats.project_count) || 0,
       region: officeWithStats.region,
       leaderId: officeWithStats.leader_id,
       leaderName: officeWithStats.leader_name || 'Unassigned',
       createdAt: officeWithStats.created_at,
       updatedAt: officeWithStats.updated_at,
+      assignedManagers: officeWithStats.assigned_managers || [],
     }
 
     // Log audit event with field-level changes
@@ -201,17 +216,30 @@ export async function DELETE(
     `
     const office = officeResult.rows[0]
 
-    // Check for assigned users
+    // Check for assigned users and office assignments
     const userCountResult = await sql.query(`
       SELECT COUNT(*) FROM users u 
       WHERE (SELECT name FROM offices WHERE id = $1) = ANY(u.sales_office)
     `, [officeId])
 
+    const assignmentCountResult = await sql.query(`
+      SELECT COUNT(*) FROM office_assignments oa
+      WHERE oa.office_name = (SELECT name FROM offices WHERE id = $1)
+    `, [officeId])
+
     const userCount = parseInt(userCountResult.rows[0].count)
-    if (userCount > 0) {
-      logWarn('Attempted to delete office with assigned users', { officeId, userCount })
+    const assignmentCount = parseInt(assignmentCountResult.rows[0].count)
+    
+    if (userCount > 0 || assignmentCount > 0) {
+      logWarn('Attempted to delete office with assigned users or managers', { 
+        officeId, 
+        userCount, 
+        assignmentCount 
+      })
       return NextResponse.json(
-        { error: 'Cannot delete office with assigned users. Reassign users first.' },
+        { 
+          error: `Cannot delete office with ${userCount} assigned users and ${assignmentCount} assigned managers. Reassign users and managers first.` 
+        },
         { status: 400 }
       )
     }

@@ -93,6 +93,17 @@ export const updateOfficeSchema = z.object({
   }),
   region: regionEnum.optional(),
   leaderId: z.string().optional(),
+  isActive: z.boolean().optional(),
+})
+
+/**
+ * Schema for bulk assigning offices to multiple managers
+ * Used by the bulk office assignment API endpoint
+ */
+export const bulkAssignOfficesSchema = z.object({
+  userIds: z.array(z.string().uuid()).min(1, 'At least one user is required').max(50, 'Maximum 50 users allowed'),
+  officeNames: z.array(z.string().min(1)).min(1, 'At least one office is required').max(100, 'Maximum 100 offices allowed'),
+  accessLevel: z.enum(['view', 'manage', 'admin']).default('view')
 })
 
 

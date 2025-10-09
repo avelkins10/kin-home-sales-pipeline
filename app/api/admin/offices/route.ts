@@ -28,27 +28,48 @@ export async function GET(request: NextRequest) {
             AND u2.is_active = true
             AND u2.role IN ('office_leader','area_director','divisional','regional','super_admin')
         ) as manager_count,
-        0 as project_count
+        0 as project_count,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'userId', u2.id,
+              'userName', u2.name,
+              'userRole', u2.role,
+              'accessLevel', oa.access_level
+            )
+          ) FILTER (WHERE u2.id IS NOT NULL),
+          '[]'::json
+        ) as assigned_managers
       FROM offices o
       LEFT JOIN users u ON o.leader_id = u.id
+      LEFT JOIN office_assignments oa ON o.name = oa.office_name
+      LEFT JOIN users u2 ON oa.user_id = u2.id
     `
 
     const params: any[] = []
 
+    // Add search filter if provided
+    if (search) {
+      query += ` WHERE (o.name ILIKE $1 OR o.region ILIKE $1)`
+      params.push(`%${search}%`)
+    }
+
+    query += ` GROUP BY o.id, o.name, o.is_active, o.region, o.leader_id, o.created_at, o.updated_at, u.name`
     query += ` ORDER BY o.name ASC`
 
     const result = await sql.query(query, params)
     const offices = result.rows.map(row => ({
       id: row.id,
       name: row.name,
-      is_active: row.is_active,
-      manager_count: Number(row.manager_count) || 0,
-      project_count: Number(row.project_count) || 0,
+      isActive: row.is_active,
+      managerCount: Number(row.manager_count) || 0,
+      activeProjects: Number(row.project_count) || 0,
       region: row.region,
       leaderId: row.leader_id,
       leaderName: row.leader_name || 'Unassigned',
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+      assignedManagers: row.assigned_managers || [],
     }))
 
     logInfo('Offices fetched', { count: offices.length })
@@ -128,24 +149,39 @@ export async function POST(request: NextRequest) {
             AND u2.is_active = true
             AND u2.role IN ('office_leader','area_director','divisional','regional','super_admin')
         ) as manager_count,
-        0 as project_count
+        0 as project_count,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'userId', u2.id,
+              'userName', u2.name,
+              'userRole', u2.role,
+              'accessLevel', oa.access_level
+            )
+          ) FILTER (WHERE u2.id IS NOT NULL),
+          '[]'::json
+        ) as assigned_managers
       FROM offices o
       LEFT JOIN users u ON o.leader_id = u.id
+      LEFT JOIN office_assignments oa ON o.name = oa.office_name
+      LEFT JOIN users u2 ON oa.user_id = u2.id
       WHERE o.id = $1
+      GROUP BY o.id, o.name, o.is_active, o.region, o.leader_id, o.created_at, o.updated_at, u.name
     `, [office.id])
 
     const officeWithStats = statsResult.rows[0]
     const result = {
       id: officeWithStats.id,
       name: officeWithStats.name,
-      is_active: officeWithStats.is_active,
-      manager_count: Number(officeWithStats.manager_count) || 0,
-      project_count: Number(officeWithStats.project_count) || 0,
+      isActive: officeWithStats.is_active,
+      managerCount: Number(officeWithStats.manager_count) || 0,
+      activeProjects: Number(officeWithStats.project_count) || 0,
       region: officeWithStats.region,
       leaderId: officeWithStats.leader_id,
       leaderName: officeWithStats.leader_name || 'Unassigned',
       createdAt: officeWithStats.created_at,
       updatedAt: officeWithStats.updated_at,
+      assignedManagers: officeWithStats.assigned_managers || [],
     }
 
     // Log audit event for creation
