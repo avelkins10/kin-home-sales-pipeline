@@ -39,7 +39,8 @@ export function ProjectFilterChips({ isFetching = false }: ProjectFilterChipsPro
     queryKey: ['project-counts', session?.user?.quickbaseUserId, session?.user?.role],
     queryFn: async () => {
       if (!session?.user?.quickbaseUserId || !session?.user?.role) return [];
-      const response = await fetch(`/api/projects?userId=${session.user.quickbaseUserId}&role=${session.user.role}`);
+      // Note: API gets userId/role from session, not query params
+      const response = await fetch(`/api/projects`);
       if (!response.ok) return [];
       return response.json();
     },
