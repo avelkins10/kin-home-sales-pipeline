@@ -69,41 +69,66 @@ export async function POST(req: Request) {
 
     // 2. Parse webhook payload
     const payload = JSON.parse(rawBody);
-    console.log('[WEBHOOK] Received QuickBase note webhook:', {
-      recordid: payload.recordid,
-      fieldChanges: Object.keys(payload.fieldChanges || {}),
-    });
-
-    // 3. Extract note data from field changes
     const noteId = payload.recordid;
     const fieldChanges = payload.fieldChanges || {};
 
-    // Check if this is a rep-visible note
+    // Extract basic info for logging
+    const category = fieldChanges[NOTE_FIELDS.CATEGORY]?.value || 'Unknown';
     const repVisibleValue = fieldChanges[NOTE_FIELDS.REP_VISIBLE]?.value;
+    const projectId = fieldChanges[NOTE_FIELDS.RELATED_PROJECT]?.value;
+
+    console.log('[WEBHOOK] ✅ Received QuickBase note webhook:', {
+      noteId,
+      projectId,
+      category,
+      repVisible: repVisibleValue,
+      timestamp: new Date().toISOString(),
+      fieldChanges: Object.keys(fieldChanges || {}),
+    });
+
+    // 3. Check if this is a rep-visible note
     if (repVisibleValue !== REP_VISIBLE_FLAG) {
-      console.log('[WEBHOOK] Skipping note - not marked as rep visible:', repVisibleValue);
+      console.log('[WEBHOOK] ⏭️  FILTERED OUT - Note not marked as rep-visible:', {
+        noteId,
+        projectId,
+        category,
+        repVisibleValue,
+        expectedValue: REP_VISIBLE_FLAG
+      });
+
+      logApiResponse('POST', '/api/webhooks/quickbase/notes', Date.now() - startedAt, {
+        noteId,
+        filtered: true,
+        reason: 'not_rep_visible'
+      }, reqId);
+
       return NextResponse.json({
         success: true,
-        message: 'Note not rep-visible, skipped'
+        message: 'Note not rep-visible, skipped',
+        filtered: true
       }, { status: 200 });
     }
 
-    // Extract note fields
+    // 4. Extract note fields for processing
     const noteContent = fieldChanges[NOTE_FIELDS.NOTE_CONTENT]?.value || '';
-    const category = fieldChanges[NOTE_FIELDS.CATEGORY]?.value || 'General';
     const createdBy = fieldChanges[NOTE_FIELDS.CREATED_BY]?.value || {};
-    const projectId = fieldChanges[NOTE_FIELDS.RELATED_PROJECT]?.value;
 
     if (!projectId) {
       logError('Note webhook missing project ID', new Error('Invalid payload'));
+      console.error('[WEBHOOK] ❌ ERROR - Missing project ID for rep-visible note:', {
+        noteId,
+        category,
+        availableFields: Object.keys(fieldChanges)
+      });
       return NextResponse.json({ error: 'Missing project ID' }, { status: 400 });
     }
 
-    console.log('[WEBHOOK] Processing rep-visible note:', {
+    console.log('[WEBHOOK] 📝 PROCESSING rep-visible note:', {
       noteId,
       projectId,
       category,
       createdBy: createdBy.name || createdBy.email || 'Unknown',
+      contentPreview: noteContent.substring(0, 100)
     });
 
     // 4. Determine notification priority based on category
@@ -169,17 +194,34 @@ export async function POST(req: Request) {
     }
 
     const duration = Date.now() - startedAt;
+    console.log('[WEBHOOK] ✅ SUCCESS - Notifications created:', {
+      noteId,
+      projectId,
+      category,
+      priority,
+      recipientCount: recipients.length,
+      notificationsCreated: createdNotifications.length,
+      duration: `${duration}ms`,
+      timestamp: new Date().toISOString()
+    });
+
     logApiResponse('POST', '/api/webhooks/quickbase/notes', duration, {
       noteId,
       projectId,
+      category,
+      priority,
       recipientCount: recipients.length,
       notificationsCreated: createdNotifications.length,
+      processed: true
     }, reqId);
 
     return NextResponse.json({
       success: true,
       notificationsCreated: createdNotifications.length,
       recipients: recipients.length,
+      category,
+      priority,
+      processed: true
     }, { status: 201 });
 
   } catch (error) {
