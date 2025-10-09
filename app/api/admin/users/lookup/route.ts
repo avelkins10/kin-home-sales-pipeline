@@ -61,23 +61,17 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const validatedSearch = quickbaseLookupSchema.parse({ 
-      searchTerm: search, 
+    const validatedSearch = quickbaseLookupSchema.parse({
+      searchTerm: search,
       searchType: 'name' // Default to name search
     })
 
-    // Search QuickBase users
-    let users = await searchQuickbaseUsers(validatedSearch.searchTerm)
-
-    // Filter by activity if requested
-    if (activeOnly) {
-      const activeUsers = await getActiveUsersFromQuickbase(monthsBack)
-      const activeUserIds = new Set(activeUsers.map(u => u.quickbaseUserId))
-      users = users.filter(user => activeUserIds.has(user.quickbaseUserId))
-    }
-
-    // Limit results to prevent overwhelming UI
-    users = users.slice(0, 50)
+    // Search QuickBase users with optional activity filter
+    // Pass monthsBack directly to search function for efficient filtering
+    const users = await searchQuickbaseUsers(
+      validatedSearch.searchTerm,
+      activeOnly ? monthsBack : undefined
+    )
 
     logInfo('QuickBase user lookup', { 
       searchTerm: search,

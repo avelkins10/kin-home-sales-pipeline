@@ -121,22 +121,32 @@ export function QuickBaseLookupDialog({ open, onOpenChange }: QuickBaseLookupDia
   }
 
   // Search QuickBase users
-  const { data: searchResults, isLoading: isSearching } = useQuery({
+  const { data: searchResults, isLoading: isSearching, error: searchError } = useQuery({
     queryKey: ['quickbase-users', searchQuery, monthsBack, activeOnly],
     queryFn: async () => {
       if (!searchQuery || searchQuery.length < 2) return { users: [], total: 0 }
-      
+
       const response = await fetch(
-        `${getBaseUrl()}/api/admin/users/lookup?search=${encodeURIComponent(searchQuery)}&activeOnly=${activeOnly}&monthsBack=${monthsBack}`
+        `${getBaseUrl()}/api/admin/users/lookup?search=${encodeURIComponent(searchQuery)}&activeOnly=${activeOnly}&monthsBack=${monthsBack}`,
+        {
+          signal: AbortSignal.timeout(25000) // 25 second timeout
+        }
       )
-      
-      if (!response.ok) {
-        throw new Error('Failed to search QuickBase users')
+
+      if (response.status === 504) {
+        throw new Error('Search timed out. Try unchecking "Active users only" or using a more specific search term.')
       }
-      
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to search QuickBase users')
+      }
+
       return response.json()
     },
     enabled: searchQuery.length >= 2,
+    retry: 1, // Only retry once
+    retryDelay: 1000,
   })
 
   // Create user mutation
@@ -288,7 +298,14 @@ export function QuickBaseLookupDialog({ open, onOpenChange }: QuickBaseLookupDia
           {searchQuery.length >= 2 && (
             <div>
               <h3 className="text-sm font-medium mb-3">Search Results</h3>
-              {isSearching ? (
+              {searchError ? (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    {searchError instanceof Error ? searchError.message : 'Search failed. Please try again.'}
+                  </AlertDescription>
+                </Alert>
+              ) : isSearching ? (
                 <div className="text-center py-4">Searching...</div>
               ) : searchResults?.users?.length > 0 ? (
                 <div className="max-h-60 overflow-y-auto border rounded-md">

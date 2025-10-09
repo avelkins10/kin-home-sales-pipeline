@@ -203,16 +203,26 @@ export async function getUserByQuickbaseId(quickbaseUserId: string): Promise<Qui
 
 /**
  * Search QuickBase users by name or email
- * 
+ *
  * @param searchTerm - Search term (name or email)
+ * @param monthsBack - Optional: only return users with projects in last N months
  * @returns Array of matching users
  */
-export async function searchQuickbaseUsers(searchTerm: string): Promise<QuickBaseUserData[]> {
-  console.log('[searchQuickbaseUsers] Searching for:', searchTerm);
-  
+export async function searchQuickbaseUsers(searchTerm: string, monthsBack?: number): Promise<QuickBaseUserData[]> {
+  console.log('[searchQuickbaseUsers] Searching for:', searchTerm, 'monthsBack:', monthsBack);
+
   try {
     const sanitizedTerm = searchTerm.replace(/'/g, "''").substring(0, 100);
-    
+
+    // Build date filter if monthsBack is provided
+    let dateFilter = '';
+    if (monthsBack) {
+      const thresholdDate = new Date();
+      thresholdDate.setMonth(thresholdDate.getMonth() - monthsBack);
+      const dateString = thresholdDate.toISOString().split('T')[0];
+      dateFilter = ` AND {${PROJECT_FIELDS.SALES_DATE}.AF.'${dateString}'}`;
+    }
+
     // Search closers
     const closerQuery = await qbClient.queryRecords({
       from: QB_TABLE_PROJECTS,
@@ -224,8 +234,8 @@ export async function searchQuickbaseUsers(searchTerm: string): Promise<QuickBas
         PROJECT_FIELDS.SALES_OFFICE,
         PROJECT_FIELDS.SALES_DATE,
       ],
-      where: `({${PROJECT_FIELDS.CLOSER_NAME}.CT.'${sanitizedTerm}'} OR {${PROJECT_FIELDS.CLOSER_EMAIL}.CT.'${sanitizedTerm}'}) AND {${PROJECT_FIELDS.CLOSER_ID}.XEX.''}`,
-      options: { top: 25 }, // Limit results
+      where: `({${PROJECT_FIELDS.CLOSER_NAME}.CT.'${sanitizedTerm}'} OR {${PROJECT_FIELDS.CLOSER_EMAIL}.CT.'${sanitizedTerm}'}) AND {${PROJECT_FIELDS.CLOSER_ID}.XEX.''}${dateFilter}`,
+      options: { top: 50 }, // Increased limit
     });
 
     // Search setters
@@ -239,8 +249,8 @@ export async function searchQuickbaseUsers(searchTerm: string): Promise<QuickBas
         PROJECT_FIELDS.SALES_OFFICE,
         PROJECT_FIELDS.SALES_DATE,
       ],
-      where: `({${PROJECT_FIELDS.SETTER_NAME}.CT.'${sanitizedTerm}'} OR {${PROJECT_FIELDS.SETTER_EMAIL}.CT.'${sanitizedTerm}'}) AND {${PROJECT_FIELDS.SETTER_ID}.XEX.''}`,
-      options: { top: 25 }, // Limit results
+      where: `({${PROJECT_FIELDS.SETTER_NAME}.CT.'${sanitizedTerm}'} OR {${PROJECT_FIELDS.SETTER_EMAIL}.CT.'${sanitizedTerm}'}) AND {${PROJECT_FIELDS.SETTER_ID}.XEX.''}${dateFilter}`,
+      options: { top: 50 }, // Increased limit
     });
 
     // Build unique user map
