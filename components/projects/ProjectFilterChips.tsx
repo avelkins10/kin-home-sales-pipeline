@@ -9,17 +9,13 @@ import { QuickbaseProject } from '@/lib/types/project';
 import { PROJECT_FIELDS } from '@/lib/constants/fieldIds';
 
 const filterChips = [
-  { value: 'all', label: 'All Projects' },
-  { value: 'active', label: 'Active' },
-  { value: 'pending-kca', label: 'Pending KCA' },
-  { value: 'rejected', label: 'Rejected' },
-  { value: 'on-hold', label: 'On Hold' },
-  { value: 'pending-cancel', label: 'Pending Cancel' },
-  { value: 'install-ready', label: 'Install Ready' },
-  { value: 'install-scheduled', label: 'Install Scheduled' },
-  { value: 'install-completed', label: 'Install Completed' },
-  { value: 'cancelled', label: 'Cancelled' },
-  { value: 'needs-attention', label: 'Needs Attention' },
+  { value: 'all', label: 'All Projects', color: 'slate' },
+  { value: 'active', label: 'Active (In Progress)', color: 'emerald' },
+  { value: 'on-hold', label: 'On Hold', color: 'amber' },
+  { value: 'install-completed', label: 'Installed', color: 'blue' },
+  { value: 'pending-cancel', label: 'Pending Cancel', color: 'orange' },
+  { value: 'cancelled', label: 'Cancelled', color: 'rose' },
+  { value: 'needs-attention', label: 'Needs Attention', color: 'red' },
 ];
 
 interface ProjectFilterChipsProps {
@@ -51,35 +47,31 @@ export function ProjectFilterChips({ isFetching = false }: ProjectFilterChipsPro
   // Helper function to check if project matches filter
   const projectMatchesFilter = (project: QuickbaseProject, filterValue: string): boolean => {
     const status = (project[PROJECT_FIELDS.PROJECT_STATUS]?.value || '').toLowerCase();
+    const onHold = project[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes';
     const financeIntakeApproved = project[PROJECT_FIELDS.FINANCE_INTAKE_APPROVED]?.value;
     const webhookIntakeComplete = project[PROJECT_FIELDS.WEBHOOK_INTAKE_COMPLETE]?.value;
     const isIntakeApproved = !!(financeIntakeApproved || webhookIntakeComplete);
+    const installCompleted = project[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value;
 
     switch (filterValue) {
       case 'all':
         return true;
       case 'active':
-        return status === 'active' && isIntakeApproved;
-      case 'pending-kca':
-        // Pending KCA = Active status but intake NOT yet approved
-        return status === 'active' && !isIntakeApproved;
-      case 'rejected':
-        return status.includes('reject');
+        // Active = Active status, intake approved, not on hold, and not yet installed
+        return status.includes('active') && isIntakeApproved && !onHold;
       case 'on-hold':
-        return status.includes('hold');
+        return onHold;
+      case 'install-completed':
+        // Installed = Has install completed date
+        return !!installCompleted;
       case 'pending-cancel':
         return status.includes('pending cancel');
       case 'cancelled':
         return status.includes('cancel') && !status.includes('pending');
-      case 'install-ready':
-        return status.includes('install ready');
-      case 'install-scheduled':
-        return status.includes('install scheduled');
-      case 'install-completed':
-        return status.includes('install complete');
       case 'needs-attention':
-        // Projects that need attention (on hold, pending cancel, rejected, or pending KCA > 7 days)
-        return status.includes('hold') || status.includes('pending cancel') || status.includes('reject');
+        // Projects that need attention (on hold >7 days, pending cancel, or old projects >90 days)
+        const projectAge = parseInt(project[PROJECT_FIELDS.PROJECT_AGE]?.value || '0');
+        return onHold || status.includes('pending cancel') || projectAge > 90;
       default:
         return false;
     }
@@ -103,6 +95,34 @@ export function ProjectFilterChips({ isFetching = false }: ProjectFilterChipsPro
     router.push(`/projects?${params.toString()}`);
   };
 
+  // Color mapping for active state
+  const getActiveColors = (color: string) => {
+    const colorMap: Record<string, { bg: string; hover: string; ring: string; badge: string }> = {
+      slate: { bg: 'bg-slate-600', hover: 'hover:bg-slate-700', ring: 'focus:ring-slate-500', badge: 'bg-slate-500' },
+      emerald: { bg: 'bg-emerald-600', hover: 'hover:bg-emerald-700', ring: 'focus:ring-emerald-500', badge: 'bg-emerald-500' },
+      amber: { bg: 'bg-amber-500', hover: 'hover:bg-amber-600', ring: 'focus:ring-amber-400', badge: 'bg-amber-400' },
+      blue: { bg: 'bg-blue-600', hover: 'hover:bg-blue-700', ring: 'focus:ring-blue-500', badge: 'bg-blue-500' },
+      orange: { bg: 'bg-orange-500', hover: 'hover:bg-orange-600', ring: 'focus:ring-orange-400', badge: 'bg-orange-400' },
+      rose: { bg: 'bg-rose-500', hover: 'hover:bg-rose-600', ring: 'focus:ring-rose-400', badge: 'bg-rose-400' },
+      red: { bg: 'bg-red-600', hover: 'hover:bg-red-700', ring: 'focus:ring-red-500', badge: 'bg-red-500' },
+    };
+    return colorMap[color] || colorMap.slate;
+  };
+
+  // Color mapping for inactive state (subtle)
+  const getInactiveColors = (color: string) => {
+    const colorMap: Record<string, { border: string; hover: string; text: string }> = {
+      slate: { border: 'border-slate-200', hover: 'hover:border-slate-300 hover:bg-slate-50', text: 'hover:text-slate-900' },
+      emerald: { border: 'border-emerald-200', hover: 'hover:border-emerald-300 hover:bg-emerald-50', text: 'hover:text-emerald-700' },
+      amber: { border: 'border-amber-200', hover: 'hover:border-amber-300 hover:bg-amber-50', text: 'hover:text-amber-700' },
+      blue: { border: 'border-blue-200', hover: 'hover:border-blue-300 hover:bg-blue-50', text: 'hover:text-blue-700' },
+      orange: { border: 'border-orange-200', hover: 'hover:border-orange-300 hover:bg-orange-50', text: 'hover:text-orange-700' },
+      rose: { border: 'border-rose-200', hover: 'hover:border-rose-300 hover:bg-rose-50', text: 'hover:text-rose-700' },
+      red: { border: 'border-red-200', hover: 'hover:border-red-300 hover:bg-red-50', text: 'hover:text-red-700' },
+    };
+    return colorMap[color] || colorMap.slate;
+  };
+
   return (
     <div className="relative">
       {/* Loading overlay */}
@@ -114,7 +134,7 @@ export function ProjectFilterChips({ isFetching = false }: ProjectFilterChipsPro
           </div>
         </div>
       )}
-      
+
       {/* Fade gradient on left */}
       <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-slate-50 to-transparent pointer-events-none z-10" />
 
@@ -123,6 +143,8 @@ export function ProjectFilterChips({ isFetching = false }: ProjectFilterChipsPro
         {filterChips.map((chip) => {
           const isActive = currentView === chip.value;
           const count = filterCounts[chip.value] || 0;
+          const activeColors = getActiveColors(chip.color);
+          const inactiveColors = getInactiveColors(chip.color);
 
           return (
             <button
@@ -130,14 +152,14 @@ export function ProjectFilterChips({ isFetching = false }: ProjectFilterChipsPro
               onClick={() => handleFilterChange(chip.value)}
               disabled={isFetching}
               className={cn(
-                'px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap',
+                'px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap',
                 'transition-all duration-200 ease-in-out',
-                'focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2',
+                'focus:outline-none focus:ring-2 focus:ring-offset-2',
                 'disabled:opacity-50 disabled:cursor-not-allowed',
                 'flex items-center gap-2',
                 isActive
-                  ? 'bg-indigo-600 text-white shadow-md hover:bg-indigo-700 scale-105'
-                  : 'bg-white text-slate-700 border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 shadow-sm'
+                  ? `${activeColors.bg} text-white shadow-md ${activeColors.hover} ${activeColors.ring}`
+                  : `bg-white text-slate-700 border ${inactiveColors.border} ${inactiveColors.hover} ${inactiveColors.text} shadow-sm`
               )}
               aria-pressed={isActive}
               aria-label={`Filter by ${chip.label}`}
@@ -146,9 +168,9 @@ export function ProjectFilterChips({ isFetching = false }: ProjectFilterChipsPro
               {projects.length > 0 && (
                 <span
                   className={cn(
-                    'px-2 py-0.5 rounded-full text-xs font-semibold',
+                    'px-2 py-0.5 rounded-md text-xs font-semibold',
                     isActive
-                      ? 'bg-indigo-500 text-white'
+                      ? `${activeColors.badge} text-white`
                       : 'bg-slate-100 text-slate-600'
                   )}
                 >
