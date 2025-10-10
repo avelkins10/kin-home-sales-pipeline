@@ -84,7 +84,12 @@ function getAllMilestoneConfigs() {
  * Gets field value from project, handling different field types
  */
 function getFieldValue(project: QuickbaseProject, fieldId: number): any {
-  const value = (project as any)[fieldId];
+  const field = (project as any)[fieldId];
+  if (field === undefined || field === null) {
+    return null;
+  }
+  // QuickBase fields are structured as { fieldId: { value: ... } }
+  const value = field.value;
   if (value === undefined || value === null || value === '') {
     return null;
   }
