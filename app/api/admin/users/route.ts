@@ -238,7 +238,7 @@ export async function POST(request: NextRequest) {
         INSERT INTO users (email, name, phone, role, quickbase_user_id, sales_office, region, password_hash, is_active)
         VALUES ($1, $2, $3, $4, $5, ARRAY[$6]::text[], $7, $8, $9)
         RETURNING id, email, name, phone, role, quickbase_user_id, sales_office, sales_office[1] AS office, region, is_active, created_at, updated_at, last_login_at
-      `, [email, name, phone, role, quickbaseUserId, office ?? null, region, hashedPassword, true])
+      `, [email, name, phone, role, quickbaseUserId || null, office ?? null, region, hashedPassword, true])
 
       const user = userResult.rows[0]
 

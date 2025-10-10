@@ -211,8 +211,8 @@ export default function UsersTab() {
 
 
   const handleCreateUser = () => {
-    if (!newUser.name || !newUser.email || !newUser.quickbaseUserId || !newUser.temporaryPassword) {
-      toast.error('Name, email, Quickbase User ID, and temporary password are required')
+    if (!newUser.name || !newUser.email || !newUser.temporaryPassword) {
+      toast.error('Name, email, and temporary password are required')
       return
     }
     
@@ -365,13 +365,16 @@ export default function UsersTab() {
                 </Select>
               </div>
               <div>
-                <Label htmlFor="quickbaseUserId">Quickbase User ID *</Label>
+                <Label htmlFor="quickbaseUserId">Quickbase User ID (Optional)</Label>
                 <Input
                   id="quickbaseUserId"
                   value={newUser.quickbaseUserId}
                   onChange={(e) => setNewUser({ ...newUser, quickbaseUserId: e.target.value })}
-                  placeholder="Quickbase user ID"
+                  placeholder="Leave blank for admin/ops users"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Only required for sales team members with QuickBase access
+                </p>
               </div>
               <div>
                 <Label htmlFor="offices">Offices {isOfficeBasedRole(newUser.role) && '*'}</Label>

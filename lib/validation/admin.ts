@@ -7,7 +7,7 @@ export const createUserSchema = z.object({
   email: z.string().email('Invalid email address'),
   phone: z.string().optional(),
   role: roleEnum,
-  quickbaseUserId: z.string().min(1, 'Quickbase User ID is required'),
+  quickbaseUserId: z.string().optional(),
   office: z.string().optional().refine((office) => !office || isValidOffice(office), {
     message: 'Invalid office name. Must be a canonical office from the approved list.',
   }),

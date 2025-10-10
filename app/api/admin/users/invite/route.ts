@@ -122,19 +122,19 @@ export async function POST(request: NextRequest) {
       // Create user with is_active=false and invite token
       const userResult = await sql.query(`
         INSERT INTO users (
-          email, name, role, quickbase_user_id, sales_office, 
+          email, name, role, quickbase_user_id, sales_office,
           is_active, invite_token, invited_at, invited_by
         )
         VALUES ($1, $2, $3, $4, CASE WHEN $5 IS NOT NULL THEN ARRAY[$5]::text[] ELSE NULL END, $6, $7, $8, $9)
         RETURNING id, email, name, role, sales_office, invite_token, invited_at, invited_by
       `, [
-        email, 
-        name, 
-        role, 
-        '', // quickbase_user_id will be filled when user accepts invite
-        validatedOffice || null, 
+        email,
+        name,
+        role,
+        null, // quickbase_user_id will be filled when user accepts invite (if they have one)
+        validatedOffice || null,
         false, // is_active
-        inviteToken, 
+        inviteToken,
         invitedAt,
         auth.session.user.id // invited_by
       ])
@@ -488,32 +488,37 @@ async function handleInviteAcceptance(body: { token: string; password: string })
     const acceptedAt = new Date().toISOString()
 
     // Look up user's QuickBase data using email and update user record
-    let quickbaseUserId = '';
+    let quickbaseUserId: string | null = null;
     let phone = user.phone || '';
     let defaultOffice = user.sales_office?.[0] || '';
-    
+
     try {
       const quickbaseUsers = await searchQuickbaseUsers(user.email);
       if (quickbaseUsers.length > 0) {
         // Find best match by email
-        const bestMatch = quickbaseUsers.find(qbUser => 
+        const bestMatch = quickbaseUsers.find(qbUser =>
           qbUser.email?.toLowerCase() === user.email.toLowerCase()
         ) || quickbaseUsers[0]; // Fall back to first result
-        
-        quickbaseUserId = bestMatch.quickbaseUserId;
+
+        quickbaseUserId = bestMatch.quickbaseUserId || null;
         phone = bestMatch.phone || phone;
-        
+
         // Set default office if not already set and QuickBase user has office
         if (!defaultOffice && bestMatch.office) {
           defaultOffice = bestMatch.office;
         }
-        
+
         logInfo('QuickBase user data found for invite acceptance', {
           userId: user.id,
           email: user.email,
-          quickbaseUserId,
+          quickbaseUserId: quickbaseUserId || 'none',
           phone: phone ? '***' : 'none',
           office: defaultOffice
+        });
+      } else {
+        logInfo('No QuickBase user found for invite acceptance - continuing without QB data', {
+          userId: user.id,
+          email: user.email
         });
       }
     } catch (error) {
@@ -541,7 +546,7 @@ async function handleInviteAcceptance(body: { token: string; password: string })
       WHERE id = $3
     `, [hashedPassword, acceptedAt, user.id, quickbaseUserId, phone, defaultOffice])
 
-    // Log audit event for QuickBase data back-fill
+    // Log audit event for QuickBase data back-fill (only if data was found)
     if (quickbaseUserId || phone || defaultOffice) {
       await logAudit(
         'backfill_quickbase_data',
@@ -549,7 +554,7 @@ async function handleInviteAcceptance(body: { token: string; password: string })
         user.id,
         'system', // System action
         {
-          quickbase_user_id: { old: '', new: quickbaseUserId },
+          quickbase_user_id: { old: null, new: quickbaseUserId },
           phone: { old: user.phone || '', new: phone },
           default_office: { old: user.sales_office?.[0] || '', new: defaultOffice }
         }
@@ -593,3 +598,4 @@ async function handleInviteAcceptance(body: { token: string; password: string })
     )
   }
 }
+
