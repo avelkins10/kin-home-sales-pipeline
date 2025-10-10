@@ -74,4 +74,12 @@ export function getCacheTTL() {
   return CACHE_TTL;
 }
 
+export function clearProjectsCache() {
+  const previousSize = projectsCache.size;
+  projectsCache.clear();
+  cacheStats.currentSize = 0;
+  console.log(`[Cache] Cleared ${previousSize} cached entries`);
+  return { cleared: previousSize };
+}
+
 export { cacheStats };
