@@ -181,7 +181,15 @@ export function ProjectRow({ project }: ProjectRowProps) {
         </div>
 
         <div className="text-xs text-slate-600">
-          <span className="font-semibold">Next:</span> {currentMilestoneStatus.name}
+          {currentMilestoneStatus.state === 'ready-for' && (
+            <><span className="font-semibold">Ready for:</span> {currentMilestoneStatus.name}</>
+          )}
+          {currentMilestoneStatus.state === 'in-progress' && (
+            <><span className="font-semibold">In:</span> {currentMilestoneStatus.name}</>
+          )}
+          {currentMilestoneStatus.state !== 'ready-for' && currentMilestoneStatus.state !== 'in-progress' && (
+            <><span className="font-semibold">Next:</span> {currentMilestoneStatus.name}</>
+          )}
           {currentMilestoneStatus.scheduledDate && (
             <span className="ml-1">
               (Due {new Date(currentMilestoneStatus.scheduledDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})
