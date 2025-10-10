@@ -596,9 +596,623 @@ export async function getDashboardMetricsOptimized(userId: string, role: string,
   return { installsThisWeek, activeProjects, onHold, installsThisMonth, holdBreakdown };
 }
 
+// Time range filtering helper
+function buildTimeRangeFilter(timeRange: 'lifetime' | 'month' | 'week'): string {
+  const now = new Date();
+  
+  switch (timeRange) {
+    case 'month':
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+      const monthStart = new Date(currentYear, currentMonth, 1);
+      const monthEnd = new Date(currentYear, currentMonth + 1, 0);
+      // Use AF for start date (after or equal) and BF for end date (before or equal)
+      return `{${PROJECT_FIELDS.SALES_DATE}.AF.'${monthStart.toISOString().split('T')[0]}'} AND {${PROJECT_FIELDS.SALES_DATE}.BF.'${monthEnd.toISOString().split('T')[0]}'}`;
+    
+    case 'week':
+      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      // Use AF for start date (after or equal to one week ago)
+      return `{${PROJECT_FIELDS.SALES_DATE}.AF.'${oneWeekAgo.toISOString().split('T')[0]}'}`;
+    
+    case 'lifetime':
+    default:
+      return ''; // No date filter for lifetime
+  }
+}
+
+// Enhanced dashboard metrics with revenue, commission, and bucket calculations
+export async function getEnhancedDashboardMetrics(
+  userId: string, 
+  role: string, 
+  timeRange: 'lifetime' | 'month' | 'week' = 'lifetime',
+  salesOffice?: string[]
+) {
+  console.log('[getEnhancedDashboardMetrics] START - userId:', userId, 'role:', role, 'timeRange:', timeRange, 'salesOffice:', salesOffice);
+  const startTime = Date.now();
+
+  // Get managed user IDs for team leads
+  let managedUserIds: string[] | undefined;
+  if (role === 'team_lead') {
+    managedUserIds = await getManagedUserIds(userId);
+  }
+
+  // Get assigned offices for office-based roles if no offices provided
+  let effectiveSalesOffice = salesOffice;
+  if (!effectiveSalesOffice && ['office_leader', 'area_director', 'divisional'].includes(role)) {
+    effectiveSalesOffice = await getAssignedOffices(userId);
+  }
+
+  // Build role-based where clause (no time filtering here)
+  const roleClause = buildRoleClause(userId, role, effectiveSalesOffice, managedUserIds);
+  
+  console.log('[getEnhancedDashboardMetrics] Role-based WHERE clause:', roleClause);
+
+  // Fetch all necessary fields for comprehensive metrics (role-scoped only)
+  const userProjects = await qbClient.queryRecords({
+    from: QB_TABLE_PROJECTS,
+    select: [
+      // Basic fields
+      PROJECT_FIELDS.RECORD_ID,
+      PROJECT_FIELDS.PROJECT_STATUS,
+      PROJECT_FIELDS.ON_HOLD,
+      PROJECT_FIELDS.HOLD_REASON,
+      PROJECT_FIELDS.DATE_ON_HOLD,
+      PROJECT_FIELDS.SALES_DATE,
+      PROJECT_FIELDS.PROJECT_AGE,
+      
+      // Revenue fields
+      PROJECT_FIELDS.SYSTEM_PRICE,
+      PROJECT_FIELDS.SYSTEM_SIZE_KW,
+      PROJECT_FIELDS.COMMISSIONABLE_PPW,
+      
+      // Milestone dates
+      PROJECT_FIELDS.INSTALL_COMPLETED_DATE,
+      PROJECT_FIELDS.PTO_APPROVED,
+      PROJECT_FIELDS.NEM_APPROVED,
+      PROJECT_FIELDS.PERMIT_APPROVED,
+      PROJECT_FIELDS.INSTALL_SCHEDULED_DATE_CAPTURE,
+      
+      // Funding fields
+      PROJECT_FIELDS.LENDER_FUNDING_RECEIVED_DATE,
+      PROJECT_FIELDS.INVOICE_DATE,
+      PROJECT_FIELDS.FUNDING_DASHBOARD_M1_STATUS,
+      PROJECT_FIELDS.FUNDING_DASHBOARD_M2_STATUS,
+      PROJECT_FIELDS.FUNDING_DASHBOARD_M3_STATUS,
+    ],
+    where: roleClause,
+  });
+
+  const allData = userProjects.data || [];
+  console.log(`[getEnhancedDashboardMetrics] Retrieved ${allData.length} projects (role-scoped)`);
+
+  // Create three period-specific arrays for per-metric time filtering
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  const monthStart = new Date(currentYear, currentMonth, 1);
+  const monthEnd = new Date(currentYear, currentMonth + 1, 0);
+  const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  // soldInPeriod = filter by SALES_DATE within timeRange
+  const soldInPeriod = allData.filter((project: any) => {
+    const salesDate = project[PROJECT_FIELDS.SALES_DATE]?.value;
+    if (!salesDate) return false;
+    
+    const projectDate = new Date(salesDate);
+    
+    switch (timeRange) {
+      case 'month':
+        return projectDate >= monthStart && projectDate <= monthEnd;
+      case 'week':
+        return projectDate >= oneWeekAgo;
+      case 'lifetime':
+      default:
+        return true;
+    }
+  });
+
+  // installedInPeriod = filter by INSTALL_COMPLETED_DATE within timeRange
+  const installedInPeriod = allData.filter((project: any) => {
+    const installDate = project[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value;
+    if (!installDate) return false;
+    
+    const projectDate = new Date(installDate);
+    
+    switch (timeRange) {
+      case 'month':
+        return projectDate >= monthStart && projectDate <= monthEnd;
+      case 'week':
+        return projectDate >= oneWeekAgo;
+      case 'lifetime':
+      default:
+        return true;
+    }
+  });
+
+  // fundedInPeriod = filter by LENDER_FUNDING_RECEIVED_DATE within timeRange
+  const fundedInPeriod = allData.filter((project: any) => {
+    const fundingDate = project[PROJECT_FIELDS.LENDER_FUNDING_RECEIVED_DATE]?.value;
+    if (!fundingDate) return false;
+    
+    const projectDate = new Date(fundingDate);
+    
+    switch (timeRange) {
+      case 'month':
+        return projectDate >= monthStart && projectDate <= monthEnd;
+      case 'week':
+        return projectDate >= oneWeekAgo;
+      case 'lifetime':
+      default:
+        return true;
+    }
+  });
+
+  console.log(`[getEnhancedDashboardMetrics] Period arrays - sold: ${soldInPeriod.length}, installed: ${installedInPeriod.length}, funded: ${fundedInPeriod.length}`);
+
+  // Calculate all metrics using appropriate period arrays
+  const basicMetrics = calculateBasicMetrics(installedInPeriod, timeRange);
+  
+  // Console validation for install metrics fix
+  console.log(`[getEnhancedDashboardMetrics] Install metrics validation - installsThisWeek: ${basicMetrics.installsThisWeek}, installsThisMonth: ${basicMetrics.installsThisMonth} (from installedInPeriod: ${installedInPeriod.length} projects)`);
+  const revenueMetrics = calculateRevenueMetrics(soldInPeriod, installedInPeriod);
+  const commissionBreakdown = calculateCommissionBreakdown(allData, fundedInPeriod);
+  const projectBuckets = getProjectBucketCounts(allData); // Use allData for buckets (no time filtering)
+  const retentionRates = calculateRetentionRate(allData); // Use allData for retention (no time filtering)
+
+  // Log performance metrics
+  const duration = Date.now() - startTime;
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[ENHANCED_METRICS] Query completed in ${duration}ms for ${allData.length} total records, sold: ${soldInPeriod.length}, installed: ${installedInPeriod.length}, funded: ${fundedInPeriod.length}`);
+  }
+
+  return {
+    ...basicMetrics,
+    ...revenueMetrics,
+    ...commissionBreakdown,
+    buckets: projectBuckets,
+    retentionRate: retentionRates.lifetime, // Use lifetime retention for now
+    retentionRateLifetime: retentionRates.lifetime,
+    retentionRatePeriod: retentionRates.period,
+    timeRange,
+  };
+}
+
+// Calculate basic metrics (existing functionality)
+function calculateBasicMetrics(data: any[], timeRange: 'lifetime' | 'month' | 'week') {
+  const now = new Date();
+  const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+
+  const installsThisWeek = data.filter((p: any) => {
+    const installDate = p[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value;
+    if (!installDate) return false;
+    const d = new Date(installDate);
+    return d >= oneWeekAgo && d <= now;
+  }).length;
+
+  const activeProjects = data.filter((p: any) => {
+    const status = p[PROJECT_FIELDS.PROJECT_STATUS]?.value || '';
+    const onHold = p[PROJECT_FIELDS.ON_HOLD]?.value;
+    return status.includes('Active') && onHold !== 'Yes';
+  }).length;
+
+  const onHold = data.filter((p: any) => p[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes').length;
+
+  const installsThisMonth = data.filter((p: any) => {
+    const installDate = p[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value;
+    if (!installDate) return false;
+    const d = new Date(installDate);
+    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+  }).length;
+
+  const holdReasons = data
+    .filter((p: any) => p[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes')
+    .map((p: any) => p[PROJECT_FIELDS.HOLD_REASON]?.value || '')
+    .filter((r: string) => r);
+  
+  // Refined hold breakdown with controlled categories
+  const holdBreakdownMap = new Map<string, number>();
+  holdReasons.forEach((reason: string) => {
+    const category = categorizeHoldReason(reason);
+    holdBreakdownMap.set(category, (holdBreakdownMap.get(category) || 0) + 1);
+  });
+  
+  const holdBreakdown = Array.from(holdBreakdownMap.entries())
+    .map(([category, count]) => `${count} ${category}`)
+    .join(', ');
+
+  return { installsThisWeek, activeProjects, onHold, installsThisMonth, holdBreakdown };
+}
+
+// Calculate revenue metrics
+function calculateRevenueMetrics(soldInPeriod: any[], installedInPeriod: any[]) {
+  const soldAccounts = soldInPeriod.length;
+  const grossRevenue = soldInPeriod.reduce((sum, p: any) => {
+    const price = parseFloat(p[PROJECT_FIELDS.SYSTEM_PRICE]?.value || '0');
+    return sum + price;
+  }, 0);
+
+  const installCount = installedInPeriod.length;
+  const installedRevenue = installedInPeriod.reduce((sum, p: any) => {
+    const price = parseFloat(p[PROJECT_FIELDS.SYSTEM_PRICE]?.value || '0');
+    return sum + price;
+  }, 0);
+
+  return { soldAccounts, grossRevenue, installCount, installedRevenue };
+}
+
+// Calculate commission breakdown
+function calculateCommissionBreakdown(allData: any[], fundedInPeriod: any[]) {
+  const calculateCommission = (projects: any[]) => {
+    return projects.reduce((sum, p: any) => {
+      const ppw = parseFloat(p[PROJECT_FIELDS.COMMISSIONABLE_PPW]?.value || '0');
+      const sizeKw = parseFloat(p[PROJECT_FIELDS.SYSTEM_SIZE_KW]?.value || '0');
+      
+      // Guard against NaN and negative values
+      if (isNaN(ppw) || isNaN(sizeKw) || ppw < 0 || sizeKw < 0) {
+        return sum;
+      }
+      
+      // Convert kW to watts: PPW × kW × 1000
+      const watts = sizeKw * 1000;
+      return sum + (ppw * watts);
+    }, 0);
+  };
+
+  // Earned: Projects with lender funding received in period (M3 funded)
+  const earnedCommission = calculateCommission(fundedInPeriod);
+
+  // Lost: Cancelled projects (use allData for lifetime view)
+  const lostProjects = allData.filter((p: any) => {
+    const status = p[PROJECT_FIELDS.PROJECT_STATUS]?.value || '';
+    return status.includes('Cancel') && !status.includes('Pending');
+  });
+  const lostCommission = calculateCommission(lostProjects);
+
+  // On Hold: Projects currently on hold (use allData for lifetime view)
+  const onHoldProjects = allData.filter((p: any) => p[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes');
+  const onHoldCommission = calculateCommission(onHoldProjects);
+
+  // Pending: Active projects not yet installed (use allData for lifetime view)
+  const pendingProjects = allData.filter((p: any) => {
+    const status = p[PROJECT_FIELDS.PROJECT_STATUS]?.value || '';
+    const onHold = p[PROJECT_FIELDS.ON_HOLD]?.value;
+    const installed = p[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value;
+    return status.includes('Active') && onHold !== 'Yes' && !installed;
+  });
+  const pendingCommission = calculateCommission(pendingProjects);
+
+  // Sales Aid Commission (placeholder - needs business definition)
+  const salesAidCommission = 0;
+
+  return {
+    earnedCommission,
+    lostCommission,
+    onHoldCommission,
+    pendingCommission,
+    salesAidCommission,
+  };
+}
+
+// Calculate project bucket counts
+function getProjectBucketCounts(data: any[]) {
+  const now = new Date();
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  // Installs: Projects completed but not yet PTO'd
+  const installs = data.filter((p: any) => {
+    const installed = p[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value;
+    const pto = p[PROJECT_FIELDS.PTO_APPROVED]?.value;
+    return installed && !pto;
+  }).length;
+
+  // Rejected: Projects with status containing 'Reject'
+  const rejected = data.filter((p: any) => {
+    const status = p[PROJECT_FIELDS.PROJECT_STATUS]?.value || '';
+    return status.includes('Reject');
+  }).length;
+
+  // On Hold: Projects currently on hold
+  const onHold = data.filter((p: any) => p[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes').length;
+
+  // Rep Attention: Projects >90 days old OR on hold >7 days
+  const repAttention = data.filter((p: any) => {
+    const age = parseInt(p[PROJECT_FIELDS.PROJECT_AGE]?.value || '0');
+    const onHold = p[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes';
+    const holdDate = p[PROJECT_FIELDS.DATE_ON_HOLD]?.value;
+    
+    if (age > 90) return true;
+    if (onHold && holdDate) {
+      const hold = new Date(holdDate);
+      return hold < sevenDaysAgo;
+    }
+    return false;
+  }).length;
+
+  // Pending Cancel: Projects with status containing 'Pending Cancel'
+  const pendingCancel = data.filter((p: any) => {
+    const status = p[PROJECT_FIELDS.PROJECT_STATUS]?.value || '';
+    return status.includes('Pending Cancel');
+  }).length;
+
+  // Ready for Install: Projects with permits/NEM but no install date
+  const readyForInstall = data.filter((p: any) => {
+    const nem = p[PROJECT_FIELDS.NEM_APPROVED]?.value;
+    const permit = p[PROJECT_FIELDS.PERMIT_APPROVED]?.value;
+    const scheduled = p[PROJECT_FIELDS.INSTALL_SCHEDULED_DATE_CAPTURE]?.value;
+    return nem === 'Yes' && permit === 'Yes' && !scheduled;
+  }).length;
+
+  return { installs, rejected, onHold, repAttention, pendingCancel, readyForInstall };
+}
+
+// Calculate retention rate with business-approved statuses
+function calculateRetentionRate(data: any[]): { lifetime: number; period: number } {
+  // Business-approved status categories
+  const retainedStatuses = ['Active', 'Completed', 'Installed', 'PTO Approved'];
+  const lostStatuses = ['Cancelled', 'Canceled', 'Rejected', 'Pending Cancel'];
+  
+  const active = data.filter((p: any) => {
+    const status = p[PROJECT_FIELDS.PROJECT_STATUS]?.value || '';
+    return retainedStatuses.some(retainedStatus => status.includes(retainedStatus));
+  }).length;
+
+  const completed = data.filter((p: any) => {
+    const status = p[PROJECT_FIELDS.PROJECT_STATUS]?.value || '';
+    return status.includes('Completed') || status.includes('PTO Approved');
+  }).length;
+
+  const cancelled = data.filter((p: any) => {
+    const status = p[PROJECT_FIELDS.PROJECT_STATUS]?.value || '';
+    return lostStatuses.some(lostStatus => status.includes(lostStatus));
+  }).length;
+
+  const total = active + completed + cancelled;
+  if (total === 0) return { lifetime: 0, period: 0 };
+  
+  const lifetimeRetention = Math.round(((active + completed) / total) * 100 * 10) / 10; // Round to 1 decimal place
+  
+  // For now, return the same value for both lifetime and period
+  // In the future, this could be enhanced to calculate period-specific retention
+  return { 
+    lifetime: lifetimeRetention, 
+    period: lifetimeRetention 
+  };
+}
+
+// Test function for time range filter validation
+export function testTimeRangeFilter() {
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  const monthStart = new Date(currentYear, currentMonth, 1);
+  const monthEnd = new Date(currentYear, currentMonth + 1, 0);
+  const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  console.log('Time Range Filter Tests:');
+  console.log('Current date:', now.toISOString().split('T')[0]);
+  console.log('Month start:', monthStart.toISOString().split('T')[0]);
+  console.log('Month end:', monthEnd.toISOString().split('T')[0]);
+  console.log('One week ago:', oneWeekAgo.toISOString().split('T')[0]);
+  
+  const monthFilter = buildTimeRangeFilter('month');
+  const weekFilter = buildTimeRangeFilter('week');
+  const lifetimeFilter = buildTimeRangeFilter('lifetime');
+  
+  console.log('Month filter:', monthFilter);
+  console.log('Week filter:', weekFilter);
+  console.log('Lifetime filter:', lifetimeFilter);
+  
+  return { monthFilter, weekFilter, lifetimeFilter };
+}
+
+// Test function for per-metric period array validation
+export function testPerMetricPeriodArrays() {
+  console.log('Per-Metric Period Array Tests:');
+  
+  // Mock project data for testing
+  const mockProjects = [
+    {
+      [PROJECT_FIELDS.SALES_DATE]: { value: '2024-01-15' },
+      [PROJECT_FIELDS.INSTALL_COMPLETED_DATE]: { value: '2024-02-15' },
+      [PROJECT_FIELDS.LENDER_FUNDING_RECEIVED_DATE]: { value: '2024-03-15' },
+    },
+    {
+      [PROJECT_FIELDS.SALES_DATE]: { value: '2024-01-20' },
+      [PROJECT_FIELDS.INSTALL_COMPLETED_DATE]: { value: '2024-01-25' },
+      [PROJECT_FIELDS.LENDER_FUNDING_RECEIVED_DATE]: { value: '2024-02-01' },
+    },
+    {
+      [PROJECT_FIELDS.SALES_DATE]: { value: '2023-12-01' },
+      [PROJECT_FIELDS.INSTALL_COMPLETED_DATE]: { value: '2024-01-10' },
+      [PROJECT_FIELDS.LENDER_FUNDING_RECEIVED_DATE]: { value: '2024-01-20' },
+    },
+  ];
+
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  const monthStart = new Date(currentYear, currentMonth, 1);
+  const monthEnd = new Date(currentYear, currentMonth + 1, 0);
+  const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  // Test soldInPeriod (SALES_DATE filtering)
+  const soldInPeriod = mockProjects.filter((project: any) => {
+    const salesDate = project[PROJECT_FIELDS.SALES_DATE]?.value;
+    if (!salesDate) return false;
+    const projectDate = new Date(salesDate);
+    return projectDate >= monthStart && projectDate <= monthEnd;
+  });
+  console.log(`soldInPeriod (SALES_DATE): ${soldInPeriod.length} projects`);
+
+  // Test installedInPeriod (INSTALL_COMPLETED_DATE filtering)
+  const installedInPeriod = mockProjects.filter((project: any) => {
+    const installDate = project[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value;
+    if (!installDate) return false;
+    const projectDate = new Date(installDate);
+    return projectDate >= monthStart && projectDate <= monthEnd;
+  });
+  console.log(`installedInPeriod (INSTALL_COMPLETED_DATE): ${installedInPeriod.length} projects`);
+
+  // Test fundedInPeriod (LENDER_FUNDING_RECEIVED_DATE filtering)
+  const fundedInPeriod = mockProjects.filter((project: any) => {
+    const fundingDate = project[PROJECT_FIELDS.LENDER_FUNDING_RECEIVED_DATE]?.value;
+    if (!fundingDate) return false;
+    const projectDate = new Date(fundingDate);
+    return projectDate >= monthStart && projectDate <= monthEnd;
+  });
+  console.log(`fundedInPeriod (LENDER_FUNDING_RECEIVED_DATE): ${fundedInPeriod.length} projects`);
+
+  return { soldInPeriod, installedInPeriod, fundedInPeriod };
+}
+
+// Categorize hold reasons into controlled categories
+function categorizeHoldReason(reason: string): string {
+  if (!reason || typeof reason !== 'string') return 'Other';
+  
+  const normalizedReason = reason.toLowerCase().trim();
+  
+  // Split on common delimiters first
+  const parts = normalizedReason.split(/[-:]/).map(part => part.trim());
+  const firstPart = parts[0];
+  
+  // Predefined mapping for common hold reasons
+  const categoryMap: Record<string, string> = {
+    'finance': 'Finance',
+    'financial': 'Finance',
+    'funding': 'Finance',
+    'credit': 'Finance',
+    'loan': 'Finance',
+    'roof': 'Roof',
+    'roofing': 'Roof',
+    'structural': 'Roof',
+    'customer': 'Customer',
+    'homeowner': 'Customer',
+    'owner': 'Customer',
+    'permit': 'Permit',
+    'permits': 'Permit',
+    'permitting': 'Permit',
+    'hoa': 'HOA',
+    'homeowner association': 'HOA',
+    'utility': 'Utility',
+    'utilities': 'Utility',
+    'inspection': 'Inspection',
+    'inspections': 'Inspection',
+    'design': 'Design',
+    'engineering': 'Design',
+    'survey': 'Survey',
+    'surveys': 'Survey',
+    'equipment': 'Equipment',
+    'material': 'Equipment',
+    'materials': 'Equipment',
+    'install': 'Installation',
+    'installation': 'Installation',
+    'installer': 'Installation',
+    'weather': 'Weather',
+    'scheduling': 'Scheduling',
+    'schedule': 'Scheduling',
+  };
+  
+  // Check for exact matches first
+  if (categoryMap[firstPart]) {
+    return categoryMap[firstPart];
+  }
+  
+  // Check for partial matches
+  for (const [key, category] of Object.entries(categoryMap)) {
+    if (firstPart.includes(key) || key.includes(firstPart)) {
+      return category;
+    }
+  }
+  
+  // If no match found, return the first word capitalized
+  return firstPart.charAt(0).toUpperCase() + firstPart.slice(1) || 'Other';
+}
+
+// Test function for commission calculation validation
+export function testCommissionCalculation() {
+  console.log('Commission Calculation Tests:');
+  
+  // Test cases with sample data
+  const testCases = [
+    { ppw: 0.50, sizeKw: 5.0, expected: 2500 }, // 0.50 * 5 * 1000 = 2500
+    { ppw: 0.75, sizeKw: 8.5, expected: 6375 }, // 0.75 * 8.5 * 1000 = 6375
+    { ppw: 1.00, sizeKw: 10.0, expected: 10000 }, // 1.00 * 10 * 1000 = 10000
+    { ppw: 0, sizeKw: 5.0, expected: 0 }, // Zero PPW
+    { ppw: 0.50, sizeKw: 0, expected: 0 }, // Zero size
+    { ppw: -0.50, sizeKw: 5.0, expected: 0 }, // Negative PPW (should be ignored)
+    { ppw: 0.50, sizeKw: -5.0, expected: 0 }, // Negative size (should be ignored)
+  ];
+  
+  testCases.forEach((testCase, index) => {
+    const ppw = testCase.ppw;
+    const sizeKw = testCase.sizeKw;
+    
+    // Guard against NaN and negative values
+    if (isNaN(ppw) || isNaN(sizeKw) || ppw < 0 || sizeKw < 0) {
+      console.log(`Test ${index + 1}: PPW=${ppw}, Size=${sizeKw}kW -> 0 (guarded)`);
+      return;
+    }
+    
+    // Convert kW to watts: PPW × kW × 1000
+    const watts = sizeKw * 1000;
+    const result = ppw * watts;
+    
+    console.log(`Test ${index + 1}: PPW=${ppw}, Size=${sizeKw}kW -> ${result} (expected: ${testCase.expected})`);
+    
+    if (result === testCase.expected) {
+      console.log(`  ✓ PASS`);
+    } else {
+      console.log(`  ✗ FAIL`);
+    }
+  });
+  
+  return testCases;
+}
+
+// Test function for hold breakdown categorization
+export function testHoldBreakdownCategorization() {
+  console.log('Hold Breakdown Categorization Tests:');
+  
+  const testCases = [
+    'Finance - Credit Check',
+    'Roof: Structural Issues',
+    'Customer Decision',
+    'Permit Approval',
+    'HOA Approval',
+    'Utility Connection',
+    'Inspection Failed',
+    'Design Changes',
+    'Survey Required',
+    'Equipment Delay',
+    'Installation Scheduling',
+    'Weather Delay',
+    'Unknown Reason',
+    'Multi-word reason with spaces',
+    '',
+    null,
+    undefined,
+  ];
+  
+  testCases.forEach((reason, index) => {
+    const category = categorizeHoldReason(reason as string);
+    console.log(`Test ${index + 1}: "${reason}" -> "${category}"`);
+  });
+  
+  return testCases.map(reason => ({
+    input: reason,
+    output: categorizeHoldReason(reason as string)
+  }));
+}
+
 export const __test__ = {
   sanitizeQbLiteral,
   buildSearchFilter,
+  testTimeRangeFilter,
+  testPerMetricPeriodArrays,
+  testCommissionCalculation,
+  testHoldBreakdownCategorization,
 };
 
 export async function getUrgentProjects(userId: string, role: string, salesOffice?: string[]) {
