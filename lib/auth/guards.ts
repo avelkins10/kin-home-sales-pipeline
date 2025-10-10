@@ -67,28 +67,28 @@ export async function requireRole(allowedRoles: UserRole[]): Promise<AuthGuardRe
 /**
  * Validates that user can access a specific project
  * @param session - Authenticated user session
- * @param projectOwnerId - ID of the project owner (closer/setter)
+ * @param projectOwnerEmail - Email of the project owner (closer/setter email from project)
  * @returns boolean - Whether user has access to the project
  */
-export function requireProjectAccess(session: Session, projectOwnerId: string): boolean {
+export function requireProjectAccess(session: Session, projectOwnerEmail: string): boolean {
   const userRole = session.user.role as UserRole;
-  const userId = session.user.quickbaseUserId;
-  
+  const userEmail = session.user.email;
+
   // Super admin and regional have full access
   if (userRole === 'super_admin' || userRole === 'regional') {
     return true;
   }
-  
+
   // Office leaders can see all projects in their office
   if (userRole === 'office_leader') {
     return true;
   }
-  
-  // Closers and setters can only access their own projects
+
+  // Closers and setters can only access their own projects (by email match)
   if (userRole === 'closer' || userRole === 'setter') {
-    return userId === projectOwnerId;
+    return userEmail?.toLowerCase() === projectOwnerEmail?.toLowerCase();
   }
-  
+
   return false;
 }
 
@@ -101,6 +101,18 @@ export async function requireProjectAccessById(projectId: number | string): Prom
   if (!auth.authorized) return auth;
 
   const session = auth.session;
+  const userRole = session.user.role as UserRole;
+
+  // Super admin and regional have full access - skip project lookup
+  if (userRole === 'super_admin' || userRole === 'regional') {
+    return { authorized: true, session };
+  }
+
+  // Office leaders can see all projects in their office - skip project lookup for now
+  if (userRole === 'office_leader') {
+    return { authorized: true, session };
+  }
+
   try {
     const { getProjectById } = await import('@/lib/quickbase/queries');
     const numericId = typeof projectId === 'string' ? parseInt(projectId, 10) : projectId;
@@ -118,11 +130,17 @@ export async function requireProjectAccessById(projectId: number | string): Prom
       };
     }
 
-    const ownerCloserId = project[301]?.value || project[516]?.value || '';
-    const ownerSetterId = project[329]?.value || '';
+    // Use email fields for authorization (field 518 = CLOSER_EMAIL, 331 = SETTER_EMAIL)
+    const closerEmail = project[518]?.value || '';
+    const setterEmail = project[331]?.value || '';
+    const userEmail = session.user.email?.toLowerCase() || '';
 
-    const allowed = requireProjectAccess(session, ownerCloserId || ownerSetterId);
-    if (!allowed) {
+    // Check if user email matches closer or setter email
+    const hasAccess =
+      closerEmail.toLowerCase() === userEmail ||
+      setterEmail.toLowerCase() === userEmail;
+
+    if (!hasAccess) {
       return {
         authorized: false,
         response: NextResponse.json({ error: 'Forbidden' }, { status: 403 })
