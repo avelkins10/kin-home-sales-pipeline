@@ -682,8 +682,21 @@ export function getMilestoneStatus(project: QuickbaseProject, milestoneId: strin
   let daysOverdue: number | undefined;
 
   if (state === 'in-progress') { // || state === 'overdue') {
-    // Find when milestone started (first substep date or scheduled date)
-    const startDate = scheduledDate || substeps.find(s => s.date)?.date;
+    // Find when milestone started - priority order:
+    // 1. Scheduled date (if available)
+    // 2. First substep date (if available)
+    // 3. Previous milestone completion date (fallback)
+    let startDate = scheduledDate || substeps.find(s => s.date)?.date;
+
+    // If no direct start date, use previous milestone's completion date
+    if (!startDate && config.dependencies && config.dependencies.length > 0) {
+      const prevMilestoneId = config.dependencies[config.dependencies.length - 1];
+      const prevCompletionDate = getMilestoneCompletionDate(project, prevMilestoneId, dynamicConfig);
+      if (prevCompletionDate) {
+        startDate = prevCompletionDate;
+      }
+    }
+
     if (startDate) {
       const now = new Date();
       daysInProgress = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
