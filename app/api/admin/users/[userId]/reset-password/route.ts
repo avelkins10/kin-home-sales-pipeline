@@ -71,13 +71,14 @@ export async function POST(
       await sendMail({
         to: user.email,
         subject: 'Your Kin Solar temporary password',
-        html: `<p>Hello ${user.name || ''},</p><p>Your temporary password has been generated. Please use it to log in and change it immediately.</p>`,
+        html: `<p>Hello ${user.name || ''},</p><p>Your temporary password has been generated: <strong>${temporaryPassword}</strong></p><p>Please use it to log in and change it immediately for security.</p>`,
       })
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Password reset successfully. Email sent if enabled.'
+      message: 'Password reset successfully. Email sent if enabled.',
+      temporaryPassword: temporaryPassword // Return to admin for display
     })
   } catch (error) {
     logError('Failed to reset password', error instanceof Error ? error : new Error(String(error)))
