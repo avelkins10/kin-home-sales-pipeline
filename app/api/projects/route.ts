@@ -45,8 +45,8 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Invalid sort parameter' }, { status: 400 });
     }
 
-    const { quickbaseUserId, role, salesOffice } = auth.session.user as any;
-    const userId = quickbaseUserId as string;
+    const { id, role, salesOffice } = auth.session.user as any;
+    const userId = id as string;
 
     // Check cache first
     const officeKey = salesOffice ? salesOffice.sort().join(',') : '';
