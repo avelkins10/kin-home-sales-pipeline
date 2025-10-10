@@ -45,11 +45,10 @@ export async function getNotificationRecipientsForProject(
       from: QB_TABLE_PROJECTS,
       select: [
         PROJECT_FIELDS.RECORD_ID,
-        PROJECT_FIELDS.CLOSER_ID,
         PROJECT_FIELDS.CLOSER_NAME,
-        PROJECT_FIELDS.SETTER_ID,
+        PROJECT_FIELDS.CLOSER_EMAIL,
         PROJECT_FIELDS.SETTER_NAME,
-        PROJECT_FIELDS.PROJECT_COORDINATOR_ID,
+        PROJECT_FIELDS.SETTER_EMAIL,
         PROJECT_FIELDS.PROJECT_COORDINATOR,
         PROJECT_FIELDS.SALES_OFFICE,
       ],
@@ -65,65 +64,42 @@ export async function getNotificationRecipientsForProject(
     const salesOffice = project[PROJECT_FIELDS.SALES_OFFICE]?.value;
 
     console.log('[notificationRecipients] Project team:', {
-      closer: project[PROJECT_FIELDS.CLOSER_NAME]?.value,
-      setter: project[PROJECT_FIELDS.SETTER_NAME]?.value,
+      closerName: project[PROJECT_FIELDS.CLOSER_NAME]?.value,
+      closerEmail: project[PROJECT_FIELDS.CLOSER_EMAIL]?.value,
+      setterName: project[PROJECT_FIELDS.SETTER_NAME]?.value,
+      setterEmail: project[PROJECT_FIELDS.SETTER_EMAIL]?.value,
       coordinator: project[PROJECT_FIELDS.PROJECT_COORDINATOR]?.value,
       office: salesOffice,
     });
 
-    // 2. Add project closer (required)
-    const closerId = project[PROJECT_FIELDS.CLOSER_ID]?.value;
+    // 2. Add project closer (required) - use EMAIL field
+    const closerEmail = project[PROJECT_FIELDS.CLOSER_EMAIL]?.value;
     const closerName = project[PROJECT_FIELDS.CLOSER_NAME]?.value;
 
-    if (closerId && closerId.email) {
+    if (closerEmail && typeof closerEmail === 'string') {
       recipients.push({
-        userId: closerId.email,
-        userName: closerName || closerId.name || closerId.email,
-        role: 'closer',
-      });
-    } else if (closerId && closerId.id) {
-      recipients.push({
-        userId: closerId.id,
-        userName: closerName || closerId.name || closerId.id,
+        userId: closerEmail.toLowerCase(),
+        userName: closerName || closerEmail,
         role: 'closer',
       });
     }
 
-    // 3. Add project setter (if assigned)
-    const setterId = project[PROJECT_FIELDS.SETTER_ID]?.value;
+    // 3. Add project setter (if assigned) - use EMAIL field
+    const setterEmail = project[PROJECT_FIELDS.SETTER_EMAIL]?.value;
     const setterName = project[PROJECT_FIELDS.SETTER_NAME]?.value;
 
-    if (setterId && setterId.email) {
+    if (setterEmail && typeof setterEmail === 'string') {
       recipients.push({
-        userId: setterId.email,
-        userName: setterName || setterId.name || setterId.email,
-        role: 'setter',
-      });
-    } else if (setterId && setterId.id) {
-      recipients.push({
-        userId: setterId.id,
-        userName: setterName || setterId.name || setterId.id,
+        userId: setterEmail.toLowerCase(),
+        userName: setterName || setterEmail,
         role: 'setter',
       });
     }
 
     // 4. Add project coordinator (if assigned)
-    const coordinatorId = project[PROJECT_FIELDS.PROJECT_COORDINATOR_ID]?.value;
+    // Note: Coordinator email field not yet available in QuickBase, skip for now
     const coordinatorName = project[PROJECT_FIELDS.PROJECT_COORDINATOR]?.value;
-
-    if (coordinatorId && coordinatorId.email) {
-      recipients.push({
-        userId: coordinatorId.email,
-        userName: coordinatorName || coordinatorId.name || coordinatorId.email,
-        role: 'coordinator',
-      });
-    } else if (coordinatorId && coordinatorId.id) {
-      recipients.push({
-        userId: coordinatorId.id,
-        userName: coordinatorName || coordinatorId.name || coordinatorId.id,
-        role: 'coordinator',
-      });
-    }
+    // TODO: Add coordinator email field once available in QuickBase
 
     // 5. Add office leaders for this project's office
     if (salesOffice) {
