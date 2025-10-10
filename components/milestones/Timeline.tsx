@@ -9,16 +9,13 @@ interface TimelineProps {
   project: QuickbaseProject
 }
 
-// Milestone icon and color mapping
+// Milestone icon and color mapping (7-milestone system)
 const milestoneConfig: Record<string, { icon: string; color: string; calculated?: boolean }> = {
   intake: { icon: '📋', color: 'gray' },
   survey: { icon: '📐', color: 'blue' },
   design: { icon: '🎨', color: 'purple' },
-  hoa: { icon: '🏘️', color: 'orange' },
-  nem: { icon: '⚡', color: 'yellow' },
-  permit: { icon: '📄', color: 'indigo' },
+  permitting: { icon: '📄', color: 'indigo' }, // Combines HOA, NEM, and Permit
   install: { icon: '🔧', color: 'green' },
-  verification: { icon: '✅', color: 'cyan', calculated: true },
   inspection: { icon: '🔍', color: 'teal' },
   pto: { icon: '🎉', color: 'emerald' }
 }

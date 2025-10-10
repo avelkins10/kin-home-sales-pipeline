@@ -24,15 +24,13 @@ interface TrafficLightPipelineProps {
   project: QuickbaseProject;
 }
 
+// 7-milestone system: Intake → Survey → Design → Permitting → Installation → Inspection → PTO
 const milestones: Array<{ id: string; label: string; Icon: LucideIcon }> = [
   { id: 'intake', label: 'Intake', Icon: ClipboardList },
   { id: 'survey', label: 'Survey', Icon: Camera },
   { id: 'design', label: 'Design', Icon: Ruler },
-  { id: 'hoa', label: 'HOA', Icon: Home },
-  { id: 'nem', label: 'NEM', Icon: Zap },
-  { id: 'permit', label: 'Permit', Icon: FileText },
+  { id: 'permitting', label: 'Permitting', Icon: FileText }, // Combines HOA, NEM, and Permit
   { id: 'install', label: 'Install', Icon: Wrench },
-  { id: 'verification', label: 'Verify', Icon: Search },
   { id: 'inspection', label: 'Inspect', Icon: CheckCircle },
   { id: 'pto', label: 'PTO', Icon: Power },
 ];

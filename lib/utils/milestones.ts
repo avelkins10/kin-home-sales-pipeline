@@ -9,21 +9,21 @@ export function getCurrentMilestone(project: QuickbaseProject): string {
 
   // 7. PTO (final milestone)
   if (project[PROJECT_FIELDS.PTO_APPROVED]?.value) {
-    return 'PTO'
+    return 'pto'
   }
 
   // 6. Inspection
   if (project[PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED]?.value) {
-    return 'Inspection'
+    return 'inspection'
   }
 
   // 5. Installation
   if (project[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value) {
-    return 'Installation'
+    return 'install'
   }
 
   if (project[PROJECT_FIELDS.INSTALL_SCHEDULED_DATE_CAPTURE]?.value) {
-    return 'Installation'
+    return 'install'
   }
 
   // 4. Permitting (combines NEM, Permit, and HOA)
@@ -36,7 +36,7 @@ export function getCurrentMilestone(project: QuickbaseProject): string {
   const allPermitsApproved = nemApproved && permitApproved && (!hoaSubmitted || hoaApproved)
 
   if (allPermitsApproved) {
-    return 'Permitting' // Complete, ready for install
+    return 'permitting' // Complete, ready for install
   }
 
   // If any permitting activity has started, we're in Permitting phase
@@ -44,23 +44,23 @@ export function getCurrentMilestone(project: QuickbaseProject): string {
       project[PROJECT_FIELDS.NEM_SUBMITTED]?.value ||
       project[PROJECT_FIELDS.PERMIT_SUBMITTED]?.value ||
       project[PROJECT_FIELDS.HOA_APPLICATION_SUBMITTED]?.value) {
-    return 'Permitting'
+    return 'permitting'
   }
 
   // 3. Design
   if (project[PROJECT_FIELDS.ENGINEERING_COMPLETED]?.value ||
       project[PROJECT_FIELDS.DESIGN_COMPLETED]?.value ||
       project[PROJECT_FIELDS.CAD_DESIGN_APPROVED]?.value) {
-    return 'Design'
+    return 'design'
   }
 
   // 2. Survey
   if (project[PROJECT_FIELDS.SURVEY_APPROVED]?.value) {
-    return 'Survey'
+    return 'survey'
   }
 
   // 1. Intake (default/initial milestone)
-  return 'Intake'
+  return 'intake'
 }
 
 /**
@@ -166,13 +166,13 @@ export function getProjectUrgency(project: QuickbaseProject): 'critical' | 'high
  */
 export function getMilestoneColor(milestone: string): string {
   const colors: Record<string, string> = {
-    'Intake': 'bg-gray-100 text-gray-800',
-    'Survey': 'bg-blue-100 text-blue-800',
-    'Design': 'bg-purple-100 text-purple-800',
-    'Permitting': 'bg-indigo-100 text-indigo-800',  // New combined milestone
-    'Installation': 'bg-green-100 text-green-800',
-    'Inspection': 'bg-teal-100 text-teal-800',
-    'PTO': 'bg-emerald-100 text-emerald-800',
+    'intake': 'bg-gray-100 text-gray-800',
+    'survey': 'bg-blue-100 text-blue-800',
+    'design': 'bg-purple-100 text-purple-800',
+    'permitting': 'bg-indigo-100 text-indigo-800',  // New combined milestone
+    'install': 'bg-green-100 text-green-800',
+    'inspection': 'bg-teal-100 text-teal-800',
+    'pto': 'bg-emerald-100 text-emerald-800',
   }
 
   return colors[milestone] || 'bg-gray-100 text-gray-800'
@@ -183,18 +183,18 @@ export function getMilestoneColor(milestone: string): string {
  */
 export function getNextMilestone(currentMilestone: string): string {
   const milestoneSequence = [
-    'Intake',
-    'Survey',
-    'Design',
-    'Permitting',
-    'Installation',
-    'Inspection',
-    'PTO'
+    'intake',
+    'survey',
+    'design',
+    'permitting',
+    'install',
+    'inspection',
+    'pto'
   ]
 
   const currentIndex = milestoneSequence.indexOf(currentMilestone)
   if (currentIndex === -1 || currentIndex === milestoneSequence.length - 1) {
-    return 'Complete'
+    return 'complete'
   }
 
   return milestoneSequence[currentIndex + 1]
@@ -208,13 +208,13 @@ export function isMilestoneOverdue(project: QuickbaseProject, milestone: string)
 
   // Typical milestone timelines (in days) - based on 7-milestone structure
   const milestoneTimelines: Record<string, number> = {
-    'Intake': 7,
-    'Survey': 14,
-    'Design': 21,
-    'Permitting': 45,  // Combines HOA/NEM/Permit - longest of the three
-    'Installation': 60,
-    'Inspection': 75,
-    'PTO': 90,
+    'intake': 7,
+    'survey': 14,
+    'design': 21,
+    'permitting': 45,  // Combines HOA/NEM/Permit - longest of the three
+    'install': 60,
+    'inspection': 75,
+    'pto': 90,
   }
 
   const expectedDays = milestoneTimelines[milestone] || 0
