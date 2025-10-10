@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -156,7 +156,7 @@ export function MilestoneConfigTab({}: MilestoneConfigTabProps) {
   }
 
   // Update field in edited config
-  const updateField = (path: string[], value: any) => {
+  const updateField = (path: (string | number)[], value: any) => {
     if (!editedConfig) return
 
     const newConfig = JSON.parse(JSON.stringify(editedConfig))
@@ -172,12 +172,14 @@ export function MilestoneConfigTab({}: MilestoneConfigTabProps) {
   }
 
   // Helper for numeric field updates
-  const updateNumericField = (path: string[]) => (e: any) => {
+  const updateNumericField = (path: (string | number)[]) => (e: React.ChangeEvent<HTMLInputElement>) => {
     updateField(path, e.target.value ? parseInt(e.target.value) : 0)
   }
 
   // Helper for string field updates
-  const updateStringField = (path: string[]) => (e: any) => {
+  const updateStringField = (path: (string | number)[]) => (
+    e: React.ChangeEvent<HTMLInputElement> | React.ChangeEvent<HTMLTextAreaElement>
+  ) => {
     updateField(path, e.target.value)
   }
 
@@ -336,7 +338,6 @@ export function MilestoneConfigTab({}: MilestoneConfigTabProps) {
                       {isEditing ? (
                         <div className="space-y-2">
                           <div className="flex items-center gap-2">
-                            {/* @ts-expect-error */}
                             <Input
                               value={config.name || ''}
                               onChange={updateStringField(['name'])}
@@ -352,7 +353,6 @@ export function MilestoneConfigTab({}: MilestoneConfigTabProps) {
                               </Badge>
                             )}
                           </div>
-                          {/* @ts-expect-error */}
                           <Input
                             value={config.description || ''}
                             onChange={updateStringField(['description'])}
@@ -479,7 +479,6 @@ export function MilestoneConfigTab({}: MilestoneConfigTabProps) {
                                 <div className="grid grid-cols-4 gap-3">
                                   <div>
                                     <Label className="text-xs text-slate-600">Order</Label>
-                                    {/* @ts-expect-error */}
                                     <Input
                                       value={substep.order?.toString() || ''}
                                       onChange={updateNumericField(['inProgressFields', 'substeps', idx, 'order'])}
@@ -488,7 +487,6 @@ export function MilestoneConfigTab({}: MilestoneConfigTabProps) {
                                   </div>
                                   <div>
                                     <Label className="text-xs text-slate-600">Label</Label>
-                                    {/* @ts-expect-error */}
                                     <Input
                                       value={substep.label || ''}
                                       onChange={updateStringField(['inProgressFields', 'substeps', idx, 'label'])}
@@ -498,7 +496,6 @@ export function MilestoneConfigTab({}: MilestoneConfigTabProps) {
                                   </div>
                                   <div>
                                     <Label className="text-xs text-slate-600">Field ID</Label>
-                                    {/* @ts-expect-error */}
                                     <Input
                                       value={substep.fieldId?.toString() || ''}
                                       onChange={updateNumericField(['inProgressFields', 'substeps', idx, 'fieldId'])}
@@ -507,7 +504,6 @@ export function MilestoneConfigTab({}: MilestoneConfigTabProps) {
                                   </div>
                                   <div>
                                     <Label className="text-xs text-slate-600">Usage</Label>
-                                    {/* @ts-expect-error */}
                                     <Input
                                       value={substep.usage || ''}
                                       onChange={updateStringField(['inProgressFields', 'substeps', idx, 'usage'])}
@@ -566,7 +562,6 @@ export function MilestoneConfigTab({}: MilestoneConfigTabProps) {
                                     <div className="grid grid-cols-4 gap-3">
                                       <div>
                                         <Label className="text-xs text-slate-600">Order</Label>
-                                        {/* @ts-expect-error */}
                                         <Input
                                           value={substep.order?.toString() || ''}
                                           onChange={updateNumericField(['inProgressFields', 'hoa', idx, 'order'])}
@@ -575,7 +570,6 @@ export function MilestoneConfigTab({}: MilestoneConfigTabProps) {
                                       </div>
                                       <div>
                                         <Label className="text-xs text-slate-600">Label</Label>
-                                        {/* @ts-expect-error */}
                                         <Input
                                           value={substep.label || ''}
                                           onChange={updateStringField(['inProgressFields', 'hoa', idx, 'label'])}
@@ -584,7 +578,6 @@ export function MilestoneConfigTab({}: MilestoneConfigTabProps) {
                                       </div>
                                       <div>
                                         <Label className="text-xs text-slate-600">Field ID</Label>
-                                        {/* @ts-expect-error */}
                                         <Input
                                           value={substep.fieldId?.toString() || ''}
                                           onChange={updateNumericField(['inProgressFields', 'hoa', idx, 'fieldId'])}
@@ -593,7 +586,6 @@ export function MilestoneConfigTab({}: MilestoneConfigTabProps) {
                                       </div>
                                       <div>
                                         <Label className="text-xs text-slate-600">Usage</Label>
-                                        {/* @ts-expect-error */}
                                         <Input
                                           value={substep.usage || ''}
                                           onChange={updateStringField(['inProgressFields', 'hoa', idx, 'usage'])}
@@ -657,7 +649,6 @@ export function MilestoneConfigTab({}: MilestoneConfigTabProps) {
                                     <div className="grid grid-cols-3 gap-3">
                                       <div>
                                         <Label className="text-xs text-slate-600">Field ID</Label>
-                                        {/* @ts-expect-error */}
                                         <Input
                                           value={field.fieldId?.toString() || ''}
                                           onChange={updateNumericField(['completionFields', 'primary', idx, 'fieldId'])}
@@ -666,7 +657,6 @@ export function MilestoneConfigTab({}: MilestoneConfigTabProps) {
                                       </div>
                                       <div>
                                         <Label className="text-xs text-slate-600">Field Name</Label>
-                                        {/* @ts-expect-error */}
                                         <Input
                                           value={field.fieldName || ''}
                                           onChange={updateStringField(['completionFields', 'primary', idx, 'fieldName'])}
@@ -675,7 +665,6 @@ export function MilestoneConfigTab({}: MilestoneConfigTabProps) {
                                       </div>
                                       <div>
                                         <Label className="text-xs text-slate-600">Usage</Label>
-                                        {/* @ts-expect-error */}
                                         <Input
                                           value={field.usage || ''}
                                           onChange={updateStringField(['completionFields', 'primary', idx, 'usage'])}
@@ -724,7 +713,6 @@ export function MilestoneConfigTab({}: MilestoneConfigTabProps) {
                             <div className="space-y-3">
                               <div>
                                 <Label className="text-xs text-slate-600">Condition</Label>
-                                {/* @ts-expect-error */}
                                 <Input
                                   value={config.blockedState.condition || ''}
                                   onChange={updateStringField(['blockedState', 'condition'])}
@@ -735,7 +723,6 @@ export function MilestoneConfigTab({}: MilestoneConfigTabProps) {
                               <div className="grid grid-cols-2 gap-3">
                                 <div>
                                   <Label className="text-xs text-slate-600">Threshold</Label>
-                                  {/* @ts-expect-error */}
                                   <Input
                                     value={config.blockedState.threshold?.toString() || ''}
                                     onChange={updateNumericField(['blockedState', 'threshold'])}
@@ -744,7 +731,6 @@ export function MilestoneConfigTab({}: MilestoneConfigTabProps) {
                                 </div>
                                 <div>
                                   <Label className="text-xs text-slate-600">Unit</Label>
-                                  {/* @ts-expect-error */}
                                   <Input
                                     value={config.blockedState.unit || ''}
                                     onChange={updateStringField(['blockedState', 'unit'])}
@@ -755,7 +741,6 @@ export function MilestoneConfigTab({}: MilestoneConfigTabProps) {
                               </div>
                               <div>
                                 <Label className="text-xs text-slate-600">Message</Label>
-                                {/* @ts-expect-error */}
                                 <Textarea
                                   value={config.blockedState.message || ''}
                                   onChange={updateStringField(['blockedState', 'message'])}
