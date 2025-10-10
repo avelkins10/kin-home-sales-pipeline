@@ -45,33 +45,45 @@ export function ProjectFilterChips({ isFetching = false }: ProjectFilterChipsPro
   });
 
   // Helper function to check if project matches filter
+  // Uses PROJECT_STATUS as the master status field
   const projectMatchesFilter = (project: QuickbaseProject, filterValue: string): boolean => {
-    const status = (project[PROJECT_FIELDS.PROJECT_STATUS]?.value || '').toLowerCase();
-    const onHold = project[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes';
-    const financeIntakeApproved = project[PROJECT_FIELDS.FINANCE_INTAKE_APPROVED]?.value;
-    const webhookIntakeComplete = project[PROJECT_FIELDS.WEBHOOK_INTAKE_COMPLETE]?.value;
-    const isIntakeApproved = !!(financeIntakeApproved || webhookIntakeComplete);
-    const installCompleted = project[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value;
+    const status = project[PROJECT_FIELDS.PROJECT_STATUS]?.value || '';
+    const financeIntakeApproved = project[PROJECT_FIELDS.FINANCE_INTAKE_APPROVED]?.value === 'Yes';
+    const webhookIntakeComplete = project[PROJECT_FIELDS.WEBHOOK_INTAKE_COMPLETE]?.value === 'Yes';
+    const isIntakeApproved = financeIntakeApproved || webhookIntakeComplete;
+    const installCompletedDate = project[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value;
+    const ptoApproved = project[PROJECT_FIELDS.PTO_APPROVED]?.value;
 
     switch (filterValue) {
       case 'all':
         return true;
       case 'active':
-        // Active = Active status, intake approved, not on hold, and not yet installed
-        return status.includes('active') && isIntakeApproved && !onHold;
+        // Active projects that are NOT on hold, NOT installed, NOT PTO
+        // Includes: "Active" but excludes "Active - On Hold", "Active - Installed", "Active - PTO"
+        return status.startsWith('Active') &&
+               !status.includes('On Hold') &&
+               !status.includes('Installed') &&
+               !status.includes('PTO') &&
+               isIntakeApproved;
       case 'on-hold':
-        return onHold;
+        // PROJECT_STATUS contains "On Hold"
+        return status.includes('On Hold');
       case 'install-completed':
-        // Installed = Has install completed date
-        return !!installCompleted;
+        // PROJECT_STATUS = "Active - Installed" OR has install completed date
+        return status.includes('Installed') || (!!installCompletedDate && !ptoApproved);
       case 'pending-cancel':
-        return status.includes('pending cancel');
+        // PROJECT_STATUS contains "Pending Cancel"
+        return status.includes('Pending Cancel');
       case 'cancelled':
-        return status.includes('cancel') && !status.includes('pending');
+        // PROJECT_STATUS = "Cancelled" (not pending)
+        return status === 'Cancelled' || (status.includes('Cancel') && !status.includes('Pending'));
       case 'needs-attention':
-        // Projects that need attention (on hold >7 days, pending cancel, or old projects >90 days)
+        // Projects >90 days old OR on hold >7 days
         const projectAge = parseInt(project[PROJECT_FIELDS.PROJECT_AGE]?.value || '0');
-        return onHold || status.includes('pending cancel') || projectAge > 90;
+        const dateOnHold = project[PROJECT_FIELDS.DATE_ON_HOLD]?.value;
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const isOldHold = status.includes('On Hold') && dateOnHold && new Date(dateOnHold) < sevenDaysAgo;
+        return projectAge > 90 || isOldHold;
       default:
         return false;
     }
