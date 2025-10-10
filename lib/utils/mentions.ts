@@ -29,13 +29,12 @@ export async function resolveMentions(userIds: string[]): Promise<ParsedMention[
   }
 
   try {
-    // Use tagged template to properly handle UUID type casting
-    const result = await sql`
-      SELECT id, name, email
-      FROM users
-      WHERE id = ANY(${userIds}::uuid[])
-        AND is_active = true
-    `;
+    // Build IN clause with explicit UUID casting for each ID
+    const placeholders = userIds.map(id => `'${id}'::uuid`).join(', ');
+
+    const result = await sql.query(
+      `SELECT id, name, email FROM users WHERE id IN (${placeholders}) AND is_active = true`
+    );
 
     return result.rows.map(row => ({
       user_id: row.id,
