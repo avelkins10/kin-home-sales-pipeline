@@ -41,7 +41,12 @@ export function ProjectRow({ project }: ProjectRowProps) {
   const salesDate = project[PROJECT_FIELDS.SALES_DATE]?.value || '';
   const closerName = project[PROJECT_FIELDS.CLOSER_NAME]?.value || '';
   const setterName = project[PROJECT_FIELDS.SETTER_NAME]?.value || '';
-  const office = project[PROJECT_FIELDS.SALES_OFFICE]?.value || '';
+
+  // Handle SALES_OFFICE - could be string or array
+  const officeValue = project[PROJECT_FIELDS.SALES_OFFICE]?.value;
+  const office = Array.isArray(officeValue)
+    ? officeValue.join(', ')
+    : (typeof officeValue === 'string' ? officeValue : '');
 
   // PPW fields
   const soldPPW = parseFloat(project[2292]?.value || '0') || null;
