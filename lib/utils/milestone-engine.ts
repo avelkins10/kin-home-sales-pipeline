@@ -303,11 +303,6 @@ function isMilestoneBlocked(project: QuickbaseProject, milestoneId: string): { b
     return { blocked: true, reason: getHoldReason(project) || 'Project on hold' };
   }
 
-  // Dependencies not met
-  if (!areDependenciesMet(project, milestoneId)) {
-    return { blocked: true, reason: 'Waiting for previous milestone' };
-  }
-
   // Project cancelled/rejected
   if (!isProjectActive(project)) {
     const status = getStringField(project, PROJECT_FIELDS.PROJECT_STATUS);
@@ -321,6 +316,9 @@ function isMilestoneBlocked(project: QuickbaseProject, milestoneId: string): { b
       return permittingBlocked;
     }
   }
+
+  // NOTE: Dependencies not met is NOT a blocked state - it's a pending state
+  // This is handled in getMilestoneStatus logic
 
   return { blocked: false };
 }
