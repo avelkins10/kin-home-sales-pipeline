@@ -156,14 +156,9 @@ export async function POST(
 
     const createdMessage = await createMessage(messageInput);
 
-    // Get project name for notification title
-    const projectResult = await sql`
-      SELECT p.project_id, p.customer_name
-      FROM projects p
-      WHERE p.record_id = ${projectId}
-      LIMIT 1
-    `;
-    const projectName = projectResult.rows[0]?.project_id || projectResult.rows[0]?.customer_name || `Project #${projectId}`;
+    // Use simple project identifier for notification title
+    // (Project data is in QuickBase, not PostgreSQL)
+    const projectName = `Project #${projectId}`;
 
     let notificationsSent = 0;
 
