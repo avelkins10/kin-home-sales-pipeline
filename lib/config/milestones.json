@@ -113,14 +113,6 @@
             "notes": "Primary scheduling field"
           },
           {
-            "fieldId": 166,
-            "fieldName": "Survey Scheduled Date (Fallback)",
-            "label": "Scheduled",
-            "usage": "fallback",
-            "order": 1,
-            "notes": "Use if Arrivy not available"
-          },
-          {
             "fieldId": 164,
             "fieldName": "Survey Submitted Date",
             "label": "Submitted",

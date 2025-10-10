@@ -635,11 +635,11 @@ export function getMilestoneStatus(project: QuickbaseProject, milestoneId: strin
     else if (isMilestoneInProgress(project, milestoneId)) {
       state = 'in-progress';
 
-      // Check if overdue
-      const scheduledDate = getMilestoneScheduledDate(project, milestoneId);
-      if (scheduledDate && scheduledDate < new Date()) {
-        state = 'overdue';
-      }
+      // DISABLED: Overdue state logic (will be enabled in future phase)
+      // const scheduledDate = getMilestoneScheduledDate(project, milestoneId);
+      // if (scheduledDate && scheduledDate < new Date()) {
+      //   state = 'overdue';
+      // }
     }
     // Check if ready to start (dependencies met but not started)
     else if (areDependenciesMet(project, milestoneId)) {
@@ -667,7 +667,7 @@ export function getMilestoneStatus(project: QuickbaseProject, milestoneId: strin
   let daysInProgress: number | undefined;
   let daysOverdue: number | undefined;
 
-  if (state === 'in-progress' || state === 'overdue') {
+  if (state === 'in-progress') { // || state === 'overdue') {
     // Find when milestone started (first substep date or scheduled date)
     const startDate = scheduledDate || substeps.find(s => s.date)?.date;
     if (startDate) {
@@ -676,10 +676,11 @@ export function getMilestoneStatus(project: QuickbaseProject, milestoneId: strin
     }
   }
 
-  if (state === 'overdue' && scheduledDate) {
-    const now = new Date();
-    daysOverdue = Math.floor((now.getTime() - scheduledDate.getTime()) / (1000 * 60 * 60 * 24));
-  }
+  // DISABLED: Overdue days calculation (will be enabled in future phase)
+  // if (state === 'overdue' && scheduledDate) {
+  //   const now = new Date();
+  //   daysOverdue = Math.floor((now.getTime() - scheduledDate.getTime()) / (1000 * 60 * 60 * 24));
+  // }
 
   return {
     id: milestoneId,
@@ -725,8 +726,8 @@ export function getCurrentMilestone(project: QuickbaseProject): string {
       firstIncomplete = config.id;
     }
 
-    // If in-progress or overdue, this is the current milestone
-    if (status.state === 'in-progress' || status.state === 'overdue') {
+    // If in-progress, this is the current milestone (overdue state disabled)
+    if (status.state === 'in-progress') { // || status.state === 'overdue') {
       return config.id;
     }
 
