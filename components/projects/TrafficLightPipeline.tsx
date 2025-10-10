@@ -94,77 +94,63 @@ export function TrafficLightPipeline({ project }: TrafficLightPipelineProps) {
   // Fetch dynamic milestone configuration
   const { config } = useMilestoneConfig();
 
-  // Get current milestone for status text
-  const currentMilestoneId = getCurrentMilestone(project, config);
-  const currentMilestone = milestones.find(m => m.id === currentMilestoneId);
-
   return (
-    <div className="space-y-3">
-      {/* Traffic lights row with labels */}
-      <div className="flex items-start gap-3 overflow-x-auto pb-2">
-        {milestones.map((milestone, index) => {
-          const status = getMilestoneStatus(project, milestone.id, config);
+    <div className="flex items-start gap-3 overflow-x-auto pb-2">
+      {milestones.map((milestone, index) => {
+        const status = getMilestoneStatus(project, milestone.id, config);
 
-          // Skip not-applicable milestones (e.g., HOA when not needed)
-          if (status.state === 'not-applicable') {
-            return null;
-          }
+        // Skip not-applicable milestones (e.g., HOA when not needed)
+        if (status.state === 'not-applicable') {
+          return null;
+        }
 
-          const isLast = index === milestones.length - 1;
-          const DisplayIcon = getStateIcon(status.state, milestone.Icon);
+        const isLast = index === milestones.length - 1;
+        const DisplayIcon = getStateIcon(status.state, milestone.Icon);
 
-          return (
-            <div key={milestone.id} className="flex items-center gap-2">
-              {/* Milestone column */}
-              <div className="flex flex-col items-center gap-1 group">
-                {/* Traffic light circle */}
-                <div
-                  className={cn(
-                    'w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 cursor-help',
-                    getTrafficLightClass(status.state)
-                  )}
-                  title={getTooltipText(milestone.label, status.state, status.blockedReason)}
-                  role="status"
-                  aria-label={`${milestone.label} status: ${status.state}`}
-                >
-                  <DisplayIcon className="w-5 h-5" strokeWidth={2.5} />
-                </div>
-
-                {/* Label below circle */}
-                <span className={cn(
-                  "text-[10px] font-medium transition-colors duration-200",
-                  status.state === 'complete' ? 'text-emerald-600' :
-                  status.state === 'in-progress' ? 'text-amber-600' :
-                  status.state === 'ready-for' ? 'text-blue-600' :
-                  status.state === 'overdue' ? 'text-rose-600' :
-                  status.state === 'blocked' ? 'text-rose-500' :
-                  'text-slate-400'
-                )}>
-                  {milestone.label}
-                </span>
+        return (
+          <div key={milestone.id} className="flex items-center gap-2">
+            {/* Milestone column */}
+            <div className="flex flex-col items-center gap-1 group">
+              {/* Traffic light circle */}
+              <div
+                className={cn(
+                  'w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 cursor-help',
+                  getTrafficLightClass(status.state)
+                )}
+                title={getTooltipText(milestone.label, status.state, status.blockedReason)}
+                role="status"
+                aria-label={`${milestone.label} status: ${status.state}`}
+              >
+                <DisplayIcon className="w-5 h-5" strokeWidth={2.5} />
               </div>
 
-              {/* Connector line */}
-              {!isLast && (
-                <div
-                  className={cn(
-                    'h-0.5 w-4 mt-[-10px] transition-colors duration-300',
-                    status.state === 'complete' ? 'bg-emerald-400' : 'bg-slate-200'
-                  )}
-                  aria-hidden="true"
-                />
-              )}
+              {/* Label below circle */}
+              <span className={cn(
+                "text-[10px] font-medium transition-colors duration-200",
+                status.state === 'complete' ? 'text-emerald-600' :
+                status.state === 'in-progress' ? 'text-amber-600' :
+                status.state === 'ready-for' ? 'text-blue-600' :
+                status.state === 'overdue' ? 'text-rose-600' :
+                status.state === 'blocked' ? 'text-rose-500' :
+                'text-slate-400'
+              )}>
+                {milestone.label}
+              </span>
             </div>
-          );
-        })}
-      </div>
 
-      {/* Enhanced status text with badge */}
-      <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-slate-50 to-transparent rounded-lg border-l-2 border-indigo-400">
-        <div className="text-xs font-semibold text-slate-700">
-          Current: {currentMilestone?.label || 'Unknown'}
-        </div>
-      </div>
+            {/* Connector line */}
+            {!isLast && (
+              <div
+                className={cn(
+                  'h-0.5 w-4 mt-[-10px] transition-colors duration-300',
+                  status.state === 'complete' ? 'bg-emerald-400' : 'bg-slate-200'
+                )}
+                aria-hidden="true"
+              />
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
