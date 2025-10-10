@@ -72,22 +72,67 @@ function getStateIcon(state: MilestoneState, defaultIcon: LucideIcon) {
   }
 }
 
-function getTooltipText(milestone: string, state: MilestoneState, blockedReason?: string): string {
+function getTooltipText(
+  milestone: string,
+  state: MilestoneState,
+  completedDate: Date | null,
+  scheduledDate: Date | null,
+  daysInProgress?: number,
+  blockedReason?: string
+): string {
   const stateLabels: Record<MilestoneState, string> = {
-    'complete': '✓ Complete',
-    'in-progress': '● In Progress',
-    'ready-for': '▶ Ready to Start',
-    'pending': '○ Pending',
-    'blocked': '■ Blocked',
-    'overdue': '⚠ Overdue',
-    'not-applicable': '− Not Applicable'
+    'complete': '✅',
+    'in-progress': '●',
+    'ready-for': '▶',
+    'pending': '○',
+    'blocked': '■',
+    'overdue': '⚠',
+    'not-applicable': '−'
   };
 
-  const baseText = `${milestone}: ${stateLabels[state] || state}`;
-  if (blockedReason && state === 'blocked') {
-    return `${baseText} (${blockedReason})`;
+  const lines: string[] = [];
+  lines.push(`${stateLabels[state] || ''} ${milestone}`);
+
+  // Add state-specific details
+  if (state === 'complete' && completedDate) {
+    const formattedDate = completedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    lines.push(`Completed: ${formattedDate}`);
+
+    // Calculate duration if we have scheduled date
+    if (scheduledDate) {
+      const durationDays = Math.floor((completedDate.getTime() - scheduledDate.getTime()) / (1000 * 60 * 60 * 24));
+      if (durationDays > 0) {
+        lines.push(`Duration: ${durationDays} ${durationDays === 1 ? 'day' : 'days'}`);
+      }
+    }
+  } else if (state === 'in-progress') {
+    if (daysInProgress !== undefined && daysInProgress > 0) {
+      lines.push(`In progress: ${daysInProgress} ${daysInProgress === 1 ? 'day' : 'days'}`);
+    } else {
+      lines.push('In progress');
+    }
+    if (scheduledDate) {
+      const formattedDate = scheduledDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      lines.push(`Started: ${formattedDate}`);
+    }
+  } else if (state === 'ready-for') {
+    lines.push('Ready to start');
+  } else if (state === 'pending') {
+    lines.push('Not started yet');
+  } else if (state === 'blocked') {
+    lines.push('Blocked');
+    if (blockedReason) {
+      lines.push(blockedReason);
+    }
+  } else if (state === 'overdue') {
+    lines.push('Overdue!');
+    if (scheduledDate) {
+      const formattedDate = scheduledDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      lines.push(`Due: ${formattedDate}`);
+    }
   }
-  return baseText;
+
+  return lines.join('\n');
 }
 
 export function TrafficLightPipeline({ project }: TrafficLightPipelineProps) {
@@ -117,7 +162,14 @@ export function TrafficLightPipeline({ project }: TrafficLightPipelineProps) {
                   'w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 cursor-help',
                   getTrafficLightClass(status.state)
                 )}
-                title={getTooltipText(milestone.label, status.state, status.blockedReason)}
+                title={getTooltipText(
+                  milestone.label,
+                  status.state,
+                  status.completedDate,
+                  status.scheduledDate,
+                  status.daysInProgress,
+                  status.blockedReason
+                )}
                 role="status"
                 aria-label={`${milestone.label} status: ${status.state}`}
               >
@@ -136,6 +188,18 @@ export function TrafficLightPipeline({ project }: TrafficLightPipelineProps) {
               )}>
                 {milestone.label}
               </span>
+
+              {/* Days badge for in-progress milestones */}
+              {status.state === 'in-progress' && status.daysInProgress !== undefined && status.daysInProgress > 0 && (
+                <span className={cn(
+                  "text-[9px] font-semibold px-1.5 py-0.5 rounded",
+                  status.daysInProgress < 7 ? 'bg-emerald-100 text-emerald-700' :
+                  status.daysInProgress <= 14 ? 'bg-amber-100 text-amber-700' :
+                  'bg-rose-100 text-rose-700'
+                )}>
+                  {status.daysInProgress}d
+                </span>
+              )}
             </div>
 
             {/* Connector line */}
