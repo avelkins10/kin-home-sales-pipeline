@@ -1,9 +1,23 @@
 // lib/auth/guards.ts
+/**
+ * ⚠️ AUTHORIZATION GUARDS
+ *
+ * This file provides guard functions for API routes.
+ * All guards use the centralized authorization modules:
+ * - userIdentity.ts: Defines how users are identified
+ * - projectAuthorization.ts: Defines project access rules
+ *
+ * DO NOT duplicate authorization logic here. Use the centralized modules.
+ */
 
 import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
 import { authOptions } from './next-auth.config';
 import type { Session } from 'next-auth';
+import {
+  canUserAccessProject,
+  hasUnrestrictedAccess,
+} from './projectAuthorization';
 
 export type UserRole =
   | 'closer'
@@ -66,53 +80,31 @@ export async function requireRole(allowedRoles: UserRole[]): Promise<AuthGuardRe
 
 /**
  * Validates that user can access a specific project
+ * Uses centralized projectAuthorization module
  * @param session - Authenticated user session
- * @param projectOwnerEmail - Email of the project owner (closer/setter email from project)
+ * @param project - Project data from QuickBase
  * @returns boolean - Whether user has access to the project
  */
-export function requireProjectAccess(session: Session, projectOwnerEmail: string): boolean {
-  const userRole = session.user.role as UserRole;
-  const userEmail = session.user.email;
-
-  // Super admin and regional have full access
-  if (userRole === 'super_admin' || userRole === 'regional') {
-    return true;
-  }
-
-  // Office leaders can see all projects in their office
-  if (userRole === 'office_leader') {
-    return true;
-  }
-
-  // Closers and setters can only access their own projects (by email match)
-  if (userRole === 'closer' || userRole === 'setter') {
-    return userEmail?.toLowerCase() === projectOwnerEmail?.toLowerCase();
-  }
-
-  return false;
+export function requireProjectAccess(session: Session, project: Record<string, any>): boolean {
+  return canUserAccessProject(session, project);
 }
 
 /**
  * Ensures the current session has access to the given project id.
- * Loads the project owner (closer/setter) and checks by role per business rules.
+ * Uses centralized projectAuthorization module.
  */
 export async function requireProjectAccessById(projectId: number | string): Promise<AuthGuardResult> {
   const auth = await requireAuth();
   if (!auth.authorized) return auth;
 
   const session = auth.session;
-  const userRole = session.user.role as UserRole;
 
-  // Super admin and regional have full access - skip project lookup
-  if (userRole === 'super_admin' || userRole === 'regional') {
+  // Optimization: Admins and office leaders have unrestricted access
+  if (hasUnrestrictedAccess(session)) {
     return { authorized: true, session };
   }
 
-  // Office leaders can see all projects in their office - skip project lookup for now
-  if (userRole === 'office_leader') {
-    return { authorized: true, session };
-  }
-
+  // For reps, load the project and check access
   try {
     const { getProjectById } = await import('@/lib/quickbase/queries');
     const numericId = typeof projectId === 'string' ? parseInt(projectId, 10) : projectId;
@@ -130,15 +122,8 @@ export async function requireProjectAccessById(projectId: number | string): Prom
       };
     }
 
-    // Use email fields for authorization (field 518 = CLOSER_EMAIL, 331 = SETTER_EMAIL)
-    const closerEmail = project[518]?.value || '';
-    const setterEmail = project[331]?.value || '';
-    const userEmail = session.user.email?.toLowerCase() || '';
-
-    // Check if user email matches closer or setter email
-    const hasAccess =
-      closerEmail.toLowerCase() === userEmail ||
-      setterEmail.toLowerCase() === userEmail;
+    // Use centralized authorization check
+    const hasAccess = canUserAccessProject(session, project);
 
     if (!hasAccess) {
       return {

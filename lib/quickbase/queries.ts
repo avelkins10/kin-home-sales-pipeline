@@ -1,4 +1,12 @@
 // lib/quickbase/queries.ts
+/**
+ * ⚠️ QUICKBASE QUERIES MODULE
+ *
+ * This module handles all QuickBase data fetching.
+ * Authorization logic is centralized in lib/auth/projectAuthorization.ts
+ *
+ * DO NOT add authorization logic here - import from projectAuthorization instead.
+ */
 import 'server-only'
 // Server-only module. Do not import from client components.
 export const __isServerOnly = true as const
@@ -9,6 +17,7 @@ import { logError } from '@/lib/logging/logger';
 import { PROJECT_FIELDS } from '@/lib/constants/fieldIds';
 import { ADDER_FIELDS } from '@/lib/constants/adderFieldIds';
 import { sql } from '@/lib/db/client';
+import { buildProjectAccessClause } from '@/lib/auth/projectAuthorization';
 
 // Quickbase table IDs
 const QB_TABLE_PROJECTS = process.env.QUICKBASE_TABLE_PROJECTS || 'br9kwm8na';
@@ -115,114 +124,19 @@ async function getAssignedOffices(userId: string): Promise<string[]> {
   }
 }
 
-// Shared role scoping helper - now uses email-based filtering
-export function buildRoleClause(userEmail: string | null, role: string, salesOffice?: string[], managedEmails?: string[]): string {
-  console.log('[buildRoleClause] Building clause for:', { userEmail, role, salesOffice, managedEmails });
-
-  // Helper to build email-based clause for closer/setter fields
-  const buildEmailClause = (fieldId: number, emails: string[]) => {
-    if (emails.length === 0) {
-      return '{3.EQ.0}'; // No email = no projects
-    }
-    if (emails.length === 1) {
-      // Sanitize email for QB query (escape single quotes)
-      const sanitizedEmail = emails[0].replace(/'/g, "''");
-      return `{${fieldId}.EX.'${sanitizedEmail}'}`;
-    }
-    // Multiple emails joined with OR
-    return emails
-      .map(email => {
-        const sanitizedEmail = email.replace(/'/g, "''");
-        return `{${fieldId}.EX.'${sanitizedEmail}'}`
-      })
-      .join(' OR ');
-  };
-
-  const buildOfficeClause = (offices: string[]) => {
-    if (offices.length === 1) {
-      return `{${PROJECT_FIELDS.SALES_OFFICE}.EX.'${offices[0]}'}`;
-    }
-    // Multiple offices joined with OR
-    return offices.map(office => `{${PROJECT_FIELDS.SALES_OFFICE}.EX.'${office}'}`).join(' OR ');
-  };
-
-  let clause: string;
-  switch (role) {
-    case 'super_admin':
-    case 'regional':
-      // These roles see all projects, no user filter
-      clause = '{3.GT.0}'; // Record ID > 0 (matches all records)
-      console.log('[buildRoleClause] Admin role detected, returning all-projects clause:', clause);
-      break;
-    case 'office_leader':
-    case 'area_director':
-    case 'divisional':
-      // Office-based roles see ALL projects in their assigned offices
-      // This filters by project.sales_office, NOT by user.is_active
-      // This means managers see projects even if the closer/setter doesn't have an active account
-      if (salesOffice && salesOffice.length > 0) {
-        clause = buildOfficeClause(salesOffice);
-        console.log(`[buildRoleClause] ${role} role, filtering by offices (office-based visibility):`, clause);
-      } else {
-        // Fallback to least-privilege: restrict to no projects if no office assigned
-        clause = '{3.EQ.0}'; // Record ID = 0 (matches no records)
-        console.log(`[buildRoleClause] ${role} with no office assigned, returning no-projects clause:`, clause);
-      }
-      break;
-    case 'team_lead':
-      // Team leads see projects for their managed users (email-based visibility)
-      if (managedEmails && managedEmails.length > 0) {
-        // Build clause that matches projects where closer_email OR setter_email is in managed users
-        const closerClause = buildEmailClause(PROJECT_FIELDS.CLOSER_EMAIL, managedEmails);
-        const setterClause = buildEmailClause(PROJECT_FIELDS.SETTER_EMAIL, managedEmails);
-        clause = `(${closerClause}) OR (${setterClause})`;
-        console.log('[buildRoleClause] Team lead role, filtering by managed user emails (email-based visibility):', clause);
-      } else {
-        // No managed users, see no projects
-        clause = '{3.EQ.0}'; // Record ID = 0 (matches no records)
-        console.log('[buildRoleClause] Team lead with no managed users, returning no-projects clause:', clause);
-      }
-      break;
-    case 'closer':
-    case 'setter':
-      // Show projects where user email matches CLOSER_EMAIL OR SETTER_EMAIL
-      // This automatically includes ALL projects across all QB User IDs for this email
-      if (!userEmail) {
-        clause = '{3.EQ.0}'; // No email = no projects
-        console.log('[buildRoleClause] Rep role with no email, returning no-projects clause');
-      } else {
-        const emails = [userEmail];
-        const closerClauseRep = buildEmailClause(PROJECT_FIELDS.CLOSER_EMAIL, emails);
-        const setterClauseRep = buildEmailClause(PROJECT_FIELDS.SETTER_EMAIL, emails);
-        clause = `(${closerClauseRep}) OR (${setterClauseRep})`;
-        console.log('[buildRoleClause] Rep role (closer/setter), showing projects matching email (all QB User IDs):', clause);
-      }
-      break;
-    case 'coordinator':
-      // Coordinators still use ID-based filtering (no email field available)
-      // Keep old behavior for coordinators until email field is added
-      if (!userEmail) {
-        clause = '{3.EQ.0}';
-        console.log('[buildRoleClause] Coordinator with no email, returning no-projects clause');
-      } else {
-        // For coordinators, we can't use email, so we need to get QB User ID
-        // This is a limitation - coordinators won't benefit from email-based filtering yet
-        console.warn('[buildRoleClause] Coordinator role does not support email-based filtering yet');
-        clause = '{3.EQ.0}'; // No projects for now
-      }
-      break;
-    default:
-      if (!userEmail) {
-        clause = '{3.EQ.0}';
-      } else {
-        const emails = [userEmail];
-        clause = buildEmailClause(PROJECT_FIELDS.CLOSER_EMAIL, emails);
-      }
-      console.log('[buildRoleClause] Unknown role, defaulting to closer email filter:', clause);
-      break;
-  }
-
-  return clause;
+/**
+ * Wrapper function for backward compatibility
+ * Delegates to centralized buildProjectAccessClause from projectAuthorization module
+ * @deprecated Use buildProjectAccessClause from @/lib/auth/projectAuthorization directly
+ */
+export function buildRoleClause(
+  userEmail: string | null,
+  role: string,
+  salesOffice?: string[],
+  managedEmails?: string[]
+): string {
+  // Delegate to centralized authorization module
+  return buildProjectAccessClause(userEmail, role, salesOffice, managedEmails);
 }
 
 // Lean selector for list view - only essential fields for performance
