@@ -87,8 +87,9 @@ export function ProjectRow({ project }: ProjectRowProps) {
   };
 
   return (
-    <div
-      className="bg-white border border-slate-200 rounded-lg hover:shadow-md transition-shadow duration-200"
+    <Link
+      href={`/projects/${recordId}`}
+      className="block bg-white border border-slate-200 rounded-lg hover:shadow-md transition-shadow duration-200 cursor-pointer"
       onMouseEnter={handlePrefetch}
       data-testid="project-row"
     >
@@ -174,12 +175,10 @@ export function ProjectRow({ project }: ProjectRowProps) {
 
       {/* Footer Section */}
       <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between">
-        <Link href={`/projects/${recordId}`}>
-          <Button variant="outline" size="sm" className="gap-2">
-            <Eye className="h-4 w-4" />
-            View Details
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2 text-sm text-slate-500">
+          <Eye className="h-4 w-4" />
+          <span>Click to view details</span>
+        </div>
 
         <div className="text-xs text-slate-600">
           <span className="font-semibold">Next:</span> {currentMilestoneStatus.name}
@@ -190,6 +189,6 @@ export function ProjectRow({ project }: ProjectRowProps) {
           )}
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
