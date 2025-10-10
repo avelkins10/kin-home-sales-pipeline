@@ -29,11 +29,13 @@ export async function resolveMentions(userIds: string[]): Promise<ParsedMention[
   }
 
   try {
-    // Build IN clause with explicit UUID casting for each ID
-    const placeholders = userIds.map(id => `'${id}'::uuid`).join(', ');
+    // Use parameterized query with proper UUID array handling
+    // Build placeholders: $1::uuid, $2::uuid, etc.
+    const placeholders = userIds.map((_, i) => `$${i + 1}::uuid`).join(', ');
 
     const result = await sql.query(
-      `SELECT id, name, email FROM users WHERE id IN (${placeholders}) AND is_active = true`
+      `SELECT id, name, email FROM users WHERE id IN (${placeholders}) AND is_active = true`,
+      userIds
     );
 
     return result.rows.map(row => ({
