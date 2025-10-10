@@ -115,6 +115,125 @@ export function getDesignStatus(project: QuickbaseProject): MilestoneStatus {
   return result
 }
 
+export function getPermittingStatus(project: QuickbaseProject): MilestoneStatus {
+  // NEM fields
+  const nemSignaturesSent = project[PROJECT_FIELDS.NEM_SIGNATURES_SENT]?.value
+  const nemSubmitted = project[PROJECT_FIELDS.NEM_SUBMITTED]?.value
+  const nemApproved = project[PROJECT_FIELDS.NEM_APPROVED]?.value
+
+  // Permit fields
+  const permitSubmitted = project[PROJECT_FIELDS.PERMIT_SUBMITTED]?.value
+  const permitApproved = project[PROJECT_FIELDS.PERMIT_APPROVED]?.value
+
+  // HOA fields (conditional)
+  const hoaSubmitted = project[PROJECT_FIELDS.HOA_APPLICATION_SUBMITTED]?.value
+  const hoaApproved = project[PROJECT_FIELDS.HOA_APPLICATION_APPROVED]?.value
+
+  // Check if HOA is required
+  const hoaRequired = !!hoaSubmitted || !!hoaApproved
+
+  // Build substeps array
+  const substeps: Array<{ label: string; date: Date | null; status: string; note?: string }> = []
+
+  // NEM substeps
+  substeps.push({
+    label: 'NEM Signatures Sent',
+    date: nemSignaturesSent ? new Date(nemSignaturesSent) : null,
+    status: nemSignaturesSent ? 'complete' : 'pending',
+    note: nemSignaturesSent && !nemSubmitted ? 'Awaiting customer signatures' : undefined
+  })
+
+  substeps.push({
+    label: 'NEM Submitted',
+    date: nemSubmitted ? new Date(nemSubmitted) : null,
+    status: nemSubmitted ? 'complete' : 'pending'
+  })
+
+  substeps.push({
+    label: 'NEM Approved',
+    date: nemApproved ? new Date(nemApproved) : null,
+    status: nemApproved ? 'complete' : 'pending'
+  })
+
+  // Permit substeps
+  substeps.push({
+    label: 'Permit Submitted',
+    date: permitSubmitted ? new Date(permitSubmitted) : null,
+    status: permitSubmitted ? 'complete' : 'pending'
+  })
+
+  substeps.push({
+    label: 'Permit Approved',
+    date: permitApproved ? new Date(permitApproved) : null,
+    status: permitApproved ? 'complete' : 'pending'
+  })
+
+  // HOA substeps (if required)
+  if (hoaRequired) {
+    substeps.push({
+      label: 'HOA Submitted',
+      date: hoaSubmitted ? new Date(hoaSubmitted) : null,
+      status: hoaSubmitted ? 'complete' : 'pending'
+    })
+
+    substeps.push({
+      label: 'HOA Approved',
+      date: hoaApproved ? new Date(hoaApproved) : null,
+      status: hoaApproved ? 'complete' : 'pending'
+    })
+  }
+
+  // Check if all required permits are approved
+  const allPermitsApproved = nemApproved && permitApproved && (!hoaRequired || hoaApproved)
+
+  if (allPermitsApproved) {
+    return {
+      status: 'complete',
+      date: new Date(Math.max(
+        new Date(nemApproved!).getTime(),
+        new Date(permitApproved!).getTime(),
+        hoaApproved ? new Date(hoaApproved).getTime() : 0
+      )),
+      substeps
+    }
+  }
+
+  // Check if NEM signatures are blocked (>7 days without submission)
+  if (nemSignaturesSent && !nemSubmitted) {
+    const daysWaiting = calculateDaysWaiting(nemSignaturesSent)
+    if (daysWaiting > 7) {
+      return {
+        status: 'blocked',
+        date: new Date(nemSignaturesSent),
+        urgent: true,
+        warning: 'Customer signatures needed - follow up!',
+        substeps
+      }
+    }
+  }
+
+  // Check if any permits are in progress
+  if (nemSignaturesSent || nemSubmitted || permitSubmitted || hoaSubmitted) {
+    // Find the most recent date
+    const dates = [nemSignaturesSent, nemSubmitted, permitSubmitted, hoaSubmitted]
+      .filter(Boolean)
+      .map(d => new Date(d!))
+
+    const mostRecentDate = dates.length > 0 ? new Date(Math.max(...dates.map(d => d.getTime()))) : undefined
+
+    return {
+      status: 'in-progress',
+      date: mostRecentDate,
+      substeps
+    }
+  }
+
+  return { status: 'pending', substeps }
+}
+
+/**
+ * @deprecated Use getPermittingStatus() instead - HOA is now part of the unified Permitting milestone
+ */
 export function getHOAStatus(project: QuickbaseProject): MilestoneStatus {
   const submitted = project[PROJECT_FIELDS.HOA_APPLICATION_SUBMITTED]?.value
   const approved = project[PROJECT_FIELDS.HOA_APPLICATION_APPROVED]?.value
@@ -152,6 +271,9 @@ export function getHOAStatus(project: QuickbaseProject): MilestoneStatus {
   return { hasHOA: true, status: 'pending' }
 }
 
+/**
+ * @deprecated Use getPermittingStatus() instead - Permit is now part of the unified Permitting milestone
+ */
 export function getPermitStatus(project: QuickbaseProject): MilestoneStatus {
   const submitted = project[PROJECT_FIELDS.PERMIT_SUBMITTED]?.value
   const approved = project[PROJECT_FIELDS.PERMIT_APPROVED]?.value
@@ -211,6 +333,9 @@ export function getPermitStatus(project: QuickbaseProject): MilestoneStatus {
   return { status: 'pending' }
 }
 
+/**
+ * @deprecated Use getPermittingStatus() instead - NEM is now part of the unified Permitting milestone
+ */
 export function getNEMStatus(project: QuickbaseProject): MilestoneStatus {
   const signaturesSent = project[PROJECT_FIELDS.NEM_SIGNATURES_SENT]?.value
   const submitted = project[PROJECT_FIELDS.NEM_SUBMITTED]?.value

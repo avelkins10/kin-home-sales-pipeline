@@ -1,4 +1,11 @@
 // lib/utils/traffic-lights.ts
+/**
+ * @deprecated This file is legacy code for backward compatibility only.
+ * New code should use /lib/utils/milestone-engine.ts which implements the new 7-milestone system:
+ * Intake → Survey → Design → Permitting (combines NEM/Permit/HOA) → Installation → Inspection → PTO
+ *
+ * This file is retained for debug pages and legacy components only.
+ */
 
 import { PROJECT_FIELDS } from '@/lib/constants/fieldIds';
 import { QuickbaseProject } from '@/lib/types/project';

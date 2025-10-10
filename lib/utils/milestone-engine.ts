@@ -232,15 +232,6 @@ function isMilestoneComplete(project: QuickbaseProject, milestoneId: string): bo
     }
   }
 
-  // 3. Check PRIMARY dates (if populated, assume complete)
-  if (config.completionFields?.dates?.primary && Array.isArray(config.completionFields.dates.primary)) {
-    for (const field of config.completionFields.dates.primary) {
-      if (getDateField(project, field.fieldId)) {
-        return true;
-      }
-    }
-  }
-
   return false;
 }
 
@@ -263,25 +254,6 @@ function isMilestoneInProgress(project: QuickbaseProject, milestoneId: string): 
       const inProgressValues = ['in progress', 'processing', 'submitted', 'pending', 'scheduled', 'started'];
       if (inProgressValues.some(ipv => statusValue.toLowerCase().includes(ipv))) {
         return true;
-      }
-    }
-  }
-
-  // Check in-progress fields
-  if (config.inProgressFields?.primary) {
-    for (const field of config.inProgressFields.primary) {
-      const checkValue = (field as any).checkValue;
-      if (checkValue) {
-        // Status field with specific value to check
-        const value = getStringField(project, field.fieldId);
-        if (value && value.toLowerCase().includes(checkValue.toLowerCase())) {
-          return true;
-        }
-      } else {
-        // Boolean checkbox field
-        if (getBooleanField(project, field.fieldId)) {
-          return true;
-        }
       }
     }
   }
@@ -411,17 +383,17 @@ function getMilestoneCompletionDate(project: QuickbaseProject, milestoneId: stri
   const config = getMilestoneConfig(milestoneId);
   if (!config) return null;
 
-  // 1. Primary dates (array)
-  if (config.completionFields?.dates?.primary && Array.isArray(config.completionFields.dates.primary)) {
-    for (const field of config.completionFields.dates.primary) {
+  // 1. Primary completion fields
+  if (config.completionFields?.primary && Array.isArray(config.completionFields.primary)) {
+    for (const field of config.completionFields.primary) {
       const date = getDateField(project, field.fieldId);
       if (date) return date;
     }
   }
 
-  // 2. Fallback dates (array)
-  if (config.completionFields?.dates?.fallback && Array.isArray(config.completionFields.dates.fallback)) {
-    for (const field of config.completionFields.dates.fallback) {
+  // 2. Backup completion fields
+  if (config.completionFields?.backup && Array.isArray(config.completionFields.backup)) {
+    for (const field of config.completionFields.backup) {
       const date = getDateField(project, field.fieldId);
       if (date) return date;
     }
@@ -437,11 +409,21 @@ function getMilestoneScheduledDate(project: QuickbaseProject, milestoneId: strin
   const config = getMilestoneConfig(milestoneId);
   if (!config) return null;
 
-  // Check inProgressFields for scheduled dates
-  if (config.inProgressFields?.scheduled && Array.isArray(config.inProgressFields.scheduled)) {
-    for (const field of config.inProgressFields.scheduled) {
-      const date = getDateField(project, field.fieldId);
-      if (date) return date;
+  // Check scheduledFields (new structure)
+  const scheduledFields = (config as any).scheduledFields;
+  if (scheduledFields?.primary) {
+    const date = getDateField(project, scheduledFields.primary.fieldId);
+    if (date) return date;
+  }
+
+  // Also check inProgressFields for substeps that might have scheduled dates
+  if (config.inProgressFields?.substeps) {
+    for (const substep of config.inProgressFields.substeps) {
+      // Look for fields with "scheduled" in the label
+      if (substep.label && substep.label.toLowerCase().includes('scheduled')) {
+        const date = getDateField(project, substep.fieldId);
+        if (date) return date;
+      }
     }
   }
 
