@@ -599,3 +599,4 @@ async function handleInviteAcceptance(body: { token: string; password: string })
   }
 }
 
+

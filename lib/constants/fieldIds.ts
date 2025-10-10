@@ -125,6 +125,7 @@ export const PROJECT_FIELDS = {
   INTAKE_FIRST_PASS_STARTED: 1965, // ✅ PRIMARY - 100% - First pass started processing
   INTAKE_FIRST_PASS_COMPLETE: 1951, // ✅ PRIMARY - 100% - First pass complete timestamp
   MINIMUM_INTAKE_APPROVAL_DATE: 2397, // ✅ PRIMARY - 87% - Minimum approval date
+  INTAKE_FIRST_PASS_HTML: 1826, // ✅ PRIMARY - 100% - Intake checklist HTML
 
   // Intake Helper (1 field)
   INTAKE_INSTALL_DATE_TENTATIVE: 902, // ⭐ CRITICAL - 100% - Tentative install date set at intake
@@ -227,9 +228,9 @@ export const PROJECT_FIELDS = {
   NEM_SUBMITTED_CAPTURED: 716,     // 🔄 BACKUP - 52% - NEM submitted captured (CORRECTED - this is signatures sent)
   MAX_NEM_INTERCONNECTION_SUBMITTED: 1842, // 🔄 BACKUP - 31% - Max NEM/Interconnection submitted
 
-  // NEM Signatures (3 fields)
-  NEM_INTERCONNECTION_SIGNATURES_SENT: 716, // ⭐ PRIMARY - 52% - NEM/Interconnection signatures sent
-  NEM_SIGNATURES_SENT: 716,        // 🔄 ALIAS - Same as NEM_INTERCONNECTION_SIGNATURES_SENT (backward compatibility)
+  // NEM Signatures (4 fields)
+  NEM_INTERCONNECTION_SIGNATURES_SENT: 716, // ⭐ PRIMARY - 52% - NEM/Interconnection signatures sent (field 716)
+  NEM_SIGNATURES_SENT: 1844,       // ⭐ PRIMARY - 63.8% - NEM Signatures Sent (field 1844 - different from 716!)
   NEM_SIGNATURE_RECEIVED: 1845,    // ✅ SECONDARY - 12.8% - Customer signed
   INTERCONNECTION_SIGNATURES_SENT: 2198, // ✅ SECONDARY - 16.1% - PTO signatures (different from NEM)
 

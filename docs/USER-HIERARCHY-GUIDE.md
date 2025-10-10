@@ -346,3 +346,5 @@ POST /api/admin/users
 - **Rate limiting** prevents abuse of hierarchy APIs
 
 This hierarchy system provides flexible management structures while maintaining clear visibility rules and performance optimization.
+
+

@@ -1,8 +1,9 @@
 {
   "$schema": "./milestone-schema.json",
-  "version": "2.0.0",
-  "description": "Comprehensive milestone configuration using actual QuickBase field IDs from COMPLETE-FIELD-MAPPING.md",
-  "lastUpdated": "2025-01-08",
+  "version": "3.0.0-mvp",
+  "description": "7-milestone traffic light configuration based on analysis of 1,529 projects",
+  "lastUpdated": "2025-01-10",
+  "dataSource": "milestone-config-mvp-1760123323934.json",
 
   "milestones": [
     {
@@ -11,93 +12,59 @@
       "order": 1,
       "icon": "📋",
       "color": "gray",
-      "description": "Finance intake and approval process",
+      "description": "Initial project audit and validation",
 
       "statusField": {
         "fieldId": 347,
         "fieldName": "Intake Status",
-        "usage": "100%",
+        "usage": "91%",
         "type": "status",
-        "notes": "Primary status indicator - check this first!"
+        "notes": "Primary status indicator"
       },
 
       "completionFields": {
         "primary": [
           {
-            "fieldId": 347,
-            "fieldName": "Intake Status",
-            "usage": "100%",
-            "checkValue": "complete",
-            "notes": "Status field shows completion"
+            "fieldId": 461,
+            "fieldName": "Intake Completed Date",
+            "usage": "91%",
+            "notes": "Main completion marker"
           }
         ],
-        "dates": {
-          "primary": [
-            {
-              "fieldId": 461,
-              "fieldName": "Intake Completed Date",
-              "usage": "5.7%",
-              "notes": "Timestamp version"
-            },
-            {
-              "fieldId": 542,
-              "fieldName": "xx.Intake Completed Date",
-              "usage": "5.7%",
-              "notes": "Date version (same data)"
-            }
-          ],
-          "fallback": [
-            {
-              "fieldId": 522,
-              "fieldName": "Sales Date",
-              "usage": "100%",
-              "notes": "Use as fallback - project start date"
-            }
-          ]
-        }
-      },
-
-      "inProgressFields": {
-        "primary": [
+        "backup": [
           {
-            "fieldId": 347,
-            "fieldName": "Intake Status",
+            "fieldId": 1826,
+            "fieldName": "Intake Checklist (HTML)",
             "usage": "100%",
-            "checkValue": "in-progress",
-            "notes": "Status shows active processing"
-          }
-        ],
-        "substeps": [
-          {
-            "label": "First Pass Started",
-            "fieldId": 1965,
-            "fieldName": "Intake First Pass: Started Processing",
-            "usage": "100%"
+            "notes": "Intake first pass HTML"
           },
           {
-            "label": "First Pass Complete",
-            "fieldId": 1951,
-            "fieldName": "Intake First Pass: Complete Timestamp",
-            "usage": "100%"
-          },
-          {
-            "label": "Minimum Approval",
-            "fieldId": 2397,
-            "fieldName": "Minimum Intake Approval Date",
-            "usage": "87%"
+            "fieldId": 554,
+            "fieldName": "Intake Complete URL",
+            "usage": "100%",
+            "notes": "Webhook completion flag"
           }
         ]
       },
 
-      "helperFields": [
-        {
-          "fieldId": 902,
-          "fieldName": "intake_install_date_tentative",
-          "usage": "100%",
-          "type": "estimated_date",
-          "notes": "CRITICAL: 100% usage! Early install estimate set at intake"
-        }
-      ],
+      "inProgressFields": {
+        "substeps": [
+          {
+            "fieldId": 522,
+            "fieldName": "Sales Date",
+            "label": "Project Started",
+            "usage": "100%",
+            "order": 1
+          },
+          {
+            "fieldId": 461,
+            "fieldName": "Intake Completed Date",
+            "label": "Approved",
+            "usage": "91%",
+            "order": 2
+          }
+        ]
+      },
 
       "overdue": {
         "projectAgeThreshold": 7,
@@ -106,7 +73,7 @@
 
       "dependencies": [],
 
-      "uiNotes": "Status field 347 at 100% usage should be primary indicator. Date fields only 5.7% but substep fields at 87-100%!"
+      "uiNotes": "Status triggered by Sales Date. Green when Intake Completed Date exists. Red if >7 days old."
     },
 
     {
@@ -115,7 +82,7 @@
       "order": 2,
       "icon": "📐",
       "color": "blue",
-      "description": "Site survey scheduling and approval",
+      "description": "On-site data collection",
 
       "statusField": {
         "fieldId": 162,
@@ -129,85 +96,56 @@
           {
             "fieldId": 165,
             "fieldName": "Survey Approved Date",
-            "usage": "25.2%"
-          }
-        ],
-        "backup": [
-          {
-            "fieldId": 693,
-            "fieldName": "Max Design - Survey Approved Date",
-            "usage": "25.2%",
-            "type": "timestamp"
+            "usage": "varies",
+            "notes": "Survey complete and approved"
           }
         ]
       },
 
       "inProgressFields": {
-        "primary": [
-          {
-            "fieldId": 164,
-            "fieldName": "Survey Submitted Date",
-            "usage": "26.5%",
-            "notes": "Survey sent to ops for review"
-          }
-        ],
-        "backup": [
-          {
-            "fieldId": 575,
-            "fieldName": "Maximum Survey Submitted Date/Time",
-            "usage": "26.5%",
-            "type": "timestamp"
-          }
-        ],
         "substeps": [
           {
-            "label": "Arrivy Scheduled",
             "fieldId": 2526,
-            "fieldName": "Site Survey: Arrivy Scheduled Date/Time",
-            "usage": "100%",
-            "notes": "⭐ ARRIVY INTEGRATION - 100% usage!"
+            "fieldName": "Arrivy Scheduled Date (Primary)",
+            "label": "Scheduled",
+            "usage": "HIGH",
+            "order": 1,
+            "notes": "Primary scheduling field"
           },
           {
-            "label": "Survey Scheduled",
             "fieldId": 166,
-            "fieldName": "Survey Scheduled Date",
-            "usage": "0.7%",
-            "notes": "Low usage - prefer Arrivy field"
+            "fieldName": "Survey Scheduled Date (Fallback)",
+            "label": "Scheduled",
+            "usage": "fallback",
+            "order": 1,
+            "notes": "Use if Arrivy not available"
           },
           {
-            "label": "Submitted",
             "fieldId": 164,
             "fieldName": "Survey Submitted Date",
-            "usage": "26.5%"
+            "label": "Submitted",
+            "usage": "79%",
+            "order": 2
           },
           {
-            "label": "Approved",
             "fieldId": 165,
             "fieldName": "Survey Approved Date",
-            "usage": "25.2%"
+            "label": "Approved",
+            "usage": "varies",
+            "order": 3
           }
         ]
       },
 
-      "helperFields": [
-        {
-          "fieldId": 793,
-          "fieldName": "Maximum Survey Scheduled Date",
-          "usage": "0.7%",
-          "type": "timestamp"
-        },
-        {
-          "fieldId": 416,
-          "fieldName": "Sale to Site Survey Complete (Duration)",
-          "usage": "100%",
-          "type": "duration",
-          "notes": "Shows how long this step took"
-        }
-      ],
+      "overdue": {
+        "projectAgeThreshold": 3,
+        "notes": "> 3 days past Arrivy/scheduled date",
+        "checkField": 2526
+      },
 
       "dependencies": ["intake"],
 
-      "uiNotes": "Arrivy field 2526 at 100% usage is golden! Status field 162 also 100%. Regular date fields only 25-27%."
+      "uiNotes": "Blue when intakeCompletedDate exists. Yellow when scheduled/submitted. Green when approved. Red if >3 days overdue."
     },
 
     {
@@ -216,7 +154,7 @@
       "order": 3,
       "icon": "🎨",
       "color": "purple",
-      "description": "CAD design and engineering approval",
+      "description": "Design & Engineering",
 
       "statusField": {
         "fieldId": 317,
@@ -228,23 +166,22 @@
       "completionFields": {
         "primary": [
           {
-            "fieldId": 315,
-            "fieldName": "Design Completed",
-            "usage": "26.2%",
-            "notes": "Final design completion marker"
+            "fieldId": 478,
+            "fieldName": "Engineering Completed",
+            "usage": "68%",
+            "notes": "Engineering stamp complete triggers next milestone"
           }
         ],
         "backup": [
           {
-            "fieldId": 1774,
-            "fieldName": "Minimum Initial Design Completed",
-            "usage": "24.2%"
+            "fieldId": 315,
+            "fieldName": "Design Completed",
+            "usage": "68%"
           },
           {
-            "fieldId": 2201,
-            "fieldName": "Design Audit Completed timestamp",
-            "usage": "65%",
-            "notes": "Higher usage - audit completion"
+            "fieldId": 476,
+            "fieldName": "CAD Design Approved",
+            "usage": "68%"
           }
         ]
       },
@@ -252,54 +189,25 @@
       "inProgressFields": {
         "substeps": [
           {
-            "label": "Predesign Approved",
-            "fieldId": 316,
-            "fieldName": "Predesign Approved",
-            "usage": "27.2%",
+            "fieldId": 315,
+            "fieldName": "Design Completed",
+            "label": "Design Complete",
+            "usage": "68%",
             "order": 1
           },
           {
-            "label": "CAD Submitted",
-            "fieldId": 475,
-            "fieldName": "Maximum CAD Design Submitted",
-            "usage": "27.5%",
+            "fieldId": 476,
+            "fieldName": "CAD Design Approved",
+            "label": "CAD Approved",
+            "usage": "68%",
             "order": 2
           },
           {
-            "label": "CAD Approved",
-            "fieldId": 476,
-            "fieldName": "CAD Design Approved",
-            "usage": "26.2%",
-            "order": 3
-          },
-          {
-            "label": "Engineering Submitted",
-            "fieldId": 477,
-            "fieldName": "Maximum Engineering Submitted",
-            "usage": "27.5%",
-            "order": 4
-          },
-          {
-            "label": "Engineering Completed",
             "fieldId": 478,
-            "fieldName": "Maximum Engineering Completed",
-            "usage": "26.2%",
-            "order": 5,
-            "notes": "PE stamp complete"
-          },
-          {
-            "label": "Engineering Audit",
-            "fieldId": 2515,
-            "fieldName": "Max Initial Design: Engineering Audit",
-            "usage": "65%",
-            "order": 6
-          },
-          {
-            "label": "Design Complete",
-            "fieldId": 315,
-            "fieldName": "Design Completed",
-            "usage": "26.2%",
-            "order": 7
+            "fieldName": "Engineering Completed",
+            "label": "Engineering Complete",
+            "usage": "68%",
+            "order": 3
           }
         ]
       },
@@ -310,692 +218,203 @@
           "fieldName": "Design SLA Deadline",
           "usage": "25.2%",
           "urgentThreshold": 3,
-          "unit": "days",
-          "notes": "Show warning if deadline within 3 days"
-        },
-        "warning": {
-          "fieldId": 2460,
-          "fieldName": "Design SLA Warning",
-          "usage": "check",
-          "notes": "Boolean flag"
-        },
-        "breach": {
-          "fieldId": 2461,
-          "fieldName": "Design SLA Breach",
-          "usage": "check",
-          "notes": "Boolean flag if breached"
-        },
-        "slackAlert": {
-          "fieldId": 2464,
-          "fieldName": "Design - Slack Alert Sent",
-          "usage": "52%",
-          "notes": "Checkbox - alert already sent"
+          "unit": "days"
         }
       },
 
-      "helperFields": [
-        {
-          "fieldId": 699,
-          "fieldName": "Min Initial Design CAD Submitted",
-          "usage": "68%",
-          "type": "timestamp"
-        },
-        {
-          "fieldId": 700,
-          "fieldName": "Max Initial CAD Design Submitted",
-          "usage": "68%",
-          "type": "timestamp"
-        },
-        {
-          "fieldId": 701,
-          "fieldName": "Min Initial CAD Design Approved",
-          "usage": "68%",
-          "type": "timestamp"
-        },
-        {
-          "fieldId": 702,
-          "fieldName": "Max Initial CAD Design Approved",
-          "usage": "68%",
-          "type": "timestamp"
-        },
-        {
-          "fieldId": 704,
-          "fieldName": "Max Initial Engineering Submitted",
-          "usage": "68%",
-          "type": "timestamp"
-        },
-        {
-          "fieldId": 705,
-          "fieldName": "Min Initial Engineering Submitted",
-          "usage": "68%",
-          "type": "timestamp"
-        },
-        {
-          "fieldId": 577,
-          "fieldName": "Maximum CAD Approved Capture",
-          "usage": "25.8%",
-          "type": "timestamp"
-        },
-        {
-          "fieldId": 578,
-          "fieldName": "Maximum ENG Approved Capture",
-          "usage": "25.8%",
-          "type": "timestamp"
-        }
-      ],
-
       "overdue": {
         "projectAgeThreshold": 21,
-        "notes": "More than 21 days without design completion"
+        "notes": "> 21 days since survey approved"
       },
 
       "dependencies": ["survey"],
 
-      "uiNotes": "Status 317 at 100%! Design has complex multi-step workflow. SLA tracking with alerts at 52% usage."
+      "uiNotes": "Blue when surveyApprovedDate exists. Yellow during design/CAD phases. Green when engineeringCompleted. Red if >21 days."
     },
 
     {
-      "id": "hoa",
-      "name": "HOA",
+      "id": "permitting",
+      "name": "Permitting",
       "order": 4,
-      "icon": "🏘️",
-      "color": "orange",
-      "description": "HOA application and approval (conditional milestone)",
-      "conditional": true,
-
-      "statusField": {
-        "fieldId": 2098,
-        "fieldName": "HOA Status",
-        "usage": "45%",
-        "type": "status",
-        "notes": "Higher usage than actual dates!"
-      },
-
-      "completionFields": {
-        "primary": [
-          {
-            "fieldId": 213,
-            "fieldName": "HOA Application Approved",
-            "usage": "10.7%"
-          }
-        ],
-        "backup": [
-          {
-            "fieldId": 583,
-            "fieldName": "HOA Approved Date - Capture",
-            "usage": "10.7%",
-            "type": "timestamp"
-          },
-          {
-            "fieldId": 1796,
-            "fieldName": "Maximum HOA Approved",
-            "usage": "12%",
-            "type": "maximum"
-          }
-        ]
-      },
-
-      "inProgressFields": {
-        "primary": [
-          {
-            "fieldId": 212,
-            "fieldName": "HOA Application Submitted",
-            "usage": "10.7%"
-          }
-        ],
-        "backup": [
-          {
-            "fieldId": 1795,
-            "fieldName": "Maximum HOA Application Submitted",
-            "usage": "15%",
-            "type": "maximum"
-          }
-        ],
-        "substeps": [
-          {
-            "label": "Submitted",
-            "fieldId": 212,
-            "fieldName": "HOA Application Submitted",
-            "usage": "10.7%"
-          },
-          {
-            "label": "Approved",
-            "fieldId": 213,
-            "fieldName": "HOA Application Approved",
-            "usage": "10.7%"
-          }
-        ]
-      },
-
-      "helperFields": [
-        {
-          "fieldId": 582,
-          "fieldName": "Total Duration - HOA Approval",
-          "usage": "25.8%",
-          "type": "duration",
-          "notes": "Formula field - may have data even when dates don't"
-        },
-        {
-          "fieldId": 891,
-          "fieldName": "ARC Date/Time",
-          "usage": "0.3%",
-          "notes": "Architectural Review Committee date"
-        }
-      ],
-
-      "warning": {
-        "message": "HOA approval can take 30-90 days",
-        "showWhen": "in-progress"
-      },
-
-      "conditionalLogic": {
-        "showWhen": "any_field_has_value",
-        "fields": [212, 213, 2098],
-        "notes": "Only show HOA milestone if these fields have data"
-      },
-
-      "dependencies": ["design"],
-
-      "uiNotes": "Low date usage (10.7%) because conditional. Status field 2098 at 45% usage is better indicator. Check status field first."
-    },
-
-    {
-      "id": "nem",
-      "name": "NEM",
-      "order": 5,
-      "icon": "⚡",
-      "color": "yellow",
-      "description": "Net Energy Metering / Interconnection application",
-
-      "statusField": {
-        "fieldId": 1692,
-        "fieldName": "NEM/Interconnection Status",
-        "usage": "100%",
-        "type": "status",
-        "notes": "⭐ PRIMARY - 100% usage!"
-      },
-
-      "completionFields": {
-        "primary": [
-          {
-            "fieldId": 327,
-            "fieldName": "Interconnection Approved",
-            "usage": "18%",
-            "notes": "Primary approval marker"
-          },
-          {
-            "fieldId": 328,
-            "fieldName": "Interconnection Approved Date",
-            "usage": "18%",
-            "notes": "Same data, date format"
-          }
-        ],
-        "backup": [
-          {
-            "fieldId": 585,
-            "fieldName": "NEM Approved - Captured",
-            "usage": "22.5%",
-            "type": "timestamp"
-          },
-          {
-            "fieldId": 1845,
-            "fieldName": "Max NEM/Interconnection Approved",
-            "usage": "18%",
-            "type": "maximum"
-          }
-        ]
-      },
-
-      "inProgressFields": {
-        "substeps": [
-          {
-            "label": "Signatures Sent",
-            "fieldId": 716,
-            "fieldName": "NEM/Interconnection Signatures Sent",
-            "usage": "52%",
-            "order": 1,
-            "notes": "DocuSign sent to customer"
-          },
-          {
-            "label": "Signatures Received",
-            "fieldId": 1845,
-            "fieldName": "NEM Signature Received",
-            "usage": "12.8%",
-            "order": 2,
-            "notes": "Customer signed"
-          },
-          {
-            "label": "Packet Filled",
-            "fieldId": 1842,
-            "fieldName": "NEM Initial Packet Filled Out",
-            "usage": "0.3%",
-            "order": 3
-          },
-          {
-            "label": "Submitted to Utility",
-            "fieldId": 326,
-            "fieldName": "NEM/Interconnection Submitted",
-            "usage": "31%",
-            "order": 4
-          },
-          {
-            "label": "Approved",
-            "fieldId": 327,
-            "fieldName": "Interconnection Approved",
-            "usage": "18%",
-            "order": 5
-          }
-        ],
-        "backup": [
-          {
-            "fieldId": 1842,
-            "fieldName": "Max NEM/Interconnection Submitted",
-            "usage": "31%",
-            "type": "maximum"
-          }
-        ]
-      },
-
-      "blockedState": {
-        "condition": "signatures_sent_7days_no_submit",
-        "field": 716,
-        "threshold": 7,
-        "unit": "days",
-        "message": "Customer signatures needed - follow up!",
-        "notes": "If signatures sent >7 days ago but not submitted, mark as blocked"
-      },
-
-      "helperFields": [
-        {
-          "fieldId": 2198,
-          "fieldName": "Interconnection Signatures Sent",
-          "usage": "16.1%",
-          "notes": "Separate from NEM signatures - PTO related?"
-        },
-        {
-          "fieldId": 310,
-          "fieldName": "Utility - Approval Date",
-          "usage": "2.3%",
-          "notes": "Alternative approval date"
-        },
-        {
-          "fieldId": 601,
-          "fieldName": "Total Duration - Ready for NEM",
-          "usage": "25.5%",
-          "type": "duration"
-        },
-        {
-          "fieldId": 1701,
-          "fieldName": "Nem Checklist Date Logger - Tier 2 Requested",
-          "usage": "0.3%",
-          "notes": "Tier 2 interconnection"
-        }
-      ],
-
-      "dependencies": ["design"],
-
-      "uiNotes": "Status field 1692 at 100% usage! Signatures field 716 at 52% - good coverage. Multi-step process with customer action required."
-    },
-
-    {
-      "id": "permit",
-      "name": "Permit",
-      "order": 6,
       "icon": "📄",
       "color": "indigo",
-      "description": "Building permit submission and approval",
+      "description": "AHJ, NEM & HOA Permits",
 
       "statusField": {
         "fieldId": 2095,
         "fieldName": "Permit Status",
         "usage": "100%",
         "type": "status",
-        "notes": "⭐ PRIMARY - 100% usage!"
-      },
-
-      "dashboardStatusField": {
-        "fieldId": 2501,
-        "fieldName": "Permit Dashboard Status",
-        "usage": "100%",
-        "notes": "Alternative status view"
+        "notes": "Primary permit status"
       },
 
       "completionFields": {
         "primary": [
           {
             "fieldId": 208,
-            "fieldName": "Permit Approved",
-            "usage": "21.8%"
+            "fieldName": "AHJ Permit Approved",
+            "usage": "59.1%",
+            "notes": "Primary permit completion"
+          },
+          {
+            "fieldId": 327,
+            "fieldName": "NEM Approved",
+            "usage": "54%",
+            "notes": "NEM/Interconnection approval"
           }
         ],
-        "backup": [
+        "optional": [
           {
-            "fieldId": 584,
-            "fieldName": "Permit Approved Date - Capture",
-            "usage": "21.5%",
-            "type": "timestamp"
-          },
-          {
-            "fieldId": 2059,
-            "fieldName": "Minimum Permit - Approved Capture",
-            "usage": "21%",
-            "type": "minimum_timestamp"
-          }
-        ],
-        "finalStep": {
-          "fieldId": 614,
-          "fieldName": "As built Submitted to AHJ",
-          "usage": "25.8%",
-          "notes": "⚠️ DECISION NEEDED: Is this required for permit 'complete'? Higher usage than approval!"
-        }
-      },
-
-      "inProgressFields": {
-        "primary": [
-          {
-            "fieldId": 207,
-            "fieldName": "Permit Submitted",
-            "usage": "23.5%"
-          }
-        ],
-        "backup": [
-          {
-            "fieldId": 709,
-            "fieldName": "Permit Application Submitted",
-            "usage": "23.2%",
-            "type": "capture"
-          },
-          {
-            "fieldId": 1402,
-            "fieldName": "Minimum Permit Application Submitted",
-            "usage": "23.2%",
-            "type": "minimum_timestamp"
-          }
-        ],
-        "substeps": [
-          {
-            "label": "Start Processing",
-            "fieldId": 2508,
-            "fieldName": "Permit: Start Processing Date",
-            "usage": "38%",
-            "order": 1
-          },
-          {
-            "label": "Submitted",
-            "fieldId": 207,
-            "fieldName": "Permit Submitted",
-            "usage": "23.5%",
-            "order": 2
-          },
-          {
-            "label": "Audit Status",
-            "fieldId": 2514,
-            "fieldName": "Permit: Audit - Status",
-            "usage": "55%",
-            "order": 3,
-            "notes": "Audit tracking"
-          },
-          {
-            "label": "Audit Complete",
-            "fieldId": 2519,
-            "fieldName": "Maximum Permit Audit - Complete Date",
-            "usage": "55%",
-            "order": 4
-          },
-          {
-            "label": "Approved",
-            "fieldId": 208,
-            "fieldName": "Permit Approved",
-            "usage": "21.8%",
-            "order": 5
-          },
-          {
-            "label": "As-Built Submitted",
-            "fieldId": 614,
-            "fieldName": "As built Submitted to AHJ",
-            "usage": "25.8%",
-            "order": 6,
-            "notes": "Post-install submission"
+            "fieldId": 213,
+            "fieldName": "HOA Application Approved",
+            "usage": "conditional",
+            "notes": "Only required if HOA applies"
           }
         ]
       },
 
-      "resubmissionTracking": {
-        "rejected": {
-          "fieldId": 706,
-          "fieldName": "Maximum Permit Rejected/ Revisions Needed",
-          "usage": "4.0%"
-        },
-        "resubmitted": {
-          "fieldId": 707,
-          "fieldName": "Maximum Permit Resubmitted",
-          "usage": "6.7%"
-        },
-        "resubmittedDate": {
-          "fieldId": 2094,
-          "fieldName": "Maximum Permit Resubmitted Date",
-          "usage": "6.7%"
-        },
-        "revisionDate": {
-          "fieldId": 2097,
-          "fieldName": "Revision Resubmitted Date",
-          "usage": "5.0%"
-        }
+      "inProgressFields": {
+        "substeps": [
+          {
+            "fieldId": 1844,
+            "fieldName": "NEM Signatures Sent",
+            "label": "NEM Signatures Sent",
+            "usage": "63.8%",
+            "order": 1,
+            "notes": "Customer signatures needed"
+          },
+          {
+            "fieldId": 326,
+            "fieldName": "NEM Submitted",
+            "label": "NEM Submitted",
+            "usage": "58.7%",
+            "order": 2
+          },
+          {
+            "fieldId": 327,
+            "fieldName": "NEM Approved",
+            "label": "NEM Approved",
+            "usage": "54%",
+            "order": 3
+          },
+          {
+            "fieldId": 207,
+            "fieldName": "AHJ Permit Submitted",
+            "label": "Permit Submitted",
+            "usage": "65%",
+            "order": 4
+          },
+          {
+            "fieldId": 208,
+            "fieldName": "AHJ Permit Approved",
+            "label": "Permit Approved",
+            "usage": "59.1%",
+            "order": 5
+          }
+        ],
+        "hoa": [
+          {
+            "fieldId": 212,
+            "fieldName": "HOA Application Submitted",
+            "label": "HOA Submitted",
+            "usage": "conditional",
+            "order": 6
+          },
+          {
+            "fieldId": 213,
+            "fieldName": "HOA Application Approved",
+            "label": "HOA Approved",
+            "usage": "conditional",
+            "order": 7
+          }
+        ]
       },
 
-      "estimatedDates": {
-        "returnDate": {
-          "fieldId": 1777,
-          "fieldName": "Estimated Permit Return Date",
-          "usage": "23.5%",
-          "notes": "When permit expected back from AHJ"
-        },
-        "plus3Days": {
-          "fieldId": 1402,
-          "fieldName": "Permit Submitted (+3 Days)",
-          "usage": "23.2%",
-          "type": "calculated"
-        },
-        "plus7Days": {
-          "fieldId": 1403,
-          "fieldName": "Permit Submitted (+7 Days)",
-          "usage": "23.2%",
-          "type": "calculated"
-        }
+      "blockedState": {
+        "condition": "nem_signatures_sent_7days_no_submit",
+        "field": 1844,
+        "threshold": 7,
+        "unit": "days",
+        "message": "Customer signatures needed - follow up!",
+        "notes": "If signatures sent >7 days ago but not submitted, mark as blocked/red"
       },
 
       "helperFields": [
         {
-          "fieldId": 581,
-          "fieldName": "Total Duration - Permit Approval",
-          "usage": "20.8%",
-          "type": "duration"
+          "fieldId": 2501,
+          "fieldName": "Permit Dashboard Status",
+          "usage": "16.8%",
+          "type": "status"
         },
         {
-          "fieldId": 1121,
-          "fieldName": "Total Duration - Permit Submitted",
-          "usage": "25.8%",
-          "type": "duration"
-        },
-        {
-          "fieldId": 1122,
-          "fieldName": "Total Duration - Permit Submitted (Active Only)",
-          "usage": "12.8%",
-          "type": "duration"
-        },
-        {
-          "fieldId": 1125,
-          "fieldName": "AHJ - Average Duration - Permit Submitted",
-          "usage": "12.4%",
-          "type": "benchmark",
-          "notes": "Show typical time for this jurisdiction"
+          "fieldId": 328,
+          "fieldName": "NEM Status",
+          "usage": "100%",
+          "type": "status"
         }
       ],
 
-      "warning": {
-        "threshold": 30,
-        "unit": "days",
-        "message": "Permit taking longer than expected",
-        "checkField": 207
-      },
+      "dependencies": ["design"],
 
-      "dependencies": ["design", "nem"],
-
-      "uiNotes": "Status fields 2095 & 2501 both 100%! Audit fields at 55% usage. As-built at 25.8% - decision needed if required for completion."
+      "uiNotes": "Blue when engineeringCompleted. Yellow when any permits submitted. Green when ALL required permits approved (NEM + Permit, +HOA if needed). Red if NEM signatures blocked >7 days."
     },
 
     {
       "id": "install",
-      "name": "Install",
-      "order": 7,
+      "name": "Installation",
+      "order": 5,
       "icon": "🔧",
       "color": "green",
-      "description": "Installation scheduling and completion - HIGHEST DATA COVERAGE!",
+      "description": "System installation & electrical work",
 
       "completionFields": {
         "primary": [
           {
             "fieldId": 534,
             "fieldName": "Install Completed Date",
-            "usage": "52.3%",
-            "notes": "⭐ HIGHEST usage milestone field!"
-          },
-          {
-            "fieldId": 587,
-            "fieldName": "Installation - Completed At",
-            "usage": "52.3%",
-            "notes": "Timestamp version - same data"
-          }
-        ],
-        "commissioning": [
-          {
-            "fieldId": 813,
-            "fieldName": "Ready for Commission - Date/Time",
-            "usage": "47.0%",
-            "notes": "System commissioned and quality checked"
-          },
-          {
-            "fieldId": 841,
-            "fieldName": "Ready for Commission - Date/Time (10/29)",
-            "usage": "40.3%",
-            "notes": "Alternative version"
-          }
-        ],
-        "backup": [
-          {
-            "fieldId": 2006,
-            "fieldName": "Install Completed Test",
-            "usage": "52.3%"
+            "usage": "43%",
+            "notes": "Primary install completion"
           }
         ]
       },
 
       "scheduledFields": {
         "primary": {
-          "fieldId": 710,
-          "fieldName": "Install Scheduled Date Capture",
-          "usage": "54.4%",
-          "notes": "⭐ HIGHEST reliability! Primary scheduled date"
+          "fieldId": 178,
+          "fieldName": "Install Scheduled Start (PRIMARY)",
+          "usage": "49.2%",
+          "notes": "Primary scheduled date"
         },
         "estimated": {
           "fieldId": 1124,
           "fieldName": "Estimated Install Date",
-          "usage": "27.5%",
-          "notes": "Estimated/projected date"
-        },
-        "tentative": {
-          "fieldId": 902,
-          "fieldName": "intake_install_date_tentative",
-          "usage": "100%",
-          "notes": "⭐ CRITICAL: Set at intake, 100% usage! Use for early timeline"
-        },
-        "start": [
-          {
-            "fieldId": 178,
-            "fieldName": "Install Scheduled Start Date",
-            "usage": "20.1%"
-          },
-          {
-            "fieldId": 1356,
-            "fieldName": "Install Scheduled Start Date 2.0",
-            "usage": "20.1%"
-          },
-          {
-            "fieldId": 228,
-            "fieldName": "z.Installation Scheduled Start Date",
-            "usage": "20.1%"
-          },
-          {
-            "fieldId": 2442,
-            "fieldName": "Minimum Install Start Date",
-            "usage": "20.1%",
-            "type": "minimum"
-          }
-        ],
-        "end": [
-          {
-            "fieldId": 179,
-            "fieldName": "Install Scheduled End Date",
-            "usage": "20.1%"
-          },
-          {
-            "fieldId": 1357,
-            "fieldName": "Install Scheduled End Date 2.0",
-            "usage": "20.1%"
-          }
-        ]
+          "usage": "97.1%",
+          "notes": "Display if no actual scheduled date"
+        }
       },
 
       "inProgressFields": {
-        "started": {
-          "fieldId": 464,
-          "fieldName": "Install Started Date",
-          "usage": "19.8%",
-          "notes": "Crew arrived on site"
-        },
         "substeps": [
           {
-            "label": "Tentative Date (Intake)",
-            "fieldId": 902,
-            "fieldName": "intake_install_date_tentative",
-            "usage": "100%",
-            "order": 1,
-            "notes": "Early estimate"
+            "fieldId": 178,
+            "fieldName": "Install Scheduled Start",
+            "label": "Scheduled",
+            "usage": "49.2%",
+            "order": 1
           },
           {
-            "label": "Estimated Date",
-            "fieldId": 1124,
-            "fieldName": "Estimated Install Date",
-            "usage": "27.5%",
+            "fieldId": 464,
+            "fieldName": "Install Started Date",
+            "label": "Started",
+            "usage": "43.2%",
             "order": 2
           },
           {
-            "label": "Scheduled",
-            "fieldId": 710,
-            "fieldName": "Install Scheduled Date Capture",
-            "usage": "54.4%",
-            "order": 3
-          },
-          {
-            "label": "Started",
-            "fieldId": 464,
-            "fieldName": "Install Started Date",
-            "usage": "19.8%",
-            "order": 4
-          },
-          {
-            "label": "Completed",
             "fieldId": 534,
             "fieldName": "Install Completed Date",
-            "usage": "52.3%",
-            "order": 5
-          },
-          {
-            "label": "Ready for Commission",
-            "fieldId": 813,
-            "fieldName": "Ready for Commission - Date/Time",
-            "usage": "47.0%",
-            "order": 6
+            "label": "Completed",
+            "usage": "43%",
+            "order": 3
           }
         ]
       },
@@ -1003,258 +422,95 @@
       "upcomingState": {
         "threshold": 7,
         "unit": "days",
-        "checkField": 710,
+        "checkField": 178,
         "notes": "Show 'upcoming' state if install within 7 days"
       },
 
-      "fundingTracking": {
-        "m2": {
-          "submitted": {
-            "fieldId": 486,
-            "fieldName": "Install Funding Submitted",
-            "usage": "18.8%",
-            "notes": "M2 funding request"
-          },
-          "received": {
-            "fieldId": 487,
-            "fieldName": "Install Funding Received",
-            "usage": "13.8%",
-            "notes": "M2 payment received"
-          },
-          "dashboard": {
-            "fieldId": 1993,
-            "fieldName": "Funding Dashboard: Ready for M2 Funding",
-            "usage": "52.3%",
-            "notes": "⭐ HIGH usage! M2 status indicator"
-          }
-        }
+      "overdue": {
+        "threshold": 3,
+        "unit": "days",
+        "checkField": 178,
+        "notes": "> 3 days past scheduled date"
       },
 
-      "helperFields": [
-        {
-          "fieldId": 835,
-          "fieldName": "Install Date Import",
-          "usage": "44.6%",
-          "notes": "Legacy import field?"
-        },
-        {
-          "fieldId": 1185,
-          "fieldName": "Installation Date (Calc)",
-          "usage": "24.2%",
-          "type": "calculated"
-        },
-        {
-          "fieldId": 1182,
-          "fieldName": "Estimated Install Date (Sunday)",
-          "usage": "27.5%",
-          "notes": "Sunday-aligned estimate"
-        },
-        {
-          "fieldId": 2408,
-          "fieldName": "Minimum Install Scheduled Created At",
-          "usage": "22.5%",
-          "type": "timestamp"
-        },
-        {
-          "fieldId": 2449,
-          "fieldName": "Max - Any Install Event Scheduled Start Date",
-          "usage": "20.1%",
-          "type": "maximum"
-        },
-        {
-          "fieldId": 2182,
-          "fieldName": "Multi-Touch: Milestone Completed Start",
-          "usage": "52.3%",
-          "notes": "Multi-day install start"
-        },
-        {
-          "fieldId": 2183,
-          "fieldName": "Multi-Touch: Milestone Completed End",
-          "usage": "52.3%",
-          "notes": "Multi-day install end"
-        },
-        {
-          "fieldId": 1387,
-          "fieldName": "Days Since Install Completed",
-          "usage": "52.3%",
-          "type": "calculated",
-          "notes": "Age since completion"
-        },
-        {
-          "fieldId": 769,
-          "fieldName": "Ready for Payroll - Date/Time",
-          "usage": "37.9%",
-          "notes": "Payroll processing"
-        },
-        {
-          "fieldId": 842,
-          "fieldName": "Ready for Payroll - Date/Time (10/29)",
-          "usage": "44.0%"
-        }
-      ],
+      "dependencies": ["permitting"],
 
-      "dependencies": ["nem", "permit"],
-
-      "uiNotes": "⭐ BEST DATA COVERAGE! Tentative date at 100%, scheduled at 54.4%, completed at 52.3%. M2 funding dashboard at 52.3%!"
-    },
-
-    {
-      "id": "verification",
-      "name": "Verification",
-      "order": 8,
-      "icon": "✅",
-      "color": "cyan",
-      "description": "System verification after install (1-3 days) - CALCULATED",
-      "calculated": true,
-
-      "completionFields": {
-        "override": {
-          "fieldId": 491,
-          "fieldName": "Passing Inspection Completed Date",
-          "usage": "19.1%",
-          "notes": "If inspection passed, verification is complete"
-        },
-        "autoComplete": {
-          "baseField": 534,
-          "baseFieldName": "Install Completed Date",
-          "threshold": 1,
-          "unit": "days",
-          "calculatedDate": "+2 days",
-          "notes": "Auto-complete 1 day after install, show date as install+2"
-        }
-      },
-
-      "inProgressFields": {
-        "condition": "install_complete_less_than_1_day",
-        "baseField": 534,
-        "threshold": 1,
-        "unit": "days"
-      },
-
-      "helperFields": [],
-
-      "dependencies": ["install"],
-
-      "uiNotes": "No dedicated field - purely calculated. Auto-completes 1 day after install. Low data coverage (19.1%) for inspection override."
+      "uiNotes": "Blue when all permits approved. Yellow when scheduled/in-progress. Green when completed. Red if >3 days past scheduled."
     },
 
     {
       "id": "inspection",
       "name": "Inspection",
-      "order": 9,
+      "order": 6,
       "icon": "🔍",
       "color": "teal",
-      "description": "Final inspection and approval",
+      "description": "Authority & utility inspections",
 
       "completionFields": {
         "primary": [
           {
             "fieldId": 491,
-            "fieldName": "Passing Inspection Completed Date",
-            "usage": "19.1%"
+            "fieldName": "Inspection Passed Date",
+            "usage": "25%",
+            "notes": "Primary completion marker"
           }
         ],
         "backup": [
           {
-            "fieldId": 593,
-            "fieldName": "Passed Inspection Complete - Capture",
-            "usage": "4.0%",
-            "type": "timestamp"
-          },
-          {
-            "fieldId": 1780,
-            "fieldName": "Max Final Inspection Completed",
-            "usage": "29%",
-            "type": "maximum",
-            "notes": "Higher usage than primary!"
+            "fieldId": 1763,
+            "fieldName": "Inspection Completed",
+            "usage": "varies",
+            "notes": "Alternative completion field"
           }
         ]
       },
 
       "inProgressFields": {
-        "asBuilt": {
-          "fieldId": 614,
-          "fieldName": "As built Submitted to AHJ",
-          "usage": "25.8%",
-          "notes": "⭐ Prerequisite - higher usage than inspection completion!"
-        },
-        "scheduled": [
-          {
-            "fieldId": 226,
-            "fieldName": "Inspection Scheduled Date",
-            "usage": "9.7%"
-          },
-          {
-            "fieldId": 1589,
-            "fieldName": "First Inspection Scheduled Date/Time",
-            "usage": "9.7%"
-          },
-          {
-            "fieldId": 1815,
-            "fieldName": "Task: Inspection Scheduled Date/Time",
-            "usage": "9.7%"
-          }
-        ],
         "substeps": [
           {
-            "label": "As-Built Submitted",
-            "fieldId": 614,
-            "fieldName": "As built Submitted to AHJ",
-            "usage": "25.8%",
+            "fieldId": 226,
+            "fieldName": "Inspection Scheduled",
+            "label": "Scheduled",
+            "usage": "low",
             "order": 1
           },
           {
-            "label": "Inspection Scheduled",
-            "fieldId": 226,
-            "fieldName": "Inspection Scheduled Date",
-            "usage": "9.7%",
-            "order": 2
-          },
-          {
-            "label": "Inspection Passed",
             "fieldId": 491,
-            "fieldName": "Passing Inspection Completed Date",
-            "usage": "19.1%",
-            "order": 3
+            "fieldName": "Inspection Passed Date",
+            "label": "Passed",
+            "usage": "25%",
+            "order": 2
           }
         ]
       },
 
-      "failedTracking": {
-        "fieldId": 1469,
-        "fieldName": "Inspection Failed Date",
-        "usage": "2.3%",
-        "notes": "Track failed inspections for follow-up"
-      },
-
       "helperFields": [
         {
-          "fieldId": 876,
-          "fieldName": "Install Complete to Max Inspection Scheduled",
-          "usage": "9.7%",
-          "type": "duration"
+          "fieldId": 571,
+          "fieldName": "Inspection Pass/Fail Status",
+          "usage": "varies",
+          "type": "status"
         }
       ],
 
       "dependencies": ["install"],
 
-      "uiNotes": "Low coverage (9-19%). As-built field 614 at 25.8% is better indicator. Often tracked in Tasks table instead."
+      "uiNotes": "Blue when installCompleted. Yellow when scheduled. Green when passed. Red if failed."
     },
 
     {
       "id": "pto",
       "name": "PTO",
-      "order": 10,
+      "order": 7,
       "icon": "🎉",
       "color": "emerald",
-      "description": "Permission to Operate - FINAL MILESTONE!",
+      "description": "Permission to Operate",
 
       "statusField": {
         "fieldId": 556,
         "fieldName": "PTO Status",
         "usage": "100%",
-        "type": "status",
-        "notes": "⭐ PRIMARY - 100% usage!"
+        "type": "status"
       },
 
       "completionFields": {
@@ -1262,209 +518,68 @@
           {
             "fieldId": 538,
             "fieldName": "PTO Approved Date",
-            "usage": "20.5%"
-          }
-        ],
-        "celebration": {
-          "fieldId": 556,
-          "fieldName": "PTO Uploaded to Lender",
-          "usage": "19.8%",
-          "notes": "🎉 M3 FUNDING! Trigger celebration"
-        }
-      },
-
-      "inProgressFields": {
-        "primary": [
-          {
-            "fieldId": 537,
-            "fieldName": "PTO Submitted Date",
-            "usage": "21.1%"
-          }
-        ],
-        "substeps": [
-          {
-            "label": "Submitted to Utility",
-            "fieldId": 537,
-            "fieldName": "PTO Submitted Date",
-            "usage": "21.1%",
-            "order": 1
-          },
-          {
-            "label": "PTO Approved",
-            "fieldId": 538,
-            "fieldName": "PTO Approved Date",
-            "usage": "20.5%",
-            "order": 2
-          },
-          {
-            "label": "Uploaded to Lender (M3)",
-            "fieldId": 556,
-            "fieldName": "PTO Uploaded to Lender",
-            "usage": "19.8%",
-            "order": 3,
-            "notes": "🎉 M3 FUNDED!"
+            "usage": "19%",
+            "notes": "Final milestone completion!"
           }
         ]
       },
 
-      "fundingTracking": {
-        "m3": {
-          "requested": {
-            "fieldId": 513,
-            "fieldName": "M3 Request Date",
-            "usage": "5.4%"
+      "inProgressFields": {
+        "substeps": [
+          {
+            "fieldId": 537,
+            "fieldName": "PTO Submitted Date",
+            "label": "Submitted",
+            "usage": "low",
+            "order": 1
           },
-          "expectedReceived": {
-            "fieldId": 512,
-            "fieldName": "Expected M3 Received Date",
-            "usage": "4.7%"
-          },
-          "dashboardRequested": {
-            "fieldId": 2040,
-            "fieldName": "Funding Dashboard: Official M3 Requested",
-            "usage": "5.7%"
-          },
-          "dashboardReady": {
-            "fieldId": 1994,
-            "fieldName": "Funding Dashboard: Ready for M3 Funding",
-            "usage": "20.5%"
-          },
-          "eventApproved": {
-            "fieldId": 2029,
-            "fieldName": "Funding Dashboard: Max M3 Event - Approved",
-            "usage": "0.3%"
-          },
-          "eventRequested": {
-            "fieldId": 2028,
-            "fieldName": "Funding Dashboard: Max M3 Event - Requested",
-            "usage": "0.3%"
+          {
+            "fieldId": 538,
+            "fieldName": "PTO Approved Date",
+            "label": "Approved",
+            "usage": "19%",
+            "order": 2
           }
-        }
+        ]
       },
 
-      "lenderFields": {
-        "ficUploaded": {
-          "fieldId": 555,
-          "fieldName": "FIC Uploaded to Lender",
-          "usage": "19.1%"
-        },
-        "ntpApproval": {
-          "fieldId": 312,
-          "fieldName": "NTP - Approval Date",
-          "usage": "19.1%"
-        },
-        "ntpSubmitted": {
-          "fieldId": 479,
-          "fieldName": "NTP - Submitted Date",
-          "usage": "18.8%"
-        },
-        "fundingReceived": {
-          "fieldId": 2375,
-          "fieldName": "Lender Funding Received Date",
-          "usage": "48%",
-          "notes": "When lender paid"
-        },
-        "greenlight": {
-          "fieldId": 2376,
-          "fieldName": "Lender PTO Greenlight Date",
-          "usage": "52%",
-          "notes": "Lender approval to proceed"
-        }
+      "celebration": {
+        "trigger": "ptoApproved",
+        "message": "🎉 PROJECT COMPLETE!",
+        "notes": "Display celebration when PTO approved"
       },
 
-      "finalFunding": {
-        "submitted": {
-          "fieldId": 488,
-          "fieldName": "Final Funding Submitted",
-          "usage": "11.1%"
-        },
-        "received": {
-          "fieldId": 489,
-          "fieldName": "Final Funding Received",
-          "usage": "10.4%"
-        }
-      },
-
-      "activationFields": {
-        "completed": {
-          "fieldId": 572,
-          "fieldName": "Activation Completed",
-          "usage": "0.3%",
-          "notes": "Rare - customer education/handoff call"
-        }
-      },
-
-      "warning": {
-        "threshold": 42,
+      "overdue": {
+        "threshold": 30,
         "unit": "days",
-        "message": "PTO taking longer than expected",
-        "checkField": 537
+        "checkField": 537,
+        "notes": "> 30 days since submission"
       },
-
-      "helperFields": [
-        {
-          "fieldId": 618,
-          "fieldName": "Invoice Date",
-          "usage": "51.7%",
-          "notes": "When customer was invoiced"
-        }
-      ],
 
       "dependencies": ["inspection"],
 
-      "uiNotes": "⭐ Status field 556 at 100%! Lender greenlight at 52%, funding received at 48%. M3 tracking at 20.5%. 🎉 Celebrate when M3 funded!"
+      "uiNotes": "Blue when inspectionPassed. Yellow when submitted. Green when approved with celebration! Red if >30 days overdue."
     }
   ],
 
   "fundingMilestones": {
-    "description": "M1/M2/M3 milestone payment tracking - can be shown as separate section or substeps",
+    "description": "M1/M2/M3 milestone payment tracking",
     "dashboardFields": {
       "m1Status": {
         "fieldId": 2049,
         "fieldName": "Funding Dashboard: M1 Status",
-        "usage": "100%",
-        "notes": "⭐ PRIMARY M1 status"
+        "usage": "100%"
       },
       "m2Status": {
         "fieldId": 2050,
         "fieldName": "Funding Dashboard: M2 Status",
-        "usage": "100%",
-        "notes": "⭐ PRIMARY M2 status"
+        "usage": "100%"
       },
       "m3Status": {
         "fieldId": 2051,
         "fieldName": "Funding Dashboard: M3 Status",
-        "usage": "100%",
-        "notes": "⭐ PRIMARY M3 status"
+        "usage": "100%"
       }
-    },
-    "m1": {
-      "requestDate": 442,
-      "expectedReceived": 444,
-      "officialRequested": 2038,
-      "readyForFunding": 1992,
-      "usage": "19-20.5%",
-      "typicalTiming": "At permit or design"
-    },
-    "m2": {
-      "requestDate": 445,
-      "expectedReceived": 447,
-      "creditDate": 915,
-      "officialRequested": 2039,
-      "readyForFunding": 1993,
-      "usage": "18-52.3%",
-      "typicalTiming": "At install completion",
-      "notes": "⭐ Ready for M2 at 52.3% usage!"
-    },
-    "m3": {
-      "requestDate": 513,
-      "expectedReceived": 512,
-      "officialRequested": 2040,
-      "readyForFunding": 1994,
-      "maxEventApproved": 2029,
-      "maxEventRequested": 2028,
-      "usage": "4.7-20.5%",
-      "typicalTiming": "At PTO approval"
     }
   },
 
@@ -1473,31 +588,7 @@
       "fieldId": 255,
       "fieldName": "Project Status",
       "usage": "100%",
-      "values": ["Active", "Active - On Hold", "Completed", "Cancelled", "Active - PTO", "Active - Installed"],
-      "notes": "⭐ PRIMARY project status"
-    },
-    "projectStatusBar": {
-      "fieldId": 301,
-      "fieldName": "Project Status - Color (HTML table)",
-      "usage": "100%",
-      "notes": "⭐ CRITICAL: Visual status bar with all 9 milestones - can parse for state!"
-    },
-    "projectStatusColor": {
-      "fieldId": 299,
-      "fieldName": "Project Status - Color",
-      "usage": "100%",
-      "notes": "HTML formula for color coding"
-    },
-    "projectPriority": {
-      "fieldId": 300,
-      "fieldName": "Project Priority",
-      "usage": "100%",
-      "values": ["Insane", "Urgent", "Normal"]
-    },
-    "projectEscalation": {
-      "fieldId": 302,
-      "fieldName": "Project Escalation",
-      "values": ["High", "Medium", "ARC"]
+      "values": ["Active", "Active - On Hold", "Completed", "Cancelled", "Active - PTO", "Active - Installed"]
     },
     "onHold": {
       "fieldId": 231,
@@ -1511,55 +602,39 @@
     "blockReason": {
       "fieldId": 233,
       "fieldName": "Block Reason"
-    },
-    "holdBlockers": {
-      "fieldId": 1389,
-      "fieldName": "Hold/Blockers",
-      "type": "multi-line",
-      "notes": "Detailed description"
-    },
-    "dateProjectPlacedOnHold": {
-      "fieldId": 235,
-      "fieldName": "Date Project Placed On Hold"
-    },
-    "userPlacedOnHold": {
-      "fieldId": 234,
-      "fieldName": "User Placed On Hold",
-      "type": "user"
     }
   },
 
-  "specificHoldFields": {
-    "intakeHold": 1071,
-    "welcomeCallHold": 1412,
-    "siteSurveyHold": 1413,
-    "engineeringHold": 2099,
-    "permittingHold": 2100
-  },
-
-  "adderFields": {
-    "counts": {
-      "totalAdders": 252,
-      "numAddersApproved": 1046,
-      "numNeedsReview": 2282,
-      "numContractAdders": 2272,
-      "numPostSaleAdders": 2273,
-      "numElectricalUpgrade": 2240,
-      "allUsage": "100%"
+  "trafficLightColors": {
+    "blue": {
+      "name": "Ready",
+      "description": "Ready to start - dependencies met",
+      "condition": "Dependencies complete but not started",
+      "cssClass": "bg-blue-500"
     },
-    "costs": {
-      "totalAdderCost": 2115,
-      "addersTotalCostCustomer": 253,
-      "repTotalAdderCost": 553,
-      "costAddersTotal": 384
+    "yellow": {
+      "name": "In Progress",
+      "description": "Active work in progress",
+      "condition": "Started but not complete",
+      "cssClass": "bg-yellow-500"
     },
-    "lists": {
-      "salesFacingAdderList": {
-        "fieldId": 2286,
-        "usage": "100%",
-        "notes": "⭐ CRITICAL: Parse for product names and costs"
-      },
-      "needsReviewAdderList": 2276
+    "green": {
+      "name": "Complete",
+      "description": "Milestone completed",
+      "condition": "Completion field has value",
+      "cssClass": "bg-green-500"
+    },
+    "red": {
+      "name": "Blocked/Overdue",
+      "description": "Blocked or past deadline",
+      "condition": "Blocked condition met OR overdue threshold exceeded",
+      "cssClass": "bg-red-500"
+    },
+    "gray": {
+      "name": "Pending",
+      "description": "Waiting on dependencies",
+      "condition": "Dependencies not yet met",
+      "cssClass": "bg-gray-300"
     }
   },
 
@@ -1574,24 +649,21 @@
     "stateCalculation": {
       "complete": "PRIMARY completion field has value OR status='complete'",
       "in-progress": "Any in-progress field has value OR status='in-progress'",
-      "upcoming": "Scheduled within threshold (e.g. 7 days for install)",
-      "blocked": "Special logic (e.g. NEM signatures >7 days, permit revisions)",
-      "overdue": "Project age > threshold AND not complete",
-      "pending": "Dependencies not met OR no field values",
-      "on-hold": "Global hold status overrides in-progress"
+      "ready-for": "Dependencies met AND not started (blue light)",
+      "blocked": "Special logic (e.g. NEM signatures >7 days, project on hold)",
+      "overdue": "In progress AND > threshold days past scheduled date (red light)",
+      "pending": "Dependencies not met OR no field values (gray light)"
     }
   },
 
   "configurationNotes": [
-    "⭐ STATUS FIELDS: Use these first! Fields 347, 162, 317, 1692, 2095, 556, 2098 all at 45-100% usage",
-    "⭐ INSTALL HAS BEST DATA: 52-54% coverage, multiple date options",
-    "⭐ FUNDING DASHBOARD: M1/M2/M3 status fields all at 100% usage",
-    "⚠️ LOW INTAKE DATES: Only 5.7% usage, but status field 347 at 100%",
-    "⚠️ LOW SCHEDULED DATES: Scheduled dates often <10% usage, rely on submitted/approved",
-    "✅ ARRIVY INTEGRATION: Field 2526 for survey at 100% usage",
-    "✅ SLA TRACKING: Design SLA fields available",
-    "✅ RESUBMISSION TRACKING: Permit rejection/resubmission at 4-7%",
-    "✅ HELPER FIELDS: Duration, benchmark, and audit fields provide context",
-    "🎯 PRIMARY STRATEGY: Status field → Primary date → Backup timestamp → Calculated → Not Available"
+    "⭐ 7-MILESTONE SYSTEM: Simplified from 10 to 7 milestones for clearer tracking",
+    "⭐ PERMITTING MILESTONE: Combines HOA/NEM/Permit into one comprehensive tracking phase",
+    "⭐ TRAFFIC LIGHT COLORS: Blue (Ready) → Yellow (In Progress) → Green (Complete) / Red (Blocked/Overdue) / Gray (Pending)",
+    "⭐ DATA-DRIVEN: Field mappings based on analysis of 1,529 projects",
+    "✅ HIGH USAGE FIELDS: Prioritizes fields with highest data coverage",
+    "✅ SMART BLOCKING: NEM signatures >7 days triggers blocked state",
+    "✅ CELEBRATION: PTO approval triggers completion celebration",
+    "📊 BASED ON: milestone-config-mvp-1760123323934.json"
   ]
 }

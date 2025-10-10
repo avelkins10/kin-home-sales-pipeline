@@ -42,6 +42,33 @@ export function formatPPW(ppw: number | null | undefined): string {
   return `${sign}$${absValue.toFixed(2)}/W`;
 }
 
+export function formatPercentage(value: number | null | undefined, decimals: number = 1): string {
+  if (value === null || value === undefined) return '0.0%';
+  return `${value.toFixed(decimals)}%`;
+}
+
+export function formatLargeNumber(num: number | null | undefined): string {
+  if (num === null || num === undefined) return '0';
+  if (num >= 1000000) {
+    return `${(num / 1000000).toFixed(1)}M`;
+  }
+  if (num >= 1000) {
+    return `${(num / 1000).toFixed(1)}K`;
+  }
+  return num.toString();
+}
+
+export function formatCompactCurrency(amount: number | null | undefined): string {
+  if (amount === null || amount === undefined) return '$0';
+  if (amount >= 1000000) {
+    return `$${(amount / 1000000).toFixed(1)}M`;
+  }
+  if (amount >= 1000) {
+    return `$${(amount / 1000).toFixed(1)}K`;
+  }
+  return `$${amount.toFixed(0)}`;
+}
+
 export function formatDaysAgo(date: string | Date | null | undefined): string {
   if (!date) return 'N/A';
 

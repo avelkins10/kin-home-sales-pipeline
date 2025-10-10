@@ -107,3 +107,5 @@ CREATE TABLE IF NOT EXISTS migrations_log (
 INSERT INTO migrations_log (migration_name) 
 VALUES ('006_user_hierarchies_schema') 
 ON CONFLICT (migration_name) DO NOTHING;
+
+

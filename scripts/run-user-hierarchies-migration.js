@@ -108,3 +108,4 @@ async function runMigration() {
 
 // Run migration
 runMigration().catch(console.error);
+

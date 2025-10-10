@@ -7,17 +7,41 @@ import { Calendar, TrendingUp, Pause, CheckCircle } from 'lucide-react';
 import { getBaseUrl } from '@/lib/utils/baseUrl';
 // fetching via API route
 
+import type { TimeRange } from '@/lib/types/dashboard';
+
 interface DashboardMetricsProps {
   userId: string;
   role: string;
+  timeRange?: TimeRange; // Optional, defaults to 'lifetime'
 }
 
 interface DashboardMetricsData {
+  // Existing fields
   installsThisWeek: number;
   activeProjects: number;
   onHold: number;
   holdBreakdown: string;
   installsThisMonth: number;
+  
+  // New fields (optional for backward compatibility)
+  soldAccounts?: number;
+  grossRevenue?: number;
+  installCount?: number;
+  installedRevenue?: number;
+  retentionRate?: number;
+  earnedCommission?: number;
+  lostCommission?: number;
+  onHoldCommission?: number;
+  pendingCommission?: number;
+  salesAidCommission?: number;
+  buckets?: {
+    installs: number;
+    rejected: number;
+    onHold: number;
+    repAttention: number;
+    pendingCancel: number;
+    readyForInstall: number;
+  };
 }
 
 function MetricsSkeleton() {
@@ -41,11 +65,11 @@ function MetricsSkeleton() {
   );
 }
 
-export function DashboardMetrics({ userId, role }: DashboardMetricsProps) {
+export function DashboardMetrics({ userId, role, timeRange = 'lifetime' }: DashboardMetricsProps) {
   const { data: metrics, isLoading } = useQuery<DashboardMetricsData>({
-    queryKey: ['dashboard-metrics', userId, role],
+    queryKey: ['dashboard-metrics', userId, role, timeRange],
     queryFn: async () => {
-      const response = await fetch(`${getBaseUrl()}/api/dashboard/metrics`);
+      const response = await fetch(`${getBaseUrl()}/api/dashboard/metrics?timeRange=${timeRange}`);
       if (!response.ok) throw new Error('Failed to fetch metrics');
       return response.json();
     },
@@ -55,9 +79,27 @@ export function DashboardMetrics({ userId, role }: DashboardMetricsProps) {
     return <MetricsSkeleton />;
   }
 
+  // Update labels based on time range
+  const getLabel = (baseLabel: string) => {
+    switch (timeRange) {
+      case 'month':
+        if (baseLabel === 'Installs This Week') return 'Installs This Month';
+        if (baseLabel === 'Monthly Installs') return 'Total Installs';
+        break;
+      case 'week':
+        if (baseLabel === 'Monthly Installs') return 'Installs This Week';
+        break;
+      case 'lifetime':
+        if (baseLabel === 'Installs This Week') return 'Recent Installs';
+        if (baseLabel === 'Monthly Installs') return 'Total Installs';
+        break;
+    }
+    return baseLabel;
+  };
+
   const stats = [
     {
-      label: 'Installs This Week',
+      label: getLabel('Installs This Week'),
       value: metrics?.installsThisWeek || 0,
       icon: Calendar,
       color: 'text-blue-600',
@@ -80,7 +122,7 @@ export function DashboardMetrics({ userId, role }: DashboardMetricsProps) {
       bgColor: 'bg-red-50',
     },
     {
-      label: 'Monthly Installs',
+      label: getLabel('Monthly Installs'),
       value: metrics?.installsThisMonth || 0,
       icon: CheckCircle,
       color: 'text-purple-600',

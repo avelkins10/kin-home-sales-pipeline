@@ -1,0 +1,638 @@
+{
+  "version": "MVP 1.0",
+  "generatedAt": "2025-10-10T19:08:43.932Z",
+  "buildApproach": "All 7 milestones in MVP",
+  "dataSource": "1,529 projects analyzed",
+  "fieldMappings": {
+    "intakeCompletedDate": {
+      "quickbaseFieldId": 461,
+      "label": "Intake Completed Date",
+      "usage": "91%",
+      "milestone": "Intake",
+      "required": true
+    },
+    "intakeFirstPassHTML": {
+      "quickbaseFieldId": 1826,
+      "label": "Intake Checklist (HTML)",
+      "usage": "100%",
+      "milestone": "Intake",
+      "required": true
+    },
+    "intakeCompleteURL": {
+      "quickbaseFieldId": 554,
+      "label": "Intake Complete URL",
+      "usage": "100%",
+      "milestone": "Intake",
+      "required": true
+    },
+    "surveyArrivyDate": {
+      "quickbaseFieldId": 2526,
+      "label": "Arrivy Scheduled Date (Primary)",
+      "usage": "HIGH",
+      "milestone": "Survey",
+      "required": true
+    },
+    "surveyScheduledDate": {
+      "quickbaseFieldId": 166,
+      "label": "Survey Scheduled Date (Fallback)",
+      "usage": "fallback",
+      "milestone": "Survey",
+      "required": true
+    },
+    "surveySubmittedDate": {
+      "quickbaseFieldId": 164,
+      "label": "Survey Submitted Date",
+      "usage": "79%",
+      "milestone": "Survey",
+      "required": true
+    },
+    "surveyApprovedDate": {
+      "quickbaseFieldId": 165,
+      "label": "Survey Approved Date",
+      "usage": "varies",
+      "milestone": "Survey",
+      "required": true
+    },
+    "designCompleted": {
+      "quickbaseFieldId": 315,
+      "label": "Design Completed",
+      "usage": "68%",
+      "milestone": "Design",
+      "required": true
+    },
+    "cadDesignApproved": {
+      "quickbaseFieldId": 476,
+      "label": "CAD Design Approved",
+      "usage": "68%",
+      "milestone": "Design",
+      "required": true
+    },
+    "engineeringCompleted": {
+      "quickbaseFieldId": 478,
+      "label": "Engineering Completed",
+      "usage": "68%",
+      "milestone": "Design",
+      "required": true
+    },
+    "permitSubmitted": {
+      "quickbaseFieldId": 207,
+      "label": "AHJ Permit Submitted",
+      "usage": "65%",
+      "milestone": "Permitting",
+      "required": true
+    },
+    "permitApproved": {
+      "quickbaseFieldId": 208,
+      "label": "AHJ Permit Approved",
+      "usage": "59.1%",
+      "milestone": "Permitting",
+      "required": true
+    },
+    "nemSignaturesSent": {
+      "quickbaseFieldId": 1844,
+      "label": "NEM Signatures Sent (Sub-milestone)",
+      "usage": "63.8%",
+      "milestone": "Permitting",
+      "required": true
+    },
+    "nemSubmitted": {
+      "quickbaseFieldId": 326,
+      "label": "NEM Submitted",
+      "usage": "58.7%",
+      "milestone": "Permitting",
+      "required": true
+    },
+    "nemApproved": {
+      "quickbaseFieldId": 327,
+      "label": "NEM Approved",
+      "usage": "54%",
+      "milestone": "Permitting",
+      "required": true
+    },
+    "installScheduledStart": {
+      "quickbaseFieldId": 178,
+      "label": "Install Scheduled Start (PRIMARY)",
+      "usage": "49.2%",
+      "milestone": "Installation",
+      "required": true
+    },
+    "installStarted": {
+      "quickbaseFieldId": 464,
+      "label": "Install Started Date",
+      "usage": "43.2%",
+      "milestone": "Installation",
+      "required": true
+    },
+    "installCompleted": {
+      "quickbaseFieldId": 534,
+      "label": "Install Completed Date",
+      "usage": "43%",
+      "milestone": "Installation",
+      "required": true
+    },
+    "inspectionScheduledDate": {
+      "quickbaseFieldId": 226,
+      "label": "Inspection Scheduled",
+      "usage": "low",
+      "milestone": "Inspection",
+      "required": true
+    },
+    "inspectionPassed": {
+      "quickbaseFieldId": 491,
+      "label": "Inspection Passed Date",
+      "usage": "25%",
+      "milestone": "Inspection",
+      "required": true
+    },
+    "inspectionCompleted": {
+      "quickbaseFieldId": 1763,
+      "label": "Inspection Completed",
+      "usage": "varies",
+      "milestone": "Inspection",
+      "required": true
+    },
+    "ptoSubmitted": {
+      "quickbaseFieldId": 537,
+      "label": "PTO Submitted Date",
+      "usage": "low",
+      "milestone": "PTO",
+      "required": true
+    },
+    "ptoApproved": {
+      "quickbaseFieldId": 538,
+      "label": "PTO Approved Date",
+      "usage": "19%",
+      "milestone": "PTO",
+      "required": true
+    }
+  },
+  "milestones": [
+    {
+      "id": 1,
+      "name": "Intake",
+      "description": "Initial project audit and validation",
+      "primaryFields": {
+        "intakeCompletedDate": {
+          "id": 461,
+          "usage": "91%",
+          "label": "Intake Completed Date"
+        },
+        "intakeFirstPassHTML": {
+          "id": 1826,
+          "usage": "100%",
+          "label": "Intake Checklist (HTML)"
+        },
+        "intakeCompleteURL": {
+          "id": 554,
+          "usage": "100%",
+          "label": "Intake Complete URL"
+        }
+      },
+      "optionalFields": {
+        "intakeMissingItems": {
+          "id": 1872,
+          "label": "Missing Items Array"
+        },
+        "webhookIntakeComplete": {
+          "id": 603,
+          "label": "Webhook Complete Flag"
+        }
+      },
+      "statuses": [
+        {
+          "name": "Ready for Intake",
+          "color": "blue",
+          "condition": "SALES_DATE exists"
+        },
+        {
+          "name": "In Progress",
+          "color": "yellow",
+          "condition": "Started but not complete"
+        },
+        {
+          "name": "Approved",
+          "color": "green",
+          "condition": "intakeCompletedDate (461) exists",
+          "triggers": "→ Ready for Survey"
+        },
+        {
+          "name": "Rejected",
+          "color": "red",
+          "condition": "intakeMissingItems (1872) has values",
+          "displays": "Show rejection reasons"
+        },
+        {
+          "name": "Overdue",
+          "color": "red",
+          "condition": "> 7 days since SALES_DATE"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Survey",
+      "description": "On-site data collection",
+      "primaryFields": {
+        "surveyArrivyDate": {
+          "id": 2526,
+          "usage": "HIGH",
+          "label": "Arrivy Scheduled Date (Primary)"
+        },
+        "surveyScheduledDate": {
+          "id": 166,
+          "usage": "fallback",
+          "label": "Survey Scheduled Date (Fallback)"
+        },
+        "surveySubmittedDate": {
+          "id": 164,
+          "usage": "79%",
+          "label": "Survey Submitted Date"
+        },
+        "surveyApprovedDate": {
+          "id": 165,
+          "usage": "varies",
+          "label": "Survey Approved Date"
+        }
+      },
+      "optionalFields": {
+        "surveyScheduledCount": {
+          "id": 1033,
+          "usage": "100%",
+          "label": "Survey Scheduled Count"
+        },
+        "surveyorOnSite": {
+          "id": "TBD",
+          "label": "Surveyor On Site"
+        }
+      },
+      "statuses": [
+        {
+          "name": "Ready for Survey",
+          "color": "blue",
+          "condition": "intakeCompletedDate exists"
+        },
+        {
+          "name": "Scheduled",
+          "color": "yellow",
+          "condition": "surveyArrivyDate (2526) OR surveyScheduledDate (166) exists",
+          "displays": "Show Arrivy date (primary) or scheduled date (fallback)"
+        },
+        {
+          "name": "Submitted",
+          "color": "yellow",
+          "condition": "surveySubmittedDate (164) exists"
+        },
+        {
+          "name": "Approved",
+          "color": "green",
+          "condition": "surveyApprovedDate (165) exists",
+          "triggers": "→ Ready for Design"
+        },
+        {
+          "name": "Overdue",
+          "color": "red",
+          "condition": "> 3 days past Arrivy/scheduled date"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Design",
+      "description": "Design & Engineering",
+      "primaryFields": {
+        "designCompleted": {
+          "id": 315,
+          "usage": "68%",
+          "label": "Design Completed"
+        },
+        "cadDesignApproved": {
+          "id": 476,
+          "usage": "68%",
+          "label": "CAD Design Approved"
+        },
+        "engineeringCompleted": {
+          "id": 478,
+          "usage": "68%",
+          "label": "Engineering Completed"
+        }
+      },
+      "optionalFields": {
+        "engineeringSubmitted": {
+          "id": 477,
+          "label": "Engineering Submitted"
+        },
+        "designSLADeadline": {
+          "id": 2459,
+          "label": "Design SLA Deadline"
+        },
+        "designStatus": {
+          "id": 317,
+          "label": "Design Status Text"
+        }
+      },
+      "statuses": [
+        {
+          "name": "Ready for Design",
+          "color": "blue",
+          "condition": "surveyApprovedDate exists"
+        },
+        {
+          "name": "Design In Progress",
+          "color": "yellow",
+          "condition": "Started but designCompleted (315) empty"
+        },
+        {
+          "name": "Design Complete",
+          "color": "yellow",
+          "condition": "designCompleted (315) exists"
+        },
+        {
+          "name": "Engineering Complete",
+          "color": "green",
+          "condition": "engineeringCompleted (478) exists",
+          "triggers": "→ Ready for Permitting"
+        },
+        {
+          "name": "Overdue",
+          "color": "red",
+          "condition": "> 21 days since survey approved"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Permitting",
+      "description": "AHJ, NEM & HOA Permits",
+      "primaryFields": {
+        "permitSubmitted": {
+          "id": 207,
+          "usage": "65%",
+          "label": "AHJ Permit Submitted"
+        },
+        "permitApproved": {
+          "id": 208,
+          "usage": "59.1%",
+          "label": "AHJ Permit Approved"
+        },
+        "nemSignaturesSent": {
+          "id": 1844,
+          "usage": "63.8%",
+          "label": "NEM Signatures Sent (Sub-milestone)"
+        },
+        "nemSubmitted": {
+          "id": 326,
+          "usage": "58.7%",
+          "label": "NEM Submitted"
+        },
+        "nemApproved": {
+          "id": 327,
+          "usage": "54%",
+          "label": "NEM Approved"
+        }
+      },
+      "optionalFields": {
+        "permitStatus": {
+          "id": 2501,
+          "usage": "16.8%",
+          "label": "Permit Status Text"
+        },
+        "nemStatus": {
+          "id": 328,
+          "usage": "100%",
+          "label": "NEM Status (for enrichment)"
+        },
+        "hoaSubmitted": {
+          "id": "TBD",
+          "label": "HOA Submitted"
+        },
+        "hoaApproved": {
+          "id": "TBD",
+          "label": "HOA Approved"
+        }
+      },
+      "statuses": [
+        {
+          "name": "Ready for Permitting",
+          "color": "blue",
+          "condition": "engineeringCompleted exists"
+        },
+        {
+          "name": "NEM Signatures Sent",
+          "color": "yellow",
+          "condition": "nemSignaturesSent (1844) exists but not submitted",
+          "displays": "Show days waiting for signatures"
+        },
+        {
+          "name": "Partially Submitted",
+          "color": "yellow",
+          "condition": "Some permits submitted"
+        },
+        {
+          "name": "All Submitted",
+          "color": "yellow",
+          "condition": "All required permits submitted"
+        },
+        {
+          "name": "Partially Approved",
+          "color": "yellow",
+          "condition": "Some permits approved"
+        },
+        {
+          "name": "All Approved",
+          "color": "green",
+          "condition": "All required permits approved",
+          "triggers": "→ Ready for Installation"
+        },
+        {
+          "name": "NEM Signatures Blocked",
+          "color": "red",
+          "condition": "nemSignaturesSent > 7 days ago without submission"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Installation",
+      "description": "System installation & electrical work",
+      "primaryFields": {
+        "installScheduledStart": {
+          "id": 178,
+          "usage": "49.2%",
+          "label": "Install Scheduled Start (PRIMARY)"
+        },
+        "installStarted": {
+          "id": 464,
+          "usage": "43.2%",
+          "label": "Install Started Date"
+        },
+        "installCompleted": {
+          "id": 534,
+          "usage": "43%",
+          "label": "Install Completed Date"
+        }
+      },
+      "optionalFields": {
+        "estimatedInstallDate": {
+          "id": 1124,
+          "usage": "97.1%",
+          "label": "Estimated Install Date (Display only if no actual date)"
+        },
+        "installArrivyDate": {
+          "id": "TBD",
+          "label": "Arrivy Install Date (Check if exists)"
+        },
+        "installConfirmedDate": {
+          "id": "TBD",
+          "label": "Confirmed Install Date (Check if exists)"
+        },
+        "installCrewOnSite": {
+          "id": "TBD",
+          "label": "Crew On Site"
+        },
+        "installDaysRequired": {
+          "id": "TBD",
+          "label": "Days Required"
+        },
+        "electricalScheduled": {
+          "id": "TBD",
+          "label": "Electrical Scheduled"
+        },
+        "electricalCompleted": {
+          "id": "TBD",
+          "label": "Electrical Completed"
+        }
+      },
+      "statuses": [
+        {
+          "name": "Ready for Install",
+          "color": "blue",
+          "condition": "All permits approved"
+        },
+        {
+          "name": "Scheduled",
+          "color": "yellow",
+          "condition": "installScheduledStart (178) exists",
+          "displays": "Show install date(s)"
+        },
+        {
+          "name": "In Progress",
+          "color": "yellow",
+          "condition": "installStarted (464) exists or crew on site"
+        },
+        {
+          "name": "Completed",
+          "color": "green",
+          "condition": "installCompleted (534) exists",
+          "triggers": "→ Ready for Inspection"
+        },
+        {
+          "name": "Overdue",
+          "color": "red",
+          "condition": "> 3 days past scheduled date"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Inspection",
+      "description": "Authority & utility inspections",
+      "primaryFields": {
+        "inspectionScheduledDate": {
+          "id": 226,
+          "usage": "low",
+          "label": "Inspection Scheduled"
+        },
+        "inspectionPassed": {
+          "id": 491,
+          "usage": "25%",
+          "label": "Inspection Passed Date"
+        },
+        "inspectionCompleted": {
+          "id": 1763,
+          "usage": "varies",
+          "label": "Inspection Completed"
+        }
+      },
+      "optionalFields": {
+        "inspectionPassFail": {
+          "id": 571,
+          "label": "Pass/Fail Status"
+        },
+        "inspectionNotes": {
+          "id": "TBD",
+          "label": "Inspection Notes"
+        }
+      },
+      "statuses": [
+        {
+          "name": "Ready for Inspection",
+          "color": "blue",
+          "condition": "installCompleted exists"
+        },
+        {
+          "name": "Scheduled",
+          "color": "yellow",
+          "condition": "inspectionScheduledDate (226) exists"
+        },
+        {
+          "name": "Passed",
+          "color": "green",
+          "condition": "inspectionPassed (491) exists",
+          "triggers": "→ Ready for PTO"
+        },
+        {
+          "name": "Failed",
+          "color": "red",
+          "condition": "inspectionPassFail = 'Failed'",
+          "displays": "Show failure reason"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "PTO",
+      "description": "Permission to Operate",
+      "primaryFields": {
+        "ptoSubmitted": {
+          "id": 537,
+          "usage": "low",
+          "label": "PTO Submitted Date"
+        },
+        "ptoApproved": {
+          "id": 538,
+          "usage": "19%",
+          "label": "PTO Approved Date"
+        }
+      },
+      "optionalFields": {
+        "ptoStatus": {
+          "id": "TBD",
+          "label": "PTO Status"
+        }
+      },
+      "statuses": [
+        {
+          "name": "Ready for PTO",
+          "color": "blue",
+          "condition": "inspectionPassed exists"
+        },
+        {
+          "name": "Submitted",
+          "color": "yellow",
+          "condition": "ptoSubmitted (537) exists"
+        },
+        {
+          "name": "Approved",
+          "color": "green",
+          "condition": "ptoApproved (538) exists",
+          "displays": "🎉 PROJECT COMPLETE!"
+        },
+        {
+          "name": "Overdue",
+          "color": "red",
+          "condition": "> 30 days since submission"
+        }
+      ]
+    }
+  ]
+}

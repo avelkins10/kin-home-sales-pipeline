@@ -194,6 +194,11 @@ function isMilestoneComplete(project: QuickbaseProject, milestoneId: string): bo
   const config = getMilestoneConfig(milestoneId);
   if (!config) return false;
 
+  // Special handling for Permitting milestone (requires ALL permits approved)
+  if (milestoneId === 'permitting') {
+    return isPermittingComplete(project);
+  }
+
   // 1. Check STATUS field first (highest priority)
   if (config.statusField) {
     const statusValue = getStringField(project, config.statusField.fieldId);
@@ -218,8 +223,9 @@ function isMilestoneComplete(project: QuickbaseProject, milestoneId: string): bo
           return true;
         }
       } else {
-        // Boolean checkbox field
-        if (getBooleanField(project, field.fieldId)) {
+        // Date field - check if it exists
+        const dateValue = getDateField(project, field.fieldId);
+        if (dateValue) {
           return true;
         }
       }
@@ -331,6 +337,14 @@ function isMilestoneBlocked(project: QuickbaseProject, milestoneId: string): { b
     return { blocked: true, reason: `Project ${status}` };
   }
 
+  // Special handling for Permitting milestone (NEM signatures > 7 days)
+  if (milestoneId === 'permitting') {
+    const permittingBlocked = isPermittingBlocked(project);
+    if (permittingBlocked.blocked) {
+      return permittingBlocked;
+    }
+  }
+
   return { blocked: false };
 }
 
@@ -338,23 +352,52 @@ function isMilestoneBlocked(project: QuickbaseProject, milestoneId: string): { b
  * Checks if milestone is not applicable (e.g., HOA for non-HOA projects)
  */
 function isMilestoneNotApplicable(project: QuickbaseProject, milestoneId: string): boolean {
-  // HOA milestone only applies if HOA required
-  if (milestoneId === 'hoa') {
-    // Check if any HOA fields are populated or if project requires HOA
-    const hoaSubmitted = getBooleanField(project, PROJECT_FIELDS.HOA_APPLICATION_SUBMITTED);
-    const hoaApproved = getBooleanField(project, PROJECT_FIELDS.HOA_APPLICATION_APPROVED);
-    const hoaStatus = getStringField(project, PROJECT_FIELDS.HOA_STATUS);
+  // Note: HOA milestone no longer exists separately - it's part of Permitting
+  // This function is kept for future conditional milestones
 
-    // If no HOA activity at all, and design is complete, HOA is not applicable
-    if (!hoaSubmitted && !hoaApproved && !hoaStatus) {
-      const designComplete = isMilestoneComplete(project, 'design');
-      if (designComplete) {
-        return true; // HOA not needed for this project
-      }
+  return false;
+}
+
+/**
+ * Special completion check for Permitting milestone (combines NEM, Permit, and optional HOA)
+ */
+function isPermittingComplete(project: QuickbaseProject): boolean {
+  // Check if NEM is approved
+  const nemApproved = getDateField(project, PROJECT_FIELDS.NEM_APPROVED);
+
+  // Check if Permit is approved
+  const permitApproved = getDateField(project, PROJECT_FIELDS.PERMIT_APPROVED);
+
+  // Check if HOA applies and is approved if needed
+  const hoaSubmitted = getDateField(project, PROJECT_FIELDS.HOA_APPLICATION_SUBMITTED);
+  const hoaApproved = getDateField(project, PROJECT_FIELDS.HOA_APPLICATION_APPROVED);
+
+  // If HOA was submitted, it must be approved too
+  const hoaRequired = !!hoaSubmitted;
+  const hoaCompleteIfRequired = hoaRequired ? !!hoaApproved : true;
+
+  // All required permits must be approved
+  return !!nemApproved && !!permitApproved && hoaCompleteIfRequired;
+}
+
+/**
+ * Special blocked check for Permitting milestone (NEM signatures > 7 days)
+ */
+function isPermittingBlocked(project: QuickbaseProject): { blocked: boolean; reason?: string } {
+  // Check if NEM signatures were sent but not submitted after 7 days
+  const signaturesSent = getDateField(project, PROJECT_FIELDS.NEM_SIGNATURES_SENT);
+  const nemSubmitted = getDateField(project, PROJECT_FIELDS.NEM_SUBMITTED);
+
+  if (signaturesSent && !nemSubmitted) {
+    const now = new Date();
+    const daysSinceSent = Math.floor((now.getTime() - signaturesSent.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (daysSinceSent > 7) {
+      return { blocked: true, reason: 'Customer signatures needed - follow up!' };
     }
   }
 
-  return false;
+  return { blocked: false };
 }
 
 // ============================================================================

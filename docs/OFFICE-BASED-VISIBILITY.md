@@ -181,3 +181,5 @@ case 'team_lead':
 - Smart provisioning prevents creating thousands of irrelevant user accounts
 
 This office-based visibility system ensures managers have complete visibility into their territories while keeping the user list clean and manageable.
+
+
