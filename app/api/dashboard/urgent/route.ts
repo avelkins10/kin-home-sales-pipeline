@@ -19,8 +19,8 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Do not supply userId/role in query params' }, { status: 400 });
     }
 
-    const { quickbaseUserId, role, salesOffice } = auth.session.user as any;
-    const userId = quickbaseUserId as string;
+    const { id, role, salesOffice } = auth.session.user as any;
+    const userId = id as string;
 
     const { getUrgentProjects } = await import('@/lib/quickbase/queries');
     const urgent = await getUrgentProjects(userId, role, salesOffice);

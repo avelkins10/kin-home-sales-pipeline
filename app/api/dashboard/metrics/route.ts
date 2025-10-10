@@ -44,8 +44,8 @@ export async function GET(req: Request) {
     }
     const effectiveTimeRange = timeRange || 'lifetime';
 
-    const { quickbaseUserId, role, salesOffice } = auth.session.user as any;
-    const userId = quickbaseUserId as string;
+    const { id, role, salesOffice } = auth.session.user as any;
+    const userId = id as string;
 
     // Check cache first - include timeRange in cache key
     const officeKey = salesOffice ? salesOffice.sort().join(',') : '';
