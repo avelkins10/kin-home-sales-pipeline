@@ -16,7 +16,7 @@ import { detectHoldStatus, extractHoldType } from '@/lib/utils/hold-detection';
 import { formatSystemSize, formatCurrency } from '@/lib/utils/formatters';
 import { projectKey } from '@/lib/queryKeys';
 import { getBaseUrl } from '@/lib/utils/baseUrl';
-import { getProjectCompletionPercentage, getCurrentMilestone, getMilestoneStatus } from '@/lib/utils/milestone-engine';
+import { getProjectCompletionPercentage } from '@/lib/utils/milestone-engine';
 import { useMilestoneConfig } from '@/lib/hooks/useMilestoneConfig';
 
 interface ProjectRowProps {
@@ -53,10 +53,6 @@ export function ProjectRow({ project }: ProjectRowProps) {
   const parsedName = parseCustomerName(customerName);
   const projectAge = getProjectAge(project);
   const completionPercentage = getProjectCompletionPercentage(project, config);
-
-  // Get current milestone and next action
-  const currentMilestoneId = getCurrentMilestone(project, config);
-  const currentMilestoneStatus = getMilestoneStatus(project, currentMilestoneId, config);
 
   // Format sales date
   const formatSalesDate = (date: string) => {
@@ -174,27 +170,10 @@ export function ProjectRow({ project }: ProjectRowProps) {
       </div>
 
       {/* Footer Section */}
-      <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between">
+      <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-center">
         <div className="flex items-center gap-2 text-sm text-slate-500">
           <Eye className="h-4 w-4" />
           <span>Click to view details</span>
-        </div>
-
-        <div className="text-xs text-slate-600">
-          {currentMilestoneStatus.state === 'ready-for' && (
-            <><span className="font-semibold">Ready for:</span> {currentMilestoneStatus.name}</>
-          )}
-          {currentMilestoneStatus.state === 'in-progress' && (
-            <><span className="font-semibold">In:</span> {currentMilestoneStatus.name}</>
-          )}
-          {currentMilestoneStatus.state !== 'ready-for' && currentMilestoneStatus.state !== 'in-progress' && (
-            <><span className="font-semibold">Next:</span> {currentMilestoneStatus.name}</>
-          )}
-          {currentMilestoneStatus.scheduledDate && (
-            <span className="ml-1">
-              (Due {new Date(currentMilestoneStatus.scheduledDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})
-            </span>
-          )}
         </div>
       </div>
     </Link>

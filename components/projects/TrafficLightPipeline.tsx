@@ -140,7 +140,7 @@ export function TrafficLightPipeline({ project }: TrafficLightPipelineProps) {
   const { config } = useMilestoneConfig();
 
   return (
-    <div className="flex items-start gap-3 overflow-x-auto pb-2">
+    <div className="flex items-start gap-1 overflow-x-auto pb-2">
       {milestones.map((milestone, index) => {
         const status = getMilestoneStatus(project, milestone.id, config);
 
@@ -152,10 +152,14 @@ export function TrafficLightPipeline({ project }: TrafficLightPipelineProps) {
         const isLast = index === milestones.length - 1;
         const DisplayIcon = getStateIcon(status.state, milestone.Icon);
 
+        // Get next milestone status for "Ready for" label
+        const nextMilestone = !isLast ? milestones[index + 1] : null;
+        const nextStatus = nextMilestone ? getMilestoneStatus(project, nextMilestone.id, config) : null;
+
         return (
-          <div key={milestone.id} className="flex items-center gap-2">
+          <div key={milestone.id} className="flex items-center">
             {/* Milestone column */}
-            <div className="flex flex-col items-center gap-1 group">
+            <div className="flex flex-col items-center gap-1 group min-w-[70px]">
               {/* Traffic light circle */}
               <div
                 className={cn(
@@ -178,7 +182,7 @@ export function TrafficLightPipeline({ project }: TrafficLightPipelineProps) {
 
               {/* Label below circle */}
               <span className={cn(
-                "text-[10px] font-medium transition-colors duration-200",
+                "text-[10px] font-medium transition-colors duration-200 text-center",
                 status.state === 'complete' ? 'text-emerald-600' :
                 status.state === 'in-progress' ? 'text-amber-600' :
                 status.state === 'ready-for' ? 'text-blue-600' :
@@ -189,10 +193,17 @@ export function TrafficLightPipeline({ project }: TrafficLightPipelineProps) {
                 {milestone.label}
               </span>
 
+              {/* "In: [Milestone]" label below for in-progress */}
+              {status.state === 'in-progress' && (
+                <div className="text-[9px] font-semibold text-amber-600 mt-0.5">
+                  In: {milestone.label}
+                </div>
+              )}
+
               {/* Days badge for in-progress milestones */}
               {status.state === 'in-progress' && status.daysInProgress !== undefined && status.daysInProgress > 0 && (
                 <span className={cn(
-                  "text-[9px] font-semibold px-1.5 py-0.5 rounded",
+                  "text-[9px] font-semibold px-1.5 py-0.5 rounded mt-0.5",
                   status.daysInProgress < 7 ? 'bg-emerald-100 text-emerald-700' :
                   status.daysInProgress <= 14 ? 'bg-amber-100 text-amber-700' :
                   'bg-rose-100 text-rose-700'
@@ -202,15 +213,25 @@ export function TrafficLightPipeline({ project }: TrafficLightPipelineProps) {
               )}
             </div>
 
-            {/* Connector line */}
+            {/* Connector with optional "Ready for" label */}
             {!isLast && (
-              <div
-                className={cn(
-                  'h-0.5 w-4 mt-[-10px] transition-colors duration-300',
-                  status.state === 'complete' ? 'bg-emerald-400' : 'bg-slate-200'
+              <div className="flex flex-col items-center justify-center min-w-[80px] px-2">
+                {/* Connector line */}
+                <div
+                  className={cn(
+                    'h-0.5 w-full transition-colors duration-300',
+                    status.state === 'complete' ? 'bg-emerald-400' : 'bg-slate-200'
+                  )}
+                  aria-hidden="true"
+                />
+
+                {/* "Ready for: [Next Milestone]" label if next milestone is ready */}
+                {nextStatus?.state === 'ready-for' && (
+                  <div className="text-[9px] font-semibold text-blue-600 mt-1 whitespace-nowrap">
+                    Ready for: {nextMilestone?.label}
+                  </div>
                 )}
-                aria-hidden="true"
-              />
+              </div>
             )}
           </div>
         );
