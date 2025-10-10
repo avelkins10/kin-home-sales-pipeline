@@ -48,10 +48,10 @@ export async function GET(request: NextRequest) {
         -- Hierarchy data
         uh.manager_id as managed_by,
         COALESCE(
-          (SELECT array_agg(uh2.user_id) 
-           FROM user_hierarchies uh2 
-           WHERE uh2.manager_id = u.id), 
-          ARRAY[]::uuid[]
+          (SELECT array_agg(uh2.user_id)
+           FROM user_hierarchies uh2
+           WHERE uh2.manager_id = u.id),
+          ARRAY[]::text[]
         ) as manages,
         -- Office access data
         COALESCE(

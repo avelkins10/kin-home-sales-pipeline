@@ -468,15 +468,15 @@ export function QuickBaseLookupDialog({ open, onOpenChange }: QuickBaseLookupDia
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="create-office">Office</Label>
-                    <Select 
-                      value={createUserData.office} 
-                      onValueChange={(value) => setCreateUserData(prev => ({ ...prev, office: value }))}
+                    <Select
+                      value={createUserData.office || '__none__'}
+                      onValueChange={(value) => setCreateUserData(prev => ({ ...prev, office: value === '__none__' ? '' : value }))}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select office" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">No office</SelectItem>
+                        <SelectItem value="__none__">No office</SelectItem>
                         {availableOffices.map((office: string) => (
                           <SelectItem key={office} value={office}>
                             {office}

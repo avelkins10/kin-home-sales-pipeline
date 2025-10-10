@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query'
 // fetching via API route
 import { getCurrentMilestone, getMilestoneStatus } from '@/lib/utils/milestone-engine'
+import { useMilestoneConfig } from '@/lib/hooks/useMilestoneConfig'
 import { PROJECT_FIELDS } from '@/lib/constants/fieldIds'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -18,6 +19,9 @@ interface RecentProjectsProps {
 }
 
 export function RecentProjects({ userId, role }: RecentProjectsProps) {
+  // Fetch dynamic milestone configuration
+  const { config } = useMilestoneConfig()
+
   const { data: projects, isLoading, error } = useQuery({
     queryKey: ['recent-projects', userId, role],
     queryFn: async () => {
@@ -99,8 +103,8 @@ export function RecentProjects({ userId, role }: RecentProjectsProps) {
             const recordId = project[PROJECT_FIELDS.RECORD_ID]?.value
             const customerName = project[PROJECT_FIELDS.CUSTOMER_NAME]?.value || 'Unknown Customer'
             const projectId = project[PROJECT_FIELDS.PROJECT_ID]?.value || 'N/A'
-            const currentMilestoneId = getCurrentMilestone(project)
-            const milestoneStatus = getMilestoneStatus(project, currentMilestoneId)
+            const currentMilestoneId = getCurrentMilestone(project, config)
+            const milestoneStatus = getMilestoneStatus(project, currentMilestoneId, config)
             const milestone = milestoneStatus.name
 
             return (

@@ -13,13 +13,19 @@
  * 5. Show 'Not Available' if all fields empty
  */
 
-import milestonesConfig from '@/lib/config/milestones.json';
+import staticMilestonesConfig from '@/lib/config/milestones.json';
 import { PROJECT_FIELDS } from '@/lib/constants/fieldIds';
 import type { QuickbaseProject } from '@/lib/types/project';
 
 // ============================================================================
 // TYPES
 // ============================================================================
+
+export interface MilestoneConfiguration {
+  version: string;
+  lastUpdated: string;
+  milestones: any[];
+}
 
 export type MilestoneState =
   | 'complete'
@@ -68,12 +74,20 @@ export interface TrafficLight {
 // CONFIGURATION HELPERS
 // ============================================================================
 
-function getMilestoneConfig(milestoneId: string) {
-  return milestonesConfig.milestones.find(m => m.id === milestoneId);
+/**
+ * Gets milestone configuration from provided config or falls back to static JSON
+ */
+function getMilestoneConfig(milestoneId: string, config?: MilestoneConfiguration) {
+  const configToUse = config || staticMilestonesConfig;
+  return configToUse.milestones.find(m => m.id === milestoneId);
 }
 
-function getAllMilestoneConfigs() {
-  return milestonesConfig.milestones;
+/**
+ * Gets all milestone configurations from provided config or falls back to static JSON
+ */
+function getAllMilestoneConfigs(config?: MilestoneConfiguration) {
+  const configToUse = config || staticMilestonesConfig;
+  return configToUse.milestones;
 }
 
 // ============================================================================
@@ -195,8 +209,8 @@ function getProjectAge(project: QuickbaseProject): number {
 /**
  * Checks if milestone is complete based on configuration
  */
-function isMilestoneComplete(project: QuickbaseProject, milestoneId: string): boolean {
-  const config = getMilestoneConfig(milestoneId);
+function isMilestoneComplete(project: QuickbaseProject, milestoneId: string, dynamicConfig?: MilestoneConfiguration): boolean {
+  const config = getMilestoneConfig(milestoneId, dynamicConfig);
   if (!config) return false;
 
   // Special handling for Permitting milestone (requires ALL permits approved)
@@ -243,12 +257,12 @@ function isMilestoneComplete(project: QuickbaseProject, milestoneId: string): bo
 /**
  * Checks if milestone is in progress
  */
-function isMilestoneInProgress(project: QuickbaseProject, milestoneId: string): boolean {
-  const config = getMilestoneConfig(milestoneId);
+function isMilestoneInProgress(project: QuickbaseProject, milestoneId: string, dynamicConfig?: MilestoneConfiguration): boolean {
+  const config = getMilestoneConfig(milestoneId, dynamicConfig);
   if (!config) return false;
 
   // If already complete, not in progress
-  if (isMilestoneComplete(project, milestoneId)) {
+  if (isMilestoneComplete(project, milestoneId, dynamicConfig)) {
     return false;
   }
 
@@ -278,15 +292,15 @@ function isMilestoneInProgress(project: QuickbaseProject, milestoneId: string): 
 /**
  * Checks if milestone dependencies are met
  */
-function areDependenciesMet(project: QuickbaseProject, milestoneId: string): boolean {
-  const config = getMilestoneConfig(milestoneId);
+function areDependenciesMet(project: QuickbaseProject, milestoneId: string, dynamicConfig?: MilestoneConfiguration): boolean {
+  const config = getMilestoneConfig(milestoneId, dynamicConfig);
   if (!config || !config.dependencies || config.dependencies.length === 0) {
     return true;
   }
 
   // All dependencies must be complete
   for (const depId of config.dependencies) {
-    if (!isMilestoneComplete(project, depId)) {
+    if (!isMilestoneComplete(project, depId, dynamicConfig)) {
       return false;
     }
   }
@@ -382,8 +396,8 @@ function isPermittingBlocked(project: QuickbaseProject): { blocked: boolean; rea
 /**
  * Gets milestone completion date with fallback logic
  */
-function getMilestoneCompletionDate(project: QuickbaseProject, milestoneId: string): Date | null {
-  const config = getMilestoneConfig(milestoneId);
+function getMilestoneCompletionDate(project: QuickbaseProject, milestoneId: string, dynamicConfig?: MilestoneConfiguration): Date | null {
+  const config = getMilestoneConfig(milestoneId, dynamicConfig);
   if (!config) return null;
 
   // 1. Primary completion fields
@@ -408,8 +422,8 @@ function getMilestoneCompletionDate(project: QuickbaseProject, milestoneId: stri
 /**
  * Gets milestone scheduled date with fallback logic
  */
-function getMilestoneScheduledDate(project: QuickbaseProject, milestoneId: string): Date | null {
-  const config = getMilestoneConfig(milestoneId);
+function getMilestoneScheduledDate(project: QuickbaseProject, milestoneId: string, dynamicConfig?: MilestoneConfiguration): Date | null {
+  const config = getMilestoneConfig(milestoneId, dynamicConfig);
   if (!config) return null;
 
   // Check scheduledFields (new structure)
@@ -436,8 +450,8 @@ function getMilestoneScheduledDate(project: QuickbaseProject, milestoneId: strin
 /**
  * Gets milestone estimated date with fallback logic
  */
-function getMilestoneEstimatedDate(project: QuickbaseProject, milestoneId: string): Date | null {
-  const config = getMilestoneConfig(milestoneId);
+function getMilestoneEstimatedDate(project: QuickbaseProject, milestoneId: string, dynamicConfig?: MilestoneConfiguration): Date | null {
+  const config = getMilestoneConfig(milestoneId, dynamicConfig);
   if (!config) return null;
 
   // Check helper fields for estimated dates
@@ -457,15 +471,15 @@ function getMilestoneEstimatedDate(project: QuickbaseProject, milestoneId: strin
 /**
  * Gets the best available date for a milestone
  */
-function getMilestoneBestDate(project: QuickbaseProject, milestoneId: string): Date | null {
+function getMilestoneBestDate(project: QuickbaseProject, milestoneId: string, dynamicConfig?: MilestoneConfiguration): Date | null {
   // Priority: Completed > Scheduled > Estimated
-  const completed = getMilestoneCompletionDate(project, milestoneId);
+  const completed = getMilestoneCompletionDate(project, milestoneId, dynamicConfig);
   if (completed) return completed;
 
-  const scheduled = getMilestoneScheduledDate(project, milestoneId);
+  const scheduled = getMilestoneScheduledDate(project, milestoneId, dynamicConfig);
   if (scheduled) return scheduled;
 
-  const estimated = getMilestoneEstimatedDate(project, milestoneId);
+  const estimated = getMilestoneEstimatedDate(project, milestoneId, dynamicConfig);
   if (estimated) return estimated;
 
   return null;
@@ -536,8 +550,8 @@ function getMilestoneUrgency(project: QuickbaseProject, milestoneId: string, sta
 /**
  * Gets substep statuses for a milestone
  */
-function getMilestoneSubsteps(project: QuickbaseProject, milestoneId: string): SubstepStatus[] {
-  const config = getMilestoneConfig(milestoneId);
+function getMilestoneSubsteps(project: QuickbaseProject, milestoneId: string, dynamicConfig?: MilestoneConfiguration): SubstepStatus[] {
+  const config = getMilestoneConfig(milestoneId, dynamicConfig);
   if (!config || !config.inProgressFields?.substeps) {
     return [];
   }
@@ -556,7 +570,7 @@ function getMilestoneSubsteps(project: QuickbaseProject, milestoneId: string): S
     } else {
       // Check if this substep is the current active one
       const previousComplete = substeps.every(s => s.state === 'complete');
-      if (previousComplete && isMilestoneInProgress(project, milestoneId)) {
+      if (previousComplete && isMilestoneInProgress(project, milestoneId, dynamicConfig)) {
         state = 'in-progress';
       }
     }
@@ -580,8 +594,8 @@ function getMilestoneSubsteps(project: QuickbaseProject, milestoneId: string): S
 /**
  * Gets helper data for a milestone (duration, audit info, etc.)
  */
-function getMilestoneHelperData(project: QuickbaseProject, milestoneId: string): Record<string, any> {
-  const config = getMilestoneConfig(milestoneId);
+function getMilestoneHelperData(project: QuickbaseProject, milestoneId: string, dynamicConfig?: MilestoneConfiguration): Record<string, any> {
+  const config = getMilestoneConfig(milestoneId, dynamicConfig);
   if (!config || !config.helperFields) {
     return {};
   }
@@ -606,8 +620,8 @@ function getMilestoneHelperData(project: QuickbaseProject, milestoneId: string):
 /**
  * Gets complete milestone status
  */
-export function getMilestoneStatus(project: QuickbaseProject, milestoneId: string): MilestoneStatus {
-  const config = getMilestoneConfig(milestoneId);
+export function getMilestoneStatus(project: QuickbaseProject, milestoneId: string, dynamicConfig?: MilestoneConfiguration): MilestoneStatus {
+  const config = getMilestoneConfig(milestoneId, dynamicConfig);
   if (!config) {
     throw new Error(`Milestone configuration not found: ${milestoneId}`);
   }
@@ -628,11 +642,11 @@ export function getMilestoneStatus(project: QuickbaseProject, milestoneId: strin
       blockedReason = blockedStatus.reason;
     }
     // Check complete
-    else if (isMilestoneComplete(project, milestoneId)) {
+    else if (isMilestoneComplete(project, milestoneId, dynamicConfig)) {
       state = 'complete';
     }
     // Check in progress
-    else if (isMilestoneInProgress(project, milestoneId)) {
+    else if (isMilestoneInProgress(project, milestoneId, dynamicConfig)) {
       state = 'in-progress';
 
       // DISABLED: Overdue state logic (will be enabled in future phase)
@@ -642,26 +656,26 @@ export function getMilestoneStatus(project: QuickbaseProject, milestoneId: strin
       // }
     }
     // Check if ready to start (dependencies met but not started)
-    else if (areDependenciesMet(project, milestoneId)) {
+    else if (areDependenciesMet(project, milestoneId, dynamicConfig)) {
       state = 'ready-for';
     }
     // Otherwise pending (dependencies not met)
   }
 
   // Get dates
-  const completedDate = getMilestoneCompletionDate(project, milestoneId);
-  const scheduledDate = getMilestoneScheduledDate(project, milestoneId);
-  const estimatedDate = getMilestoneEstimatedDate(project, milestoneId);
-  const bestDate = getMilestoneBestDate(project, milestoneId);
+  const completedDate = getMilestoneCompletionDate(project, milestoneId, dynamicConfig);
+  const scheduledDate = getMilestoneScheduledDate(project, milestoneId, dynamicConfig);
+  const estimatedDate = getMilestoneEstimatedDate(project, milestoneId, dynamicConfig);
+  const bestDate = getMilestoneBestDate(project, milestoneId, dynamicConfig);
 
   // Calculate urgency
   const urgency = getMilestoneUrgency(project, milestoneId, state);
 
   // Get substeps
-  const substeps = getMilestoneSubsteps(project, milestoneId);
+  const substeps = getMilestoneSubsteps(project, milestoneId, dynamicConfig);
 
   // Get helper data
-  const helperData = getMilestoneHelperData(project, milestoneId);
+  const helperData = getMilestoneHelperData(project, milestoneId, dynamicConfig);
 
   // Calculate days in progress/overdue
   let daysInProgress: number | undefined;
@@ -706,15 +720,15 @@ export function getMilestoneStatus(project: QuickbaseProject, milestoneId: strin
 /**
  * Gets the current active milestone for a project
  */
-export function getCurrentMilestone(project: QuickbaseProject): string {
-  const allConfigs = getAllMilestoneConfigs();
+export function getCurrentMilestone(project: QuickbaseProject, dynamicConfig?: MilestoneConfiguration): string {
+  const allConfigs = getAllMilestoneConfigs(dynamicConfig);
 
   // Track the first incomplete milestone (fallback for blocked projects)
   let firstIncomplete: string | null = null;
 
   // Find the first milestone that is either in-progress or pending (and not blocked)
   for (const config of allConfigs) {
-    const status = getMilestoneStatus(project, config.id);
+    const status = getMilestoneStatus(project, config.id, dynamicConfig);
 
     // Skip not-applicable milestones
     if (status.state === 'not-applicable') {
@@ -764,12 +778,12 @@ export function getCurrentMilestone(project: QuickbaseProject): string {
 /**
  * Gets all milestones as traffic lights
  */
-export function getTrafficLights(project: QuickbaseProject): TrafficLight[] {
-  const allConfigs = getAllMilestoneConfigs();
+export function getTrafficLights(project: QuickbaseProject, dynamicConfig?: MilestoneConfiguration): TrafficLight[] {
+  const allConfigs = getAllMilestoneConfigs(dynamicConfig);
   const lights: TrafficLight[] = [];
 
   for (const config of allConfigs) {
-    const status = getMilestoneStatus(project, config.id);
+    const status = getMilestoneStatus(project, config.id, dynamicConfig);
 
     // Skip not-applicable milestones in traffic lights
     if (status.state === 'not-applicable') {
@@ -791,9 +805,9 @@ export function getTrafficLights(project: QuickbaseProject): TrafficLight[] {
 /**
  * Gets all milestone statuses for a project
  */
-export function getAllMilestoneStatuses(project: QuickbaseProject): MilestoneStatus[] {
-  const allConfigs = getAllMilestoneConfigs();
-  return allConfigs.map(config => getMilestoneStatus(project, config.id));
+export function getAllMilestoneStatuses(project: QuickbaseProject, dynamicConfig?: MilestoneConfiguration): MilestoneStatus[] {
+  const allConfigs = getAllMilestoneConfigs(dynamicConfig);
+  return allConfigs.map(config => getMilestoneStatus(project, config.id, dynamicConfig));
 }
 
 // ============================================================================
@@ -803,8 +817,8 @@ export function getAllMilestoneStatuses(project: QuickbaseProject): MilestoneSta
 /**
  * Gets overall project completion percentage
  */
-export function getProjectCompletionPercentage(project: QuickbaseProject): number {
-  const statuses = getAllMilestoneStatuses(project);
+export function getProjectCompletionPercentage(project: QuickbaseProject, dynamicConfig?: MilestoneConfiguration): number {
+  const statuses = getAllMilestoneStatuses(project, dynamicConfig);
 
   // Filter out not-applicable milestones
   const applicableStatuses = statuses.filter(s => s.state !== 'not-applicable');
@@ -819,8 +833,8 @@ export function getProjectCompletionPercentage(project: QuickbaseProject): numbe
 /**
  * Gets milestone completion percentage (based on substeps)
  */
-export function getMilestoneCompletionPercentage(project: QuickbaseProject, milestoneId: string): number {
-  const status = getMilestoneStatus(project, milestoneId);
+export function getMilestoneCompletionPercentage(project: QuickbaseProject, milestoneId: string, dynamicConfig?: MilestoneConfiguration): number {
+  const status = getMilestoneStatus(project, milestoneId, dynamicConfig);
 
   if (status.state === 'complete') return 100;
   if (status.state === 'pending' || status.state === 'blocked' || status.state === 'not-applicable') return 0;

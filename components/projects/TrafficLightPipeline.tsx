@@ -2,6 +2,7 @@
 
 import { cn } from '@/lib/utils/cn';
 import { getMilestoneStatus, getCurrentMilestone, type MilestoneState } from '@/lib/utils/milestone-engine';
+import { useMilestoneConfig } from '@/lib/hooks/useMilestoneConfig';
 import { QuickbaseProject } from '@/lib/types/project';
 import {
   ClipboardList,
@@ -90,8 +91,11 @@ function getTooltipText(milestone: string, state: MilestoneState, blockedReason?
 }
 
 export function TrafficLightPipeline({ project }: TrafficLightPipelineProps) {
+  // Fetch dynamic milestone configuration
+  const { config } = useMilestoneConfig();
+
   // Get current milestone for status text
-  const currentMilestoneId = getCurrentMilestone(project);
+  const currentMilestoneId = getCurrentMilestone(project, config);
   const currentMilestone = milestones.find(m => m.id === currentMilestoneId);
 
   return (
@@ -99,7 +103,7 @@ export function TrafficLightPipeline({ project }: TrafficLightPipelineProps) {
       {/* Traffic lights row with labels */}
       <div className="flex items-start gap-3 overflow-x-auto pb-2">
         {milestones.map((milestone, index) => {
-          const status = getMilestoneStatus(project, milestone.id);
+          const status = getMilestoneStatus(project, milestone.id, config);
 
           // Skip not-applicable milestones (e.g., HOA when not needed)
           if (status.state === 'not-applicable') {

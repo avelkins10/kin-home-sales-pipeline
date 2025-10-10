@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { PROJECT_FIELDS } from '@/lib/constants/fieldIds'
 import { QuickbaseProject } from '@/lib/types/project'
 import { getCurrentMilestone, getMilestoneStatus, isProjectOnHold, getHoldReason } from '@/lib/utils/milestone-engine'
+import { useMilestoneConfig } from '@/lib/hooks/useMilestoneConfig'
 import { cn } from '@/lib/utils/cn'
 import { SalesSupportButton } from '@/components/support/SalesSupportButton'
 
@@ -16,6 +17,9 @@ interface ProjectHeaderProps {
 
 export function ProjectHeader({ project }: ProjectHeaderProps) {
   const router = useRouter()
+
+  // Fetch dynamic milestone configuration
+  const { config } = useMilestoneConfig()
 
   // Extract project data
   const customerName = project[PROJECT_FIELDS.CUSTOMER_NAME]?.value || 'Unknown Customer'
@@ -27,8 +31,8 @@ export function ProjectHeader({ project }: ProjectHeaderProps) {
   const holdReason = getHoldReason(project)
 
   // Get milestone and urgency info from engine
-  const currentMilestoneId = getCurrentMilestone(project)
-  const milestoneStatus = getMilestoneStatus(project, currentMilestoneId)
+  const currentMilestoneId = getCurrentMilestone(project, config)
+  const milestoneStatus = getMilestoneStatus(project, currentMilestoneId, config)
   const currentMilestone = milestoneStatus.name
   const urgency = milestoneStatus.urgency
 

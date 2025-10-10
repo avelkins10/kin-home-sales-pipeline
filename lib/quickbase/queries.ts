@@ -17,26 +17,79 @@ const QB_TABLE_ADDERS = 'bsaycczmf';
 // Helper function to get managed user IDs for team leads
 async function getManagedUserIds(managerId: string): Promise<string[]> {
   console.log('[getManagedUserIds] Getting managed users for team lead:', managerId);
-  
+
   try {
     const result = await sql`
-      SELECT u.quickbase_user_id 
+      SELECT u.quickbase_user_id
       FROM user_hierarchies uh
       JOIN users u ON uh.user_id = u.id
       WHERE uh.manager_id = ${managerId}
       AND u.quickbase_user_id IS NOT NULL
     `;
-    
+
     const managedUserIds = result.rows
       .map(row => row.quickbase_user_id)
       .filter(Boolean)
       .flatMap(id => id.split(',').map((subId: string) => subId.trim())); // Handle comma-separated IDs
-    
+
     console.log('[getManagedUserIds] Found managed users:', managedUserIds);
     return managedUserIds;
   } catch (error) {
     console.error('[getManagedUserIds] Error:', error);
     logError('Failed to get managed user IDs', error as Error);
+    return [];
+  }
+}
+
+// Helper function to get user email from dashboard database
+async function getUserEmail(userId: string): Promise<string | null> {
+  console.log('[getUserEmail] Getting email for user:', userId);
+
+  try {
+    const result = await sql`
+      SELECT email
+      FROM users
+      WHERE id = ${userId}
+      AND email IS NOT NULL
+    `;
+
+    if (result.rows.length === 0) {
+      console.warn('[getUserEmail] No email found for user:', userId);
+      return null;
+    }
+
+    const email = result.rows[0].email;
+    console.log('[getUserEmail] Found email:', email);
+    return email;
+  } catch (error) {
+    console.error('[getUserEmail] Error:', error);
+    logError('Failed to get user email', error as Error);
+    return null;
+  }
+}
+
+// Helper function to get managed user emails for team leads
+async function getManagedUserEmails(managerId: string): Promise<string[]> {
+  console.log('[getManagedUserEmails] Getting managed user emails for team lead:', managerId);
+
+  try {
+    const result = await sql`
+      SELECT u.email
+      FROM user_hierarchies uh
+      JOIN users u ON uh.user_id = u.id
+      WHERE uh.manager_id = ${managerId}
+      AND u.email IS NOT NULL
+    `;
+
+    const managedEmails = result.rows
+      .map(row => row.email)
+      .filter(Boolean);
+
+    console.log('[getManagedUserEmails] Found managed user emails:', managedEmails);
+    return managedEmails;
+  } catch (error) {
+    console.error('[getManagedUserEmails] Error:', error);
+    logError('Failed to get managed user emails', error as Error);
     return [];
   }
 }
@@ -62,18 +115,27 @@ async function getAssignedOffices(userId: string): Promise<string[]> {
   }
 }
 
-// Shared role scoping helper
-export function buildRoleClause(userId: string, role: string, salesOffice?: string[], managedUserIds?: string[]): string {
-  console.log('[buildRoleClause] Building clause for:', { userId, role, salesOffice, managedUserIds });
+// Shared role scoping helper - now uses email-based filtering
+export function buildRoleClause(userEmail: string | null, role: string, salesOffice?: string[], managedEmails?: string[]): string {
+  console.log('[buildRoleClause] Building clause for:', { userEmail, role, salesOffice, managedEmails });
 
-  const userIds = userId.split(',').map(id => id.trim());
-
-  const buildClause = (fieldId: number, ids: string[]) => {
-    if (ids.length === 1) {
-      return `{${fieldId}.EX.'${ids[0]}'}`;
+  // Helper to build email-based clause for closer/setter fields
+  const buildEmailClause = (fieldId: number, emails: string[]) => {
+    if (emails.length === 0) {
+      return '{3.EQ.0}'; // No email = no projects
     }
-    // Multiple IDs joined with OR and proper spacing
-    return ids.map(id => `{${fieldId}.EX.'${id}'}`).join(' OR ');
+    if (emails.length === 1) {
+      // Sanitize email for QB query (escape single quotes)
+      const sanitizedEmail = emails[0].replace(/'/g, "''");
+      return `{${fieldId}.EX.'${sanitizedEmail}'}`;
+    }
+    // Multiple emails joined with OR
+    return emails
+      .map(email => {
+        const sanitizedEmail = email.replace(/'/g, "''");
+        return `{${fieldId}.EX.'${sanitizedEmail}'}`
+      })
+      .join(' OR ');
   };
 
   const buildOfficeClause = (offices: string[]) => {
@@ -108,13 +170,13 @@ export function buildRoleClause(userId: string, role: string, salesOffice?: stri
       }
       break;
     case 'team_lead':
-      // Team leads see projects for their managed users (user-based visibility)
-      if (managedUserIds && managedUserIds.length > 0) {
-        // Build clause that matches projects where closer_id OR setter_id is in managed users
-        const closerClause = buildClause(PROJECT_FIELDS.CLOSER_ID, managedUserIds);
-        const setterClause = buildClause(PROJECT_FIELDS.SETTER_ID, managedUserIds);
+      // Team leads see projects for their managed users (email-based visibility)
+      if (managedEmails && managedEmails.length > 0) {
+        // Build clause that matches projects where closer_email OR setter_email is in managed users
+        const closerClause = buildEmailClause(PROJECT_FIELDS.CLOSER_EMAIL, managedEmails);
+        const setterClause = buildEmailClause(PROJECT_FIELDS.SETTER_EMAIL, managedEmails);
         clause = `(${closerClause}) OR (${setterClause})`;
-        console.log('[buildRoleClause] Team lead role, filtering by managed users (user-based visibility):', clause);
+        console.log('[buildRoleClause] Team lead role, filtering by managed user emails (email-based visibility):', clause);
       } else {
         // No managed users, see no projects
         clause = '{3.EQ.0}'; // Record ID = 0 (matches no records)
@@ -123,19 +185,40 @@ export function buildRoleClause(userId: string, role: string, salesOffice?: stri
       break;
     case 'closer':
     case 'setter':
-      // Show projects where user is EITHER closer OR setter (handles users who work in both capacities)
-      const closerClauseRep = buildClause(PROJECT_FIELDS.CLOSER_ID, userIds);
-      const setterClauseRep = buildClause(PROJECT_FIELDS.SETTER_ID, userIds);
-      clause = `(${closerClauseRep}) OR (${setterClauseRep})`;
-      console.log('[buildRoleClause] Rep role (closer/setter), showing both closer AND setter projects:', clause);
+      // Show projects where user email matches CLOSER_EMAIL OR SETTER_EMAIL
+      // This automatically includes ALL projects across all QB User IDs for this email
+      if (!userEmail) {
+        clause = '{3.EQ.0}'; // No email = no projects
+        console.log('[buildRoleClause] Rep role with no email, returning no-projects clause');
+      } else {
+        const emails = [userEmail];
+        const closerClauseRep = buildEmailClause(PROJECT_FIELDS.CLOSER_EMAIL, emails);
+        const setterClauseRep = buildEmailClause(PROJECT_FIELDS.SETTER_EMAIL, emails);
+        clause = `(${closerClauseRep}) OR (${setterClauseRep})`;
+        console.log('[buildRoleClause] Rep role (closer/setter), showing projects matching email (all QB User IDs):', clause);
+      }
       break;
     case 'coordinator':
-      clause = buildClause(PROJECT_FIELDS.PROJECT_COORDINATOR_ID, userIds);
-      console.log('[buildRoleClause] Coordinator role, filtering by coordinator ID:', clause);
+      // Coordinators still use ID-based filtering (no email field available)
+      // Keep old behavior for coordinators until email field is added
+      if (!userEmail) {
+        clause = '{3.EQ.0}';
+        console.log('[buildRoleClause] Coordinator with no email, returning no-projects clause');
+      } else {
+        // For coordinators, we can't use email, so we need to get QB User ID
+        // This is a limitation - coordinators won't benefit from email-based filtering yet
+        console.warn('[buildRoleClause] Coordinator role does not support email-based filtering yet');
+        clause = '{3.EQ.0}'; // No projects for now
+      }
       break;
     default:
-      clause = buildClause(PROJECT_FIELDS.CLOSER_ID, userIds);
-      console.log('[buildRoleClause] Unknown role, defaulting to closer filter:', clause);
+      if (!userEmail) {
+        clause = '{3.EQ.0}';
+      } else {
+        const emails = [userEmail];
+        clause = buildEmailClause(PROJECT_FIELDS.CLOSER_EMAIL, emails);
+      }
+      console.log('[buildRoleClause] Unknown role, defaulting to closer email filter:', clause);
       break;
   }
 
@@ -146,10 +229,16 @@ export function buildRoleClause(userId: string, role: string, salesOffice?: stri
 export async function getProjectsForUserList(userId: string, role: string, view?: string, search?: string, sort?: string, salesOffice?: string[]) {
   console.log('[getProjectsForUserList] START - userId:', userId, 'role:', role, 'view:', view, 'search:', search, 'sort:', sort, 'salesOffice:', salesOffice);
 
-  // Get managed user IDs for team leads
-  let managedUserIds: string[] | undefined;
+  // Get user email for email-based filtering
+  let userEmail: string | null = null;
+  if (['closer', 'setter', 'coordinator'].includes(role)) {
+    userEmail = await getUserEmail(userId);
+  }
+
+  // Get managed user emails for team leads
+  let managedEmails: string[] | undefined;
   if (role === 'team_lead') {
-    managedUserIds = await getManagedUserIds(userId);
+    managedEmails = await getManagedUserEmails(userId);
   }
 
   // Get assigned offices for office-based roles if no offices provided
@@ -158,8 +247,8 @@ export async function getProjectsForUserList(userId: string, role: string, view?
     effectiveSalesOffice = await getAssignedOffices(userId);
   }
 
-  // Build role-based where clause using shared helper
-  const roleClause = buildRoleClause(userId, role, effectiveSalesOffice, managedUserIds);
+  // Build role-based where clause using shared helper (now email-based)
+  const roleClause = buildRoleClause(userEmail, role, effectiveSalesOffice, managedEmails);
 
   // Build view-based filter
   const viewFilter = buildViewFilter(view);
@@ -249,10 +338,16 @@ export async function getProjectsForUserList(userId: string, role: string, view?
 export async function getProjectsForUser(userId: string, role: string, view?: string, search?: string, sort?: string, salesOffice?: string[]) {
   console.log('[getProjectsForUser] START - userId:', userId, 'role:', role, 'view:', view, 'search:', search, 'sort:', sort, 'salesOffice:', salesOffice);
 
-  // Get managed user IDs for team leads
-  let managedUserIds: string[] | undefined;
+  // Get user email for email-based filtering
+  let userEmail: string | null = null;
+  if (['closer', 'setter', 'coordinator'].includes(role)) {
+    userEmail = await getUserEmail(userId);
+  }
+
+  // Get managed user emails for team leads
+  let managedEmails: string[] | undefined;
   if (role === 'team_lead') {
-    managedUserIds = await getManagedUserIds(userId);
+    managedEmails = await getManagedUserEmails(userId);
   }
 
   // Get assigned offices for office-based roles if no offices provided
@@ -261,8 +356,8 @@ export async function getProjectsForUser(userId: string, role: string, view?: st
     effectiveSalesOffice = await getAssignedOffices(userId);
   }
 
-  // Build role-based where clause using shared helper
-  const roleClause = buildRoleClause(userId, role, effectiveSalesOffice, managedUserIds);
+  // Build role-based where clause using shared helper (now email-based)
+  const roleClause = buildRoleClause(userEmail, role, effectiveSalesOffice, managedEmails);
 
   // Build view-based filter
   const viewFilter = buildViewFilter(view);
@@ -518,10 +613,16 @@ export async function getDashboardMetricsOptimized(userId: string, role: string,
   console.log('[getDashboardMetricsOptimized] START - userId:', userId, 'role:', role, 'salesOffice:', salesOffice);
   const startTime = Date.now();
 
-  // Get managed user IDs for team leads
-  let managedUserIds: string[] | undefined;
+  // Get user email for email-based filtering
+  let userEmail: string | null = null;
+  if (['closer', 'setter', 'coordinator'].includes(role)) {
+    userEmail = await getUserEmail(userId);
+  }
+
+  // Get managed user emails for team leads
+  let managedEmails: string[] | undefined;
   if (role === 'team_lead') {
-    managedUserIds = await getManagedUserIds(userId);
+    managedEmails = await getManagedUserEmails(userId);
   }
 
   // Get assigned offices for office-based roles if no offices provided
@@ -530,8 +631,8 @@ export async function getDashboardMetricsOptimized(userId: string, role: string,
     effectiveSalesOffice = await getAssignedOffices(userId);
   }
 
-  // Use shared role scoping helper for consistency
-  const whereClause = buildRoleClause(userId, role, effectiveSalesOffice, managedUserIds);
+  // Use shared role scoping helper for consistency (now email-based)
+  const whereClause = buildRoleClause(userEmail, role, effectiveSalesOffice, managedEmails);
   console.log('[getDashboardMetricsOptimized] WHERE clause:', whereClause);
 
   const userProjects = await qbClient.queryRecords({
@@ -622,18 +723,24 @@ function buildTimeRangeFilter(timeRange: 'lifetime' | 'month' | 'week'): string 
 
 // Enhanced dashboard metrics with revenue, commission, and bucket calculations
 export async function getEnhancedDashboardMetrics(
-  userId: string, 
-  role: string, 
+  userId: string,
+  role: string,
   timeRange: 'lifetime' | 'month' | 'week' = 'lifetime',
   salesOffice?: string[]
 ) {
   console.log('[getEnhancedDashboardMetrics] START - userId:', userId, 'role:', role, 'timeRange:', timeRange, 'salesOffice:', salesOffice);
   const startTime = Date.now();
 
-  // Get managed user IDs for team leads
-  let managedUserIds: string[] | undefined;
+  // Get user email for email-based filtering
+  let userEmail: string | null = null;
+  if (['closer', 'setter', 'coordinator'].includes(role)) {
+    userEmail = await getUserEmail(userId);
+  }
+
+  // Get managed user emails for team leads
+  let managedEmails: string[] | undefined;
   if (role === 'team_lead') {
-    managedUserIds = await getManagedUserIds(userId);
+    managedEmails = await getManagedUserEmails(userId);
   }
 
   // Get assigned offices for office-based roles if no offices provided
@@ -642,8 +749,8 @@ export async function getEnhancedDashboardMetrics(
     effectiveSalesOffice = await getAssignedOffices(userId);
   }
 
-  // Build role-based where clause (no time filtering here)
-  const roleClause = buildRoleClause(userId, role, effectiveSalesOffice, managedUserIds);
+  // Build role-based where clause (no time filtering here, now email-based)
+  const roleClause = buildRoleClause(userEmail, role, effectiveSalesOffice, managedEmails);
   
   console.log('[getEnhancedDashboardMetrics] Role-based WHERE clause:', roleClause);
 
@@ -1273,10 +1380,16 @@ export async function getProjectById(recordId: number) {
 }
 
 export async function getProjectsOnHold(userId: string, role: string, salesOffice?: string[]) {
-  // Get managed user IDs for team leads
-  let managedUserIds: string[] | undefined;
+  // Get user email for email-based filtering
+  let userEmail: string | null = null;
+  if (['closer', 'setter', 'coordinator'].includes(role)) {
+    userEmail = await getUserEmail(userId);
+  }
+
+  // Get managed user emails for team leads
+  let managedEmails: string[] | undefined;
   if (role === 'team_lead') {
-    managedUserIds = await getManagedUserIds(userId);
+    managedEmails = await getManagedUserEmails(userId);
   }
 
   // Get assigned offices for office-based roles if no offices provided
@@ -1285,8 +1398,8 @@ export async function getProjectsOnHold(userId: string, role: string, salesOffic
     effectiveSalesOffice = await getAssignedOffices(userId);
   }
 
-  // Use shared role scoping helper and consistent ON_HOLD value
-  const roleClause = buildRoleClause(userId, role, effectiveSalesOffice, managedUserIds);
+  // Use shared role scoping helper and consistent ON_HOLD value (now email-based)
+  const roleClause = buildRoleClause(userEmail, role, effectiveSalesOffice, managedEmails);
   const whereClause = `(${roleClause}) AND {${PROJECT_FIELDS.ON_HOLD}.EX.'Yes'}`;
 
   const result = await qbClient.queryRecords({

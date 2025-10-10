@@ -3,6 +3,7 @@
 import { MilestoneNode } from './MilestoneNode'
 import { MilestoneConnector } from './MilestoneConnector'
 import { getAllMilestoneStatuses, isProjectOnHold } from '@/lib/utils/milestone-engine'
+import { useMilestoneConfig } from '@/lib/hooks/useMilestoneConfig'
 import { QuickbaseProject } from '@/lib/types/project'
 
 interface TimelineProps {
@@ -21,11 +22,14 @@ const milestoneConfig: Record<string, { icon: string; color: string; calculated?
 }
 
 export function Timeline({ project }: TimelineProps) {
+  // Fetch dynamic milestone configuration
+  const { config } = useMilestoneConfig()
+
   // Check if project is on hold
   const onHold = isProjectOnHold(project)
 
   // Get all milestone statuses from the engine
-  const allStatuses = getAllMilestoneStatuses(project)
+  const allStatuses = getAllMilestoneStatuses(project, config)
 
   // Build milestones array, filtering out not-applicable ones
   const milestones = allStatuses

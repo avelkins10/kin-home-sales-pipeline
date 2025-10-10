@@ -60,6 +60,8 @@ export default function UsersTab() {
   const [isSmartSyncDialogOpen, setIsSmartSyncDialogOpen] = useState(false)
   const [isDeactivateDialogOpen, setIsDeactivateDialogOpen] = useState(false)
   const [isHierarchyView, setIsHierarchyView] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editingUser, setEditingUser] = useState<User | null>(null)
   const [newUser, setNewUser] = useState<CreateUserInput & { 
     offices?: string[]
     managedBy?: string
@@ -203,6 +205,31 @@ export default function UsersTab() {
     },
     onSuccess: (data) => {
       toast.success(`Temp password: ${data.temporaryPassword}`)
+    },
+    onError: (error: Error) => {
+      toast.error(error.message)
+    },
+  })
+
+  // Update user mutation
+  const updateUserMutation = useMutation({
+    mutationFn: async ({ userId, updates }: { userId: string; updates: Partial<User> }) => {
+      const response = await fetch(`${getBaseUrl()}/api/admin/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      })
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to update user')
+      }
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      setIsEditDialogOpen(false)
+      setEditingUser(null)
+      toast.success('User updated successfully')
     },
     onError: (error: Error) => {
       toast.error(error.message)
@@ -406,12 +433,12 @@ export default function UsersTab() {
               {isTeamLeadRole(newUser.role) && (
                 <div>
                   <Label htmlFor="manages">Manages (Reps)</Label>
-                  <Select 
-                    value="" 
+                  <Select
+                    value="__select__"
                     onValueChange={(userId) => {
-                      if (!newUser.manages?.includes(userId)) {
-                        setNewUser({ 
-                          ...newUser, 
+                      if (userId !== '__select__' && !newUser.manages?.includes(userId)) {
+                        setNewUser({
+                          ...newUser,
                           manages: [...(newUser.manages || []), userId]
                         })
                       }
@@ -421,6 +448,7 @@ export default function UsersTab() {
                       <SelectValue placeholder="Select reps to manage..." />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="__select__" disabled>Select reps to manage...</SelectItem>
                       {users
                         .filter((u: User) => ['closer', 'setter'].includes(u.role))
                         .map((u: User) => (
@@ -718,7 +746,14 @@ export default function UsersTab() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setEditingUser(user)
+                            setIsEditDialogOpen(true)
+                          }}
+                        >
                           <Edit className="h-4 w-4" />
                         </Button>
                         <Button
@@ -740,25 +775,110 @@ export default function UsersTab() {
       )}
 
       {/* Dialog Components */}
-      <InviteUserDialog 
-        open={isInviteDialogOpen} 
-        onOpenChange={setIsInviteDialogOpen} 
+      <InviteUserDialog
+        open={isInviteDialogOpen}
+        onOpenChange={setIsInviteDialogOpen}
       />
-      
-      <QuickBaseLookupDialog 
-        open={isLookupDialogOpen} 
-        onOpenChange={setIsLookupDialogOpen} 
+
+      <QuickBaseLookupDialog
+        open={isLookupDialogOpen}
+        onOpenChange={setIsLookupDialogOpen}
       />
-      
-      <SmartSyncDialog 
-        open={isSmartSyncDialogOpen} 
-        onOpenChange={setIsSmartSyncDialogOpen} 
+
+      <SmartSyncDialog
+        open={isSmartSyncDialogOpen}
+        onOpenChange={setIsSmartSyncDialogOpen}
       />
-      
-      <DeactivateInactiveDialog 
-        open={isDeactivateDialogOpen} 
-        onOpenChange={setIsDeactivateDialogOpen} 
+
+      <DeactivateInactiveDialog
+        open={isDeactivateDialogOpen}
+        onOpenChange={setIsDeactivateDialogOpen}
       />
+
+      {/* Edit User Dialog */}
+      {editingUser && (
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit User</DialogTitle>
+              <DialogDescription>
+                Update user information and settings.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="edit-name">Name</Label>
+                <Input
+                  id="edit-name"
+                  value={editingUser.name}
+                  onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
+                  placeholder="Full name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-email">Email (read-only)</Label>
+                <Input
+                  id="edit-email"
+                  value={editingUser.email}
+                  disabled
+                  className="bg-gray-50"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-phone">Phone</Label>
+                <Input
+                  id="edit-phone"
+                  value={editingUser.phone || ''}
+                  onChange={(e) => setEditingUser({ ...editingUser, phone: e.target.value })}
+                  placeholder="555-1234"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-quickbaseUserId">QuickBase User ID</Label>
+                <Input
+                  id="edit-quickbaseUserId"
+                  value={editingUser.quickbaseUserId || ''}
+                  onChange={(e) => setEditingUser({ ...editingUser, quickbaseUserId: e.target.value })}
+                  placeholder="Leave blank for admin/ops users"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Only required for sales team members with QuickBase access
+                </p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsEditDialogOpen(false)
+                  setEditingUser(null)
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  if (!editingUser.name) {
+                    toast.error('Name is required')
+                    return
+                  }
+                  updateUserMutation.mutate({
+                    userId: editingUser.id,
+                    updates: {
+                      name: editingUser.name,
+                      phone: editingUser.phone || undefined,
+                      quickbaseUserId: editingUser.quickbaseUserId || undefined,
+                    },
+                  })
+                }}
+                disabled={updateUserMutation.isPending}
+              >
+                {updateUserMutation.isPending ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }
