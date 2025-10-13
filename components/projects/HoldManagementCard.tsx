@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useSession } from 'next-auth/react'
 import { AlertTriangle, CheckCircle, X, WifiOff, Wifi } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -52,20 +53,40 @@ function parseHoldReason(rawReason: any): string {
   let cleaned = reasonStr
     .replace(/Placeholder:\/\/[^\s]+/gi, '') // Remove Placeholder:// URLs
     .replace(/https?:\/\/[^\s]+/gi, '') // Remove regular URLs
-    .replace(/by:[\s\S]*$/i, '') // Remove "by: ..." signatures
+    .replace(/Related Project:?\s*/gi, '') // Remove "Related Project:" prefix
+    .replace(/\bby:[\s\S]*$/gi, '') // Remove "by: ..." signatures (case-insensitive)
+    .replace(/\s*-\s*\d+\s*$/g, '') // Remove trailing dash and record ID (e.g., " - 700")
+    .replace(/^\d+\s*[-:]\s*/g, '') // Remove leading record ID with separator (e.g., "700 - ")
     .split('\n')[0] // Take first line only
     .trim()
+
+  // Check if it starts with "Project on" and extract the hold type
+  const projectOnMatch = cleaned.match(/^Project on\s+(.+?)(?:\s+Hold)?$/i)
+  if (projectOnMatch) {
+    return `${projectOnMatch[1]} Hold`
+  }
 
   // If what's left is just a number (record ID), return generic message
   if (/^\d+$/.test(cleaned)) {
     return 'Project on hold'
   }
 
-  return cleaned || 'Project on hold'
+  // If empty after cleaning, return generic message
+  if (!cleaned) {
+    return 'Project on hold'
+  }
+
+  return cleaned
 }
 
 export function HoldManagementCard({ project }: HoldManagementCardProps) {
   const queryClient = useQueryClient()
+  const { data: session } = useSession()
+
+  // Check if user has permission to modify hold status
+  // Only management roles can place/release holds
+  const authorizedRoles = ['team_lead', 'office_leader', 'area_director', 'divisional', 'regional', 'super_admin']
+  const canModifyHolds = session?.user?.role && authorizedRoles.includes(session.user.role)
 
   // State
   const [holdReason, setHoldReason] = useState('')
@@ -339,27 +360,36 @@ export function HoldManagementCard({ project }: HoldManagementCardProps) {
               )}
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Button
-                onClick={handleReleaseHold}
-                disabled={isSubmitting}
-                aria-busy={isSubmitting}
-                className={`flex-1 bg-green-600 hover:bg-green-700 ${isOffline ? 'opacity-75' : ''}`}
-              >
-                <CheckCircle className="w-4 h-4 mr-2" />
-                {isOffline ? 'Queue Release' : 'Release Hold'}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => openDialog(true)}
-                disabled={isSubmitting}
-                aria-busy={isSubmitting}
-                className={`flex-1 ${isOffline ? 'opacity-75' : ''}`}
-              >
-                Update Reason
-              </Button>
-            </div>
+            {/* Action Buttons - Only for authorized roles */}
+            {canModifyHolds ? (
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button
+                  onClick={handleReleaseHold}
+                  disabled={isSubmitting}
+                  aria-busy={isSubmitting}
+                  className={`flex-1 bg-green-600 hover:bg-green-700 ${isOffline ? 'opacity-75' : ''}`}
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  {isOffline ? 'Queue Release' : 'Release Hold'}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => openDialog(true)}
+                  disabled={isSubmitting}
+                  aria-busy={isSubmitting}
+                  className={`flex-1 ${isOffline ? 'opacity-75' : ''}`}
+                >
+                  Update Reason
+                </Button>
+              </div>
+            ) : (
+              <Alert className="bg-blue-50 border-blue-200">
+                <AlertTriangle className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-blue-800">
+                  Contact your manager to update hold status
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
@@ -369,18 +399,19 @@ export function HoldManagementCard({ project }: HoldManagementCardProps) {
               <p className="text-sm text-gray-600">Project is currently active</p>
             </div>
 
-            {/* Place on Hold Button */}
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button
-                  variant="destructive"
-                  onClick={() => openDialog(false)}
-                  className={`w-full ${isOffline ? 'opacity-75' : ''}`}
-                >
-                  <AlertTriangle className="w-4 h-4 mr-2" />
-                  {isOffline ? 'Queue Hold' : 'Place on Hold'}
-                </Button>
-              </DialogTrigger>
+            {/* Place on Hold Button - Only for authorized roles */}
+            {canModifyHolds ? (
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="destructive"
+                    onClick={() => openDialog(false)}
+                    className={`w-full ${isOffline ? 'opacity-75' : ''}`}
+                  >
+                    <AlertTriangle className="w-4 h-4 mr-2" />
+                    {isOffline ? 'Queue Hold' : 'Place on Hold'}
+                  </Button>
+                </DialogTrigger>
               <DialogContent className="max-w-md">
                 <DialogHeader>
                   <DialogTitle>Place Project on Hold</DialogTitle>
@@ -429,6 +460,14 @@ export function HoldManagementCard({ project }: HoldManagementCardProps) {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+            ) : (
+              <Alert className="bg-blue-50 border-blue-200">
+                <AlertTriangle className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-blue-800">
+                  Contact your manager to place project on hold
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
         )}
 
