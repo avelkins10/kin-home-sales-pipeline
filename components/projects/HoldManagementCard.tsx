@@ -32,11 +32,16 @@ export function HoldManagementCard({ project }: HoldManagementCardProps) {
 
   // Extract project data
   const recordId = project[PROJECT_FIELDS.RECORD_ID]?.value
+  const projectStatus = project[PROJECT_FIELDS.PROJECT_STATUS]?.value || ''
   const onHold = project[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes'
   const currentHoldReason = project[PROJECT_FIELDS.HOLD_REASON]?.value || ''
   const currentBlockReason = project[PROJECT_FIELDS.BLOCK_REASON]?.value || ''
   const dateOnHold = project[PROJECT_FIELDS.DATE_ON_HOLD]?.value
   const userWhoPlacedHold = project[PROJECT_FIELDS.USER_PLACED_ON_HOLD]?.value || ''
+
+  // Check if project is in a terminal state (cannot be modified)
+  const terminalStates = ['Rejected', 'Cancelled', 'Completed', 'Complete']
+  const isTerminalState = terminalStates.includes(projectStatus)
 
   // Online/offline listeners
   useEffect(() => {
@@ -162,8 +167,19 @@ export function HoldManagementCard({ project }: HoldManagementCardProps) {
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-xl font-semibold">Hold Management</CardTitle>
-          <Badge variant={onHold ? 'destructive' : 'secondary'}>
-            {onHold ? 'On Hold' : 'Active'}
+          <Badge
+            variant={
+              isTerminalState ? 'secondary' :
+              onHold ? 'destructive' : 'secondary'
+            }
+            className={
+              projectStatus === 'Rejected' ? 'bg-red-100 text-red-700 hover:bg-red-100' :
+              projectStatus === 'Cancelled' ? 'bg-gray-400 text-gray-800 hover:bg-gray-400' :
+              projectStatus === 'Completed' || projectStatus === 'Complete' ? 'bg-green-100 text-green-700 hover:bg-green-100' :
+              ''
+            }
+          >
+            {isTerminalState ? projectStatus : (onHold ? 'On Hold' : 'Active')}
           </Badge>
         </div>
       </CardHeader>
@@ -187,7 +203,51 @@ export function HoldManagementCard({ project }: HoldManagementCardProps) {
             </AlertDescription>
           </Alert>
         )}
-        {onHold ? (
+
+        {/* Terminal state message */}
+        {isTerminalState ? (
+          <div className="space-y-4">
+            <div className={`rounded-lg border p-4 ${
+              projectStatus === 'Rejected' ? 'bg-red-50 border-red-200' :
+              projectStatus === 'Cancelled' ? 'bg-gray-50 border-gray-200' :
+              'bg-green-50 border-green-200'
+            }`}>
+              <div className="flex items-start gap-3">
+                <AlertTriangle className={`w-5 h-5 mt-0.5 flex-shrink-0 ${
+                  projectStatus === 'Rejected' ? 'text-red-600' :
+                  projectStatus === 'Cancelled' ? 'text-gray-600' :
+                  'text-green-600'
+                }`} />
+                <div className="flex-1">
+                  <h3 className={`text-sm font-medium ${
+                    projectStatus === 'Rejected' ? 'text-red-800' :
+                    projectStatus === 'Cancelled' ? 'text-gray-800' :
+                    'text-green-800'
+                  }`}>
+                    Project {projectStatus}
+                  </h3>
+                  <p className={`text-sm mt-1 ${
+                    projectStatus === 'Rejected' ? 'text-red-700' :
+                    projectStatus === 'Cancelled' ? 'text-gray-700' :
+                    'text-green-700'
+                  }`}>
+                    Hold management is not available for {projectStatus.toLowerCase()} projects.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Show rejection reason if available */}
+            {projectStatus === 'Rejected' && currentHoldReason && (
+              <div className="text-sm space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Reason:</span>
+                  <span className="text-gray-900 font-medium">{currentHoldReason}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : onHold ? (
           <div className="space-y-4">
             {/* Hold Alert */}
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
