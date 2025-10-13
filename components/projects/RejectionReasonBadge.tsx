@@ -27,9 +27,9 @@ export function RejectionReasonBadge({ reasons, className = '' }: RejectionReaso
   const additionalCount = reasonsList.length - 1;
 
   return (
-    <div className={`flex items-start gap-2 mt-2 p-2 bg-red-50 border border-red-200 rounded-md ${className}`}>
+    <div className={`inline-flex items-start gap-2 mt-2 px-3 py-2 bg-red-50 border border-red-200 rounded-md ${className}`}>
       <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
-      <div className="flex-1 min-w-0">
+      <div className="flex flex-col">
         <div className="text-xs font-semibold text-red-900 mb-0.5">
           Rejection Reason{additionalCount > 0 ? 's' : ''}:
         </div>
