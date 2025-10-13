@@ -650,10 +650,11 @@ function buildTimeRangeFilter(timeRange: 'lifetime' | 'month' | 'week'): string 
 export async function getEnhancedDashboardMetrics(
   userId: string,
   role: string,
-  timeRange: 'lifetime' | 'month' | 'week' = 'lifetime',
-  salesOffice?: string[]
+  timeRange: 'lifetime' | 'month' | 'week' | 'custom' = 'lifetime',
+  salesOffice?: string[],
+  customDateRange?: { startDate: string; endDate: string }
 ) {
-  console.log('[getEnhancedDashboardMetrics] START - userId:', userId, 'role:', role, 'timeRange:', timeRange, 'salesOffice:', salesOffice);
+  console.log('[getEnhancedDashboardMetrics] START - userId:', userId, 'role:', role, 'timeRange:', timeRange, 'salesOffice:', salesOffice, 'customDateRange:', customDateRange);
   const startTime = Date.now();
 
   // Get user email for email-based filtering
@@ -725,14 +726,26 @@ export async function getEnhancedDashboardMetrics(
   const monthEnd = new Date(currentYear, currentMonth + 1, 0);
   const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
+  // Custom date range support
+  let customStart: Date | undefined;
+  let customEnd: Date | undefined;
+  if (timeRange === 'custom' && customDateRange) {
+    customStart = new Date(customDateRange.startDate);
+    customEnd = new Date(customDateRange.endDate);
+    // Set to end of day for endDate to include the entire day
+    customEnd.setHours(23, 59, 59, 999);
+  }
+
   // soldInPeriod = filter by SALES_DATE within timeRange
   const soldInPeriod = allData.filter((project: any) => {
     const salesDate = project[PROJECT_FIELDS.SALES_DATE]?.value;
     if (!salesDate) return false;
-    
+
     const projectDate = new Date(salesDate);
-    
+
     switch (timeRange) {
+      case 'custom':
+        return customStart && customEnd && projectDate >= customStart && projectDate <= customEnd;
       case 'month':
         return projectDate >= monthStart && projectDate <= monthEnd;
       case 'week':
@@ -747,10 +760,12 @@ export async function getEnhancedDashboardMetrics(
   const installedInPeriod = allData.filter((project: any) => {
     const installDate = project[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value;
     if (!installDate) return false;
-    
+
     const projectDate = new Date(installDate);
-    
+
     switch (timeRange) {
+      case 'custom':
+        return customStart && customEnd && projectDate >= customStart && projectDate <= customEnd;
       case 'month':
         return projectDate >= monthStart && projectDate <= monthEnd;
       case 'week':
@@ -765,10 +780,12 @@ export async function getEnhancedDashboardMetrics(
   const fundedInPeriod = allData.filter((project: any) => {
     const fundingDate = project[PROJECT_FIELDS.LENDER_FUNDING_RECEIVED_DATE]?.value;
     if (!fundingDate) return false;
-    
+
     const projectDate = new Date(fundingDate);
-    
+
     switch (timeRange) {
+      case 'custom':
+        return customStart && customEnd && projectDate >= customStart && projectDate <= customEnd;
       case 'month':
         return projectDate >= monthStart && projectDate <= monthEnd;
       case 'week':
@@ -810,7 +827,7 @@ export async function getEnhancedDashboardMetrics(
 }
 
 // Calculate basic metrics (existing functionality)
-function calculateBasicMetrics(data: any[], timeRange: 'lifetime' | 'month' | 'week') {
+function calculateBasicMetrics(data: any[], timeRange: 'lifetime' | 'month' | 'week' | 'custom') {
   const now = new Date();
   const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const currentMonth = now.getMonth();

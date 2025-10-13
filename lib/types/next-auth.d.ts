@@ -11,6 +11,7 @@ declare module 'next-auth' {
       role: string;
       quickbaseUserId: string;
       salesOffice?: string[];
+      timezone: string;
     };
   }
 
@@ -21,6 +22,7 @@ declare module 'next-auth' {
     role: string;
     quickbaseUserId: string;
     salesOffice?: string[];
+    timezone: string;
   }
 }
 
@@ -29,5 +31,6 @@ declare module 'next-auth/jwt' {
     role: string;
     quickbaseUserId: string;
     salesOffice?: string[];
+    timezone: string;
   }
 }

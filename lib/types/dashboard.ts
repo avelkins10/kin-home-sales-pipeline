@@ -1,7 +1,12 @@
 // lib/types/dashboard.ts
 import type { Notification } from './notification';
 
-export type TimeRange = 'lifetime' | 'month' | 'week';
+export type TimeRange = 'lifetime' | 'month' | 'week' | 'custom';
+
+export interface CustomDateRange {
+  startDate: string; // ISO date string
+  endDate: string;   // ISO date string
+}
 
 export interface ProjectBuckets {
   installs: number;
@@ -56,6 +61,7 @@ export interface EnhancedDashboardMetrics {
   
   // Metadata
   timeRange: TimeRange;
+  customDateRange?: CustomDateRange;
 }
 
 export interface NotificationsSummary {

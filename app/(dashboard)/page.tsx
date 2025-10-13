@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -10,6 +10,7 @@ import { RecentProjects } from '@/components/dashboard/RecentProjects';
 import { NotificationsFeed } from '@/components/dashboard/NotificationsFeed';
 import { DashboardFilters } from '@/components/dashboard/DashboardFilters';
 import { EnhancedDashboardData } from '@/components/dashboard/EnhancedDashboardData';
+import { syncUserTimezone } from '@/lib/utils/timezone';
 import type { TimeRange } from '@/lib/types/dashboard';
 
 // Skeleton components for loading states
@@ -126,6 +127,14 @@ function RecentProjectsSkeleton() {
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const [timeRange, setTimeRange] = useState<TimeRange>('lifetime');
+  const [customDateRange, setCustomDateRange] = useState<{ startDate: string; endDate: string } | undefined>();
+
+  // Sync user timezone on mount (must be before early returns)
+  useEffect(() => {
+    if (session?.user?.timezone) {
+      syncUserTimezone(session.user.timezone);
+    }
+  }, [session]);
 
   if (status === 'loading') {
     return <div>Loading...</div>;
@@ -134,6 +143,15 @@ export default function DashboardPage() {
   if (!session) {
     redirect('/login');
   }
+
+  const handleTimeRangeChange = (range: TimeRange, customRange?: { startDate: string; endDate: string }) => {
+    setTimeRange(range);
+    if (range === 'custom' && customRange) {
+      setCustomDateRange(customRange);
+    } else {
+      setCustomDateRange(undefined);
+    }
+  };
 
   const getRoleDisplayName = (role: string) => {
     switch (role) {
@@ -164,9 +182,10 @@ export default function DashboardPage() {
             {getRoleDisplayName(session.user.role)} - Your Performance Dashboard
           </p>
         </div>
-        <DashboardFilters 
-          selectedTimeRange={timeRange} 
-          onTimeRangeChange={setTimeRange} 
+        <DashboardFilters
+          selectedTimeRange={timeRange}
+          customDateRange={customDateRange}
+          onTimeRangeChange={handleTimeRangeChange}
         />
       </div>
 
@@ -177,10 +196,11 @@ export default function DashboardPage() {
 
       {/* Enhanced Dashboard Data */}
       <Suspense fallback={<PerformanceMetricsSkeleton />}>
-        <EnhancedDashboardData 
+        <EnhancedDashboardData
           userId={session.user.quickbaseUserId}
           role={session.user.role}
           timeRange={timeRange}
+          customDateRange={customDateRange}
         />
       </Suspense>
 
@@ -190,10 +210,11 @@ export default function DashboardPage() {
         <div className="lg:col-span-2 space-y-6">
           {/* Basic Metrics */}
           <Suspense fallback={<DashboardMetricsSkeleton />}>
-            <DashboardMetrics 
-              userId={session.user.quickbaseUserId} 
-              role={session.user.role} 
+            <DashboardMetrics
+              userId={session.user.quickbaseUserId}
+              role={session.user.role}
               timeRange={timeRange}
+              customDateRange={customDateRange}
             />
           </Suspense>
         </div>

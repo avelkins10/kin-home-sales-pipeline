@@ -54,6 +54,7 @@ export const authOptions: NextAuthOptions = {
           role: user.role,
           quickbaseUserId: user.quickbase_user_id,
           salesOffice: user.sales_office,
+          timezone: user.timezone || 'America/New_York',
         };
       }
     })
@@ -107,6 +108,7 @@ export const authOptions: NextAuthOptions = {
         token.role = user.role;
         token.quickbaseUserId = user.quickbaseUserId;
         token.salesOffice = user.salesOffice;
+        token.timezone = user.timezone;
       }
       return token;
     },
@@ -116,6 +118,7 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role as string;
         session.user.quickbaseUserId = token.quickbaseUserId as string;
         session.user.salesOffice = token.salesOffice as string[];
+        session.user.timezone = token.timezone as string;
       }
       return session;
     },

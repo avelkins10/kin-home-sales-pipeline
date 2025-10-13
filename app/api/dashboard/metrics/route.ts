@@ -9,7 +9,7 @@ import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
 const metricsCache = new Map<string, { data: any; timestamp: number; ttl: number }>();
 
 // Determine TTL based on timeRange
-function getCacheTTL(timeRange: 'lifetime' | 'month' | 'week'): number {
+function getCacheTTL(timeRange: 'lifetime' | 'month' | 'week' | 'custom'): number {
   switch (timeRange) {
     case 'lifetime':
       return 120 * 1000; // 2 minutes for lifetime data (changes less frequently)
@@ -17,6 +17,8 @@ function getCacheTTL(timeRange: 'lifetime' | 'month' | 'week'): number {
       return 60 * 1000; // 1 minute for monthly data
     case 'week':
       return 30 * 1000; // 30 seconds for weekly data (changes more frequently)
+    case 'custom':
+      return 60 * 1000; // 1 minute for custom ranges
     default:
       return 30 * 1000; // Default 30 seconds
   }
@@ -37,19 +39,44 @@ export async function GET(req: Request) {
     }
 
     // Extract time range parameter with validation
-    const timeRange = searchParams.get('timeRange') as 'lifetime' | 'month' | 'week' | null;
-    const validTimeRanges = ['lifetime', 'month', 'week'];
+    const timeRange = searchParams.get('timeRange') as 'lifetime' | 'month' | 'week' | 'custom' | null;
+    const validTimeRanges = ['lifetime', 'month', 'week', 'custom'];
     if (timeRange && !validTimeRanges.includes(timeRange)) {
-      return NextResponse.json({ error: 'Invalid timeRange parameter. Must be one of: lifetime, month, week' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid timeRange parameter. Must be one of: lifetime, month, week, custom' }, { status: 400 });
     }
     const effectiveTimeRange = timeRange || 'lifetime';
+
+    // Extract custom date range if provided
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
+
+    // Validate custom date range
+    if (effectiveTimeRange === 'custom') {
+      if (!startDate || !endDate) {
+        return NextResponse.json({ error: 'startDate and endDate are required for custom time range' }, { status: 400 });
+      }
+
+      // Validate date format (YYYY-MM-DD)
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
+        return NextResponse.json({ error: 'Invalid date format. Use YYYY-MM-DD' }, { status: 400 });
+      }
+
+      // Validate date range is logical
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      if (start > end) {
+        return NextResponse.json({ error: 'startDate must be before or equal to endDate' }, { status: 400 });
+      }
+    }
 
     const { id, role, salesOffice } = auth.session.user as any;
     const userId = id as string;
 
-    // Check cache first - include timeRange in cache key
+    // Check cache first - include timeRange and custom dates in cache key
     const officeKey = salesOffice ? salesOffice.sort().join(',') : '';
-    const cacheKey = `${userId}:${role}:${officeKey}:${effectiveTimeRange}`;
+    const customRangeKey = effectiveTimeRange === 'custom' ? `${startDate}:${endDate}` : '';
+    const cacheKey = `${userId}:${role}:${officeKey}:${effectiveTimeRange}:${customRangeKey}`;
     const cached = metricsCache.get(cacheKey);
     const cacheTTL = getCacheTTL(effectiveTimeRange);
     
@@ -60,7 +87,13 @@ export async function GET(req: Request) {
 
     // Use enhanced metrics function with time range support
     const { getEnhancedDashboardMetrics } = await import('@/lib/quickbase/queries');
-    const metrics = await getEnhancedDashboardMetrics(userId, role, effectiveTimeRange, salesOffice);
+    const metrics = await getEnhancedDashboardMetrics(
+      userId,
+      role,
+      effectiveTimeRange,
+      salesOffice,
+      effectiveTimeRange === 'custom' ? { startDate: startDate!, endDate: endDate! } : undefined
+    );
 
     // Cache the result with TTL
     metricsCache.set(cacheKey, { data: metrics, timestamp: Date.now(), ttl: cacheTTL });

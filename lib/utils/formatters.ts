@@ -1,16 +1,23 @@
 // lib/utils/formatters.ts
 
-export function formatDate(date: string | Date | null | undefined): string {
+export function formatDate(
+  date: string | Date | null | undefined,
+  timezone?: string
+): string {
   if (!date) return 'N/A';
 
   try {
     const dateObj = typeof date === 'string' ? new Date(date) : date;
     if (isNaN(dateObj.getTime())) return 'N/A';
+
+    // Use the provided timezone or default to America/New_York
+    const effectiveTimezone = timezone || 'America/New_York';
+
     return new Intl.DateTimeFormat('en-US', {
       year: 'numeric',
       month: 'short',
       day: '2-digit',
-      timeZone: 'UTC',
+      timeZone: effectiveTimezone,
     }).format(dateObj);
   } catch {
     return 'N/A';
@@ -69,14 +76,23 @@ export function formatCompactCurrency(amount: number | null | undefined): string
   return `$${amount.toFixed(0)}`;
 }
 
-export function formatDaysAgo(date: string | Date | null | undefined): string {
+export function formatDaysAgo(
+  date: string | Date | null | undefined,
+  timezone?: string
+): string {
   if (!date) return 'N/A';
 
   try {
     const dateObj = typeof date === 'string' ? new Date(date) : date;
     if (isNaN(dateObj.getTime())) return 'N/A';
 
+    // Use the provided timezone or default to America/New_York
+    const effectiveTimezone = timezone || 'America/New_York';
+
+    // Get current time in user's timezone
     const now = new Date();
+
+    // Calculate difference in days
     const diffTime = Math.abs(now.getTime() - dateObj.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
@@ -86,6 +102,36 @@ export function formatDaysAgo(date: string | Date | null | undefined): string {
     if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
     if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
     return `${Math.floor(diffDays / 365)} years ago`;
+  } catch {
+    return 'N/A';
+  }
+}
+
+/**
+ * Format a date with time in the user's timezone
+ */
+export function formatDateTime(
+  date: string | Date | null | undefined,
+  timezone?: string
+): string {
+  if (!date) return 'N/A';
+
+  try {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(dateObj.getTime())) return 'N/A';
+
+    // Use the provided timezone or default to America/New_York
+    const effectiveTimezone = timezone || 'America/New_York';
+
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone: effectiveTimezone,
+      timeZoneName: 'short',
+    }).format(dateObj);
   } catch {
     return 'N/A';
   }

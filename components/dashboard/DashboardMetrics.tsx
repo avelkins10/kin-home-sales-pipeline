@@ -13,6 +13,7 @@ interface DashboardMetricsProps {
   userId: string;
   role: string;
   timeRange?: TimeRange; // Optional, defaults to 'lifetime'
+  customDateRange?: { startDate: string; endDate: string };
 }
 
 interface DashboardMetricsData {
@@ -65,11 +66,15 @@ function MetricsSkeleton() {
   );
 }
 
-export function DashboardMetrics({ userId, role, timeRange = 'lifetime' }: DashboardMetricsProps) {
+export function DashboardMetrics({ userId, role, timeRange = 'lifetime', customDateRange }: DashboardMetricsProps) {
   const { data: metrics, isLoading } = useQuery<DashboardMetricsData>({
-    queryKey: ['dashboard-metrics', userId, role, timeRange],
+    queryKey: ['dashboard-metrics', userId, role, timeRange, customDateRange],
     queryFn: async () => {
-      const response = await fetch(`${getBaseUrl()}/api/dashboard/metrics?timeRange=${timeRange}`);
+      let url = `${getBaseUrl()}/api/dashboard/metrics?timeRange=${timeRange}`;
+      if (timeRange === 'custom' && customDateRange) {
+        url += `&startDate=${customDateRange.startDate}&endDate=${customDateRange.endDate}`;
+      }
+      const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch metrics');
       return response.json();
     },

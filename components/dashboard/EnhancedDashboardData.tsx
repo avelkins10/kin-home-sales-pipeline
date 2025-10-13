@@ -11,13 +11,18 @@ interface EnhancedDashboardDataProps {
   userId: string;
   role: string;
   timeRange: TimeRange;
+  customDateRange?: { startDate: string; endDate: string };
 }
 
-export function EnhancedDashboardData({ userId, role, timeRange }: EnhancedDashboardDataProps) {
+export function EnhancedDashboardData({ userId, role, timeRange, customDateRange }: EnhancedDashboardDataProps) {
   const { data, isLoading, error } = useQuery<EnhancedDashboardMetrics>({
-    queryKey: ['dashboard-metrics', userId, role, timeRange],
+    queryKey: ['dashboard-metrics', userId, role, timeRange, customDateRange],
     queryFn: async () => {
-      const response = await fetch(`/api/dashboard/metrics?timeRange=${timeRange}`);
+      let url = `/api/dashboard/metrics?timeRange=${timeRange}`;
+      if (timeRange === 'custom' && customDateRange) {
+        url += `&startDate=${customDateRange.startDate}&endDate=${customDateRange.endDate}`;
+      }
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error('Failed to fetch dashboard metrics');
       }
