@@ -19,9 +19,49 @@ interface HoldManagementCardProps {
   project: QuickbaseProject
 }
 
+// Helper function to clean and parse hold reason from QuickBase
+function parseHoldReason(rawReason: string): string {
+  if (!rawReason) return ''
+
+  // Known hold types to look for
+  const holdTypes = [
+    'Finance Hold',
+    'Roof Hold',
+    'HOA Hold',
+    'Customer Hold',
+    'Site Survey Hold',
+    'Engineering Hold',
+    'Permitting Hold',
+    'Intake Hold',
+    'Welcome Call Hold'
+  ]
+
+  // Check if any known hold type is in the text
+  for (const type of holdTypes) {
+    if (rawReason.includes(type)) {
+      return type
+    }
+  }
+
+  // Strip out URLs, placeholders, and common QuickBase artifacts
+  let cleaned = rawReason
+    .replace(/Placeholder:\/\/[^\s]+/gi, '') // Remove Placeholder:// URLs
+    .replace(/https?:\/\/[^\s]+/gi, '') // Remove regular URLs
+    .replace(/by:[\s\S]*$/i, '') // Remove "by: ..." signatures
+    .split('\n')[0] // Take first line only
+    .trim()
+
+  // If what's left is just a number (record ID), return generic message
+  if (/^\d+$/.test(cleaned)) {
+    return 'Project on hold'
+  }
+
+  return cleaned || 'Project on hold'
+}
+
 export function HoldManagementCard({ project }: HoldManagementCardProps) {
   const queryClient = useQueryClient()
-  
+
   // State
   const [holdReason, setHoldReason] = useState('')
   const [blockReason, setBlockReason] = useState('')
@@ -33,7 +73,8 @@ export function HoldManagementCard({ project }: HoldManagementCardProps) {
   // Extract project data
   const recordId = project[PROJECT_FIELDS.RECORD_ID]?.value
   const projectStatus = project[PROJECT_FIELDS.PROJECT_STATUS]?.value || ''
-  const currentHoldReason = project[PROJECT_FIELDS.HOLD_REASON]?.value || ''
+  const rawHoldReason = project[PROJECT_FIELDS.HOLD_REASON]?.value || ''
+  const currentHoldReason = parseHoldReason(rawHoldReason) // Clean the hold reason
   const currentBlockReason = project[PROJECT_FIELDS.BLOCK_REASON]?.value || ''
   const dateOnHold = project[PROJECT_FIELDS.DATE_ON_HOLD]?.value
   const userWhoPlacedHold = project[PROJECT_FIELDS.USER_PLACED_ON_HOLD]?.value || ''
@@ -44,7 +85,7 @@ export function HoldManagementCard({ project }: HoldManagementCardProps) {
 
   // Project is on hold if checkbox is checked OR there's a hold reason
   // This catches holds like "Finance Hold", "Roof Hold", "HOA Hold", "Customer Hold", etc.
-  const onHold = project[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes' || !!currentHoldReason
+  const onHold = project[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes' || !!rawHoldReason
 
   // Online/offline listeners
   useEffect(() => {
@@ -156,7 +197,8 @@ export function HoldManagementCard({ project }: HoldManagementCardProps) {
 
   const openDialog = (isUpdate = false) => {
     if (isUpdate) {
-      setHoldReason(currentHoldReason)
+      // When updating, use raw reason so user can see/edit the full original text
+      setHoldReason(rawHoldReason)
       setBlockReason(currentBlockReason)
     } else {
       setHoldReason('')
