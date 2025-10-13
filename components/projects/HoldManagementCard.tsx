@@ -33,7 +33,6 @@ export function HoldManagementCard({ project }: HoldManagementCardProps) {
   // Extract project data
   const recordId = project[PROJECT_FIELDS.RECORD_ID]?.value
   const projectStatus = project[PROJECT_FIELDS.PROJECT_STATUS]?.value || ''
-  const onHold = project[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes'
   const currentHoldReason = project[PROJECT_FIELDS.HOLD_REASON]?.value || ''
   const currentBlockReason = project[PROJECT_FIELDS.BLOCK_REASON]?.value || ''
   const dateOnHold = project[PROJECT_FIELDS.DATE_ON_HOLD]?.value
@@ -42,6 +41,10 @@ export function HoldManagementCard({ project }: HoldManagementCardProps) {
   // Check if project is in a terminal state (cannot be modified)
   const terminalStates = ['Rejected', 'Cancelled', 'Completed', 'Complete']
   const isTerminalState = terminalStates.includes(projectStatus)
+
+  // Project is on hold if checkbox is checked OR there's a hold reason
+  // This catches holds like "Finance Hold", "Roof Hold", "HOA Hold", "Customer Hold", etc.
+  const onHold = project[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes' || !!currentHoldReason
 
   // Online/offline listeners
   useEffect(() => {
