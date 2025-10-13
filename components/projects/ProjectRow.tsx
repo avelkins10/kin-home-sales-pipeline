@@ -9,6 +9,7 @@ import { QuickbaseProject } from '@/lib/types/project';
 import { TrafficLightPipeline } from './TrafficLightPipeline';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from './StatusBadge';
+import { RejectionReasonBadge } from './RejectionReasonBadge';
 import { UnreadBadge } from '@/components/ui/UnreadBadge';
 import { useProjectUnreadCount } from '@/lib/hooks/useNotifications';
 import { parseCustomerName, getProjectAge } from '@/lib/utils/project-helpers';
@@ -59,6 +60,10 @@ export function ProjectRow({ project }: ProjectRowProps) {
   const projectAge = getProjectAge(project);
   const completionPercentage = getProjectCompletionPercentage(project, config);
 
+  // Get rejection reasons for rejected projects
+  const isRejected = projectStatus.toLowerCase().includes('reject');
+  const rejectionReasons = project[PROJECT_FIELDS.INTAKE_MISSING_ITEMS_COMBINED]?.value || null;
+
   // Format sales date
   const formatSalesDate = (date: string) => {
     if (!date) return '';
@@ -108,6 +113,9 @@ export function ProjectRow({ project }: ProjectRowProps) {
                 <UnreadBadge count={unreadCount} variant="default" size="small" />
               )}
             </div>
+            {isRejected && rejectionReasons && (
+              <RejectionReasonBadge reasons={rejectionReasons} />
+            )}
             <div className="flex items-center gap-1 text-sm text-slate-600">
               <MapPin className="h-3.5 w-3.5" />
               <span>{customerAddress}</span>

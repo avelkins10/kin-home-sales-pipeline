@@ -15,31 +15,46 @@ export function TeamMembersCard({ project }: TeamMembersCardProps) {
   // Extract team member data
   const closerName = project[PROJECT_FIELDS.CLOSER_NAME]?.value || ''
   const closerId = project[PROJECT_FIELDS.CLOSER_ID]?.value || ''
+  const closerEmail = project[PROJECT_FIELDS.CLOSER_EMAIL]?.value || ''
+  const closerPhone = project[PROJECT_FIELDS.CLOSER_PHONE]?.value || ''
+
   const setterName = project[PROJECT_FIELDS.SETTER_NAME]?.value || ''
   const setterId = project[PROJECT_FIELDS.SETTER_ID]?.value || ''
+  const setterEmail = project[PROJECT_FIELDS.SETTER_EMAIL]?.value || ''
+  const setterPhone = project[PROJECT_FIELDS.SETTER_PHONE]?.value || ''
+
   const coordinatorName = project[PROJECT_FIELDS.PROJECT_COORDINATOR]?.value || ''
   const coordinatorId = project[PROJECT_FIELDS.PROJECT_COORDINATOR_ID]?.value || ''
+  const coordinatorEmail = project[PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL]?.value || ''
+  const coordinatorPhone = project[PROJECT_FIELDS.PROJECT_COORDINATOR_PHONE]?.value || ''
+
   const salesOffice = project[PROJECT_FIELDS.SALES_OFFICE]?.value || ''
 
-  // Team members array
+  // Team members array with actual contact information
   const teamMembers = [
     {
       role: 'Closer',
       name: closerName,
       id: closerId,
-      hasContact: false // Quickbase doesn't store phone/email for team members
+      email: closerEmail,
+      phone: closerPhone,
+      hasContact: !!(closerEmail || closerPhone)
     },
     {
       role: 'Setter',
       name: setterName,
       id: setterId,
-      hasContact: false
+      email: setterEmail,
+      phone: setterPhone,
+      hasContact: !!(setterEmail || setterPhone)
     },
     {
       role: 'Coordinator',
       name: coordinatorName,
       id: coordinatorId,
-      hasContact: false
+      email: coordinatorEmail,
+      phone: coordinatorPhone,
+      hasContact: !!(coordinatorEmail || coordinatorPhone)
     }
   ].filter(member => member.name) // Only show members with names
 

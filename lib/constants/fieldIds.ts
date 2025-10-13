@@ -50,7 +50,7 @@ export const PROJECT_FIELDS = {
   SOLD_GROSS_PPW: 2292,            // ✅ PRIMARY - 0% - Sold PPW
   SOLD_NET_PPW: 2293,              // ✅ PRIMARY - 3% - Sold Net PPW
 
-  // Team Members (10 fields)
+  // Team Members (12 fields)
   CLOSER_ID: 516,                  // ✅ PRIMARY - 100% - User object
   CLOSER_NAME: 517,                // ✅ PRIMARY - 100% - Display name
   CLOSER_EMAIL: 518,               // ✅ PRIMARY - ~95% - Closer email address
@@ -61,6 +61,8 @@ export const PROJECT_FIELDS = {
   SETTER_PHONE: 332,               // ✅ SECONDARY - ~75% - Setter phone number
   PROJECT_COORDINATOR_ID: 819,     // ✅ SECONDARY - 100% - User object
   PROJECT_COORDINATOR: 820,        // ✅ SECONDARY - 100% - Display name
+  PROJECT_COORDINATOR_EMAIL: 822,  // ⚠️ LOW - 1.3% - Coordinator email address
+  PROJECT_COORDINATOR_PHONE: 821,  // ⚠️ LOW - 1.3% - Coordinator phone number
 
   // Office/Region (2 fields)
   SALES_OFFICE: 2087,              // ✅ PRIMARY - 100% - For office filtering
@@ -129,6 +131,9 @@ export const PROJECT_FIELDS = {
 
   // Intake Helper (1 field)
   INTAKE_INSTALL_DATE_TENTATIVE: 902, // ⭐ CRITICAL - 100% - Tentative install date set at intake
+
+  // Intake Rejection (1 field)
+  INTAKE_MISSING_ITEMS_COMBINED: 1871, // ✅ PRIMARY - Multitext - Intake rejection reasons
 
   // ============================================================
   // MILESTONE 2: SURVEY
