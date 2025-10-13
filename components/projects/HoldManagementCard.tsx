@@ -20,8 +20,13 @@ interface HoldManagementCardProps {
 }
 
 // Helper function to clean and parse hold reason from QuickBase
-function parseHoldReason(rawReason: string): string {
+function parseHoldReason(rawReason: any): string {
+  // Type guard: ensure we have a string to work with
   if (!rawReason) return ''
+
+  // Convert to string if it's not already
+  const reasonStr = typeof rawReason === 'string' ? rawReason : String(rawReason)
+  if (!reasonStr || reasonStr === 'undefined' || reasonStr === 'null') return ''
 
   // Known hold types to look for
   const holdTypes = [
@@ -38,13 +43,13 @@ function parseHoldReason(rawReason: string): string {
 
   // Check if any known hold type is in the text
   for (const type of holdTypes) {
-    if (rawReason.includes(type)) {
+    if (reasonStr.includes(type)) {
       return type
     }
   }
 
   // Strip out URLs, placeholders, and common QuickBase artifacts
-  let cleaned = rawReason
+  let cleaned = reasonStr
     .replace(/Placeholder:\/\/[^\s]+/gi, '') // Remove Placeholder:// URLs
     .replace(/https?:\/\/[^\s]+/gi, '') // Remove regular URLs
     .replace(/by:[\s\S]*$/i, '') // Remove "by: ..." signatures
