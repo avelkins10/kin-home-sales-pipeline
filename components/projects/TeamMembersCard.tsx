@@ -94,22 +94,28 @@ export function TeamMembersCard({ project }: TeamMembersCardProps) {
                   {/* Action Buttons */}
                   <div className="flex gap-1">
                     <Button
+                      asChild
                       variant="ghost"
                       size="sm"
-                      disabled={!member.hasContact}
+                      disabled={!member.phone}
                       className="h-8 w-8 p-0"
-                      title={member.hasContact ? `Call ${member.name}` : 'Contact via Quickbase'}
+                      title={member.phone ? `Call ${member.name}` : 'Phone number not available'}
                     >
-                      <Phone className="w-4 h-4" />
+                      <a href={member.phone ? `tel:${member.phone}` : '#'}>
+                        <Phone className="w-4 h-4" />
+                      </a>
                     </Button>
                     <Button
+                      asChild
                       variant="ghost"
                       size="sm"
-                      disabled={!member.hasContact}
+                      disabled={!member.email}
                       className="h-8 w-8 p-0"
-                      title={member.hasContact ? `Email ${member.name}` : 'Contact via Quickbase'}
+                      title={member.email ? `Email ${member.name}` : 'Email not available'}
                     >
-                      <Mail className="w-4 h-4" />
+                      <a href={member.email ? `mailto:${member.email}` : '#'}>
+                        <Mail className="w-4 h-4" />
+                      </a>
                     </Button>
                   </div>
                 </div>
@@ -129,10 +135,10 @@ export function TeamMembersCard({ project }: TeamMembersCardProps) {
         )}
 
         {/* Contact Note */}
-        {teamMembers.length > 0 && (
+        {teamMembers.length > 0 && teamMembers.some(m => !m.hasContact) && (
           <div className="mt-4 p-3 bg-gray-50 rounded-lg">
             <p className="text-xs text-gray-600">
-              Contact team members through Quickbase for phone and email information.
+              Some contact information may not be available. Check Quickbase for additional details.
             </p>
           </div>
         )}

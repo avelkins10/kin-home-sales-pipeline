@@ -3,15 +3,19 @@
 import { AlertTriangle } from 'lucide-react';
 
 interface RejectionReasonBadgeProps {
-  reasons: string | null | undefined;
+  reasons: string | number | null | undefined | any;
   className?: string;
 }
 
 export function RejectionReasonBadge({ reasons, className = '' }: RejectionReasonBadgeProps) {
   if (!reasons) return null;
 
+  // Convert to string if needed (handle various QuickBase data types)
+  const reasonsStr = typeof reasons === 'string' ? reasons : String(reasons);
+  if (!reasonsStr || reasonsStr === 'null' || reasonsStr === 'undefined') return null;
+
   // Parse multitext field (could be newline or semicolon separated)
-  const reasonsList = reasons
+  const reasonsList = reasonsStr
     .split(/[\n;]/)
     .map(r => r.trim())
     .filter(r => r.length > 0);

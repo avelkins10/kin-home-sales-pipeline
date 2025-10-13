@@ -62,7 +62,7 @@ export function ProjectRow({ project }: ProjectRowProps) {
 
   // Get rejection reasons for rejected projects
   const isRejected = projectStatus.toLowerCase().includes('reject');
-  const rejectionReasons = project[PROJECT_FIELDS.INTAKE_MISSING_ITEMS_COMBINED]?.value || null;
+  const rejectionReasons = project[PROJECT_FIELDS.INTAKE_MISSING_ITEMS_COMBINED]?.value ?? null;
 
   // Format sales date
   const formatSalesDate = (date: string) => {
