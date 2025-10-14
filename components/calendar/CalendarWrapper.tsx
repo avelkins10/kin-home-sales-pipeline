@@ -49,6 +49,7 @@ const CustomToolbar = ({ label, onNavigate, onView, view }: CustomToolbarProps) 
           size="sm"
           onClick={() => onNavigate('PREV')}
           className="h-8 w-8 p-0"
+          data-testid="calendar-nav-prev"
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -57,6 +58,7 @@ const CustomToolbar = ({ label, onNavigate, onView, view }: CustomToolbarProps) 
           size="sm"
           onClick={() => onNavigate('TODAY')}
           className="h-8 px-3"
+          data-testid="calendar-nav-today"
         >
           Today
         </Button>
@@ -65,10 +67,11 @@ const CustomToolbar = ({ label, onNavigate, onView, view }: CustomToolbarProps) 
           size="sm"
           onClick={() => onNavigate('NEXT')}
           className="h-8 w-8 p-0"
+          data-testid="calendar-nav-next"
         >
           <ChevronRight className="h-4 w-4" />
         </Button>
-        <div className="ml-4 text-lg font-semibold text-slate-900">
+        <div className="ml-4 text-lg font-semibold text-slate-900" data-testid="calendar-current-label">
           {label}
         </div>
       </div>
@@ -80,6 +83,7 @@ const CustomToolbar = ({ label, onNavigate, onView, view }: CustomToolbarProps) 
           size="sm"
           onClick={() => onView('month')}
           className="h-8 px-3"
+          data-testid="calendar-view-month"
         >
           Month
         </Button>
@@ -88,6 +92,7 @@ const CustomToolbar = ({ label, onNavigate, onView, view }: CustomToolbarProps) 
           size="sm"
           onClick={() => onView('week')}
           className="h-8 px-3"
+          data-testid="calendar-view-week"
         >
           Week
         </Button>
@@ -96,6 +101,7 @@ const CustomToolbar = ({ label, onNavigate, onView, view }: CustomToolbarProps) 
           size="sm"
           onClick={() => onView('day')}
           className="h-8 px-3"
+          data-testid="calendar-view-day"
         >
           Day
         </Button>
@@ -104,24 +110,30 @@ const CustomToolbar = ({ label, onNavigate, onView, view }: CustomToolbarProps) 
   )
 }
 
-export const CalendarWrapper = ({ 
-  events, 
-  onSelectEvent, 
-  eventPropGetter, 
+export const CalendarWrapper = ({
+  events,
+  onSelectEvent,
+  eventPropGetter,
   className,
   components
 }: CalendarWrapperProps) => {
   const [currentView, setCurrentView] = useState<'month' | 'week' | 'day'>('month')
 
+  const handleViewChange = (view: any) => {
+    if (view === 'month' || view === 'week' || view === 'day') {
+      setCurrentView(view)
+    }
+  }
+
   return (
-    <div className={cn('bg-white rounded-lg border shadow-sm p-6', className)}>
+    <div className={cn('bg-white rounded-lg border shadow-sm p-6', className)} data-testid="calendar-wrapper">
       <Calendar
         localizer={localizer}
         events={events}
         startAccessor="start"
         endAccessor="end"
         view={currentView}
-        onView={setCurrentView}
+        onView={handleViewChange}
         views={['month', 'week', 'day']}
         components={{ toolbar: CustomToolbar, ...(components || {}) }}
         onSelectEvent={onSelectEvent}

@@ -15,6 +15,7 @@ import { CalendarEvent } from '@/lib/utils/calendar-helpers'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { AlertCircle, RefreshCw } from 'lucide-react'
+import { statusColorMap } from '@/lib/constants/designTokens'
 
 interface CalendarPageProps {
   searchParams: {
@@ -25,32 +26,16 @@ interface CalendarPageProps {
 }
 
 export default function CalendarPage({ searchParams }: CalendarPageProps) {
-  const { data: session, status } = useSession()
+  const { data: session, status: authStatus } = useSession()
   const router = useRouter()
   const searchParamsHook = useSearchParams()
-  
+
   // State management
   const [eventType, setEventType] = useState(searchParams.eventType || 'both')
   const [status, setStatus] = useState(searchParams.status || 'all')
   const ownership = searchParams.ownership || 'all'
 
-  // Authentication check
-  if (status === 'loading') {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-slate-600">Loading...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!session) {
-    redirect('/login')
-  }
-
-  // Data fetching
+  // Data fetching - called before any returns
   const {
     data: events = [],
     isLoading,
@@ -61,7 +46,7 @@ export default function CalendarPage({ searchParams }: CalendarPageProps) {
     queryFn: async () => {
       const params = new URLSearchParams()
       if (ownership !== 'all') params.append('ownership', ownership)
-      
+
       const response = await fetch(`/api/calendar/events?${params.toString()}`)
       if (!response.ok) {
         throw new Error('Failed to fetch calendar events')
@@ -95,41 +80,34 @@ export default function CalendarPage({ searchParams }: CalendarPageProps) {
     })
   }, [filteredEvents])
 
+  // Authentication check - after all hooks
+  if (authStatus === 'loading') {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!session) {
+    redirect('/login')
+  }
+
   // Event styling
   const eventPropGetter = (event: any) => {
     const { resource } = event
-    let backgroundColor = ''
-    let borderColor = ''
-    let color = ''
-
-    switch (resource.status) {
-      case 'scheduled':
-        backgroundColor = '#dbeafe'
-        borderColor = '#3b82f6'
-        color = '#1e40af'
-        break
-      case 'completed':
-        backgroundColor = '#dcfce7'
-        borderColor = '#22c55e'
-        color = '#15803d'
-        break
-      case 'pending':
-        backgroundColor = '#fef3c7'
-        borderColor = '#f59e0b'
-        color = '#d97706'
-        break
-      default:
-        backgroundColor = '#f1f5f9'
-        borderColor = '#64748b'
-        color = '#475569'
-    }
+    const status = resource.status as keyof typeof statusColorMap
+    const colors = statusColorMap[status] || statusColorMap.default
 
     return {
       style: {
-        backgroundColor,
-        borderColor,
-        color,
-        border: `1px solid ${borderColor}`,
+        backgroundColor: colors.background,
+        borderColor: colors.border,
+        color: colors.text,
+        border: `1px solid ${colors.border}`,
         borderRadius: '4px',
         fontSize: '12px',
         padding: '2px 4px'
@@ -150,8 +128,8 @@ export default function CalendarPage({ searchParams }: CalendarPageProps) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-slate-900">Calendar</h1>
-          <p className="text-sm text-slate-600 mt-1">
+          <h1 data-testid="calendar-page-title" className="text-2xl font-bold text-slate-900">Calendar</h1>
+          <p data-testid="calendar-page-subtitle" className="text-sm text-slate-600 mt-1">
             View scheduled site surveys and installations
           </p>
         </div>
@@ -169,7 +147,7 @@ export default function CalendarPage({ searchParams }: CalendarPageProps) {
         {isLoading ? (
           <CalendarSkeleton />
         ) : error ? (
-          <Alert variant="destructive">
+          <Alert variant="destructive" data-testid="calendar-error-alert">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription className="flex items-center justify-between">
               <span>Failed to load calendar events. Please try again.</span>
@@ -178,6 +156,7 @@ export default function CalendarPage({ searchParams }: CalendarPageProps) {
                 size="sm"
                 onClick={() => refetch()}
                 className="ml-4"
+                data-testid="calendar-retry-button"
               >
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Retry

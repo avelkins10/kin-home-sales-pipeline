@@ -8,18 +8,14 @@ export const createUserSchema = z.object({
   phone: z.string().optional(),
   role: roleEnum,
   quickbaseUserId: z.string().optional(),
-  office: z.string().optional().refine((office) => !office || isValidOffice(office), {
-    message: 'Invalid office name. Must be a canonical office from the approved list.',
-  }),
+  office: z.string().optional(), // Allow any office name from QuickBase
   region: z.string().optional(),
   temporaryPassword: z.string().min(8, 'Password must be at least 8 characters'),
   // Hierarchy and management fields
   managedBy: z.string().uuid().optional(),
   manages: z.array(z.string().uuid()).optional(),
   officeAccess: z.array(z.object({
-    officeName: z.string().refine((name) => isValidOffice(name), {
-      message: 'Invalid office name. Must be a canonical office from the approved list.',
-    }),
+    officeName: z.string(), // Allow any office name from QuickBase
     accessLevel: z.enum(['view', 'manage', 'admin']),
   })).optional(),
 })
@@ -29,18 +25,14 @@ export const updateUserSchema = z.object({
   email: z.string().email().optional(),
   phone: z.string().optional(),
   role: roleEnum.optional(),
-  office: z.string().optional().refine((office) => !office || isValidOffice(office), {
-    message: 'Invalid office name. Must be a canonical office from the approved list.',
-  }),
+  office: z.string().optional(), // Allow any office name from QuickBase
   region: z.string().optional(),
   isActive: z.boolean().optional(),
   // Hierarchy and management fields
   managedBy: z.string().uuid().nullable().optional(),
   manages: z.array(z.string().uuid()).optional(),
   officeAccess: z.array(z.object({
-    officeName: z.string().refine((name) => isValidOffice(name), {
-      message: 'Invalid office name. Must be a canonical office from the approved list.',
-    }),
+    officeName: z.string(), // Allow any office name from QuickBase
     accessLevel: z.enum(['view', 'manage', 'admin']),
   })).optional(),
 })
@@ -49,12 +41,8 @@ export const inviteUserSchema = z.object({
   email: z.string().email('Invalid email address'),
   name: z.string().min(2, 'Name must be at least 2 characters').max(100),
   role: roleEnum,
-  office: z.string().optional().refine((office) => !office || isValidOffice(office), {
-    message: 'Invalid office name. Must be a canonical office from the approved list.',
-  }),
-  offices: z.array(z.string()).optional().refine((offices) => !offices || offices.every(isValidOffice), {
-    message: 'Invalid office names. All offices must be canonical offices from the approved list.',
-  }), // For area directors/divisionals
+  office: z.string().optional(), // Allow any office name from QuickBase
+  offices: z.array(z.string()).optional(), // For area directors/divisionals - allow any office names
   sendEmail: z.boolean(),
 })
 
@@ -68,9 +56,7 @@ export const assignTeamLeadSchema = z.object({
 
 export const officeAccessSchema = z.object({
   userId: z.string().uuid('Invalid user ID'),
-  officeNames: z.array(z.string()).min(1, 'At least one office is required').refine((offices) => offices.every(isValidOffice), {
-    message: 'Invalid office names. All offices must be canonical offices from the approved list.',
-  }),
+  officeNames: z.array(z.string()).min(1, 'At least one office is required'), // Allow any office names from QuickBase
   accessLevel: z.enum(['view', 'manage', 'admin']),
 })
 
@@ -80,17 +66,13 @@ export const quickbaseLookupSchema = z.object({
 })
 
 export const createOfficeSchema = z.object({
-  name: z.string().min(1, 'Office name is required').max(100).refine((name) => isValidOffice(name), {
-    message: 'Invalid office name. Must be a canonical office from the approved list.',
-  }),
+  name: z.string().min(1, 'Office name is required').max(100), // Allow any office name from QuickBase
   region: regionEnum,
   leaderId: z.string().optional(),
 })
 
 export const updateOfficeSchema = z.object({
-  name: z.string().min(1).max(100).optional().refine((name) => !name || isValidOffice(name), {
-    message: 'Invalid office name. Must be a canonical office from the approved list.',
-  }),
+  name: z.string().min(1).max(100).optional(), // Allow any office name from QuickBase
   region: regionEnum.optional(),
   leaderId: z.string().optional(),
   isActive: z.boolean().optional(),
