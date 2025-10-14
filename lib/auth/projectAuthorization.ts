@@ -118,21 +118,21 @@ export function hasUnrestrictedAccess(session: Session): boolean {
  *
  * @param userEmail - User's email (from database, not session directly)
  * @param role - User's role
- * @param salesOffice - Assigned offices for office-based roles
+ * @param officeIds - Assigned office IDs (QuickBase Record IDs from Field 810) for office-based roles
  * @param managedEmails - Managed user emails for team leads
  * @returns QuickBase WHERE clause string
  */
 export function buildProjectAccessClause(
   userEmail: string | null,
   role: string,
-  salesOffice?: string[],
+  officeIds?: number[],
   managedEmails?: string[],
   reqId?: string
 ): string {
   logInfo('[PROJECT_AUTHORIZATION] Building access clause', {
     role,
-    officeCount: salesOffice?.length || 0,
-    offices: salesOffice,
+    officeCount: officeIds?.length || 0,
+    officeIds: officeIds,
     managedEmailCount: managedEmails?.length || 0,
     reqId
   });
@@ -156,17 +156,18 @@ export function buildProjectAccessClause(
       .join(' OR ');
   };
 
-  const buildOfficeClause = (offices: string[]) => {
-    if (offices.length === 1) {
-      // Sanitize office name for QB query (escape single quotes)
-      const sanitizedOffice = offices[0].replace(/'/g, "''");
-      return `{${PROJECT_FIELDS.SALES_OFFICE}.EX.'${sanitizedOffice}'}`;
+  const buildOfficeClause = (officeIds: number[]) => {
+    if (officeIds.length === 0) {
+      return '{3.EQ.0}'; // No offices = no projects
     }
-    // Multiple offices joined with OR
-    return offices
-      .map((office) => {
-        const sanitizedOffice = office.replace(/'/g, "''");
-        return `{${PROJECT_FIELDS.SALES_OFFICE}.EX.'${sanitizedOffice}'}`;
+    if (officeIds.length === 1) {
+      // Use Field 810 (OFFICE_RECORD_ID) for stable ID-based filtering
+      return `{${PROJECT_FIELDS.OFFICE_RECORD_ID}.EX.${officeIds[0]}}`;
+    }
+    // Multiple office IDs joined with OR
+    return officeIds
+      .map((officeId) => {
+        return `{${PROJECT_FIELDS.OFFICE_RECORD_ID}.EX.${officeId}}`;
       })
       .join(' OR ');
   };
@@ -183,14 +184,15 @@ export function buildProjectAccessClause(
     case 'area_director':
     case 'divisional':
       // Office-based roles see ALL projects in their assigned offices
-      // This filters by project.sales_office, NOT by user.is_active
+      // This filters by Field 810 (OFFICE_RECORD_ID), NOT by user.is_active
       // This means managers see projects even if the closer/setter doesn't have an active account
-      if (salesOffice && salesOffice.length > 0) {
-        clause = buildOfficeClause(salesOffice);
+      // Uses stable QuickBase Record IDs that don't change when office names are updated
+      if (officeIds && officeIds.length > 0) {
+        clause = buildOfficeClause(officeIds);
         logInfo('[PROJECT_AUTHORIZATION] Office-based role with assigned offices', {
           role,
-          offices: salesOffice,
-          officeCount: salesOffice.length,
+          officeIds: officeIds,
+          officeCount: officeIds.length,
           clauseLength: clause.length
         });
       } else {

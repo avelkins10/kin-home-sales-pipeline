@@ -178,8 +178,9 @@ async function getManagedUserEmails(managerId: string): Promise<string[]> {
   }
 }
 
-// Helper function to get assigned offices for managers
-async function getAssignedOffices(userId: string): Promise<string[]> {
+// Helper function to get assigned office IDs for managers
+// Returns QuickBase Record IDs (Field 810) for stable filtering that survives office name changes
+async function getAssignedOffices(userId: string): Promise<number[]> {
   // Input validation
   if (!userId || typeof userId !== 'string' || userId.trim() === '') {
     console.warn('[getAssignedOffices] Invalid userId provided:', typeof userId, userId);
@@ -189,21 +190,28 @@ async function getAssignedOffices(userId: string): Promise<string[]> {
   if (process.env.NODE_ENV !== 'production') {
     console.log('[getAssignedOffices] Getting assigned offices for user:', userId);
   }
-  
+
   try {
     const result = await sql`
-      SELECT office_name 
-      FROM office_assignments 
-      WHERE user_id = ${userId}
+      SELECT o.quickbase_office_id, o.name as office_name
+      FROM office_assignments oa
+      JOIN offices o ON oa.office_name = o.name
+      WHERE oa.user_id = ${userId}
+        AND o.quickbase_office_id IS NOT NULL
     `;
-    
-    const assignedOffices = result.rows.map(row => row.office_name);
+
+    const assignedOfficeIds = result.rows.map(row => row.quickbase_office_id);
     if (process.env.NODE_ENV !== 'production') {
-      logInfo('[OFFICE_ASSIGNMENT_RESOLUTION] Resolved offices', { userId, officeCount: assignedOffices.length, offices: assignedOffices });
+      logInfo('[OFFICE_ASSIGNMENT_RESOLUTION] Resolved offices', {
+        userId,
+        officeCount: assignedOfficeIds.length,
+        officeIds: assignedOfficeIds,
+        officeNames: result.rows.map(r => r.office_name)
+      });
     } else {
-      logInfo('[OFFICE_ASSIGNMENT_RESOLUTION] Resolved offices', { userId, officeCount: assignedOffices.length });
+      logInfo('[OFFICE_ASSIGNMENT_RESOLUTION] Resolved offices', { userId, officeCount: assignedOfficeIds.length });
     }
-    return assignedOffices;
+    return assignedOfficeIds;
   } catch (error) {
     console.error('[getAssignedOffices] Error:', error);
     logError('Failed to get assigned offices', error as Error, { userId });
@@ -220,7 +228,7 @@ async function getAssignedOffices(userId: string): Promise<string[]> {
 export function buildRoleClause(
   userEmail: string | null,
   role: string,
-  salesOffice?: string[],
+  officeIds?: number[],
   managedEmails?: string[]
 ): string {
   // Log deprecation warning once per process start
@@ -233,15 +241,15 @@ export function buildRoleClause(
   }
 
   // Delegate to centralized authorization module
-  return buildProjectAccessClause(userEmail, role, salesOffice, managedEmails);
+  return buildProjectAccessClause(userEmail, role, officeIds, managedEmails);
 }
 
 /**
  * Lean selector for list view - only essential fields for performance
- * @param salesOffice - (Deprecated) Offices to filter by. If not provided, will be fetched from office_assignments table for office-based roles. Passing this parameter is discouraged as it may contain stale data.
+ * @param officeIds - Office IDs to filter by (QuickBase Record IDs from Field 810). If not provided, will be fetched from office_assignments table for office-based roles.
  */
-export async function getProjectsForUserList(userId: string, role: string, view?: string, search?: string, sort?: string, salesOffice?: string[], memberEmail?: string, ownership?: string, officeFilter?: string, setterFilter?: string, closerFilter?: string, reqId?: string) {
-  console.log('[getProjectsForUserList] START - userId:', userId, 'role:', role, 'view:', view, 'search:', search, 'sort:', sort, 'ownership:', ownership, 'officeFilter:', officeFilter, 'setterFilter:', setterFilter, 'closerFilter:', closerFilter, 'salesOffice:', salesOffice, 'reqId:', reqId);
+export async function getProjectsForUserList(userId: string, role: string, view?: string, search?: string, sort?: string, officeIds?: number[], memberEmail?: string, ownership?: string, officeFilter?: string, setterFilter?: string, closerFilter?: string, reqId?: string) {
+  console.log('[getProjectsForUserList] START - userId:', userId, 'role:', role, 'view:', view, 'search:', search, 'sort:', sort, 'ownership:', ownership, 'officeFilter:', officeFilter, 'setterFilter:', setterFilter, 'closerFilter:', closerFilter, 'officeIds:', officeIds, 'reqId:', reqId);
 
   // Get user email for email-based filtering (needed for ownership filter)
   let userEmail: string | null = null;
@@ -255,22 +263,22 @@ export async function getProjectsForUserList(userId: string, role: string, view?
     managedEmails = await getManagedUserEmails(userId);
   }
 
-  // Get assigned offices for office-based roles if no offices provided
-  let effectiveSalesOffice = salesOffice;
-  if (!effectiveSalesOffice && ['office_leader', 'area_director', 'divisional'].includes(role)) {
-    effectiveSalesOffice = await getAssignedOffices(userId);
-    logInfo('[PROJECT_QUERY] Fetched offices from database', { userId, role, officeCount: effectiveSalesOffice?.length || 0 });
-  } else if (effectiveSalesOffice) {
-    logInfo('[PROJECT_QUERY] Using provided offices (not fetching from DB)', { userId, role, officeCount: effectiveSalesOffice?.length || 0 });
+  // Get assigned office IDs for office-based roles if not provided
+  let effectiveOfficeIds = officeIds;
+  if (!effectiveOfficeIds && ['office_leader', 'area_director', 'divisional'].includes(role)) {
+    effectiveOfficeIds = await getAssignedOffices(userId);
+    logInfo('[PROJECT_QUERY] Fetched offices from database', { userId, role, officeCount: effectiveOfficeIds?.length || 0 });
+  } else if (effectiveOfficeIds) {
+    logInfo('[PROJECT_QUERY] Using provided offices (not fetching from DB)', { userId, role, officeCount: effectiveOfficeIds?.length || 0 });
   }
 
   // Check for empty office assignments for office-based roles
-  if (['office_leader', 'area_director', 'divisional'].includes(role) && (!effectiveSalesOffice || effectiveSalesOffice.length === 0)) {
+  if (['office_leader', 'area_director', 'divisional'].includes(role) && (!effectiveOfficeIds || effectiveOfficeIds.length === 0)) {
     logWarn('[OFFICE_ASSIGNMENT_RESOLUTION] No offices assigned to office-based role', { userId, role });
   }
 
-  // Build role-based where clause using shared helper (now email-based)
-  const roleClause = buildProjectAccessClause(userEmail, role, effectiveSalesOffice, managedEmails, reqId);
+  // Build role-based where clause using shared helper (now ID-based)
+  const roleClause = buildProjectAccessClause(userEmail, role, effectiveOfficeIds, managedEmails, reqId);
 
   // Add member email filter if provided (for team member drill-down)
   let memberEmailFilter: string | undefined;
@@ -450,8 +458,8 @@ export async function getProjectsForUserList(userId: string, role: string, view?
   }
 }
 
-export async function getProjectsForUser(userId: string, role: string, view?: string, search?: string, sort?: string, salesOffice?: string[]) {
-  console.log('[getProjectsForUser] START - userId:', userId, 'role:', role, 'view:', view, 'search:', search, 'sort:', sort, 'salesOffice:', salesOffice);
+export async function getProjectsForUser(userId: string, role: string, view?: string, search?: string, sort?: string, officeIds?: number[]) {
+  console.log('[getProjectsForUser] START - userId:', userId, 'role:', role, 'view:', view, 'search:', search, 'sort:', sort, 'officeIds:', officeIds);
 
   // Get user email for email-based filtering
   let userEmail: string | null = null;
@@ -465,14 +473,14 @@ export async function getProjectsForUser(userId: string, role: string, view?: st
     managedEmails = await getManagedUserEmails(userId);
   }
 
-  // Get assigned offices for office-based roles if no offices provided
-  let effectiveSalesOffice = salesOffice;
-  if (!effectiveSalesOffice && ['office_leader', 'area_director', 'divisional'].includes(role)) {
-    effectiveSalesOffice = await getAssignedOffices(userId);
+  // Get assigned office IDs for office-based roles if not provided
+  let effectiveOfficeIds = officeIds;
+  if (!effectiveOfficeIds && ['office_leader', 'area_director', 'divisional'].includes(role)) {
+    effectiveOfficeIds = await getAssignedOffices(userId);
   }
 
-  // Build role-based where clause using shared helper (now email-based)
-  const roleClause = buildProjectAccessClause(userEmail, role, effectiveSalesOffice, managedEmails);
+  // Build role-based where clause using shared helper (now ID-based)
+  const roleClause = buildProjectAccessClause(userEmail, role, effectiveOfficeIds, managedEmails);
 
   // Build view-based filter
   const viewFilter = buildViewFilter(view);
@@ -741,8 +749,8 @@ export async function getDashboardMetrics(userId: string, role: string) {
   };
 }
 
-export async function getDashboardMetricsOptimized(userId: string, role: string, salesOffice?: string[]) {
-  console.log('[getDashboardMetricsOptimized] START - userId:', userId, 'role:', role, 'salesOffice:', salesOffice);
+export async function getDashboardMetricsOptimized(userId: string, role: string, officeIds?: number[]) {
+  console.log('[getDashboardMetricsOptimized] START - userId:', userId, 'role:', role, 'officeIds:', officeIds);
   const startTime = Date.now();
 
   // Get user email for email-based filtering
@@ -757,14 +765,14 @@ export async function getDashboardMetricsOptimized(userId: string, role: string,
     managedEmails = await getManagedUserEmails(userId);
   }
 
-  // Get assigned offices for office-based roles if no offices provided
-  let effectiveSalesOffice = salesOffice;
-  if (!effectiveSalesOffice && ['office_leader', 'area_director', 'divisional'].includes(role)) {
-    effectiveSalesOffice = await getAssignedOffices(userId);
+  // Get assigned office IDs for office-based roles if no office IDs provided
+  let effectiveOfficeIds = officeIds;
+  if (!effectiveOfficeIds && ['office_leader', 'area_director', 'divisional'].includes(role)) {
+    effectiveOfficeIds = await getAssignedOffices(userId);
   }
 
   // Use shared role scoping helper for consistency (now email-based)
-  const whereClause = buildProjectAccessClause(userEmail, role, effectiveSalesOffice, managedEmails);
+  const whereClause = buildProjectAccessClause(userEmail, role, effectiveOfficeIds, managedEmails);
   console.log('[getDashboardMetricsOptimized] WHERE clause:', whereClause);
 
   const userProjects = await qbClient.queryRecords({
@@ -858,12 +866,12 @@ export async function getEnhancedDashboardMetrics(
   userId: string,
   role: string,
   timeRange: 'lifetime' | 'month' | 'week' | 'custom' = 'lifetime',
-  salesOffice?: string[],
+  officeIds?: number[],
   customDateRange?: { startDate: string; endDate: string },
   scope: 'personal' | 'team' = 'team', // NEW PARAMETER
   reqId?: string
 ) {
-  console.log('[getEnhancedDashboardMetrics] START - userId:', userId, 'role:', role, 'timeRange:', timeRange, 'scope:', scope, 'salesOffice:', salesOffice, 'customDateRange:', customDateRange, 'reqId:', reqId);
+  console.log('[getEnhancedDashboardMetrics] START - userId:', userId, 'role:', role, 'timeRange:', timeRange, 'scope:', scope, 'officeIds:', officeIds, 'customDateRange:', customDateRange, 'reqId:', reqId);
   const startTime = Date.now();
 
   // Get user email for email-based filtering
@@ -878,10 +886,10 @@ export async function getEnhancedDashboardMetrics(
     managedEmails = await getManagedUserEmails(userId);
   }
 
-  // Get assigned offices for office-based roles if no offices provided
-  let effectiveSalesOffice = salesOffice;
-  if (!effectiveSalesOffice && ['office_leader', 'area_director', 'divisional'].includes(role)) {
-    effectiveSalesOffice = await getAssignedOffices(userId);
+  // Get assigned office IDs (QuickBase Record IDs from Field 810) for office-based roles if no office IDs provided
+  let effectiveOfficeIds = officeIds;
+  if (!effectiveOfficeIds && ['office_leader', 'area_director', 'divisional'].includes(role)) {
+    effectiveOfficeIds = await getAssignedOffices(userId);
   }
 
   // Handle personal scope for managers
@@ -889,32 +897,32 @@ export async function getEnhancedDashboardMetrics(
   if (scope === 'personal' && isManagerRole(role)) {
     // Fetch manager's personal email
     userEmail = await getUserEmail(userId);
-    
+
     // Personal scope fallback when manager email is missing
     if (!userEmail) {
       logWarn('[ENHANCED_METRICS] Personal scope fallback: manager has no email, reverting to team scope', { userId, role });
       // revert flags
       scope = 'team';
-      effectiveSalesOffice = salesOffice ?? effectiveSalesOffice;
+      effectiveOfficeIds = officeIds ?? effectiveOfficeIds;
       managedEmails = role === 'team_lead' ? (await getManagedUserEmails(userId)) : managedEmails;
     } else {
       // Override role-based filtering - treat manager as a rep
-      // This means we'll filter by their email instead of offices/managed users
-      effectiveSalesOffice = undefined;
+      // This means we'll filter by their email instead of office IDs/managed users
+      effectiveOfficeIds = undefined;
       managedEmails = undefined;
     }
-    
-    logInfo('[ENHANCED_METRICS] Personal scope requested for manager', { 
-      userId, 
-      role, 
-      hasEmail: !!userEmail 
+
+    logInfo('[ENHANCED_METRICS] Personal scope requested for manager', {
+      userId,
+      role,
+      hasEmail: !!userEmail
     });
   }
 
   // Build role-based where clause (no time filtering here, now email-based)
   // For personal scope managers, use effective role to trigger email-based filtering
   const effectiveRole = (scope === 'personal' && isManagerRole(role)) ? 'closer' : role;
-  const roleClause = buildProjectAccessClause(userEmail, effectiveRole, effectiveSalesOffice, managedEmails, reqId);
+  const roleClause = buildProjectAccessClause(userEmail, effectiveRole, effectiveOfficeIds, managedEmails, reqId);
   
   if (process.env.NODE_ENV !== 'production') {
     console.log('[getEnhancedDashboardMetrics] Role-based WHERE clause:', roleClause);
@@ -1929,9 +1937,9 @@ export const __test__ = {
   commissionCache,
 };
 
-export async function getUrgentProjects(userId: string, role: string, salesOffice?: string[]) {
-  console.log('[getUrgentProjects] START - userId:', userId, 'role:', role, 'salesOffice:', salesOffice);
-  const holds = await getProjectsOnHold(userId, role, salesOffice);
+export async function getUrgentProjects(userId: string, role: string, officeIds?: number[]) {
+  console.log('[getUrgentProjects] START - userId:', userId, 'role:', role, 'officeIds:', officeIds);
+  const holds = await getProjectsOnHold(userId, role, officeIds);
   console.log('[getUrgentProjects] Retrieved', holds?.length || 0, 'projects on hold');
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   
@@ -1957,8 +1965,8 @@ export async function getUrgentProjects(userId: string, role: string, salesOffic
   return urgentProjects;
 }
 
-export async function getRecentProjects(userId: string, role: string, salesOffice?: string[]) {
-  const projects = await getProjectsForUser(userId, role, undefined, undefined, undefined, salesOffice);
+export async function getRecentProjects(userId: string, role: string, officeIds?: number[]) {
+  const projects = await getProjectsForUser(userId, role, undefined, undefined, undefined, officeIds);
   
   const recentProjects = projects
     .filter((project: any) => {
@@ -1979,7 +1987,7 @@ export async function getRecentProjects(userId: string, role: string, salesOffic
 export async function getTeamActivityFeed(
   userId: string,
   role: string,
-  salesOffice?: string[],
+  officeIds?: number[],
   limit: number = 10,
   offset: number = 0
 ): Promise<{ activities: TeamActivityItem[]; totalCount: number; hasMore: boolean }> {
@@ -1989,13 +1997,13 @@ export async function getTeamActivityFeed(
   }
 
   // Get role-based filtering data
-  let offices: string[] = [];
+  let offices: number[] = [];
   let managedEmails: string[] = [];
-  
+
   if (role === 'office_leader') {
-    offices = salesOffice || await getAssignedOffices(userId);
+    offices = officeIds || await getAssignedOffices(userId);
   } else if (['area_director', 'divisional', 'regional'].includes(role)) {
-    offices = salesOffice || await getAssignedOffices(userId);
+    offices = officeIds || await getAssignedOffices(userId);
   } else if (role === 'team_lead') {
     managedEmails = await getManagedUserEmails(userId);
   }
@@ -2124,7 +2132,7 @@ export async function getProjectById(recordId: number) {
   return result.data[0] || null;
 }
 
-export async function getProjectsOnHold(userId: string, role: string, salesOffice?: string[]) {
+export async function getProjectsOnHold(userId: string, role: string, officeIds?: number[]) {
   // Get user email for email-based filtering
   let userEmail: string | null = null;
   if (['closer', 'setter', 'coordinator'].includes(role)) {
@@ -2137,14 +2145,14 @@ export async function getProjectsOnHold(userId: string, role: string, salesOffic
     managedEmails = await getManagedUserEmails(userId);
   }
 
-  // Get assigned offices for office-based roles if no offices provided
-  let effectiveSalesOffice = salesOffice;
-  if (!effectiveSalesOffice && ['office_leader', 'area_director', 'divisional'].includes(role)) {
-    effectiveSalesOffice = await getAssignedOffices(userId);
+  // Get assigned office IDs (QuickBase Record IDs from Field 810) for office-based roles if no office IDs provided
+  let effectiveOfficeIds = officeIds;
+  if (!effectiveOfficeIds && ['office_leader', 'area_director', 'divisional'].includes(role)) {
+    effectiveOfficeIds = await getAssignedOffices(userId);
   }
 
   // Use shared role scoping helper and consistent ON_HOLD value (now email-based)
-  const roleClause = buildProjectAccessClause(userEmail, role, effectiveSalesOffice, managedEmails);
+  const roleClause = buildProjectAccessClause(userEmail, role, effectiveOfficeIds, managedEmails);
   const whereClause = `(${roleClause}) AND {${PROJECT_FIELDS.ON_HOLD}.EX.'Yes'}`;
 
   const result = await qbClient.queryRecords({

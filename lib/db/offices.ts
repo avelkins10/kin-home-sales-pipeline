@@ -83,7 +83,8 @@ export async function officeExists(officeName: string): Promise<boolean> {
 
 /**
  * Sync offices from QuickBase projects table
- * Queries for unique SALES_OFFICE values and creates office records
+ * Queries for unique SALES_OFFICE and OFFICE_RECORD_ID values and creates office records
+ * Uses ID-based approach (Field 810) for stable references that survive name changes
  * @returns Sync results with created/skipped counts
  */
 export async function syncOfficesFromQuickBase(): Promise<{
@@ -98,28 +99,30 @@ export async function syncOfficesFromQuickBase(): Promise<{
   }
 
   try {
-    // Query QuickBase for all unique SALES_OFFICE values with pagination
+    // Query QuickBase for unique office combinations (name + ID) with pagination
     console.log('[syncOfficesFromQuickBase] Querying QuickBase for unique offices...')
-    
+
     const top = 1000
     let skip = 0
-    const officeNames = new Set<string>()
-    
+    const offices = new Map<number, string>() // Map of office_id -> office_name
+
     while (true) {
       const response = await qbClient.queryRecords({
         from: process.env.QUICKBASE_TABLE_PROJECTS || 'br9kwm8na',
-        select: [PROJECT_FIELDS.SALES_OFFICE],
-        where: `{${PROJECT_FIELDS.SALES_OFFICE}.XEX.''}`, // Not empty
+        select: [PROJECT_FIELDS.SALES_OFFICE, PROJECT_FIELDS.OFFICE_RECORD_ID],
+        where: `{${PROJECT_FIELDS.OFFICE_RECORD_ID}.XEX.''}`, // Office ID not empty
         options: { top, skip }
       })
 
-      // Extract unique office names from this batch
+      // Extract unique office ID/name combinations from this batch
       response.data?.forEach((record: any) => {
         const officeName = record[PROJECT_FIELDS.SALES_OFFICE]?.value
-        if (officeName && typeof officeName === 'string') {
+        const officeId = record[PROJECT_FIELDS.OFFICE_RECORD_ID]?.value
+
+        if (officeId && officeName && typeof officeName === 'string') {
           const normalized = normalizeOfficeName(officeName.trim())
-          if (normalized) {
-            officeNames.add(normalized)
+          if (normalized && !offices.has(officeId)) {
+            offices.set(officeId, normalized)
           }
         }
       })
@@ -128,30 +131,33 @@ export async function syncOfficesFromQuickBase(): Promise<{
       if (!response.data || response.data.length < top) {
         break
       }
-      
+
       skip += top
     }
 
-    console.log(`[syncOfficesFromQuickBase] Found ${officeNames.size} unique offices in QuickBase`)
+    console.log(`[syncOfficesFromQuickBase] Found ${offices.size} unique offices in QuickBase`)
 
     // Insert offices into database using UPSERT
-    for (const officeName of Array.from(officeNames)) {
+    for (const [officeId, officeName] of Array.from(offices.entries())) {
       try {
-        // Use UPSERT to prevent race conditions
+        // Use UPSERT to update name if office ID exists, or insert if new
         const result = await sql.query(
-          'INSERT INTO offices (name, is_active) VALUES ($1, TRUE) ON CONFLICT (name) DO NOTHING',
-          [officeName]
+          `INSERT INTO offices (name, quickbase_office_id, is_active)
+           VALUES ($1, $2, TRUE)
+           ON CONFLICT (quickbase_office_id)
+           DO UPDATE SET name = $1, updated_at = NOW()`,
+          [officeName, officeId]
         )
-        
+
         if (result.rowCount && result.rowCount > 0) {
-          console.log(`[syncOfficesFromQuickBase] Created office: ${officeName}`)
+          console.log(`[syncOfficesFromQuickBase] Synced office: ${officeName} (ID: ${officeId})`)
           results.created++
         } else {
-          console.log(`[syncOfficesFromQuickBase] Office already exists: ${officeName}`)
+          console.log(`[syncOfficesFromQuickBase] Office unchanged: ${officeName} (ID: ${officeId})`)
           results.skipped++
         }
       } catch (error) {
-        const errorMsg = `Failed to create office ${officeName}: ${error instanceof Error ? error.message : String(error)}`
+        const errorMsg = `Failed to sync office ${officeName} (ID: ${officeId}): ${error instanceof Error ? error.message : String(error)}`
         console.error(`[syncOfficesFromQuickBase] ${errorMsg}`)
         results.errors.push(errorMsg)
       }

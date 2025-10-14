@@ -70,8 +70,9 @@ export const PROJECT_FIELDS = {
   PROJECT_COORDINATOR_EMAIL: 822,  // ⚠️ LOW - 1.3% - Coordinator email address
   PROJECT_COORDINATOR_PHONE: 821,  // ⚠️ LOW - 1.3% - Coordinator phone number
 
-  // Office/Region (2 fields)
-  SALES_OFFICE: 339,               // ✅ PRIMARY - 100% - For office filtering
+  // Office/Region (3 fields)
+  SALES_OFFICE: 339,               // ✅ PRIMARY - 100% - Office name (display only)
+  OFFICE_RECORD_ID: 810,           // ✅ PRIMARY - 100% - Office ID (for filtering) - STABLE ID!
   AHJ: 1123,                       // ✅ PRIMARY - 100% - Permitting jurisdiction
 
   // ============================================================
