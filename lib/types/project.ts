@@ -47,8 +47,9 @@ export interface Project {
   totalAdderPpw: number | null;
 
   // Financing
-  financing: string | null;
-  financingPlan: string | null;
+  lenderName: string | null;
+  financeTerm: string | number | null;
+  financeRate: string | number | null;
 
   // Team Members
   closerId: string | null;

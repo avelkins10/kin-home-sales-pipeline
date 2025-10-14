@@ -24,18 +24,10 @@ export function SystemSpecsCard({ project }: SystemSpecsCardProps) {
   const batteryModel = project[PROJECT_FIELDS.BATTERY_MODEL]?.value || ''
   const batteryQuantity = parseInt(project[PROJECT_FIELDS.BATTERY_QUANTITY]?.value || '0')
 
-  // Extract financing data
-  const financing = project[PROJECT_FIELDS.FINANCING]?.value || ''
-  const financingPlan = project[PROJECT_FIELDS.FINANCING_PLAN]?.value || ''
-
-  // Debug logging
-  console.log('Financing Debug:', {
-    financing,
-    financingPlan,
-    hasFinancing: !!(financing || financingPlan),
-    field645: project[645],
-    field649: project[649]
-  })
+  // Extract financing data - try primary field first, then alternate
+  const lenderName = project[PROJECT_FIELDS.LENDER_NAME]?.value || project[PROJECT_FIELDS.LENDER_NAME_ALT]?.value || ''
+  const financeTerm = project[PROJECT_FIELDS.FINANCE_TERM]?.value || ''
+  const financeRate = project[PROJECT_FIELDS.FINANCE_RATE]?.value || ''
 
   return (
     <Card>
@@ -150,33 +142,48 @@ export function SystemSpecsCard({ project }: SystemSpecsCardProps) {
         )}
 
         {/* Financing Section */}
-        {(financing || financingPlan) && (
+        {(lenderName || financeTerm || financeRate) && (
           <div className="border-t border-gray-200 pt-4">
             <h4 className="text-sm font-medium text-gray-600 mb-3">Financing Details</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Lender */}
-              {financing && (
+              {lenderName && (
                 <div className="flex items-start gap-3">
                   <Building2 className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
                     <p className="text-sm text-gray-600 font-medium">Lender</p>
                     <p className="text-base text-gray-900 font-semibold">
-                      {financing}
+                      {lenderName}
                     </p>
                   </div>
                 </div>
               )}
 
-              {/* Finance Type/Plan */}
-              {financingPlan && (
+              {/* Finance Term */}
+              {financeTerm && (
                 <div className="flex items-start gap-3">
                   <div className="w-5 h-5 bg-blue-500 rounded flex-shrink-0 mt-0.5 flex items-center justify-center text-white text-xs font-bold">
-                    💳
+                    📅
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm text-gray-600 font-medium">Finance Type</p>
+                    <p className="text-sm text-gray-600 font-medium">Term</p>
                     <p className="text-base text-gray-900 font-semibold">
-                      {financingPlan}
+                      {financeTerm} {typeof financeTerm === 'number' || !isNaN(Number(financeTerm)) ? 'years' : ''}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Finance Rate */}
+              {financeRate && (
+                <div className="flex items-start gap-3">
+                  <div className="w-5 h-5 bg-green-600 rounded flex-shrink-0 mt-0.5 flex items-center justify-center text-white text-xs font-bold">
+                    %
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm text-gray-600 font-medium">Rate</p>
+                    <p className="text-base text-gray-900 font-semibold">
+                      {financeRate}{typeof financeRate === 'number' || !isNaN(Number(financeRate)) ? '%' : ''}
                     </p>
                   </div>
                 </div>

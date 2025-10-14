@@ -50,9 +50,11 @@ export const PROJECT_FIELDS = {
   SOLD_GROSS_PPW: 2292,            // ✅ PRIMARY - 0% - Sold PPW
   SOLD_NET_PPW: 2293,              // ✅ PRIMARY - 3% - Sold Net PPW
 
-  // Financing (2 fields)
-  FINANCING: 645,                  // ✅ SECONDARY - Financing (lender name)
-  FINANCING_PLAN: 649,             // ✅ SECONDARY - Financing Plan (loan term/type)
+  // Financing (4 fields)
+  LENDER_NAME: 344,                // ✅ SECONDARY - Lender Name (primary)
+  LENDER_NAME_ALT: 70,             // ✅ SECONDARY - Lender Name (alternate)
+  FINANCE_TERM: 349,               // ✅ SECONDARY - Finance Term (years)
+  FINANCE_RATE: 350,               // ✅ SECONDARY - Finance Rate (APR)
 
   // Team Members (12 fields)
   CLOSER_ID: 516,                  // ✅ PRIMARY - 100% - User object
