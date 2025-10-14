@@ -45,6 +45,22 @@ export interface UserHierarchy {
   updatedAt: string
 }
 
+// Database hierarchy representation (snake_case from SQL query joins)
+export interface Hierarchy {
+  id: string
+  manager_id: string
+  user_id: string
+  created_at: string
+  updated_at: string
+  manager_name: string
+  manager_email: string
+  manager_role: string
+  user_name: string
+  user_email: string
+  user_role: string
+  user_is_active: boolean
+}
+
 export interface QuickBaseUserData {
   quickbaseUserId: string
   name: string

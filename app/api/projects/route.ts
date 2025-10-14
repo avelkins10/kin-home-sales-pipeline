@@ -3,7 +3,7 @@ export const runtime = 'nodejs'
 // app/api/projects/route.ts
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/guards';
-import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
+import { logApiRequest, logApiResponse, logError, logInfo } from '@/lib/logging/logger';
 import { getCachedProjects, setCachedProjects, getCacheTTL, cacheStats } from '@/lib/cache/projectsCache';
 
 // Request counter for periodic logging
@@ -32,6 +32,8 @@ export async function GET(req: Request) {
     const view = searchParams.get('view') || undefined;
     const search = searchParams.get('search')?.trim().slice(0, 100) || undefined; // Clamp to 100 chars for performance and QuickBase query limits
     const sort = searchParams.get('sort') || undefined;
+    const memberEmail = searchParams.get('memberEmail') || undefined;
+    const ownership = searchParams.get('ownership') || 'all';
 
     // Validate view parameter against allowed values
     const allowedViews = ['all', 'active', 'pending-kca', 'rejected', 'on-hold', 'install-ready', 'install-scheduled', 'install-completed', 'pending-cancel', 'cancelled', 'needs-attention']
@@ -45,12 +47,23 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Invalid sort parameter' }, { status: 400 });
     }
 
-    const { id, role, salesOffice } = auth.session.user as any;
+    const { id, role } = auth.session.user as any;
     const userId = id as string;
 
+    // Validate ownership parameter
+    const validOwnershipValues = ['all', 'my-projects', 'team-projects'];
+    if (!validOwnershipValues.includes(ownership)) {
+      return NextResponse.json({ error: 'Invalid ownership parameter' }, { status: 400 });
+    }
+
+    // Validate team-projects access for non-managers
+    if (ownership === 'team-projects' && !['office_leader', 'area_director', 'divisional', 'team_lead'].includes(role)) {
+      logInfo('[OWNERSHIP_FILTER] Non-manager attempted to access team-projects filter', { userId, role, ownership, reqId });
+      return NextResponse.json({ error: 'Team projects filter is only available for managers' }, { status: 403 });
+    }
+
     // Check cache first
-    const officeKey = salesOffice ? salesOffice.sort().join(',') : '';
-    const cacheKey = `${userId}:${role}:${officeKey}:${view || 'all'}:${search || ''}:${sort || 'default'}`;
+    const cacheKey = `${userId}:${role}:${view || 'all'}:${search || ''}:${sort || 'default'}:${memberEmail || ''}:${ownership}`;
     const cached = getCachedProjects(cacheKey);
     if (cached) {
       const duration = Date.now() - startedAt;
@@ -69,7 +82,12 @@ export async function GET(req: Request) {
     }
 
     const { getProjectsForUserList } = await import('@/lib/quickbase/queries');
-    const projects = await getProjectsForUserList(userId, role, view, search, sort, salesOffice);
+    // Note: We do NOT pass salesOffice from session to ensure fresh data.
+    // For office-based roles, getProjectsForUserList() will fetch offices
+    // from the office_assignments table, ensuring immediate visibility
+    // of newly assigned offices without requiring logout/login.
+    logInfo('[OFFICE_RESOLUTION] Fetching offices from database for user', { userId, role, reqId });
+    const projects = await getProjectsForUserList(userId, role, view, search, sort, undefined, memberEmail, ownership, reqId);
 
     // Cache the result
     setCachedProjects(cacheKey, projects);

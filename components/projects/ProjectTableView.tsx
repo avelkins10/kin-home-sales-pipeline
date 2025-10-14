@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getProjectsForUserOffline } from '@/lib/offline/offlineQueries';
+// Removed offline import - using API route instead
 import { ProjectRow } from './ProjectRow';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -11,18 +11,34 @@ import { Loader2 } from 'lucide-react';
 interface ProjectTableViewProps {
   userId: string;
   role: string;
+  userEmail: string; // NEW: Current user's email for ownership determination
   view: string;
   search: string;
   sort: string;
+  memberEmail?: string;
+  ownership?: string; // NEW: Ownership filter (all | my-projects | team-projects)
   onFetchingChange?: (isFetching: boolean, reason?: 'manual' | 'background') => void;
 }
 
-export function ProjectTableView({ userId, role, view, search, sort, onFetchingChange }: ProjectTableViewProps) {
+export function ProjectTableView({ userId, role, userEmail, view, search, sort, memberEmail, ownership = 'all', onFetchingChange }: ProjectTableViewProps) {
   const [isManualRefetch, setIsManualRefetch] = React.useState(false);
   
   const { data: projects, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['projects', userId, role, view, search, sort],
-    queryFn: () => getProjectsForUserOffline(userId, role, view, search, sort),
+    queryKey: ['projects', userId, role, view, search, sort, memberEmail, ownership],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (view && view !== 'all') params.set('view', view);
+      if (search) params.set('search', search);
+      if (sort && sort !== 'default') params.set('sort', sort);
+      if (memberEmail) params.set('memberEmail', memberEmail);
+      if (ownership && ownership !== 'all') params.set('ownership', ownership);
+      
+      const response = await fetch(`/api/projects?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch projects: ${response.statusText}`);
+      }
+      return response.json();
+    },
     staleTime: 300000, // 5 minutes - relies on global defaults, no auto-refresh
   });
 
@@ -162,10 +178,15 @@ export function ProjectTableView({ userId, role, view, search, sort, onFetchingC
           )}
         </Button>
       </div>
-      {projects.map((project) => {
+      {projects.map((project: any) => {
         const recordId = project[3]?.value; // RECORD_ID field
         return (
-          <ProjectRow key={recordId} project={project} />
+          <ProjectRow 
+            key={recordId} 
+            project={project} 
+            userEmail={userEmail} // NEW: Pass user email for ownership determination
+            userRole={role} // NEW: Pass role for manager-specific logic
+          />
         );
       })}
     </div>
