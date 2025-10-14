@@ -579,9 +579,9 @@ function buildViewFilter(view?: string): string {
 
   switch (view) {
     case 'active':
-      // Active projects (NOT on hold, installed, or PTO) with approved intake
-      // Matches: "Active" but NOT "Active - On Hold", "Active - Installed", "Active - PTO"
-      return `{${PROJECT_FIELDS.PROJECT_STATUS}.EX.'Active'} AND ({${PROJECT_FIELDS.FINANCE_INTAKE_APPROVED}.EX.'Yes'} OR {${PROJECT_FIELDS.WEBHOOK_INTAKE_COMPLETE}.EX.'Yes'})`;
+      // Active projects (status contains "Active") with approved intake
+      // Excludes: "Active - On Hold", "Active - Installed", "Active - PTO"
+      return `{${PROJECT_FIELDS.PROJECT_STATUS}.CT.'Active'} AND {${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'On Hold'} AND {${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Installed'} AND {${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'PTO'} AND ({${PROJECT_FIELDS.FINANCE_INTAKE_APPROVED}.EX.'Yes'} OR {${PROJECT_FIELDS.WEBHOOK_INTAKE_COMPLETE}.EX.'Yes'})`;
 
     case 'on-hold':
       // PROJECT_STATUS contains "On Hold"
