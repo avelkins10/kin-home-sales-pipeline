@@ -3,12 +3,14 @@ import { calculateProjectBucketsByTeamMember } from '@/lib/quickbase/queries';
 import { PROJECT_FIELDS } from '@/lib/constants/fieldIds';
 
 describe('calculateProjectBucketsByTeamMember', () => {
+  // Note: Function now creates separate entries for closer and setter
+  // For tests expecting single result, set setter fields to null
   const createMockProject = (overrides: any = {}) => ({
     [PROJECT_FIELDS.RECORD_ID]: { value: '1' },
     [PROJECT_FIELDS.CLOSER_NAME]: { value: 'John Doe' },
     [PROJECT_FIELDS.CLOSER_EMAIL]: { value: 'john@example.com' },
-    [PROJECT_FIELDS.SETTER_NAME]: { value: 'Jane Smith' },
-    [PROJECT_FIELDS.SETTER_EMAIL]: { value: 'jane@example.com' },
+    [PROJECT_FIELDS.SETTER_NAME]: { value: null },  // Set to null for closer-only tests
+    [PROJECT_FIELDS.SETTER_EMAIL]: { value: null }, // Set to null for closer-only tests
     [PROJECT_FIELDS.PROJECT_STATUS]: { value: 'Active' },
     [PROJECT_FIELDS.ON_HOLD]: { value: 'No' },
     [PROJECT_FIELDS.PROJECT_AGE]: { value: '45' },

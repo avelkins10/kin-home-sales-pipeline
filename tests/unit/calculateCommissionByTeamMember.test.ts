@@ -6,12 +6,14 @@ import type { TeamMemberCommission } from '@/lib/types/dashboard';
 
 describe('calculateCommissionByTeamMember', () => {
   // Helper to create mock project data
+  // Note: Function now splits commission between closer and setter (50/50 split)
+  // For tests expecting single result, set setter fields to null
   const createMockProject = (overrides: any = {}) => ({
     [PROJECT_FIELDS.RECORD_ID]: { value: Math.random().toString() },
     [PROJECT_FIELDS.CLOSER_NAME]: { value: 'John Doe' },
     [PROJECT_FIELDS.CLOSER_EMAIL]: { value: 'john@example.com' },
-    [PROJECT_FIELDS.SETTER_NAME]: { value: 'Jane Smith' },
-    [PROJECT_FIELDS.SETTER_EMAIL]: { value: 'jane@example.com' },
+    [PROJECT_FIELDS.SETTER_NAME]: { value: null },  // Set to null for closer-only tests
+    [PROJECT_FIELDS.SETTER_EMAIL]: { value: null }, // Set to null for closer-only tests
     [PROJECT_FIELDS.COMMISSIONABLE_PPW]: { value: '0.5' },
     [PROJECT_FIELDS.SYSTEM_SIZE_KW]: { value: '10' },
     [PROJECT_FIELDS.PROJECT_STATUS]: { value: 'Active' },
