@@ -18,14 +18,16 @@ interface ProjectTableViewProps {
   memberEmail?: string;
   ownership?: string; // NEW: Ownership filter (all | my-projects | team-projects)
   office?: string; // NEW: Office filter
+  setter?: string; // NEW: Setter filter
+  closer?: string; // NEW: Closer filter
   onFetchingChange?: (isFetching: boolean, reason?: 'manual' | 'background') => void;
 }
 
-export function ProjectTableView({ userId, role, userEmail, view, search, sort, memberEmail, ownership = 'all', office, onFetchingChange }: ProjectTableViewProps) {
+export function ProjectTableView({ userId, role, userEmail, view, search, sort, memberEmail, ownership = 'all', office, setter, closer, onFetchingChange }: ProjectTableViewProps) {
   const [isManualRefetch, setIsManualRefetch] = React.useState(false);
 
   const { data: projects, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['projects', userId, role, view, search, sort, memberEmail, ownership, office],
+    queryKey: ['projects', userId, role, view, search, sort, memberEmail, ownership, office, setter, closer],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (view && view !== 'all') params.set('view', view);
@@ -34,7 +36,9 @@ export function ProjectTableView({ userId, role, userEmail, view, search, sort, 
       if (memberEmail) params.set('memberEmail', memberEmail);
       if (ownership && ownership !== 'all') params.set('ownership', ownership);
       if (office) params.set('office', office);
-      
+      if (setter) params.set('setter', setter);
+      if (closer) params.set('closer', closer);
+
       const response = await fetch(`/api/projects?${params.toString()}`);
       if (!response.ok) {
         throw new Error(`Failed to fetch projects: ${response.statusText}`);

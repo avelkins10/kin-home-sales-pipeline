@@ -9,6 +9,8 @@ import { SearchBar } from '@/components/projects/SearchBar'
 import { SortDropdown } from '@/components/projects/SortDropdown'
 import { OwnershipFilterToggle } from '@/components/projects/OwnershipFilterToggle'
 import { OfficeFilterDropdown } from '@/components/projects/OfficeFilterDropdown'
+import { SetterFilterDropdown } from '@/components/projects/SetterFilterDropdown'
+import { CloserFilterDropdown } from '@/components/projects/CloserFilterDropdown'
 import { isManagerRole } from '@/lib/utils/role-helpers'
 
 interface ProjectsPageProps {
@@ -19,6 +21,8 @@ interface ProjectsPageProps {
     memberEmail?: string
     ownership?: string // NEW: Ownership filter (all | my-projects | team-projects)
     office?: string // NEW: Office filter
+    setter?: string // NEW: Setter filter
+    closer?: string // NEW: Closer filter
   }
 }
 
@@ -46,13 +50,19 @@ export default function ProjectsPage({ searchParams }: ProjectsPageProps) {
 
         {/* Controls Section */}
         <div className="mb-6 space-y-4">
-          {/* Search Bar, Office Filter, and Sort */}
+          {/* Search Bar and Sort */}
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1">
               <SearchBar defaultValue={searchParams.search} isFetching={isFetching && fetchReason === 'manual'} />
             </div>
-            <OfficeFilterDropdown isFetching={isFetching && fetchReason === 'manual'} />
             <SortDropdown isFetching={isFetching && fetchReason === 'manual'} />
+          </div>
+
+          {/* Rep and Office Filters */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <SetterFilterDropdown isFetching={isFetching && fetchReason === 'manual'} />
+            <CloserFilterDropdown isFetching={isFetching && fetchReason === 'manual'} />
+            <OfficeFilterDropdown isFetching={isFetching && fetchReason === 'manual'} />
           </div>
 
           {/* Ownership Filter Toggle (Team Projects option only for managers) */}
@@ -77,6 +87,8 @@ export default function ProjectsPage({ searchParams }: ProjectsPageProps) {
             memberEmail={searchParams.memberEmail}
             ownership={searchParams.ownership || 'all'} // NEW: Pass ownership filter
             office={searchParams.office} // NEW: Pass office filter
+            setter={searchParams.setter} // NEW: Pass setter filter
+            closer={searchParams.closer} // NEW: Pass closer filter
             onFetchingChange={(fetching, reason) => {
               setIsFetching(fetching);
               if (reason) setFetchReason(reason);

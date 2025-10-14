@@ -240,8 +240,8 @@ export function buildRoleClause(
  * Lean selector for list view - only essential fields for performance
  * @param salesOffice - (Deprecated) Offices to filter by. If not provided, will be fetched from office_assignments table for office-based roles. Passing this parameter is discouraged as it may contain stale data.
  */
-export async function getProjectsForUserList(userId: string, role: string, view?: string, search?: string, sort?: string, salesOffice?: string[], memberEmail?: string, ownership?: string, officeFilter?: string, reqId?: string) {
-  console.log('[getProjectsForUserList] START - userId:', userId, 'role:', role, 'view:', view, 'search:', search, 'sort:', sort, 'ownership:', ownership, 'officeFilter:', officeFilter, 'salesOffice:', salesOffice, 'reqId:', reqId);
+export async function getProjectsForUserList(userId: string, role: string, view?: string, search?: string, sort?: string, salesOffice?: string[], memberEmail?: string, ownership?: string, officeFilter?: string, setterFilter?: string, closerFilter?: string, reqId?: string) {
+  console.log('[getProjectsForUserList] START - userId:', userId, 'role:', role, 'view:', view, 'search:', search, 'sort:', sort, 'ownership:', ownership, 'officeFilter:', officeFilter, 'setterFilter:', setterFilter, 'closerFilter:', closerFilter, 'salesOffice:', salesOffice, 'reqId:', reqId);
 
   // Get user email for email-based filtering (needed for ownership filter)
   let userEmail: string | null = null;
@@ -296,6 +296,30 @@ export async function getProjectsForUserList(userId: string, role: string, view?
     }
   }
 
+  // Add setter filter if provided
+  let setterFilterClause: string | undefined;
+  if (setterFilter) {
+    const sanitizedSetter = sanitizeQbLiteral(setterFilter);
+    setterFilterClause = `{${PROJECT_FIELDS.SETTER_EMAIL}.EX.'${sanitizedSetter}'}`;
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[getProjectsForUserList] Filtering by setter:', setterFilter);
+    } else {
+      console.log('[getProjectsForUserList] Filtering by setter');
+    }
+  }
+
+  // Add closer filter if provided
+  let closerFilterClause: string | undefined;
+  if (closerFilter) {
+    const sanitizedCloser = sanitizeQbLiteral(closerFilter);
+    closerFilterClause = `{${PROJECT_FIELDS.CLOSER_EMAIL}.EX.'${sanitizedCloser}'}`;
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[getProjectsForUserList] Filtering by closer:', closerFilter);
+    } else {
+      console.log('[getProjectsForUserList] Filtering by closer');
+    }
+  }
+
   // Build view-based filter
   const viewFilter = buildViewFilter(view);
 
@@ -318,6 +342,12 @@ export async function getProjectsForUserList(userId: string, role: string, view?
   }
   if (officeFilterClause) {
     whereClause = `(${whereClause}) AND (${officeFilterClause})`;
+  }
+  if (setterFilterClause) {
+    whereClause = `(${whereClause}) AND (${setterFilterClause})`;
+  }
+  if (closerFilterClause) {
+    whereClause = `(${whereClause}) AND (${closerFilterClause})`;
   }
   if (viewFilter) {
     whereClause = `(${whereClause}) AND (${viewFilter})`;
@@ -356,6 +386,8 @@ export async function getProjectsForUserList(userId: string, role: string, view?
         PROJECT_FIELDS.SYSTEM_PRICE,
         PROJECT_FIELDS.CLOSER_NAME,
         PROJECT_FIELDS.SETTER_NAME,
+        PROJECT_FIELDS.CLOSER_EMAIL,
+        PROJECT_FIELDS.SETTER_EMAIL,
         // PPW fields
         PROJECT_FIELDS.SOLD_GROSS_PPW, // soldGross PPW
         PROJECT_FIELDS.COMMISSIONABLE_PPW, // commissionable PPW
