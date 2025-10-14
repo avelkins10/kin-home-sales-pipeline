@@ -117,7 +117,10 @@ function getBooleanField(project: QuickbaseProject, fieldId: number): boolean {
   const value = getFieldValue(project, fieldId);
   if (value === null) return false;
   if (typeof value === 'boolean') return value;
-  if (typeof value === 'string') return value.toLowerCase() === 'true' || value === '1';
+  if (typeof value === 'string') {
+    const lowerValue = value.toLowerCase();
+    return lowerValue === 'true' || lowerValue === 'yes' || lowerValue === '1';
+  }
   if (typeof value === 'number') return value === 1;
   return false;
 }
