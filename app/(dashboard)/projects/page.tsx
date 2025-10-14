@@ -7,12 +7,16 @@ import { ProjectTableView } from '@/components/projects/ProjectTableView'
 import { ProjectFilterChips } from '@/components/projects/ProjectFilterChips'
 import { SearchBar } from '@/components/projects/SearchBar'
 import { SortDropdown } from '@/components/projects/SortDropdown'
+import { OwnershipFilterToggle } from '@/components/projects/OwnershipFilterToggle'
+import { isManagerRole } from '@/lib/utils/role-helpers'
 
 interface ProjectsPageProps {
   searchParams: {
     search?: string
     view?: string
     sort?: string
+    memberEmail?: string
+    ownership?: string // NEW: Ownership filter (all | my-projects | team-projects)
   }
 }
 
@@ -48,6 +52,12 @@ export default function ProjectsPage({ searchParams }: ProjectsPageProps) {
             <SortDropdown isFetching={isFetching && fetchReason === 'manual'} />
           </div>
 
+          {/* Ownership Filter Toggle (Team Projects option only for managers) */}
+          <OwnershipFilterToggle 
+            currentOwnership={searchParams.ownership || 'all'}
+            userRole={session.user.role}
+          />
+
           {/* Filter Chips */}
           <ProjectFilterChips isFetching={isFetching && fetchReason === 'manual'} />
         </div>
@@ -57,9 +67,12 @@ export default function ProjectsPage({ searchParams }: ProjectsPageProps) {
           <ProjectTableView
             userId={session.user.quickbaseUserId}
             role={session.user.role}
+            userEmail={session.user.email} // NEW: Pass user email for ownership indicators
             view={searchParams.view || 'all'}
             search={searchParams.search || ''}
             sort={searchParams.sort || 'default'}
+            memberEmail={searchParams.memberEmail}
+            ownership={searchParams.ownership || 'all'} // NEW: Pass ownership filter
             onFetchingChange={(fetching, reason) => {
               setIsFetching(fetching);
               if (reason) setFetchReason(reason);
