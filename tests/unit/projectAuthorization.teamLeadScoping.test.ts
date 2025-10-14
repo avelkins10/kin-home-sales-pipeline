@@ -8,7 +8,7 @@ describe('Team Lead Scoping - OR Grouping and Parentheses', () => {
       const managedEmails = ['user1@example.com'];
       const clause = buildProjectAccessClause('teamlead@example.com', 'team_lead', undefined, managedEmails);
       
-      // Expected: (({518.EX.'user1@example.com'}) OR ({331.EX.'user1@example.com'}))
+      // Expected: (({356.EX.'user1@example.com'}) OR ({334.EX.'user1@example.com'}))
       const expectedClause = `({${PROJECT_FIELDS.CLOSER_EMAIL}.EX.'user1@example.com'}) OR ({${PROJECT_FIELDS.SETTER_EMAIL}.EX.'user1@example.com'})`;
       
       expect(clause).toBe(expectedClause);
@@ -18,7 +18,7 @@ describe('Team Lead Scoping - OR Grouping and Parentheses', () => {
       const managedEmails = ['user1@example.com', 'user2@example.com', 'user3@example.com'];
       const clause = buildProjectAccessClause('teamlead@example.com', 'team_lead', undefined, managedEmails);
       
-      // Expected: (({518.EX.'user1@example.com'} OR {518.EX.'user2@example.com'} OR {518.EX.'user3@example.com'}) OR ({331.EX.'user1@example.com'} OR {331.EX.'user2@example.com'} OR {331.EX.'user3@example.com'}))
+      // Expected: (({356.EX.'user1@example.com'} OR {356.EX.'user2@example.com'} OR {356.EX.'user3@example.com'}) OR ({334.EX.'user1@example.com'} OR {334.EX.'user2@example.com'} OR {334.EX.'user3@example.com'}))
       const expectedCloserClause = `{${PROJECT_FIELDS.CLOSER_EMAIL}.EX.'user1@example.com'} OR {${PROJECT_FIELDS.CLOSER_EMAIL}.EX.'user2@example.com'} OR {${PROJECT_FIELDS.CLOSER_EMAIL}.EX.'user3@example.com'}`;
       const expectedSetterClause = `{${PROJECT_FIELDS.SETTER_EMAIL}.EX.'user1@example.com'} OR {${PROJECT_FIELDS.SETTER_EMAIL}.EX.'user2@example.com'} OR {${PROJECT_FIELDS.SETTER_EMAIL}.EX.'user3@example.com'}`;
       const expectedClause = `(${expectedCloserClause}) OR (${expectedSetterClause})`;
@@ -30,7 +30,7 @@ describe('Team Lead Scoping - OR Grouping and Parentheses', () => {
       const managedEmails = ['user.name+tag@example.com', 'user_name@sub.example.com'];
       const clause = buildProjectAccessClause('teamlead@example.com', 'team_lead', undefined, managedEmails);
       
-      // Expected: (({518.EX.'user.name+tag@example.com'} OR {518.EX.'user_name@sub.example.com'}) OR ({331.EX.'user.name+tag@example.com'} OR {331.EX.'user_name@sub.example.com'}))
+      // Expected: (({356.EX.'user.name+tag@example.com'} OR {356.EX.'user_name@sub.example.com'}) OR ({334.EX.'user.name+tag@example.com'} OR {334.EX.'user_name@sub.example.com'}))
       const expectedCloserClause = `{${PROJECT_FIELDS.CLOSER_EMAIL}.EX.'user.name+tag@example.com'} OR {${PROJECT_FIELDS.CLOSER_EMAIL}.EX.'user_name@sub.example.com'}`;
       const expectedSetterClause = `{${PROJECT_FIELDS.SETTER_EMAIL}.EX.'user.name+tag@example.com'} OR {${PROJECT_FIELDS.SETTER_EMAIL}.EX.'user_name@sub.example.com'}`;
       const expectedClause = `(${expectedCloserClause}) OR (${expectedSetterClause})`;
@@ -48,7 +48,7 @@ describe('Team Lead Scoping - OR Grouping and Parentheses', () => {
       const viewFilter = `{${PROJECT_FIELDS.PROJECT_STATUS}.EX.'Active'}`;
       const combinedClause = `(${roleClause}) AND ${viewFilter}`;
       
-      // Expected: ((({518.EX.'user1@example.com'} OR {518.EX.'user2@example.com'}) OR ({331.EX.'user1@example.com'} OR {331.EX.'user2@example.com'})) AND {255.EX.'Active'})
+      // Expected: ((({356.EX.'user1@example.com'} OR {356.EX.'user2@example.com'}) OR ({334.EX.'user1@example.com'} OR {334.EX.'user2@example.com'})) AND {255.EX.'Active'})
       const expectedCloserClause = `{${PROJECT_FIELDS.CLOSER_EMAIL}.EX.'user1@example.com'} OR {${PROJECT_FIELDS.CLOSER_EMAIL}.EX.'user2@example.com'}`;
       const expectedSetterClause = `{${PROJECT_FIELDS.SETTER_EMAIL}.EX.'user1@example.com'} OR {${PROJECT_FIELDS.SETTER_EMAIL}.EX.'user2@example.com'}`;
       const expectedRoleClause = `(${expectedCloserClause}) OR (${expectedSetterClause})`;
@@ -65,7 +65,7 @@ describe('Team Lead Scoping - OR Grouping and Parentheses', () => {
       const searchFilter = `({${PROJECT_FIELDS.CUSTOMER_NAME}.CT.'Smith'} OR {${PROJECT_FIELDS.PROJECT_ID}.CT.'Smith'})`;
       const combinedClause = `(${roleClause}) AND ${searchFilter}`;
       
-      // Expected: ((({518.EX.'user1@example.com'}) OR ({331.EX.'user1@example.com'})) AND ({145.CT.'Smith'} OR {11.CT.'Smith'}))
+      // Expected: ((({356.EX.'user1@example.com'}) OR ({334.EX.'user1@example.com'})) AND ({145.CT.'Smith'} OR {11.CT.'Smith'}))
       const expectedCloserClause = `{${PROJECT_FIELDS.CLOSER_EMAIL}.EX.'user1@example.com'}`;
       const expectedSetterClause = `{${PROJECT_FIELDS.SETTER_EMAIL}.EX.'user1@example.com'}`;
       const expectedRoleClause = `(${expectedCloserClause}) OR (${expectedSetterClause})`;
@@ -83,7 +83,7 @@ describe('Team Lead Scoping - OR Grouping and Parentheses', () => {
       const searchFilter = `({${PROJECT_FIELDS.CUSTOMER_NAME}.CT.'Smith'} OR {${PROJECT_FIELDS.PROJECT_ID}.CT.'Smith'})`;
       const combinedClause = `(${roleClause}) AND ${viewFilter} AND ${searchFilter}`;
       
-      // Expected: ((({518.EX.'user1@example.com'} OR {518.EX.'user2@example.com'}) OR ({331.EX.'user1@example.com'} OR {331.EX.'user2@example.com'})) AND {255.EX.'Active'} AND ({145.CT.'Smith'} OR {11.CT.'Smith'}))
+      // Expected: ((({356.EX.'user1@example.com'} OR {356.EX.'user2@example.com'}) OR ({334.EX.'user1@example.com'} OR {334.EX.'user2@example.com'})) AND {255.EX.'Active'} AND ({145.CT.'Smith'} OR {11.CT.'Smith'}))
       const expectedCloserClause = `{${PROJECT_FIELDS.CLOSER_EMAIL}.EX.'user1@example.com'} OR {${PROJECT_FIELDS.CLOSER_EMAIL}.EX.'user2@example.com'}`;
       const expectedSetterClause = `{${PROJECT_FIELDS.SETTER_EMAIL}.EX.'user1@example.com'} OR {${PROJECT_FIELDS.SETTER_EMAIL}.EX.'user2@example.com'}`;
       const expectedRoleClause = `(${expectedCloserClause}) OR (${expectedSetterClause})`;
@@ -113,7 +113,7 @@ describe('Team Lead Scoping - OR Grouping and Parentheses', () => {
       const managedEmails = ["user'name@example.com", "another'user@example.com"];
       const clause = buildProjectAccessClause('teamlead@example.com', 'team_lead', undefined, managedEmails);
       
-      // Expected: (({518.EX.'user''name@example.com'} OR {518.EX.'another''user@example.com'}) OR ({331.EX.'user''name@example.com'} OR {331.EX.'another''user@example.com'}))
+      // Expected: (({356.EX.'user''name@example.com'} OR {356.EX.'another''user@example.com'}) OR ({334.EX.'user''name@example.com'} OR {334.EX.'another''user@example.com'}))
       const expectedCloserClause = `{${PROJECT_FIELDS.CLOSER_EMAIL}.EX.'user''name@example.com'} OR {${PROJECT_FIELDS.CLOSER_EMAIL}.EX.'another''user@example.com'}`;
       const expectedSetterClause = `{${PROJECT_FIELDS.SETTER_EMAIL}.EX.'user''name@example.com'} OR {${PROJECT_FIELDS.SETTER_EMAIL}.EX.'another''user@example.com'}`;
       const expectedClause = `(${expectedCloserClause}) OR (${expectedSetterClause})`;
@@ -143,8 +143,8 @@ describe('Team Lead Scoping - OR Grouping and Parentheses', () => {
       
       // Team lead clause should have email-based OR structure
       expect(teamLeadClause).toMatch(/^\(.*\) OR \(.*\)$/);
-      expect(teamLeadClause).toContain('518'); // CLOSER_EMAIL field
-      expect(teamLeadClause).toContain('331'); // SETTER_EMAIL field
+      expect(teamLeadClause).toContain('356'); // CLOSER_EMAIL field
+      expect(teamLeadClause).toContain('334'); // SETTER_EMAIL field
       
       // Office leader clause should have office-based structure
       expect(officeLeaderClause).toMatch(/^\{339\.EX\.'Office A'\}$/); // SALES_OFFICE field

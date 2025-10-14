@@ -114,7 +114,7 @@ describe('buildProjectAccessClause', () => {
     it('should return email filter for team_lead with single managed email', () => {
       const clause = buildProjectAccessClause(null, 'team_lead', undefined, ['user1@example.com']);
       
-      expect(clause).toBe("({518.EX.'user1@example.com'}) OR ({331.EX.'user1@example.com'})");
+      expect(clause).toBe("({356.EX.'user1@example.com'}) OR ({334.EX.'user1@example.com'})");
       expect(mockLogInfo).toHaveBeenCalledWith(
         '[PROJECT_AUTHORIZATION] Team lead with managed users',
         { managedUserCount: 1 }
@@ -124,7 +124,7 @@ describe('buildProjectAccessClause', () => {
     it('should return email filter for team_lead with multiple managed emails', () => {
       const clause = buildProjectAccessClause(null, 'team_lead', undefined, ['user1@example.com', 'user2@example.com']);
       
-      expect(clause).toBe("({518.EX.'user1@example.com'} OR {518.EX.'user2@example.com'}) OR ({331.EX.'user1@example.com'} OR {331.EX.'user2@example.com'})");
+      expect(clause).toBe("({356.EX.'user1@example.com'} OR {356.EX.'user2@example.com'}) OR ({334.EX.'user1@example.com'} OR {334.EX.'user2@example.com'})");
       expect(mockLogInfo).toHaveBeenCalledWith(
         '[PROJECT_AUTHORIZATION] Team lead with managed users',
         { managedUserCount: 2 }
@@ -156,7 +156,7 @@ describe('buildProjectAccessClause', () => {
     it('should return email filter for closer with email', () => {
       const clause = buildProjectAccessClause('closer@example.com', 'closer');
       
-      expect(clause).toBe("({518.EX.'closer@example.com'}) OR ({331.EX.'closer@example.com'})");
+      expect(clause).toBe("({356.EX.'closer@example.com'}) OR ({334.EX.'closer@example.com'})");
       expect(mockLogInfo).toHaveBeenCalledWith(
         '[PROJECT_AUTHORIZATION] Rep role with email, filtering by email',
         { role: 'closer' }
@@ -166,7 +166,7 @@ describe('buildProjectAccessClause', () => {
     it('should return email filter for setter with email', () => {
       const clause = buildProjectAccessClause('setter@example.com', 'setter');
       
-      expect(clause).toBe("({518.EX.'setter@example.com'}) OR ({331.EX.'setter@example.com'})");
+      expect(clause).toBe("({356.EX.'setter@example.com'}) OR ({334.EX.'setter@example.com'})");
       expect(mockLogInfo).toHaveBeenCalledWith(
         '[PROJECT_AUTHORIZATION] Rep role with email, filtering by email',
         { role: 'setter' }
@@ -198,7 +198,7 @@ describe('buildProjectAccessClause', () => {
     it('should escape single quotes in email addresses', () => {
       const clause = buildProjectAccessClause("user'@example.com", 'closer');
       
-      expect(clause).toBe("({518.EX.'user''@example.com'}) OR ({331.EX.'user''@example.com'})");
+      expect(clause).toBe("({356.EX.'user''@example.com'}) OR ({334.EX.'user''@example.com'})");
     });
 
     it('should escape single quotes in office names', () => {
@@ -210,7 +210,7 @@ describe('buildProjectAccessClause', () => {
     it('should default to closer filter for unknown role', () => {
       const clause = buildProjectAccessClause('user@example.com', 'unknown_role');
       
-      expect(clause).toBe("{518.EX.'user@example.com'}");
+      expect(clause).toBe("{356.EX.'user@example.com'}");
       expect(mockLogInfo).toHaveBeenCalledWith(
         '[PROJECT_AUTHORIZATION] Unknown role, defaulting to closer email filter',
         { role: 'unknown_role' }
@@ -305,8 +305,8 @@ describe('buildProjectAccessClause', () => {
       // Should contain field IDs and proper QuickBase syntax
       expect(clause).toContain('{');
       expect(clause).toContain('}');
-      expect(clause).toContain('518'); // CLOSER_EMAIL field
-      expect(clause).toContain('331'); // SETTER_EMAIL field
+      expect(clause).toContain('356'); // CLOSER_EMAIL field
+      expect(clause).toContain('334'); // SETTER_EMAIL field
     });
   });
 
@@ -320,8 +320,8 @@ describe('buildProjectAccessClause', () => {
     it('should use correct field IDs for email filtering', () => {
       const clause = buildProjectAccessClause('user@example.com', 'closer');
       
-      expect(clause).toContain('518'); // CLOSER_EMAIL field ID
-      expect(clause).toContain('331'); // SETTER_EMAIL field ID
+      expect(clause).toContain('356'); // CLOSER_EMAIL field ID
+      expect(clause).toContain('334'); // SETTER_EMAIL field ID
     });
 
     it('should use correct field ID for record ID filtering', () => {
