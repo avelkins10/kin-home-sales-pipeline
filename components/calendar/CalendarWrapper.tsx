@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar'
 import { format, parse, startOfWeek, getDay } from 'date-fns'
+import { enUS } from 'date-fns/locale'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils/cn'
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react'
@@ -13,6 +14,7 @@ const localizer = dateFnsLocalizer({
   parse,
   startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 0 }), // Sunday
   getDay,
+  locales: { 'en-US': enUS },
 })
 
 export interface RbcCalendarEvent {
