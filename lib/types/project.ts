@@ -46,6 +46,10 @@ export interface Project {
   commissionablePpw: number | null;
   totalAdderPpw: number | null;
 
+  // Financing
+  financing: string | null;
+  financingPlan: string | null;
+
   // Team Members
   closerId: string | null;
   closerName: string | null;

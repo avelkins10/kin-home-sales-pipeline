@@ -1,6 +1,6 @@
 'use client'
 
-import { Zap, DollarSign, Battery, Grid } from 'lucide-react'
+import { Zap, DollarSign, Battery, Grid, Building2 } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { PROJECT_FIELDS } from '@/lib/constants/fieldIds'
@@ -23,6 +23,10 @@ export function SystemSpecsCard({ project }: SystemSpecsCardProps) {
   const inverterCount = parseInt(project[PROJECT_FIELDS.INVERTER_COUNT]?.value || '0')
   const batteryModel = project[PROJECT_FIELDS.BATTERY_MODEL]?.value || ''
   const batteryQuantity = parseInt(project[PROJECT_FIELDS.BATTERY_QUANTITY]?.value || '0')
+
+  // Extract financing data
+  const financing = project[PROJECT_FIELDS.FINANCING]?.value || ''
+  const financingPlan = project[PROJECT_FIELDS.FINANCING_PLAN]?.value || ''
 
   return (
     <Card>
@@ -132,6 +136,42 @@ export function SystemSpecsCard({ project }: SystemSpecsCardProps) {
               <Badge variant="secondary" className="bg-green-100 text-green-700">
                 {batteryQuantity}x
               </Badge>
+            </div>
+          </div>
+        )}
+
+        {/* Financing Section */}
+        {(financing || financingPlan) && (
+          <div className="border-t border-gray-200 pt-4">
+            <h4 className="text-sm font-medium text-gray-600 mb-3">Financing Details</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Lender */}
+              {financing && (
+                <div className="flex items-start gap-3">
+                  <Building2 className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm text-gray-600 font-medium">Lender</p>
+                    <p className="text-base text-gray-900 font-semibold">
+                      {financing}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Finance Type/Plan */}
+              {financingPlan && (
+                <div className="flex items-start gap-3">
+                  <div className="w-5 h-5 bg-blue-500 rounded flex-shrink-0 mt-0.5 flex items-center justify-center text-white text-xs font-bold">
+                    💳
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm text-gray-600 font-medium">Finance Type</p>
+                    <p className="text-base text-gray-900 font-semibold">
+                      {financingPlan}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
