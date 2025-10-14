@@ -66,13 +66,9 @@ export function ProjectFilterChips({ isFetching = false }: ProjectFilterChipsPro
       case 'all':
         return true;
       case 'active':
-        // Active projects that are NOT on hold, NOT installed, NOT PTO
-        // Includes: "Active" but excludes "Active - On Hold", "Active - Installed", "Active - PTO"
-        return status.startsWith('Active') &&
-               !status.includes('On Hold') &&
-               !status.includes('Installed') &&
-               !status.includes('PTO') &&
-               isIntakeApproved;
+        // Active projects (exact match "Active") with approved intake
+        // Excludes: "Active - On Hold", "Active - Installed", "Active - PTO"
+        return status === 'Active' && isIntakeApproved;
       case 'on-hold':
         // PROJECT_STATUS contains "On Hold"
         return status.includes('On Hold');
