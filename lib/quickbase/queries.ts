@@ -2036,10 +2036,16 @@ export async function getTeamActivityFeed(
 
   // Build role-based access clause
   const accessClause = buildProjectAccessClause(userEmail, role, offices, managedEmails);
-  
-  // Build date filter for last 7 days
-  const dateFilter = `({${PROJECT_FIELDS.DATE_ON_HOLD}.OAF.'7 days ago'} OR {${PROJECT_FIELDS.INSTALL_COMPLETED_DATE}.OAF.'7 days ago'} OR {${PROJECT_FIELDS.PTO_APPROVED}.OAF.'7 days ago'})`;
-  
+
+  // Calculate date 7 days ago for filtering recent activity
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0]; // YYYY-MM-DD format
+
+  // Build date filter for last 7 days - only include records where the date field is populated AND recent
+  // Use AF (after) operator with actual date
+  const dateFilter = `(({${PROJECT_FIELDS.DATE_ON_HOLD}.XEX.''} AND {${PROJECT_FIELDS.DATE_ON_HOLD}.OAF.'${sevenDaysAgoStr}'}) OR ({${PROJECT_FIELDS.INSTALL_COMPLETED_DATE}.XEX.''} AND {${PROJECT_FIELDS.INSTALL_COMPLETED_DATE}.OAF.'${sevenDaysAgoStr}'}) OR ({${PROJECT_FIELDS.PTO_APPROVED}.XEX.''} AND {${PROJECT_FIELDS.PTO_APPROVED}.OAF.'${sevenDaysAgoStr}'}))`;
+
   // Combine clauses
   const whereClause = `(${accessClause}) AND (${dateFilter})`;
 
