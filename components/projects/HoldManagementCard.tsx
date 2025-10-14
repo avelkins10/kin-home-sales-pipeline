@@ -109,9 +109,9 @@ export function HoldManagementCard({ project }: HoldManagementCardProps) {
   const terminalStates = ['Rejected', 'Cancelled', 'Completed', 'Complete']
   const isTerminalState = terminalStates.includes(projectStatus)
 
-  // Project is on hold if checkbox is checked OR there's a hold reason
-  // This catches holds like "Finance Hold", "Roof Hold", "HOA Hold", "Customer Hold", etc.
-  const onHold = project[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes' || !!rawHoldReason
+  // Project is on hold only if the ON_HOLD checkbox is checked
+  // The hold reason field is descriptive only and doesn't determine hold status
+  const onHold = project[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes'
 
   // Online/offline listeners
   useEffect(() => {
