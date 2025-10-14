@@ -837,7 +837,7 @@ export default function UsersTab() {
                 <Label htmlFor="edit-role">Role</Label>
                 <Select
                   value={editingUser.role}
-                  onValueChange={(value) => setEditingUser({ ...editingUser, role: value })}
+                  onValueChange={(value) => setEditingUser({ ...editingUser, role: value as User['role'] })}
                 >
                   <SelectTrigger>
                     <SelectValue />
