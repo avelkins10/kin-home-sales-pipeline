@@ -29,7 +29,8 @@ import { toast } from 'sonner'
 import { getBaseUrl } from '@/lib/utils/baseUrl'
 import { useAvailableOffices } from '@/hooks/useAvailableOffices'
 import { cn } from '@/lib/utils/cn'
-import { Search, UserPlus, Mail, Phone, MapPin, Info, AlertCircle, Calendar, TrendingUp } from 'lucide-react'
+import { Search, UserPlus, Mail, Phone, MapPin, Info, AlertCircle, Calendar, TrendingUp, Building2 } from 'lucide-react'
+import { OfficeMultiSelect } from '@/components/settings/OfficeMultiSelect'
 
 interface QuickBaseLookupDialogProps {
   open: boolean
@@ -58,6 +59,10 @@ interface CreateUserData {
   office: string
   region: string
   temporaryPassword: string
+  officeAccess?: Array<{
+    officeName: string
+    accessLevel: 'view' | 'manage' | 'admin'
+  }>
 }
 
 export function QuickBaseLookupDialog({ open, onOpenChange }: QuickBaseLookupDialogProps) {
@@ -66,6 +71,7 @@ export function QuickBaseLookupDialog({ open, onOpenChange }: QuickBaseLookupDia
   const [activeOnly, setActiveOnly] = useState(true)
   const [selectedUser, setSelectedUser] = useState<QuickBaseUser | null>(null)
   const [activityStats, setActivityStats] = useState<any>(null)
+  const [selectedOffices, setSelectedOffices] = useState<string[]>([])
   const [createUserData, setCreateUserData] = useState<CreateUserData>({
     name: '',
     email: '',
@@ -202,28 +208,48 @@ export function QuickBaseLookupDialog({ open, onOpenChange }: QuickBaseLookupDia
       temporaryPassword: Math.random().toString(36).slice(-12), // Generate temp password
     })
 
-    // Fetch detailed activity stats
+    // Fetch detailed activity stats including all offices
     try {
       const response = await fetch(`${getBaseUrl()}/api/admin/users/lookup?quickbaseId=${user.quickbaseUserId}`)
       if (response.ok) {
         const data = await response.json()
         setActivityStats(data.activity)
+        // Pre-select all offices found in QuickBase
+        if (data.activity?.offices && data.activity.offices.length > 0) {
+          setSelectedOffices(data.activity.offices)
+          // Set primary office as first in list
+          setCreateUserData(prev => ({
+            ...prev,
+            office: data.activity.offices[0]
+          }))
+        }
       }
     } catch (error) {
       console.error('Failed to fetch activity stats:', error)
       setActivityStats(null)
+      setSelectedOffices([])
     }
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!createUserData.name || !createUserData.email || !createUserData.quickbaseUserId || !createUserData.temporaryPassword) {
       toast.error('Name, email, Quickbase User ID, and temporary password are required')
       return
     }
 
-    createUserMutation.mutate(createUserData)
+    // Build officeAccess array from selected offices
+    const officeAccess = selectedOffices.map(officeName => ({
+      officeName,
+      accessLevel: 'view' as const, // Default to 'view' access
+    }))
+
+    // Create user with office access assignments
+    createUserMutation.mutate({
+      ...createUserData,
+      officeAccess,
+    })
   }
 
   const handleOpenChange = (nextOpen: boolean) => {
@@ -233,6 +259,7 @@ export function QuickBaseLookupDialog({ open, onOpenChange }: QuickBaseLookupDia
       setActiveOnly(true)
       setSelectedUser(null)
       setActivityStats(null)
+      setSelectedOffices([])
       setCreateUserData({
         name: '',
         email: '',
@@ -398,6 +425,38 @@ export function QuickBaseLookupDialog({ open, onOpenChange }: QuickBaseLookupDia
                     This user has no projects in the last {monthsBack} months. Create account anyway?
                   </AlertDescription>
                 </Alert>
+              )}
+
+              {/* Office assignments from QuickBase */}
+              {activityStats && activityStats.offices && activityStats.offices.length > 0 && (
+                <Card className="mb-4">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Building2 className="h-4 w-4" />
+                      Offices from QuickBase ({activityStats.offices.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <p className="text-xs text-gray-600">
+                        These offices were found in this user&apos;s QuickBase projects. Select which offices to assign:
+                      </p>
+                      <OfficeMultiSelect
+                        value={selectedOffices}
+                        onChange={setSelectedOffices}
+                        placeholder="Select offices to assign..."
+                      />
+                      {selectedOffices.length > 0 && (
+                        <Alert>
+                          <Info className="h-4 w-4" />
+                          <AlertDescription className="text-xs">
+                            {selectedOffices.length} {selectedOffices.length === 1 ? 'office' : 'offices'} will be assigned with &quot;view&quot; access level
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
               )}
 
               <form onSubmit={handleSubmit} className="space-y-4">
