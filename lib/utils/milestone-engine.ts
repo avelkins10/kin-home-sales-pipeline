@@ -326,6 +326,14 @@ function isMilestoneBlocked(project: QuickbaseProject, milestoneId: string): { b
     return { blocked: true, reason: `Project ${status}` };
   }
 
+  // Special handling for Intake milestone (rejection check)
+  if (milestoneId === 'intake') {
+    const intakeStatus = getStringField(project, 347); // Intake Status field
+    if (intakeStatus && intakeStatus.toLowerCase().includes('rejected')) {
+      return { blocked: true, reason: 'Intake Rejected' };
+    }
+  }
+
   // Special handling for Permitting milestone (NEM signatures > 7 days)
   if (milestoneId === 'permitting') {
     const permittingBlocked = isPermittingBlocked(project);
@@ -634,8 +642,35 @@ function getMilestoneHelperData(project: QuickbaseProject, milestoneId: string, 
 
 /**
  * Checks if any later milestone is active (in-progress or complete)
+ * Used for auto-completion logic - if a later milestone is active, prior ones must be complete
  */
 function isLaterMilestoneActive(project: QuickbaseProject, milestoneId: string, dynamicConfig?: MilestoneConfiguration): boolean {
+  // EXCEPTION: Intake should NEVER auto-complete based on later milestones
+  // Intake can be in-progress while Survey is scheduled/in-progress
+  // Intake must be explicitly completed via Intake Completed Date field
+  if (milestoneId === 'intake') {
+    return false;
+  }
+
+  // EXCEPTION: Survey can be in-progress while Intake is still pending
+  // Only auto-complete Survey if Design or later is active
+  if (milestoneId === 'survey') {
+    const allConfigs = getAllMilestoneConfigs(dynamicConfig);
+    const designIndex = allConfigs.findIndex(c => c.id === 'design');
+
+    if (designIndex !== -1) {
+      // Check only Design and later milestones
+      for (let i = designIndex; i < allConfigs.length; i++) {
+        const laterConfig = allConfigs[i];
+        if (isMilestoneComplete(project, laterConfig.id, dynamicConfig) ||
+            isMilestoneInProgress(project, laterConfig.id, dynamicConfig)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   const allConfigs = getAllMilestoneConfigs(dynamicConfig);
   const currentIndex = allConfigs.findIndex(c => c.id === milestoneId);
 
