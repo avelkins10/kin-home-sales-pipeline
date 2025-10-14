@@ -38,7 +38,7 @@ interface QuickBaseLookupDialogProps {
 }
 
 interface QuickBaseUser {
-  quickbaseUserId: string
+  quickbaseUserId: string | number // QuickBase returns as number, we convert to string
   name: string
   email: string
   phone?: string
@@ -202,7 +202,7 @@ export function QuickBaseLookupDialog({ open, onOpenChange }: QuickBaseLookupDia
       email: user.email,
       phone: user.phone || '',
       role: user.role,
-      quickbaseUserId: user.quickbaseUserId,
+      quickbaseUserId: String(user.quickbaseUserId), // Convert to string for validation
       office: user.office || '',
       region: '',
       temporaryPassword: Math.random().toString(36).slice(-12), // Generate temp password
