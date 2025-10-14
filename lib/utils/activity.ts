@@ -62,14 +62,22 @@ export function getActivityLabel(status: ActivityStatus): string {
 
 /**
  * Formats last activity date as relative time string
+ * Returns null to indicate client-only rendering to prevent hydration mismatch
  */
-export function formatLastActivity(lastProjectDate: string | undefined): string {
+export function formatLastActivity(lastProjectDate: string | undefined): string | null {
   if (!lastProjectDate) {
     return "No recent activity"
   }
 
   try {
     const lastDate = new Date(lastProjectDate)
+    // Return null to signal that this should be rendered client-side only
+    // to prevent hydration mismatch from time-relative strings
+    if (typeof window === 'undefined') {
+      // Server-side: return a stable format
+      return lastDate.toLocaleDateString()
+    }
+    // Client-side: return relative time
     return formatDistanceToNow(lastDate, { addSuffix: true })
   } catch (error) {
     return "Invalid date"

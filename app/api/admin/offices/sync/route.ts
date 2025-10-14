@@ -1,4 +1,6 @@
 export const runtime = 'nodejs'
+// Increase timeout to 5 minutes for large QuickBase queries
+export const maxDuration = 300
 
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/auth/guards'

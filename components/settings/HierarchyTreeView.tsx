@@ -161,14 +161,17 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
   const [removalTarget, setRemovalTarget] = useState<{ managerId: string; userId: string } | null>(null)
   const [userDetailsOpen, setUserDetailsOpen] = useState(false)
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
-  
+
+  // Client-only rendering flag to prevent hydration mismatch
+  const [isMounted, setIsMounted] = useState(false)
+
   // Search and filter state
   const [searchTerm, setSearchTerm] = useState('')
   const [roleFilter, setRoleFilter] = useState<string>('all')
   const [activityFilter, setActivityFilter] = useState<string>('all')
   const [officeFilter, setOfficeFilter] = useState<string>('all')
   const [debouncedSearchTerm] = useDebounce(searchTerm, 300)
-  
+
   // Enhanced state for new features
   const [bulkSelectionMode, setBulkSelectionMode] = useState(false)
   const [bulkSelectedUsers, setBulkSelectedUsers] = useState<string[]>([])
@@ -181,7 +184,7 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
   const [bulkConfirmDialogOpen, setBulkConfirmDialogOpen] = useState(false)
   const [helpDialogOpen, setHelpDialogOpen] = useState(false)
   const [showUnassignedOnly, setShowUnassignedOnly] = useState(false)
-  
+
   // Drag and drop state
   const [activeId, setActiveId] = useState<string | null>(null)
   const sensors = useSensors(
@@ -190,9 +193,14 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
   )
 
   const queryClient = useQueryClient()
-  
+
   // Check if current user has permission to manage hierarchies
   const canManageHierarchies = session?.user?.role === 'super_admin'
+
+  // Set mounted flag after initial render to prevent hydration mismatch
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -828,9 +836,10 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
                         </AvatarFallback>
                       </Avatar>
                       {/* Activity indicator dot */}
-                      <div 
+                      <div
                         className={`absolute -top-1 -right-1 w-3 h-3 rounded-full ${activityColor} border-2 border-white`}
                         title={`${activityLabel} - ${lastActivity}`}
+                        suppressHydrationWarning
                       />
                     </div>
 
@@ -1254,8 +1263,8 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
     return getManagerRoleConstraints(manager.role).canManage
   }, [selectedManager, users])
 
-  // Loading state
-  if (isLoadingUsers) {
+  // Loading state or not mounted (prevents hydration mismatch)
+  if (isLoadingUsers || !isMounted) {
     return (
       <div className={className}>
         <Card>
@@ -1439,7 +1448,7 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="text-center cursor-help">
-                    <div className="text-2xl font-bold text-indigo-600">
+                    <div className="text-2xl font-bold text-indigo-600" suppressHydrationWarning>
                       {hierarchyStats.averageTeamSize.toFixed(1)}
                     </div>
                     <div className="text-xs text-gray-600 flex items-center justify-center gap-1">
