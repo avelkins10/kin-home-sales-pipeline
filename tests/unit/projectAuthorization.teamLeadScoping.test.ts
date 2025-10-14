@@ -147,7 +147,7 @@ describe('Team Lead Scoping - OR Grouping and Parentheses', () => {
       expect(teamLeadClause).toContain('331'); // SETTER_EMAIL field
       
       // Office leader clause should have office-based structure
-      expect(officeLeaderClause).toMatch(/^\{2087\.EX\.'Office A'\}$/); // SALES_OFFICE field
+      expect(officeLeaderClause).toMatch(/^\{339\.EX\.'Office A'\}$/); // SALES_OFFICE field
     });
   });
 

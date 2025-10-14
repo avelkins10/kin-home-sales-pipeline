@@ -15,13 +15,13 @@ const mockQuickBaseResponse = {
   data: [
     {
       [3]: { value: 1 }, // RECORD_ID
-      [2087]: { value: 'Office A' }, // SALES_OFFICE
+      [339]: { value: 'Office A' }, // SALES_OFFICE
       [518]: { value: 'rep1@example.com' }, // CLOSER_EMAIL
       [331]: { value: 'setter1@example.com' }, // SETTER_EMAIL
     },
     {
       [3]: { value: 2 }, // RECORD_ID
-      [2087]: { value: 'Office B' }, // SALES_OFFICE
+      [339]: { value: 'Office B' }, // SALES_OFFICE
       [518]: { value: 'rep2@example.com' }, // CLOSER_EMAIL
       [331]: { value: 'setter2@example.com' }, // SETTER_EMAIL
     },
@@ -37,19 +37,19 @@ vi.mock('@/lib/quickbase/client', () => ({
       let filteredData = mockQuickBaseResponse.data;
       
       if (where) {
-        // Extract all office names with regex: /\{2087\.EX\.'((?:[^']|'')*)'\}/g
-        const officeMatches = where.match(/\{2087\.EX\.'((?:[^']|'')*)'\}/g);
+        // Extract all office names with regex: /\{339\.EX\.'((?:[^']|'')*)'\}/g
+        const officeMatches = where.match(/\{339\.EX\.'((?:[^']|'')*)'\}/g);
         
         if (officeMatches && officeMatches.length > 0) {
           // Extract office names and unescape doubled quotes
           const officeNames = officeMatches.map(match => {
-            const officeName = match.match(/\{2087\.EX\.'((?:[^']|'')*)'\}/)?.[1];
+            const officeName = match.match(/\{339\.EX\.'((?:[^']|'')*)'\}/)?.[1];
             return officeName ? officeName.replace(/''/g, "'") : null;
           }).filter(Boolean);
           
           // Filter by any of the found offices
           filteredData = mockQuickBaseResponse.data.filter(project => 
-            officeNames.includes(project[2087]?.value)
+            officeNames.includes(project[339]?.value)
           );
         } else if (where.includes("3.EQ.0")) {
           // No access clause
@@ -59,7 +59,7 @@ vi.mock('@/lib/quickbase/client', () => ({
           filteredData = mockQuickBaseResponse.data;
         } else {
           // If WHERE clause contains office field but no matches found, return empty array
-          if (where.includes("2087.EX")) {
+          if (where.includes("339.EX")) {
             filteredData = [];
           }
         }
@@ -138,12 +138,12 @@ describe('Office Assignment Flow', () => {
     
     expect(projects).toHaveLength(1);
     expect(projects[0][3].value).toBe(1); // Project 1 from Office A
-    expect(projects[0][2087].value).toBe('Office A');
+    expect(projects[0][339].value).toBe('Office A');
     
     // Verify the WHERE clause was correctly generated and used
     const { qbClient } = await import('@/lib/quickbase/client');
     const lastCall = (qbClient.queryRecords as any).mock.calls.slice(-1)[0];
-    expect(lastCall[0].where).toBe("{2087.EX.'Office A'}");
+    expect(lastCall[0].where).toBe("{339.EX.'Office A'}");
   });
 
   it('should show projects from multiple offices when assigned', async () => {
@@ -166,15 +166,15 @@ describe('Office Assignment Flow', () => {
     const projects = await getProjectsForUserList(managerUserId, 'office_leader');
     
     expect(projects).toHaveLength(2);
-    expect(projects.map(p => p[2087].value)).toContain('Office A');
-    expect(projects.map(p => p[2087].value)).toContain('Office B');
+    expect(projects.map(p => p[339].value)).toContain('Office A');
+    expect(projects.map(p => p[339].value)).toContain('Office B');
   });
 
   it('should generate correct WHERE clause for office-based filtering', () => {
     // Test the authorization clause generation
     const clause = buildProjectAccessClause(null, 'office_leader', ['Office A', 'Office B']);
     
-    expect(clause).toBe("{2087.EX.'Office A'} OR {2087.EX.'Office B'}");
+    expect(clause).toBe("{339.EX.'Office A'} OR {339.EX.'Office B'}");
   });
 
   it('should handle office removal correctly', async () => {
@@ -211,7 +211,7 @@ describe('Office Assignment Flow', () => {
     // Manager should now only see projects from Office B
     projects = await getProjectsForUserList(managerUserId, 'office_leader');
     expect(projects).toHaveLength(1);
-    expect(projects[0][2087].value).toBe('Office B');
+    expect(projects[0][339].value).toBe('Office B');
   });
 
   it('should handle office names with special characters', async () => {
@@ -229,7 +229,7 @@ describe('Office Assignment Flow', () => {
 
     // Should generate properly escaped WHERE clause
     const clause = buildProjectAccessClause(null, 'office_leader', ["O'Brien Office"]);
-    expect(clause).toBe("{2087.EX.'O''Brien Office'}");
+    expect(clause).toBe("{339.EX.'O''Brien Office'}");
   });
 
   it('should handle empty office assignments gracefully', async () => {

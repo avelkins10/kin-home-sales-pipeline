@@ -52,7 +52,7 @@ describe('buildProjectAccessClause', () => {
     it('should return office filter for office_leader with single office', () => {
       const clause = buildProjectAccessClause(null, 'office_leader', ['Office A']);
 
-      expect(clause).toBe("{2087.EX.'Office A'}");
+      expect(clause).toBe("{339.EX.'Office A'}");
       expect(mockLogInfo).toHaveBeenCalledWith(
         '[PROJECT_AUTHORIZATION] Building access clause',
         expect.objectContaining({ role: 'office_leader', officeCount: 1 })
@@ -62,7 +62,7 @@ describe('buildProjectAccessClause', () => {
     it('should return office filter for office_leader with multiple offices', () => {
       const clause = buildProjectAccessClause(null, 'office_leader', ['Office A', 'Office B']);
 
-      expect(clause).toBe("{2087.EX.'Office A'} OR {2087.EX.'Office B'}");
+      expect(clause).toBe("{339.EX.'Office A'} OR {339.EX.'Office B'}");
       expect(mockLogInfo).toHaveBeenCalledWith(
         '[PROJECT_AUTHORIZATION] Building access clause',
         expect.objectContaining({ role: 'office_leader', officeCount: 2 })
@@ -92,7 +92,7 @@ describe('buildProjectAccessClause', () => {
     it('should return office filter for area_director with multiple offices', () => {
       const clause = buildProjectAccessClause(null, 'area_director', ['Office A', 'Office B', 'Office C']);
 
-      expect(clause).toBe("{2087.EX.'Office A'} OR {2087.EX.'Office B'} OR {2087.EX.'Office C'}");
+      expect(clause).toBe("{339.EX.'Office A'} OR {339.EX.'Office B'} OR {339.EX.'Office C'}");
       expect(mockLogInfo).toHaveBeenCalledWith(
         '[PROJECT_AUTHORIZATION] Building access clause',
         expect.objectContaining({ role: 'area_director', officeCount: 3 })
@@ -102,7 +102,7 @@ describe('buildProjectAccessClause', () => {
     it('should return office filter for divisional with single office', () => {
       const clause = buildProjectAccessClause(null, 'divisional', ['Office A']);
 
-      expect(clause).toBe("{2087.EX.'Office A'}");
+      expect(clause).toBe("{339.EX.'Office A'}");
       expect(mockLogInfo).toHaveBeenCalledWith(
         '[PROJECT_AUTHORIZATION] Building access clause',
         expect.objectContaining({ role: 'divisional', officeCount: 1 })
@@ -204,7 +204,7 @@ describe('buildProjectAccessClause', () => {
     it('should escape single quotes in office names', () => {
       const clause = buildProjectAccessClause(null, 'office_leader', ["O'Brien Office"]);
       
-      expect(clause).toBe("{2087.EX.'O''Brien Office'}");
+      expect(clause).toBe("{339.EX.'O''Brien Office'}");
     });
 
     it('should default to closer filter for unknown role', () => {
@@ -314,7 +314,7 @@ describe('buildProjectAccessClause', () => {
     it('should use correct field IDs for office filtering', () => {
       const clause = buildProjectAccessClause(null, 'office_leader', ['Office A']);
       
-      expect(clause).toContain('2087'); // SALES_OFFICE field ID
+      expect(clause).toContain('339'); // SALES_OFFICE field ID
     });
 
     it('should use correct field IDs for email filtering', () => {
