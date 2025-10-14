@@ -429,6 +429,18 @@ function getMilestoneScheduledDate(project: QuickbaseProject, milestoneId: strin
   const config = getMilestoneConfig(milestoneId, dynamicConfig);
   if (!config) return null;
 
+  // SURVEY: Prioritize Arrivy Scheduled Date (field 2526)
+  if (milestoneId === 'survey') {
+    const arrivyDate = getDateField(project, PROJECT_FIELDS.SITE_SURVEY_ARRIVY_SCHEDULED);
+    if (arrivyDate) return arrivyDate;
+  }
+
+  // INSTALL: Prioritize Install Scheduled Start (field 178)
+  if (milestoneId === 'install') {
+    const installScheduled = getDateField(project, PROJECT_FIELDS.INSTALL_SCHEDULED_START_DATE);
+    if (installScheduled) return installScheduled;
+  }
+
   // Check scheduledFields (new structure)
   const scheduledFields = (config as any).scheduledFields;
   if (scheduledFields?.primary) {
