@@ -803,7 +803,9 @@ export async function getDashboardMetricsOptimized(userId: string, role: string,
   const installsThisWeek = data.filter((p: any) => {
     const installDate = p[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value;
     if (!installDate) return false;
-    const d = new Date(installDate);
+    // Use timezone-aware date parsing to prevent off-by-one errors
+    const d = parseQuickbaseDate(installDate);
+    if (!d) return false;
     return d >= oneWeekAgo && d <= now;
   }).length;
 
@@ -818,7 +820,9 @@ export async function getDashboardMetricsOptimized(userId: string, role: string,
   const installsThisMonth = data.filter((p: any) => {
     const installDate = p[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value;
     if (!installDate) return false;
-    const d = new Date(installDate);
+    // Use timezone-aware date parsing to prevent off-by-one errors
+    const d = parseQuickbaseDate(installDate);
+    if (!d) return false;
     return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
   }).length;
 
@@ -1090,7 +1094,8 @@ export async function getEnhancedDashboardMetrics(
   console.log(`[getEnhancedDashboardMetrics] Period arrays - sold: ${soldInPeriod.length}, installed: ${installedInPeriod.length}, funded: ${fundedInPeriod.length}`);
 
   // Calculate all metrics using appropriate period arrays
-  const basicMetrics = calculateBasicMetrics(installedInPeriod, timeRange);
+  // Pass allData for current state metrics (active projects, on hold) and installedInPeriod for period-filtered metrics
+  const basicMetrics = calculateBasicMetrics(allData, installedInPeriod, timeRange);
   
   // Console validation for install metrics fix
   console.log(`[getEnhancedDashboardMetrics] Install metrics validation - installsThisWeek: ${basicMetrics.installsThisWeek}, installsThisMonth: ${basicMetrics.installsThisMonth} (from installedInPeriod: ${installedInPeriod.length} projects)`);
@@ -1153,46 +1158,59 @@ export async function getEnhancedDashboardMetrics(
 }
 
 // Calculate basic metrics (existing functionality)
-function calculateBasicMetrics(data: any[], timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom') {
+// NOTE: This function receives ALL data (not filtered by period) to calculate absolute metrics
+// like "Active Projects" and "On Hold" which should always show current state
+function calculateBasicMetrics(allData: any[], installedInPeriod: any[], timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom') {
   const now = new Date();
   const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const currentMonth = now.getMonth();
   const currentYear = now.getFullYear();
 
-  const installsThisWeek = data.filter((p: any) => {
+  // For "Installs This Week" - use timezone-aware parsing and always show current week
+  // This is independent of the time range filter (shows actual installs this week)
+  const installsThisWeek = allData.filter((p: any) => {
     const installDate = p[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value;
     if (!installDate) return false;
-    const d = new Date(installDate);
+    // Use timezone-aware date parsing to prevent off-by-one errors
+    const d = parseQuickbaseDate(installDate);
+    if (!d) return false;
     return d >= oneWeekAgo && d <= now;
   }).length;
 
-  const activeProjects = data.filter((p: any) => {
+  // Active Projects - always shows current state (not affected by time range filter)
+  const activeProjects = allData.filter((p: any) => {
     const status = p[PROJECT_FIELDS.PROJECT_STATUS]?.value || '';
     const onHold = p[PROJECT_FIELDS.ON_HOLD]?.value;
     return status.includes('Active') && onHold !== 'Yes';
   }).length;
 
-  const onHold = data.filter((p: any) => p[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes').length;
+  // On Hold - always shows current state (not affected by time range filter)
+  const onHold = allData.filter((p: any) => p[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes').length;
 
-  const installsThisMonth = data.filter((p: any) => {
+  // For "Monthly Installs" - use timezone-aware parsing and always show current month
+  // This is independent of the time range filter (shows actual installs this month)
+  const installsThisMonth = allData.filter((p: any) => {
     const installDate = p[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value;
     if (!installDate) return false;
-    const d = new Date(installDate);
+    // Use timezone-aware date parsing to prevent off-by-one errors
+    const d = parseQuickbaseDate(installDate);
+    if (!d) return false;
     return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
   }).length;
 
-  const holdReasons = data
+  // Hold reasons - always current state
+  const holdReasons = allData
     .filter((p: any) => p[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes')
     .map((p: any) => p[PROJECT_FIELDS.HOLD_REASON]?.value || '')
     .filter((r: string) => r);
-  
+
   // Refined hold breakdown with controlled categories
   const holdBreakdownMap = new Map<string, number>();
   holdReasons.forEach((reason: string) => {
     const category = categorizeHoldReason(reason);
     holdBreakdownMap.set(category, (holdBreakdownMap.get(category) || 0) + 1);
   });
-  
+
   const holdBreakdown = Array.from(holdBreakdownMap.entries())
     .map(([category, count]) => `${count} ${category}`)
     .join(', ');
@@ -1970,11 +1988,15 @@ export async function getUrgentProjects(userId: string, role: string, officeIds?
     .filter((project: any) => {
       const holdDate = project[PROJECT_FIELDS.DATE_ON_HOLD]?.value;
       if (!holdDate) return false;
-      return new Date(holdDate) < sevenDaysAgo;
+      // Use timezone-aware date parsing to prevent off-by-one errors
+      const parsedDate = parseQuickbaseDate(holdDate);
+      if (!parsedDate) return false;
+      return parsedDate < sevenDaysAgo;
     })
     .map((project: any) => {
-      const holdDate = new Date(project[PROJECT_FIELDS.DATE_ON_HOLD]?.value);
-      const daysOnHold = Math.floor((Date.now() - holdDate.getTime()) / (1000 * 60 * 60 * 24));
+      // Use timezone-aware date parsing to prevent off-by-one errors
+      const holdDate = parseQuickbaseDate(project[PROJECT_FIELDS.DATE_ON_HOLD]?.value);
+      const daysOnHold = holdDate ? Math.floor((Date.now() - holdDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
       
       return {
         recordId: project[PROJECT_FIELDS.RECORD_ID]?.value,
