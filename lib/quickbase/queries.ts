@@ -403,19 +403,24 @@ export async function getProjectsForUserList(userId: string, role: string, view?
         // Intake approval fields for filter counts
         PROJECT_FIELDS.FINANCE_INTAKE_APPROVED,
         PROJECT_FIELDS.WEBHOOK_INTAKE_COMPLETE,
-        // All milestone completion dates for accurate traffic lights
+        // All milestone status and completion fields for accurate traffic lights
         // Intake
+        PROJECT_FIELDS.INTAKE_STATUS, // Field 347 - Primary status indicator for intake
         PROJECT_FIELDS.INTAKE_COMPLETED_DATE,
         // Survey
+        PROJECT_FIELDS.SURVEY_STATUS, // Field 162 - Primary status indicator for survey
         PROJECT_FIELDS.INTAKE_INSTALL_DATE_TENTATIVE,
         PROJECT_FIELDS.SURVEY_SUBMITTED,
         PROJECT_FIELDS.SURVEY_APPROVED,
         PROJECT_FIELDS.SITE_SURVEY_ARRIVY_SCHEDULED, // Survey scheduled date from Arrivy (for calendar)
         // Design
+        PROJECT_FIELDS.DESIGN_STATUS, // Field 317 - Primary status indicator for design
         PROJECT_FIELDS.DESIGN_COMPLETED,
         PROJECT_FIELDS.CAD_DESIGN_APPROVED,
         PROJECT_FIELDS.ENGINEERING_COMPLETED,
+        PROJECT_FIELDS.DESIGN_SLA_DEADLINE, // Field 2459 - SLA tracking for design urgency
         // Permitting
+        PROJECT_FIELDS.PERMIT_STATUS, // Field 2095 - Primary status indicator for permitting
         PROJECT_FIELDS.NEM_SIGNATURES_SENT,
         PROJECT_FIELDS.NEM_SUBMITTED,
         PROJECT_FIELDS.NEM_APPROVED,
@@ -432,6 +437,7 @@ export async function getProjectsForUserList(userId: string, role: string, view?
         PROJECT_FIELDS.INSPECTION_SCHEDULED_DATE,
         PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED,
         // PTO
+        PROJECT_FIELDS.PTO_STATUS, // Field 556 - Primary status indicator for PTO
         PROJECT_FIELDS.PTO_SUBMITTED,
         PROJECT_FIELDS.PTO_APPROVED,
       ],
