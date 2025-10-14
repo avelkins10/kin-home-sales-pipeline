@@ -70,18 +70,28 @@ export async function GET(req: Request) {
       }
     }
 
+    // Extract scope parameter with validation
+    const scope = searchParams.get('scope') as 'personal' | 'team' | null;
+    const validScopes = ['personal', 'team'];
+    if (scope && !validScopes.includes(scope)) {
+      return NextResponse.json({ 
+        error: 'Invalid scope parameter. Must be one of: personal, team' 
+      }, { status: 400 });
+    }
+    const effectiveScope = scope || 'team'; // Default to team scope
+
     const { id, role, salesOffice } = auth.session.user as any;
     const userId = id as string;
 
     // Check cache first - include timeRange and custom dates in cache key
     const officeKey = salesOffice ? salesOffice.sort().join(',') : '';
     const customRangeKey = effectiveTimeRange === 'custom' ? `${startDate}:${endDate}` : '';
-    const cacheKey = `${userId}:${role}:${officeKey}:${effectiveTimeRange}:${customRangeKey}`;
+    const cacheKey = `${userId}:${role}:${officeKey}:${effectiveTimeRange}:${customRangeKey}:${effectiveScope}`;
     const cached = metricsCache.get(cacheKey);
     const cacheTTL = getCacheTTL(effectiveTimeRange);
     
     if (cached && Date.now() - cached.timestamp < cacheTTL) {
-      logApiResponse('GET', '/api/dashboard/metrics', Date.now() - startedAt, { cached: true, timeRange: effectiveTimeRange, ttl: cacheTTL }, reqId);
+      logApiResponse('GET', '/api/dashboard/metrics', Date.now() - startedAt, { cached: true, timeRange: effectiveTimeRange, scope: effectiveScope, ttl: cacheTTL }, reqId);
       return NextResponse.json(cached.data, { status: 200 });
     }
 
@@ -92,7 +102,9 @@ export async function GET(req: Request) {
       role,
       effectiveTimeRange,
       salesOffice,
-      effectiveTimeRange === 'custom' ? { startDate: startDate!, endDate: endDate! } : undefined
+      effectiveTimeRange === 'custom' ? { startDate: startDate!, endDate: endDate! } : undefined,
+      effectiveScope, // NEW PARAMETER
+      reqId
     );
 
     // Cache the result with TTL
@@ -121,7 +133,7 @@ export async function GET(req: Request) {
       }
     }
 
-    logApiResponse('GET', '/api/dashboard/metrics', Date.now() - startedAt, { cached: false, timeRange: effectiveTimeRange }, reqId);
+    logApiResponse('GET', '/api/dashboard/metrics', Date.now() - startedAt, { cached: false, timeRange: effectiveTimeRange, scope: effectiveScope }, reqId);
     return NextResponse.json(metrics, { status: 200 });
   } catch (error) {
     console.error('[/api/dashboard/metrics] ERROR:', error);

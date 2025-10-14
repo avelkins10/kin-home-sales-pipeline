@@ -89,7 +89,11 @@ export function isOfficeBasedRole(role: string): boolean {
 }
 
 /**
- * Check if role is a manager role
+ * Check if role is a manager role that can see team-wide metrics
+ * Manager roles: team_lead, office_leader, area_director, divisional, regional, super_admin
+ * These roles have access to the personal vs team scope toggle in the dashboard
+ * @param role - User role string
+ * @returns True if role is a manager role
  */
 export function isManagerRole(role: string): boolean {
   const managerRoles = ['team_lead', 'office_leader', 'area_director', 'divisional', 'regional', 'super_admin'];

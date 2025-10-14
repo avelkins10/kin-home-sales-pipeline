@@ -8,10 +8,13 @@ import { DashboardMetrics } from '@/components/dashboard/DashboardMetrics';
 import { UrgentAlerts } from '@/components/dashboard/UrgentAlerts';
 import { RecentProjects } from '@/components/dashboard/RecentProjects';
 import { NotificationsFeed } from '@/components/dashboard/NotificationsFeed';
+import { TeamActivityFeed, TeamActivityFeedSkeleton } from '@/components/dashboard/TeamActivityFeed';
 import { DashboardFilters } from '@/components/dashboard/DashboardFilters';
+import { DashboardScopeToggle } from '@/components/dashboard/DashboardScopeToggle';
 import { EnhancedDashboardData } from '@/components/dashboard/EnhancedDashboardData';
 import { syncUserTimezone } from '@/lib/utils/timezone';
-import type { TimeRange } from '@/lib/types/dashboard';
+import { isManagerRole } from '@/lib/utils/role-helpers';
+import type { TimeRange, MetricsScope } from '@/lib/types/dashboard';
 
 // Skeleton components for loading states
 function UrgentAlertsSkeleton() {
@@ -106,6 +109,7 @@ function NotificationsFeedSkeleton() {
   );
 }
 
+
 function RecentProjectsSkeleton() {
   return (
     <div className="space-y-4">
@@ -128,6 +132,7 @@ export default function DashboardPage() {
   const { data: session, status } = useSession();
   const [timeRange, setTimeRange] = useState<TimeRange>('lifetime');
   const [customDateRange, setCustomDateRange] = useState<{ startDate: string; endDate: string } | undefined>();
+  const [scope, setScope] = useState<MetricsScope>('team'); // Default to team view
 
   // Sync user timezone on mount (must be before early returns)
   useEffect(() => {
@@ -143,6 +148,8 @@ export default function DashboardPage() {
   if (!session) {
     redirect('/login');
   }
+
+  const isManager = isManagerRole(session.user.role);
 
   const handleTimeRangeChange = (range: TimeRange, customRange?: { startDate: string; endDate: string }) => {
     setTimeRange(range);
@@ -179,14 +186,24 @@ export default function DashboardPage() {
             Welcome back, {session.user.name}
           </h1>
           <p className="text-gray-600">
-            {getRoleDisplayName(session.user.role)} - Your Performance Dashboard
+            {getRoleDisplayName(session.user.role)} - 
+            {isManager && scope === 'team' ? 'Team Performance Dashboard' : 'Your Performance Dashboard'}
           </p>
         </div>
-        <DashboardFilters
-          selectedTimeRange={timeRange}
-          customDateRange={customDateRange}
-          onTimeRangeChange={handleTimeRangeChange}
-        />
+        <div className="flex items-center space-x-4">
+          {/* Show scope toggle only for managers */}
+          {isManager && (
+            <DashboardScopeToggle
+              selectedScope={scope}
+              onScopeChange={setScope}
+            />
+          )}
+          <DashboardFilters
+            selectedTimeRange={timeRange}
+            customDateRange={customDateRange}
+            onTimeRangeChange={handleTimeRangeChange}
+          />
+        </div>
       </div>
 
       {/* Urgent Alerts */}
@@ -201,6 +218,7 @@ export default function DashboardPage() {
           role={session.user.role}
           timeRange={timeRange}
           customDateRange={customDateRange}
+          scope={isManager ? scope : 'personal'} // Force personal for non-managers
         />
       </Suspense>
 
@@ -220,7 +238,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Right Column - 1/3 width */}
-        <div className="space-y-6">
+        <div className="lg:col-span-1 space-y-6">
           {/* Notifications Feed */}
           <Suspense fallback={<NotificationsFeedSkeleton />}>
             <NotificationsFeed 
@@ -228,6 +246,15 @@ export default function DashboardPage() {
               role={session.user.role} 
             />
           </Suspense>
+
+          {/* Team Activity Feed (managers only) */}
+          {isManager && (
+            <Suspense fallback={<TeamActivityFeedSkeleton />}>
+              <TeamActivityFeed 
+                userId={session.user.quickbaseUserId} 
+              />
+            </Suspense>
+          )}
         </div>
       </div>
 

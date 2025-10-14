@@ -115,3 +115,57 @@ export function getRescheduleHistory(project: QuickbaseProject): number {
   const count = parseInt(rescheduleCount || '0');
   return isNaN(count) ? 0 : count;
 }
+
+/**
+ * Determine project ownership based on user email and project closer/setter emails
+ * @param userEmail - Current user's email
+ * @param closerEmail - Project closer's email (may be null/undefined/empty)
+ * @param setterEmail - Project setter's email (may be null/undefined/empty)
+ * @param closerName - Project closer's name (fallback for display)
+ * @param setterName - Project setter's name (fallback for display)
+ * @returns Ownership object with status and display name
+ */
+export function determineProjectOwnership(
+  userEmail: string,
+  closerEmail: string | null | undefined,
+  setterEmail: string | null | undefined,
+  closerName?: string | null,
+  setterName?: string | null
+): {
+  status: 'mine' | 'team-closer' | 'team-setter' | 'unassigned';
+  displayName: string | null;
+} {
+  // Normalize emails to lowercase for case-insensitive comparison
+  const normalizedUserEmail = userEmail?.toLowerCase().trim() || '';
+  const normalizedCloserEmail = closerEmail?.toLowerCase().trim() || '';
+  const normalizedSetterEmail = setterEmail?.toLowerCase().trim() || '';
+
+  // Check if user is the closer
+  if (normalizedCloserEmail && normalizedCloserEmail === normalizedUserEmail) {
+    return { status: 'mine', displayName: null };
+  }
+
+  // Check if user is the setter
+  if (normalizedSetterEmail && normalizedSetterEmail === normalizedUserEmail) {
+    return { status: 'mine', displayName: null };
+  }
+
+  // User is not the owner - determine team member
+  // Prefer closer over setter for display (business rule: closer is primary owner)
+  if (normalizedCloserEmail) {
+    return {
+      status: 'team-closer',
+      displayName: closerName || closerEmail || 'Team Member',
+    };
+  }
+
+  if (normalizedSetterEmail) {
+    return {
+      status: 'team-setter',
+      displayName: setterName || setterEmail || 'Team Member',
+    };
+  }
+
+  // No closer or setter email available
+  return { status: 'unassigned', displayName: null };
+}

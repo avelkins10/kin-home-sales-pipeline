@@ -1,6 +1,7 @@
 import { cacheProject, getCachedProject, cacheProjectList, getCachedProjectList } from './storage';
 import { QuickbaseProject } from '@/lib/types/project';
 import { getBaseUrl } from '@/lib/utils/baseUrl';
+import { PROJECT_FIELDS } from '@/lib/constants/fieldIds';
 
 // Offline detection helpers
 export function isOnline(): boolean {
@@ -17,7 +18,9 @@ export async function getProjectsForUserOffline(
   role: string,
   view?: string,
   search?: string,
-  sort?: string
+  sort?: string,
+  memberEmail?: string,
+  ownership?: string
 ): Promise<QuickbaseProject[]> {
   try {
     if (isOnline()) {
@@ -26,6 +29,8 @@ export async function getProjectsForUserOffline(
       if (view) params.set('view', view);
       if (search) params.set('search', search);
       if (sort && sort !== 'default') params.set('sort', sort);
+      if (memberEmail) params.set('memberEmail', memberEmail);
+      if (ownership && ownership !== 'all') params.set('ownership', ownership);
 
       const baseUrl = getBaseUrl();
       const url = `${baseUrl}/api/projects${params.toString() ? `?${params.toString()}` : ''}`;
@@ -40,6 +45,25 @@ export async function getProjectsForUserOffline(
       if (cachedProjects.length === 0) {
         console.warn('No cached projects available offline');
       }
+      
+      // Apply memberEmail filter when provided
+      if (memberEmail) {
+        const email = memberEmail.toLowerCase();
+        const filteredProjects = cachedProjects.filter((p: any) => (
+          (p[PROJECT_FIELDS.CLOSER_EMAIL]?.value || '').toLowerCase() === email ||
+          (p[PROJECT_FIELDS.SETTER_EMAIL]?.value || '').toLowerCase() === email
+        ));
+        return filteredProjects;
+      }
+
+      // Apply ownership filter when provided (offline filtering)
+      if (ownership && ownership !== 'all') {
+        // Note: For offline filtering, we need the user's email to apply ownership filter
+        // This is a limitation of offline mode - we can't easily get user email here
+        // In practice, ownership filtering will primarily work online
+        console.warn('Ownership filtering not fully supported offline - showing all cached projects');
+      }
+      
       return cachedProjects;
     }
   } catch (error) {
@@ -47,7 +71,24 @@ export async function getProjectsForUserOffline(
 
     // Fallback to cache even if online request failed
     if (isOffline()) {
-      return await getCachedProjectList(userId, role);
+      const cachedProjects = await getCachedProjectList(userId, role);
+      
+      // Apply memberEmail filter when provided
+      if (memberEmail) {
+        const email = memberEmail.toLowerCase();
+        const filteredProjects = cachedProjects.filter((p: any) => (
+          (p[PROJECT_FIELDS.CLOSER_EMAIL]?.value || '').toLowerCase() === email ||
+          (p[PROJECT_FIELDS.SETTER_EMAIL]?.value || '').toLowerCase() === email
+        ));
+        return filteredProjects;
+      }
+
+      // Apply ownership filter when provided (offline filtering)
+      if (ownership && ownership !== 'all') {
+        console.warn('Ownership filtering not fully supported offline - showing all cached projects');
+      }
+      
+      return cachedProjects;
     }
 
     return [];

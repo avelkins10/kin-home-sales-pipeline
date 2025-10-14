@@ -323,6 +323,76 @@ This automatically updates packages where possible.
 
 See `docs/SECURITY-READINESS.md` for detailed security documentation.
 
+### Step 10: Set Up Managers and Office Assignments (Optional)
+
+**Purpose**: Configure manager hierarchies and office assignments to enable team visibility and management features.
+
+**When to do this**:
+- After basic setup is complete (Steps 1-9)
+- When you have multiple users and need team management
+- When you have office leaders or area directors who need to see team projects
+
+**Quick Setup**:
+
+1. **Create manager users** (if not already created):
+   ```bash
+   # Use the UI: Settings → Users → Add User
+   # Or use SQL:
+   INSERT INTO users (name, email, role, office, is_active)
+   VALUES ('Office Leader', 'leader@kinhome.com', 'office_leader', 'Phoenix', true);
+   ```
+
+2. **Assign offices to office-based managers**:
+   - Navigate to Settings → Offices tab
+   - Click "Bulk Assign Offices" button
+   - Select managers and offices
+   - Choose access level (use "Manage" for most cases)
+   - Click "Assign Offices"
+   - Verify: Check `office_assignments` table has rows
+
+3. **Assign users to team leads**:
+   - Navigate to Settings → Hierarchy tab
+   - Drag reps onto team lead cards (or use bulk assign)
+   - Verify: Team lead's card shows "Manages X users"
+
+4. **Verify manager can see team projects**:
+   - Log in as the manager
+   - Check dashboard shows team metrics
+   - Check project list includes team projects
+   - Use ownership filter to distinguish personal vs team projects
+
+**Detailed Instructions**:
+
+For comprehensive step-by-step instructions, see:
+- **docs/MANAGER-SETUP-GUIDE.md**: Complete setup walkthrough
+- **docs/MANAGER-ONBOARDING-CHECKLIST.md**: Checklist for onboarding new managers
+- **docs/HIERARCHY-TROUBLESHOOTING.md**: Troubleshooting guide
+
+**Quick Verification**:
+
+```bash
+# Check office assignments
+psql $DATABASE_URL -c "SELECT u.name, u.role, ARRAY_AGG(oa.office_name) as offices FROM users u LEFT JOIN office_assignments oa ON u.id = oa.user_id WHERE u.role IN ('office_leader', 'area_director', 'divisional') GROUP BY u.id, u.name, u.role;"
+
+# Check team lead assignments
+psql $DATABASE_URL -c "SELECT m.name as manager, COUNT(h.user_id) as managed_count FROM users m LEFT JOIN user_hierarchies h ON m.id = h.manager_id WHERE m.role = 'team_lead' GROUP BY m.id, m.name;"
+```
+
+**Expected Output**:
+- Office leaders have 1+ offices assigned
+- Team leads have 1+ managed users
+- No errors in query results
+
+**Troubleshooting**:
+- **No office assignments**: Run bulk assign offices via UI
+- **No team lead assignments**: Assign users via hierarchy tree view
+- **Manager can't see team projects**: See docs/HIERARCHY-TROUBLESHOOTING.md
+
+**Skip this step if**:
+- You only have individual reps (no managers)
+- You're just testing the app with one user
+- You'll set up hierarchies later in production
+
 ---
 
 ## Quick Setup (All Steps)
@@ -374,11 +444,18 @@ Once Phase 1 setup is complete:
 1. Review `docs/TRAYCER-IMPLEMENTATION-BRIEF-ULTIMATE.md` for implementation details
 2. Explore `lib/constants/fieldIds.ts` to understand the 92 Quickbase fields
 3. Test Quickbase queries in `lib/quickbase/queries.ts`
-4. Begin Phase 2: Dashboard & Project List implementation
+4. Set up manager hierarchies and office assignments (see Step 10)
+5. Review docs/MANAGER-SETUP-GUIDE.md for detailed manager setup instructions
+6. Begin Phase 2: Dashboard & Project List implementation
 
 ## Additional Resources
 
 - **Implementation Guide:** `docs/TRAYCER-IMPLEMENTATION-BRIEF-ULTIMATE.md`
 - **Field Usage Analysis:** `docs/UNDERSTANDING-FIELD-USAGE.md`
+- **Manager Setup Guide:** `docs/MANAGER-SETUP-GUIDE.md`
+- **Hierarchy Troubleshooting:** `docs/HIERARCHY-TROUBLESHOOTING.md`
+- **Manager Onboarding Checklist:** `docs/MANAGER-ONBOARDING-CHECKLIST.md`
+- **Role Hierarchy Reference:** `docs/ROLE-HIERARCHY-REFERENCE.md`
+- **Office-Based Visibility:** `docs/OFFICE_BASED_VISIBILITY.md`
 - **Quickbase API Spec:** `QuickBase_RESTful_API_2025-08-28T17_29_31.942Z.json`
 - **Main README:** `README.md`

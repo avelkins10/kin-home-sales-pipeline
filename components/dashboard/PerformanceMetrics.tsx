@@ -35,6 +35,15 @@ export function PerformanceMetrics({
     }
   };
 
+  const getRetentionLabel = (range: TimeRange) => {
+    switch (range) {
+      case 'month': return 'Retention Rate (This Month)';
+      case 'week': return 'Retention Rate (This Week)';
+      case 'lifetime': return 'Retention Rate (Lifetime)';
+      default: return 'Retention Rate (Lifetime)';
+    }
+  };
+
   const getRetentionColor = (rate: number) => {
     if (rate >= 80) return 'text-green-600';
     if (rate >= 60) return 'text-yellow-600';
@@ -106,7 +115,7 @@ export function PerformanceMetrics({
             <Target className="h-5 w-5 text-gray-600" />
           </div>
           <div className="flex-1">
-            <p className="text-sm text-gray-600">Retention Rate</p>
+            <p className="text-sm text-gray-600">{getRetentionLabel(timeRange)}</p>
             <p className={`text-2xl font-semibold ${getRetentionColor(retentionRate)}`}>
               {formatPercentage(retentionRate)}
             </p>

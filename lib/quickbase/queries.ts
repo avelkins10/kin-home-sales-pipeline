@@ -13,11 +13,64 @@ export const __isServerOnly = true as const
 
 // This module must not be imported by client components
 import { qbClient } from './client';
-import { logError } from '@/lib/logging/logger';
+import { logError, logInfo, logWarn } from '@/lib/logging/logger';
 import { PROJECT_FIELDS } from '@/lib/constants/fieldIds';
 import { ADDER_FIELDS } from '@/lib/constants/adderFieldIds';
 import { sql } from '@/lib/db/client';
 import { buildProjectAccessClause } from '@/lib/auth/projectAuthorization';
+import type { TeamActivityItem, TeamActivityType } from '@/lib/types/dashboard';
+import { isManagerRole } from '@/lib/utils/role-helpers';
+import type { MetricsScope, TeamMemberCommission, TeamMemberBuckets } from '@/lib/types/dashboard';
+
+// In-process cache for commission/team bucket calculations
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+  ttl: number;
+}
+
+class InProcessCache {
+  private cache = new Map<string, CacheEntry<any>>();
+  private readonly DEFAULT_TTL = 30000; // 30 seconds
+
+  set<T>(key: string, data: T, ttl: number = this.DEFAULT_TTL): void {
+    this.cache.set(key, {
+      data,
+      timestamp: Date.now(),
+      ttl,
+    });
+  }
+
+  get<T>(key: string): T | null {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+
+    const now = Date.now();
+    if (now - entry.timestamp > entry.ttl) {
+      this.cache.delete(key);
+      return null;
+    }
+
+    return entry.data;
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+
+  // Clean up expired entries
+  cleanup(): void {
+    const now = Date.now();
+    const entries = Array.from(this.cache.entries());
+    for (const [key, entry] of entries) {
+      if (now - entry.timestamp > entry.ttl) {
+        this.cache.delete(key);
+      }
+    }
+  }
+}
+
+const commissionCache = new InProcessCache();
 
 // Quickbase table IDs
 const QB_TABLE_PROJECTS = process.env.QUICKBASE_TABLE_PROJECTS || 'br9kwm8na';
@@ -52,7 +105,15 @@ async function getManagedUserIds(managerId: string): Promise<string[]> {
 
 // Helper function to get user email from dashboard database
 async function getUserEmail(userId: string): Promise<string | null> {
-  console.log('[getUserEmail] Getting email for user:', userId);
+  // Input validation
+  if (!userId || typeof userId !== 'string' || userId.trim() === '') {
+    console.warn('[getUserEmail] Invalid userId provided:', typeof userId, userId);
+    return null;
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[getUserEmail] Getting email for user:', userId);
+  }
 
   try {
     const result = await sql`
@@ -63,12 +124,16 @@ async function getUserEmail(userId: string): Promise<string | null> {
     `;
 
     if (result.rows.length === 0) {
-      console.warn('[getUserEmail] No email found for user:', userId);
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[getUserEmail] No email found for user:', userId);
+      }
       return null;
     }
 
     const email = result.rows[0].email;
-    console.log('[getUserEmail] Found email:', email);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[getUserEmail] Found email for user:', userId);
+    }
     return email;
   } catch (error) {
     console.error('[getUserEmail] Error:', error);
@@ -79,7 +144,15 @@ async function getUserEmail(userId: string): Promise<string | null> {
 
 // Helper function to get managed user emails for team leads
 async function getManagedUserEmails(managerId: string): Promise<string[]> {
-  console.log('[getManagedUserEmails] Getting managed user emails for team lead:', managerId);
+  // Input validation
+  if (!managerId || typeof managerId !== 'string' || managerId.trim() === '') {
+    console.warn('[getManagedUserEmails] Invalid managerId provided:', typeof managerId, managerId);
+    return [];
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[getManagedUserEmails] Getting managed user emails for team lead:', managerId);
+  }
 
   try {
     const result = await sql`
@@ -94,7 +167,9 @@ async function getManagedUserEmails(managerId: string): Promise<string[]> {
       .map(row => row.email)
       .filter(Boolean);
 
-    console.log('[getManagedUserEmails] Found managed user emails:', managedEmails);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[getManagedUserEmails] Found', managedEmails.length, 'managed user emails for team lead:', managerId);
+    }
     return managedEmails;
   } catch (error) {
     console.error('[getManagedUserEmails] Error:', error);
@@ -105,7 +180,15 @@ async function getManagedUserEmails(managerId: string): Promise<string[]> {
 
 // Helper function to get assigned offices for managers
 async function getAssignedOffices(userId: string): Promise<string[]> {
-  console.log('[getAssignedOffices] Getting assigned offices for user:', userId);
+  // Input validation
+  if (!userId || typeof userId !== 'string' || userId.trim() === '') {
+    console.warn('[getAssignedOffices] Invalid userId provided:', typeof userId, userId);
+    return [];
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[getAssignedOffices] Getting assigned offices for user:', userId);
+  }
   
   try {
     const result = await sql`
@@ -115,11 +198,15 @@ async function getAssignedOffices(userId: string): Promise<string[]> {
     `;
     
     const assignedOffices = result.rows.map(row => row.office_name);
-    console.log('[getAssignedOffices] Found assigned offices:', assignedOffices);
+    if (process.env.NODE_ENV !== 'production') {
+      logInfo('[OFFICE_ASSIGNMENT_RESOLUTION] Resolved offices', { userId, officeCount: assignedOffices.length, offices: assignedOffices });
+    } else {
+      logInfo('[OFFICE_ASSIGNMENT_RESOLUTION] Resolved offices', { userId, officeCount: assignedOffices.length });
+    }
     return assignedOffices;
   } catch (error) {
     console.error('[getAssignedOffices] Error:', error);
-    logError('Failed to get assigned offices', error as Error);
+    logError('Failed to get assigned offices', error as Error, { userId });
     return [];
   }
 }
@@ -128,6 +215,7 @@ async function getAssignedOffices(userId: string): Promise<string[]> {
  * Wrapper function for backward compatibility
  * Delegates to centralized buildProjectAccessClause from projectAuthorization module
  * @deprecated Use buildProjectAccessClause from @/lib/auth/projectAuthorization directly
+ * This wrapper will be removed in a future release after one release cycle.
  */
 export function buildRoleClause(
   userEmail: string | null,
@@ -135,17 +223,29 @@ export function buildRoleClause(
   salesOffice?: string[],
   managedEmails?: string[]
 ): string {
+  // Log deprecation warning once per process start
+  if (!(global as any).__buildRoleClauseDeprecationWarned) {
+    console.warn(
+      '[DEPRECATION WARNING] buildRoleClause() is deprecated and will be removed in a future release. ' +
+      'Please use buildProjectAccessClause() from @/lib/auth/projectAuthorization directly.'
+    );
+    (global as any).__buildRoleClauseDeprecationWarned = true;
+  }
+
   // Delegate to centralized authorization module
   return buildProjectAccessClause(userEmail, role, salesOffice, managedEmails);
 }
 
-// Lean selector for list view - only essential fields for performance
-export async function getProjectsForUserList(userId: string, role: string, view?: string, search?: string, sort?: string, salesOffice?: string[]) {
-  console.log('[getProjectsForUserList] START - userId:', userId, 'role:', role, 'view:', view, 'search:', search, 'sort:', sort, 'salesOffice:', salesOffice);
+/**
+ * Lean selector for list view - only essential fields for performance
+ * @param salesOffice - (Deprecated) Offices to filter by. If not provided, will be fetched from office_assignments table for office-based roles. Passing this parameter is discouraged as it may contain stale data.
+ */
+export async function getProjectsForUserList(userId: string, role: string, view?: string, search?: string, sort?: string, salesOffice?: string[], memberEmail?: string, ownership?: string, reqId?: string) {
+  console.log('[getProjectsForUserList] START - userId:', userId, 'role:', role, 'view:', view, 'search:', search, 'sort:', sort, 'ownership:', ownership, 'salesOffice:', salesOffice, 'reqId:', reqId);
 
-  // Get user email for email-based filtering
+  // Get user email for email-based filtering (needed for ownership filter)
   let userEmail: string | null = null;
-  if (['closer', 'setter', 'coordinator'].includes(role)) {
+  if (['closer', 'setter', 'coordinator'].includes(role) || isManagerRole(role)) {
     userEmail = await getUserEmail(userId);
   }
 
@@ -159,10 +259,30 @@ export async function getProjectsForUserList(userId: string, role: string, view?
   let effectiveSalesOffice = salesOffice;
   if (!effectiveSalesOffice && ['office_leader', 'area_director', 'divisional'].includes(role)) {
     effectiveSalesOffice = await getAssignedOffices(userId);
+    logInfo('[PROJECT_QUERY] Fetched offices from database', { userId, role, officeCount: effectiveSalesOffice?.length || 0 });
+  } else if (effectiveSalesOffice) {
+    logInfo('[PROJECT_QUERY] Using provided offices (not fetching from DB)', { userId, role, officeCount: effectiveSalesOffice?.length || 0 });
+  }
+
+  // Check for empty office assignments for office-based roles
+  if (['office_leader', 'area_director', 'divisional'].includes(role) && (!effectiveSalesOffice || effectiveSalesOffice.length === 0)) {
+    logWarn('[OFFICE_ASSIGNMENT_RESOLUTION] No offices assigned to office-based role', { userId, role });
   }
 
   // Build role-based where clause using shared helper (now email-based)
-  const roleClause = buildRoleClause(userEmail, role, effectiveSalesOffice, managedEmails);
+  const roleClause = buildProjectAccessClause(userEmail, role, effectiveSalesOffice, managedEmails, reqId);
+
+  // Add member email filter if provided (for team member drill-down)
+  let memberEmailFilter: string | undefined;
+  if (memberEmail) {
+    const sanitizedEmail = sanitizeQbLiteral(memberEmail);
+    memberEmailFilter = `({${PROJECT_FIELDS.CLOSER_EMAIL}.EX.'${sanitizedEmail}'} OR {${PROJECT_FIELDS.SETTER_EMAIL}.EX.'${sanitizedEmail}'})`;
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[getProjectsForUserList] Filtering by team member email:', memberEmail);
+    } else {
+      console.log('[getProjectsForUserList] Filtering by team member email');
+    }
+  }
 
   // Build view-based filter
   const viewFilter = buildViewFilter(view);
@@ -170,13 +290,25 @@ export async function getProjectsForUserList(userId: string, role: string, view?
   // Build search filter
   const searchFilter = buildSearchFilter(search);
 
-  // Combine all filters with proper spacing
+  // Build ownership filter
+  const ownershipFilter = buildOwnershipFilter(userEmail, ownership);
+  if (ownershipFilter) {
+    console.log('[getProjectsForUserList] Applying ownership filter:', ownership);
+  }
+
+  // Combine all filters with proper parentheses for precedence
   let whereClause = roleClause;
+  if (ownershipFilter) {
+    whereClause = `(${whereClause}) AND (${ownershipFilter})`;
+  }
+  if (memberEmailFilter) {
+    whereClause = `(${whereClause}) AND (${memberEmailFilter})`;
+  }
   if (viewFilter) {
-    whereClause = `(${whereClause}) AND ${viewFilter}`;
+    whereClause = `(${whereClause}) AND (${viewFilter})`;
   }
   if (searchFilter) {
-    whereClause = `(${whereClause}) AND ${searchFilter}`;
+    whereClause = `(${whereClause}) AND (${searchFilter})`;
   }
 
   console.log('[getProjectsForUserList] Final WHERE clause:', whereClause);
@@ -292,7 +424,7 @@ export async function getProjectsForUser(userId: string, role: string, view?: st
   }
 
   // Build role-based where clause using shared helper (now email-based)
-  const roleClause = buildRoleClause(userEmail, role, effectiveSalesOffice, managedEmails);
+  const roleClause = buildProjectAccessClause(userEmail, role, effectiveSalesOffice, managedEmails);
 
   // Build view-based filter
   const viewFilter = buildViewFilter(view);
@@ -300,13 +432,13 @@ export async function getProjectsForUser(userId: string, role: string, view?: st
   // Build search filter
   const searchFilter = buildSearchFilter(search);
 
-  // Combine all filters with proper spacing
+  // Combine all filters with proper parentheses for precedence
   let whereClause = roleClause;
   if (viewFilter) {
-    whereClause = `(${whereClause}) AND ${viewFilter}`;
+    whereClause = `(${whereClause}) AND (${viewFilter})`;
   }
   if (searchFilter) {
-    whereClause = `(${whereClause}) AND ${searchFilter}`;
+    whereClause = `(${whereClause}) AND (${searchFilter})`;
   }
 
   console.log('[getProjectsForUser] Final WHERE clause:', whereClause);
@@ -437,6 +569,31 @@ export function buildSearchFilter(search?: string): string {
   return `({${PROJECT_FIELDS.CUSTOMER_NAME}.CT.'${searchTerm}'} OR {${PROJECT_FIELDS.PROJECT_ID}.CT.'${searchTerm}'})`;
 }
 
+/**
+ * Build ownership filter based on user email and ownership preference
+ * @param userEmail - Current user's email for comparison
+ * @param ownership - Ownership filter value ('all' | 'my-projects' | 'team-projects')
+ * @returns QuickBase WHERE clause string or empty string
+ */
+function buildOwnershipFilter(userEmail: string | null, ownership?: string): string {
+  if (!ownership || ownership === 'all' || !userEmail || !userEmail.trim()) return '';
+
+  const sanitizedEmail = sanitizeQbLiteral(userEmail);
+
+  if (ownership === 'my-projects') {
+    // Filter to projects where user is closer OR setter
+    return `({${PROJECT_FIELDS.CLOSER_EMAIL}.EX.'${sanitizedEmail}'} OR {${PROJECT_FIELDS.SETTER_EMAIL}.EX.'${sanitizedEmail}'})`;
+  }
+
+  if (ownership === 'team-projects') {
+    // Filter to projects where user is NOT closer AND NOT setter
+    // Include projects with no closer/setter (unassigned)
+    return `(({${PROJECT_FIELDS.CLOSER_EMAIL}.XEX.'${sanitizedEmail}'} OR {${PROJECT_FIELDS.CLOSER_EMAIL}.EX.''}) AND ({${PROJECT_FIELDS.SETTER_EMAIL}.XEX.'${sanitizedEmail}'} OR {${PROJECT_FIELDS.SETTER_EMAIL}.EX.''}))`;
+  }
+
+  return '';
+}
+
 // Helper function to get sort order based on view and sort parameter
 function getSortOrder(view?: string, sort?: string): { fieldId: number; order: 'ASC' | 'DESC' }[] {
   // If explicit sort is provided, use it (overrides view-based sorting)
@@ -559,7 +716,7 @@ export async function getDashboardMetricsOptimized(userId: string, role: string,
   }
 
   // Use shared role scoping helper for consistency (now email-based)
-  const whereClause = buildRoleClause(userEmail, role, effectiveSalesOffice, managedEmails);
+  const whereClause = buildProjectAccessClause(userEmail, role, effectiveSalesOffice, managedEmails);
   console.log('[getDashboardMetricsOptimized] WHERE clause:', whereClause);
 
   const userProjects = await qbClient.queryRecords({
@@ -654,9 +811,11 @@ export async function getEnhancedDashboardMetrics(
   role: string,
   timeRange: 'lifetime' | 'month' | 'week' | 'custom' = 'lifetime',
   salesOffice?: string[],
-  customDateRange?: { startDate: string; endDate: string }
+  customDateRange?: { startDate: string; endDate: string },
+  scope: 'personal' | 'team' = 'team', // NEW PARAMETER
+  reqId?: string
 ) {
-  console.log('[getEnhancedDashboardMetrics] START - userId:', userId, 'role:', role, 'timeRange:', timeRange, 'salesOffice:', salesOffice, 'customDateRange:', customDateRange);
+  console.log('[getEnhancedDashboardMetrics] START - userId:', userId, 'role:', role, 'timeRange:', timeRange, 'scope:', scope, 'salesOffice:', salesOffice, 'customDateRange:', customDateRange, 'reqId:', reqId);
   const startTime = Date.now();
 
   // Get user email for email-based filtering
@@ -677,12 +836,45 @@ export async function getEnhancedDashboardMetrics(
     effectiveSalesOffice = await getAssignedOffices(userId);
   }
 
+  // Handle personal scope for managers
+  // When scope='personal', managers see only their own projects (like reps)
+  if (scope === 'personal' && isManagerRole(role)) {
+    // Fetch manager's personal email
+    userEmail = await getUserEmail(userId);
+    
+    // Personal scope fallback when manager email is missing
+    if (!userEmail) {
+      logWarn('[ENHANCED_METRICS] Personal scope fallback: manager has no email, reverting to team scope', { userId, role });
+      // revert flags
+      scope = 'team';
+      effectiveSalesOffice = salesOffice ?? effectiveSalesOffice;
+      managedEmails = role === 'team_lead' ? (await getManagedUserEmails(userId)) : managedEmails;
+    } else {
+      // Override role-based filtering - treat manager as a rep
+      // This means we'll filter by their email instead of offices/managed users
+      effectiveSalesOffice = undefined;
+      managedEmails = undefined;
+    }
+    
+    logInfo('[ENHANCED_METRICS] Personal scope requested for manager', { 
+      userId, 
+      role, 
+      hasEmail: !!userEmail 
+    });
+  }
+
   // Build role-based where clause (no time filtering here, now email-based)
-  const roleClause = buildRoleClause(userEmail, role, effectiveSalesOffice, managedEmails);
+  // For personal scope managers, use effective role to trigger email-based filtering
+  const effectiveRole = (scope === 'personal' && isManagerRole(role)) ? 'closer' : role;
+  const roleClause = buildProjectAccessClause(userEmail, effectiveRole, effectiveSalesOffice, managedEmails, reqId);
   
-  console.log('[getEnhancedDashboardMetrics] Role-based WHERE clause:', roleClause);
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[getEnhancedDashboardMetrics] Role-based WHERE clause:', roleClause);
+  }
 
   // Fetch all necessary fields for comprehensive metrics (role-scoped only)
+  // Use pagination to handle large datasets efficiently
+  const MAX_RECORDS_PER_QUERY = 5000;
   const userProjects = await qbClient.queryRecords({
     from: QB_TABLE_PROJECTS,
     select: [
@@ -700,6 +892,12 @@ export async function getEnhancedDashboardMetrics(
       PROJECT_FIELDS.SYSTEM_SIZE_KW,
       PROJECT_FIELDS.COMMISSIONABLE_PPW,
       
+      // Team member fields (for commission breakdown by person)
+      PROJECT_FIELDS.CLOSER_NAME,
+      PROJECT_FIELDS.SETTER_NAME,
+      PROJECT_FIELDS.CLOSER_EMAIL,
+      PROJECT_FIELDS.SETTER_EMAIL,
+      
       // Milestone dates
       PROJECT_FIELDS.INSTALL_COMPLETED_DATE,
       PROJECT_FIELDS.PTO_APPROVED,
@@ -715,10 +913,22 @@ export async function getEnhancedDashboardMetrics(
       PROJECT_FIELDS.FUNDING_DASHBOARD_M3_STATUS,
     ],
     where: roleClause,
+    options: { top: MAX_RECORDS_PER_QUERY }
   });
 
   const allData = userProjects.data || [];
+  const totalRecords = userProjects.metadata?.totalRecords || allData.length;
+  
   console.log(`[getEnhancedDashboardMetrics] Retrieved ${allData.length} projects (role-scoped)`);
+  
+  // Log warning if we hit the pagination limit
+  if (totalRecords > MAX_RECORDS_PER_QUERY) {
+    logWarn('[ENHANCED_METRICS] Large dataset detected - using pagination', { 
+      totalRecords, 
+      maxRecords: MAX_RECORDS_PER_QUERY,
+      message: 'Metrics calculated from first 5000 records only. Consider using date range filters for more accurate results.'
+    });
+  }
 
   // Create three period-specific arrays for per-metric time filtering
   const now = new Date();
@@ -808,7 +1018,39 @@ export async function getEnhancedDashboardMetrics(
   const revenueMetrics = calculateRevenueMetrics(soldInPeriod, installedInPeriod);
   const commissionBreakdown = calculateCommissionBreakdown(allData, fundedInPeriod);
   const projectBuckets = getProjectBucketCounts(allData); // Use allData for buckets (no time filtering)
-  const retentionRates = calculateRetentionRate(allData); // Use allData for retention (no time filtering)
+  const retentionRates = calculateRetentionRate(allData, timeRange); // Pass timeRange for period-specific calculation
+
+  // Calculate team member breakdown for managers with team scope (with caching)
+  let commissionByMember: TeamMemberCommission[] | undefined;
+  if (scope === 'team' && isManagerRole(role)) {
+    const commissionCacheKey = `${userId}:${role}:${timeRange}:${scope}:${customDateRange?.startDate || ''}:${customDateRange?.endDate || ''}:commission`;
+    const cachedCommission = commissionCache.get<TeamMemberCommission[]>(commissionCacheKey);
+    
+    if (cachedCommission) {
+      commissionByMember = cachedCommission;
+      console.log(`[getEnhancedDashboardMetrics] Using cached commission data for ${commissionByMember.length} team members`);
+    } else {
+      commissionByMember = calculateCommissionByTeamMember(allData, fundedInPeriod);
+      commissionCache.set(commissionCacheKey, commissionByMember, 60000); // 60 second TTL
+      console.log(`[getEnhancedDashboardMetrics] Calculated and cached commission for ${commissionByMember.length} team members`);
+    }
+  }
+
+  // Calculate team member bucket breakdown for managers with team scope (with caching)
+  let bucketsByMember: TeamMemberBuckets[] | undefined;
+  if (scope === 'team' && isManagerRole(role)) {
+    const bucketsCacheKey = `${userId}:${role}:${timeRange}:${scope}:${customDateRange?.startDate || ''}:${customDateRange?.endDate || ''}:buckets`;
+    const cachedBuckets = commissionCache.get<TeamMemberBuckets[]>(bucketsCacheKey);
+    
+    if (cachedBuckets) {
+      bucketsByMember = cachedBuckets;
+      console.log(`[getEnhancedDashboardMetrics] Using cached bucket data for ${bucketsByMember.length} team members`);
+    } else {
+      bucketsByMember = calculateProjectBucketsByTeamMember(allData);
+      commissionCache.set(bucketsCacheKey, bucketsByMember, 60000); // 60 second TTL
+      console.log(`[getEnhancedDashboardMetrics] Calculated and cached buckets for ${bucketsByMember.length} team members`);
+    }
+  }
 
   // Log performance metrics
   const duration = Date.now() - startTime;
@@ -821,10 +1063,13 @@ export async function getEnhancedDashboardMetrics(
     ...revenueMetrics,
     ...commissionBreakdown,
     buckets: projectBuckets,
-    retentionRate: retentionRates.lifetime, // Use lifetime retention for now
+    retentionRate: timeRange !== 'lifetime' ? retentionRates.period : retentionRates.lifetime,
     retentionRateLifetime: retentionRates.lifetime,
     retentionRatePeriod: retentionRates.period,
     timeRange,
+    scope: scope as MetricsScope, // Include scope in response (always present)
+    commissionByMember, // Add team member breakdown (undefined for non-managers or personal scope)
+    bucketsByMember, // Add team member bucket breakdown
   };
 }
 
@@ -946,6 +1191,320 @@ function calculateCommissionBreakdown(allData: any[], fundedInPeriod: any[]) {
   };
 }
 
+/**
+ * Calculate commission breakdown by team member
+ * Groups projects by closer and setter, calculates commission for each person
+ * @param allData - All projects in scope (role-filtered)
+ * @param fundedInPeriod - Projects funded in the time period
+ * @returns Array of team member commission objects
+ */
+export function calculateCommissionByTeamMember(
+  allData: any[],
+  fundedInPeriod: any[]
+): TeamMemberCommission[] {
+  // COMMISSION ATTRIBUTION STRATEGY:
+  // When both closer and setter exist, split commission 50/50 to avoid per-member sums exceeding aggregate totals
+  // TODO: Business confirmation needed for split ratio (currently 50/50)
+  const COMMISSION_SPLIT_RATIO = 0.5; // 50% to each role when both exist
+
+  // Helper to calculate commission for a single project
+  const calculateProjectCommission = (project: any): number => {
+    const ppw = parseFloat(project[PROJECT_FIELDS.COMMISSIONABLE_PPW]?.value || '0');
+    const sizeKw = parseFloat(project[PROJECT_FIELDS.SYSTEM_SIZE_KW]?.value || '0');
+    
+    if (isNaN(ppw) || isNaN(sizeKw) || ppw < 0 || sizeKw < 0) {
+      return 0;
+    }
+    
+    const watts = sizeKw * 1000;
+    return ppw * watts;
+  };
+
+  // Map to store commission data by member (key: email or name)
+  const memberMap = new Map<string, TeamMemberCommission>();
+
+  // Helper to get or create member entry
+  const getMemberEntry = (
+    name: string,
+    email: string | null,
+    role: 'closer' | 'setter'
+  ): TeamMemberCommission => {
+    // Use email as key if available, otherwise use name
+    const key = email || name || 'Unassigned';
+    
+    if (!memberMap.has(key)) {
+      memberMap.set(key, {
+        memberName: name || 'Unassigned',
+        memberEmail: email,
+        role,
+        earnedCommission: 0,
+        lostCommission: 0,
+        onHoldCommission: 0,
+        pendingCommission: 0,
+        projectCount: 0,
+      });
+    }
+    
+    return memberMap.get(key)!;
+  };
+
+  // Create Set of funded project IDs for O(1) lookup performance
+  const fundedIds = new Set(fundedInPeriod.map(p => p[PROJECT_FIELDS.RECORD_ID]?.value));
+
+  // Process each project and attribute commission to closer and setter
+  allData.forEach((project: any) => {
+    const fullCommission = calculateProjectCommission(project);
+    const status = project[PROJECT_FIELDS.PROJECT_STATUS]?.value || '';
+    const onHold = project[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes';
+    const installed = project[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value;
+    const funded = fundedIds.has(project[PROJECT_FIELDS.RECORD_ID]?.value);
+
+    // Determine commission category
+    let category: 'earned' | 'lost' | 'onHold' | 'pending';
+    if (funded) {
+      category = 'earned';
+    } else if (status.includes('Cancel') && !status.includes('Pending')) {
+      category = 'lost';
+    } else if (onHold) {
+      category = 'onHold';
+    } else if (status.includes('Active') && !installed) {
+      category = 'pending';
+    } else {
+      return; // Skip projects that don't fit any category
+    }
+
+    // Check if both closer and setter exist
+    const closerName = project[PROJECT_FIELDS.CLOSER_NAME]?.value;
+    const closerEmail = project[PROJECT_FIELDS.CLOSER_EMAIL]?.value;
+    const setterName = project[PROJECT_FIELDS.SETTER_NAME]?.value;
+    const setterEmail = project[PROJECT_FIELDS.SETTER_EMAIL]?.value;
+    
+    const hasCloser = closerName || closerEmail;
+    const hasSetter = (setterName || setterEmail) && setterEmail !== closerEmail;
+    const hasBoth = hasCloser && hasSetter;
+
+    // Calculate commission amount based on attribution strategy
+    const closerCommission = hasBoth ? fullCommission * COMMISSION_SPLIT_RATIO : fullCommission;
+    const setterCommission = hasBoth ? fullCommission * COMMISSION_SPLIT_RATIO : fullCommission;
+
+    // Attribute to closer
+    if (hasCloser) {
+      const closerEntry = getMemberEntry(closerName, closerEmail, 'closer');
+      closerEntry.projectCount++;
+      
+      switch (category) {
+        case 'earned':
+          closerEntry.earnedCommission += closerCommission;
+          break;
+        case 'lost':
+          closerEntry.lostCommission += closerCommission;
+          break;
+        case 'onHold':
+          closerEntry.onHoldCommission += closerCommission;
+          break;
+        case 'pending':
+          closerEntry.pendingCommission += closerCommission;
+          break;
+      }
+    }
+
+    // Attribute to setter (if different from closer)
+    if (hasSetter) {
+      const setterEntry = getMemberEntry(setterName, setterEmail, 'setter');
+      setterEntry.projectCount++;
+      
+      switch (category) {
+        case 'earned':
+          setterEntry.earnedCommission += setterCommission;
+          break;
+        case 'lost':
+          setterEntry.lostCommission += setterCommission;
+          break;
+        case 'onHold':
+          setterEntry.onHoldCommission += setterCommission;
+          break;
+        case 'pending':
+          setterEntry.pendingCommission += setterCommission;
+          break;
+      }
+    }
+  });
+
+  // Convert map to array and sort by total commission (earned + pending) descending
+  const result = Array.from(memberMap.values()).sort((a, b) => {
+    const totalA = a.earnedCommission + a.pendingCommission;
+    const totalB = b.earnedCommission + b.pendingCommission;
+    return totalB - totalA;
+  });
+
+  return result;
+}
+
+/**
+ * Groups projects by closer and setter, calculates bucket counts for each person
+ * @param allData - All projects in scope (role-filtered)
+ * @returns Array of team member bucket objects
+ */
+export function calculateProjectBucketsByTeamMember(
+  allData: any[]
+): TeamMemberBuckets[] {
+  const now = new Date();
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  // Helper to determine which bucket(s) a project belongs to
+  const getProjectBuckets = (project: any): string[] => {
+    const buckets: string[] = [];
+    
+    // Installs: Projects completed but not yet PTO'd
+    const installed = project[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value;
+    const pto = project[PROJECT_FIELDS.PTO_APPROVED]?.value;
+    if (installed && !pto) {
+      buckets.push('installs');
+    }
+
+    // Rejected: Projects with status containing 'Reject'
+    const status = project[PROJECT_FIELDS.PROJECT_STATUS]?.value || '';
+    if (status.includes('Reject')) {
+      buckets.push('rejected');
+    }
+
+    // On Hold: Projects currently on hold
+    if (project[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes') {
+      buckets.push('onHold');
+    }
+
+    // Rep Attention: Projects >90 days old OR on hold >7 days
+    const age = parseInt(project[PROJECT_FIELDS.PROJECT_AGE]?.value || '0');
+    const onHold = project[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes';
+    const holdDate = project[PROJECT_FIELDS.DATE_ON_HOLD]?.value;
+    
+    if (age > 90) {
+      buckets.push('repAttention');
+    } else if (onHold && holdDate) {
+      const hold = new Date(holdDate);
+      if (hold < sevenDaysAgo) {
+        buckets.push('repAttention');
+      }
+    }
+
+    // Pending Cancel: Projects with status containing 'Pending Cancel'
+    if (status.includes('Pending Cancel')) {
+      buckets.push('pendingCancel');
+    }
+
+    // Ready for Install: Projects with permits/NEM but no install date
+    const nem = project[PROJECT_FIELDS.NEM_APPROVED]?.value;
+    const permit = project[PROJECT_FIELDS.PERMIT_APPROVED]?.value;
+    const scheduled = project[PROJECT_FIELDS.INSTALL_SCHEDULED_DATE_CAPTURE]?.value;
+    if (nem === 'Yes' && permit === 'Yes' && !scheduled) {
+      buckets.push('readyForInstall');
+    }
+
+    return buckets;
+  };
+
+  // Map to store bucket data by member (key: email or name)
+  const memberMap = new Map<string, TeamMemberBuckets>();
+
+  // Helper to get or create member entry
+  const getMemberEntry = (
+    name: string,
+    email: string | null,
+    role: 'closer' | 'setter'
+  ): TeamMemberBuckets => {
+    // Use email as key if available, otherwise use name
+    const key = email || name || 'Unassigned';
+    
+    if (!memberMap.has(key)) {
+      memberMap.set(key, {
+        memberName: name || 'Unassigned',
+        memberEmail: email,
+        role,
+        installs: 0,
+        rejected: 0,
+        onHold: 0,
+        repAttention: 0,
+        pendingCancel: 0,
+        readyForInstall: 0,
+        totalProjects: 0,
+      });
+    }
+    
+    return memberMap.get(key)!;
+  };
+
+  // Track unique projects per member to avoid double-counting totalProjects
+  const memberProjects = new Map<string, Set<string>>();
+
+  // Process each project and attribute bucket counts to closer and setter
+  allData.forEach((project: any) => {
+    const projectId = project[PROJECT_FIELDS.RECORD_ID]?.value;
+    const projectBuckets = getProjectBuckets(project);
+    
+    // Skip projects that don't fit any bucket
+    if (projectBuckets.length === 0) {
+      return;
+    }
+
+    // Check if both closer and setter exist
+    const closerName = project[PROJECT_FIELDS.CLOSER_NAME]?.value;
+    const closerEmail = project[PROJECT_FIELDS.CLOSER_EMAIL]?.value;
+    const setterName = project[PROJECT_FIELDS.SETTER_NAME]?.value;
+    const setterEmail = project[PROJECT_FIELDS.SETTER_EMAIL]?.value;
+    
+    const hasCloser = closerName || closerEmail;
+    const namesMatch = (setterName && closerName) && setterName.trim().toLowerCase() === closerName.trim().toLowerCase();
+    const emailsMatch = !!setterEmail && !!closerEmail && setterEmail.trim().toLowerCase() === closerEmail.trim().toLowerCase();
+    const hasSetter = (setterName || setterEmail) && !(emailsMatch || namesMatch);
+
+    // Attribute to closer
+    if (hasCloser) {
+      const closerEntry = getMemberEntry(closerName, closerEmail, 'closer');
+      const closerKey = closerEmail || closerName || 'Unassigned';
+      
+      // Track unique projects for total count
+      if (!memberProjects.has(closerKey)) {
+        memberProjects.set(closerKey, new Set());
+      }
+      memberProjects.get(closerKey)!.add(projectId);
+      
+      // Increment bucket counts
+      projectBuckets.forEach(bucket => {
+        (closerEntry as any)[bucket]++;
+      });
+    }
+
+    // Attribute to setter (if different from closer)
+    if (hasSetter) {
+      const setterEntry = getMemberEntry(setterName, setterEmail, 'setter');
+      const setterKey = setterEmail || setterName || 'Unassigned';
+      
+      // Track unique projects for total count
+      if (!memberProjects.has(setterKey)) {
+        memberProjects.set(setterKey, new Set());
+      }
+      memberProjects.get(setterKey)!.add(projectId);
+      
+      // Increment bucket counts
+      projectBuckets.forEach(bucket => {
+        (setterEntry as any)[bucket]++;
+      });
+    }
+  });
+
+  // Set totalProjects for each member
+  memberMap.forEach((member, key) => {
+    member.totalProjects = memberProjects.get(key)?.size || 0;
+  });
+
+  // Convert map to array and sort by total projects descending
+  const result = Array.from(memberMap.values()).sort((a, b) => {
+    return b.totalProjects - a.totalProjects;
+  });
+
+  return result;
+}
+
 // Calculate project bucket counts
 function getProjectBucketCounts(data: any[]) {
   const now = new Date();
@@ -999,11 +1558,12 @@ function getProjectBucketCounts(data: any[]) {
 }
 
 // Calculate retention rate with business-approved statuses
-function calculateRetentionRate(data: any[]): { lifetime: number; period: number } {
+function calculateRetentionRate(data: any[], timeRange: 'lifetime' | 'month' | 'week' | 'custom' = 'lifetime'): { lifetime: number; period: number } {
   // Business-approved status categories
   const retainedStatuses = ['Active', 'Completed', 'Installed', 'PTO Approved'];
   const lostStatuses = ['Cancelled', 'Canceled', 'Rejected', 'Pending Cancel'];
   
+  // Calculate lifetime retention (all data)
   const active = data.filter((p: any) => {
     const status = p[PROJECT_FIELDS.PROJECT_STATUS]?.value || '';
     return retainedStatuses.some(retainedStatus => status.includes(retainedStatus));
@@ -1024,11 +1584,60 @@ function calculateRetentionRate(data: any[]): { lifetime: number; period: number
   
   const lifetimeRetention = Math.round(((active + completed) / total) * 100 * 10) / 10; // Round to 1 decimal place
   
-  // For now, return the same value for both lifetime and period
-  // In the future, this could be enhanced to calculate period-specific retention
+  // Calculate period-specific retention based on time range
+  let periodRetention = lifetimeRetention; // Default to lifetime
+  
+  if (timeRange !== 'lifetime') {
+    const now = new Date();
+    let periodStart: Date;
+    
+    switch (timeRange) {
+      case 'month':
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+        periodStart = new Date(currentYear, currentMonth, 1);
+        break;
+      case 'week':
+        periodStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        periodStart = new Date(0); // All time
+    }
+    
+    // Filter data to period-specific projects (based on sales date)
+    const periodData = data.filter((p: any) => {
+      const salesDate = p[PROJECT_FIELDS.SALES_DATE]?.value;
+      if (!salesDate) return false;
+      const projectDate = new Date(salesDate);
+      return projectDate >= periodStart;
+    });
+    
+    if (periodData.length > 0) {
+      const periodActive = periodData.filter((p: any) => {
+        const status = p[PROJECT_FIELDS.PROJECT_STATUS]?.value || '';
+        return retainedStatuses.some(retainedStatus => status.includes(retainedStatus));
+      }).length;
+
+      const periodCompleted = periodData.filter((p: any) => {
+        const status = p[PROJECT_FIELDS.PROJECT_STATUS]?.value || '';
+        return status.includes('Completed') || status.includes('PTO Approved');
+      }).length;
+
+      const periodCancelled = periodData.filter((p: any) => {
+        const status = p[PROJECT_FIELDS.PROJECT_STATUS]?.value || '';
+        return lostStatuses.some(lostStatus => status.includes(lostStatus));
+      }).length;
+
+      const periodTotal = periodActive + periodCompleted + periodCancelled;
+      if (periodTotal > 0) {
+        periodRetention = Math.round(((periodActive + periodCompleted) / periodTotal) * 100 * 10) / 10;
+      }
+    }
+  }
+  
   return { 
     lifetime: lifetimeRetention, 
-    period: lifetimeRetention 
+    period: periodRetention 
   };
 }
 
@@ -1260,10 +1869,16 @@ export function testHoldBreakdownCategorization() {
 export const __test__ = {
   sanitizeQbLiteral,
   buildSearchFilter,
+  buildOwnershipFilter,
   testTimeRangeFilter,
   testPerMetricPeriodArrays,
   testCommissionCalculation,
   testHoldBreakdownCategorization,
+  // Test-only exports for SQL helper functions
+  getAssignedOffices,
+  getManagedUserEmails,
+  // Cache testing utilities
+  commissionCache,
 };
 
 export async function getUrgentProjects(userId: string, role: string, salesOffice?: string[]) {
@@ -1313,6 +1928,144 @@ export async function getRecentProjects(userId: string, role: string, salesOffic
   return recentProjects;
 }
 
+export async function getTeamActivityFeed(
+  userId: string,
+  role: string,
+  salesOffice?: string[],
+  limit: number = 10,
+  offset: number = 0
+): Promise<{ activities: TeamActivityItem[]; totalCount: number; hasMore: boolean }> {
+  // Early return for non-managers
+  if (!isManagerRole(role)) {
+    return { activities: [], totalCount: 0, hasMore: false };
+  }
+
+  // Get role-based filtering data
+  let offices: string[] = [];
+  let managedEmails: string[] = [];
+  
+  if (role === 'office_leader') {
+    offices = salesOffice || await getAssignedOffices(userId);
+  } else if (['area_director', 'divisional', 'regional'].includes(role)) {
+    offices = salesOffice || await getAssignedOffices(userId);
+  } else if (role === 'team_lead') {
+    managedEmails = await getManagedUserEmails(userId);
+  }
+
+  // Get user email for email-based filtering
+  const userEmail = await getUserEmail(userId);
+  if (!userEmail) {
+    return { activities: [], totalCount: 0, hasMore: false };
+  }
+
+  // Build role-based access clause
+  const accessClause = buildProjectAccessClause(userEmail, role, offices, managedEmails);
+  
+  // Build date filter for last 7 days
+  const dateFilter = `({${PROJECT_FIELDS.DATE_ON_HOLD}.OAF.'7 days ago'} OR {${PROJECT_FIELDS.INSTALL_COMPLETED_DATE}.OAF.'7 days ago'} OR {${PROJECT_FIELDS.PTO_APPROVED}.OAF.'7 days ago'})`;
+  
+  // Combine clauses
+  const whereClause = `(${accessClause}) AND (${dateFilter})`;
+
+  // Query QuickBase with minimal fields and pagination
+  const result = await qbClient.queryRecords({
+    from: QB_TABLE_PROJECTS,
+    select: [
+      PROJECT_FIELDS.RECORD_ID,
+      PROJECT_FIELDS.PROJECT_ID,
+      PROJECT_FIELDS.CUSTOMER_NAME,
+      PROJECT_FIELDS.PROJECT_STATUS,
+      PROJECT_FIELDS.CLOSER_NAME,
+      PROJECT_FIELDS.SETTER_NAME,
+      PROJECT_FIELDS.DATE_ON_HOLD,
+      PROJECT_FIELDS.INSTALL_COMPLETED_DATE,
+      PROJECT_FIELDS.PTO_APPROVED,
+    ],
+    where: whereClause,
+    options: {
+      skip: offset,
+      top: limit * 2 // Get more records to account for filtering
+    }
+  });
+
+  // Transform projects to activity items
+  const activities: TeamActivityItem[] = [];
+  
+  for (const project of result.data) {
+    const activity = determineActivity(project);
+    if (activity) {
+      activities.push(activity);
+    }
+  }
+
+  // Sort by timestamp descending (most recent first)
+  activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  
+  // Apply pagination to final results
+  const paginatedActivities = activities.slice(0, limit);
+  const totalCount = result.metadata?.totalRecords || activities.length;
+  const hasMore = (offset + limit) < totalCount;
+  
+  return {
+    activities: paginatedActivities,
+    totalCount,
+    hasMore
+  };
+}
+
+// Helper function to determine activity from project data
+function determineActivity(project: any): TeamActivityItem | null {
+  const recordId = project[PROJECT_FIELDS.RECORD_ID]?.value;
+  const projectId = project[PROJECT_FIELDS.PROJECT_ID]?.value || 'N/A';
+  const customerName = project[PROJECT_FIELDS.CUSTOMER_NAME]?.value || 'Unknown Customer';
+  const projectStatus = project[PROJECT_FIELDS.PROJECT_STATUS]?.value;
+  const closerName = project[PROJECT_FIELDS.CLOSER_NAME]?.value;
+  const setterName = project[PROJECT_FIELDS.SETTER_NAME]?.value;
+  const dateOnHold = project[PROJECT_FIELDS.DATE_ON_HOLD]?.value;
+  const installCompletedDate = project[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value;
+  const ptoApproved = project[PROJECT_FIELDS.PTO_APPROVED]?.value;
+
+  // Determine team member
+  const teamMemberName = closerName || setterName || 'Unassigned';
+  const teamMemberRole: 'closer' | 'setter' = closerName ? 'closer' : 'setter';
+
+  // Determine most recent activity (priority: PTO > Install > Hold > Cancel)
+  let activityType: TeamActivityType;
+  let activityDescription: string;
+  let timestamp: string;
+
+  if (ptoApproved) {
+    activityType = 'pto_approved';
+    activityDescription = 'PTO approved';
+    timestamp = ptoApproved;
+  } else if (installCompletedDate) {
+    activityType = 'install_completed';
+    activityDescription = 'Install completed';
+    timestamp = installCompletedDate;
+  } else if (dateOnHold) {
+    activityType = 'placed_on_hold';
+    activityDescription = 'Placed on hold';
+    timestamp = dateOnHold;
+  } else {
+    return null; // No relevant activity
+  }
+
+  // Calculate days ago
+  const daysAgo = Math.floor((Date.now() - new Date(timestamp).getTime()) / (1000 * 60 * 60 * 24));
+
+  return {
+    recordId,
+    projectId,
+    customerName,
+    activityType,
+    activityDescription,
+    teamMemberName,
+    teamMemberRole,
+    timestamp,
+    daysAgo,
+  };
+}
+
 export async function getProjectById(recordId: number) {
   const result = await qbClient.queryRecords({
     from: QB_TABLE_PROJECTS,
@@ -1343,7 +2096,7 @@ export async function getProjectsOnHold(userId: string, role: string, salesOffic
   }
 
   // Use shared role scoping helper and consistent ON_HOLD value (now email-based)
-  const roleClause = buildRoleClause(userEmail, role, effectiveSalesOffice, managedEmails);
+  const roleClause = buildProjectAccessClause(userEmail, role, effectiveSalesOffice, managedEmails);
   const whereClause = `(${roleClause}) AND {${PROJECT_FIELDS.ON_HOLD}.EX.'Yes'}`;
 
   const result = await qbClient.queryRecords({

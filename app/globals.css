@@ -91,4 +91,39 @@
   .status-urgent {
     @apply bg-orange-100 text-orange-800 border-orange-200;
   }
+  
+  /* Tree connector styles */
+  .tree-node {
+    position: relative;
+  }
+  
+  .tree-connector::before {
+    /* vertical line */
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: #D1D5DB;
+  }
+  
+  .tree-connector::after {
+    /* horizontal line */
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 1.5rem;
+    width: 1.5rem;
+    height: 1px;
+    background: #D1D5DB;
+  }
+  
+  .tree-first-child.tree-connector::before {
+    top: 1.5rem;
+  }
+  
+  .tree-last-child.tree-connector::before {
+    bottom: 50%;
+  }
 }

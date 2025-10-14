@@ -12,21 +12,25 @@ import { StatusBadge } from './StatusBadge';
 import { RejectionReasonBadge } from './RejectionReasonBadge';
 import { UnreadBadge } from '@/components/ui/UnreadBadge';
 import { useProjectUnreadCount } from '@/lib/hooks/useNotifications';
-import { parseCustomerName, getProjectAge } from '@/lib/utils/project-helpers';
+import { parseCustomerName, getProjectAge, determineProjectOwnership } from '@/lib/utils/project-helpers';
 import { detectHoldStatus, extractHoldType } from '@/lib/utils/hold-detection';
 import { formatSystemSize, formatCurrency } from '@/lib/utils/formatters';
 import { projectKey } from '@/lib/queryKeys';
 import { getBaseUrl } from '@/lib/utils/baseUrl';
 import { getProjectCompletionPercentage } from '@/lib/utils/milestone-engine';
 import { useMilestoneConfig } from '@/lib/hooks/useMilestoneConfig';
+import { OwnershipBadge } from './OwnershipBadge';
+import { isManagerRole } from '@/lib/utils/role-helpers';
 
 interface ProjectRowProps {
   project: QuickbaseProject;
+  userEmail: string; // NEW: Current user's email for ownership determination
+  userRole: string;  // NEW: Current user's role for manager-specific logic
 }
 
 // Updated 2025-01-07: Current active version
 
-export function ProjectRow({ project }: ProjectRowProps) {
+export function ProjectRow({ project, userEmail, userRole }: ProjectRowProps) {
   const queryClient = useQueryClient();
   const router = useRouter();
   const { config } = useMilestoneConfig();
@@ -42,6 +46,8 @@ export function ProjectRow({ project }: ProjectRowProps) {
   const salesDate = project[PROJECT_FIELDS.SALES_DATE]?.value || '';
   const closerName = project[PROJECT_FIELDS.CLOSER_NAME]?.value || '';
   const setterName = project[PROJECT_FIELDS.SETTER_NAME]?.value || '';
+  const closerEmail = project[PROJECT_FIELDS.CLOSER_EMAIL]?.value || null;
+  const setterEmail = project[PROJECT_FIELDS.SETTER_EMAIL]?.value || null;
 
   // Handle SALES_OFFICE - could be string or array
   const officeValue = project[PROJECT_FIELDS.SALES_OFFICE]?.value;
@@ -59,6 +65,18 @@ export function ProjectRow({ project }: ProjectRowProps) {
   const parsedName = parseCustomerName(customerName);
   const projectAge = getProjectAge(project);
   const completionPercentage = getProjectCompletionPercentage(project, config);
+
+  // Determine project ownership for badge display
+  const ownership = determineProjectOwnership(
+    userEmail,
+    closerEmail,
+    setterEmail,
+    closerName,
+    setterName
+  );
+
+  // Suppress ownership badge for reps on their own projects to reduce visual noise
+  const showOwnershipBadge = isManagerRole(userRole) || ownership.status !== 'mine';
 
   // Get rejection reasons for rejected projects
   const isRejected = projectStatus.toLowerCase().includes('reject');
@@ -109,6 +127,12 @@ export function ProjectRow({ project }: ProjectRowProps) {
                 {parsedName.firstName} {parsedName.lastName}
               </h3>
               <StatusBadge status={projectStatus} />
+              {showOwnershipBadge && (
+                <OwnershipBadge 
+                  status={ownership.status} 
+                  displayName={ownership.displayName} 
+                />
+              )}
               {unreadCount > 0 && (
                 <UnreadBadge count={unreadCount} variant="default" size="small" />
               )}

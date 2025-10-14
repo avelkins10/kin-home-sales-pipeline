@@ -4,8 +4,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency } from '@/lib/utils/formatters';
-import { CheckCircle, Clock, Pause, XCircle, Users, Info } from 'lucide-react';
-import type { TimeRange } from '@/lib/types/dashboard';
+import { CheckCircle, Clock, Pause, XCircle, Users, Info, ChevronDown, ChevronUp } from 'lucide-react';
+import type { TimeRange, TeamMemberCommission } from '@/lib/types/dashboard';
+import { useState } from 'react';
 
 interface CommissionSummaryProps {
   earnedCommission: number;
@@ -15,6 +16,10 @@ interface CommissionSummaryProps {
   salesAidCommission: number;
   timeRange: TimeRange;
   isLoading?: boolean;
+  // New props for team member breakdown
+  commissionByMember?: TeamMemberCommission[]; // Team member breakdown (managers only)
+  isManager?: boolean;                          // Whether user is a manager
+  scope?: 'personal' | 'team';                  // Current scope
 }
 
 export function CommissionSummary({
@@ -25,7 +30,11 @@ export function CommissionSummary({
   salesAidCommission,
   timeRange,
   isLoading = false,
+  commissionByMember,
+  isManager = false,
+  scope = 'personal',
 }: CommissionSummaryProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const getTimeRangeLabel = (range: TimeRange) => {
     switch (range) {
       case 'month': return 'This Month';
@@ -160,6 +169,100 @@ export function CommissionSummary({
               </div>
             </div>
           </>
+        )}
+
+        {/* Team Member Breakdown - Only for managers with team scope */}
+        {isManager && scope === 'team' && commissionByMember && commissionByMember.length > 0 && (
+          <div className="border-t border-gray-200 pt-3">
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="w-full flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+              aria-expanded={isExpanded}
+              aria-label="Toggle team member commission breakdown"
+            >
+              <div className="flex items-center space-x-2">
+                <Users className="h-4 w-4 text-gray-600" />
+                <span className="text-sm font-medium text-gray-900">
+                  View by Team Member ({commissionByMember.length})
+                </span>
+              </div>
+              {isExpanded ? (
+                <ChevronUp className="h-4 w-4 text-gray-600" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-gray-600" />
+              )}
+            </button>
+
+            {isExpanded && (
+              <div data-testid="team-member-list" className="mt-3 space-y-2">
+                {commissionByMember.map((member, index) => {
+                  const totalPotential = member.earnedCommission + member.pendingCommission;
+                  
+                  return (
+                    <div
+                      key={`${member.memberEmail || member.memberName}-${index}`}
+                      data-testid="team-member-card"
+                      className="p-3 bg-white border border-gray-200 rounded-lg"
+                    >
+                      {/* Member Header */}
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <p data-testid="member-name" className="text-sm font-semibold text-gray-900">
+                            {member.memberName}
+                          </p>
+                          <p data-testid="member-role" className="text-xs text-gray-500">
+                            {member.role === 'closer' ? 'Closer' : 'Setter'} • {member.projectCount} projects
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p data-testid="total-potential" className="text-sm font-semibold text-gray-900">
+                            {formatCurrency(totalPotential)}
+                          </p>
+                          <p className="text-xs text-gray-500">Total Potential</p>
+                        </div>
+                      </div>
+
+                      {/* Member Commission Breakdown */}
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        {member.earnedCommission > 0 && (
+                          <div className="text-xs">
+                            <span className="text-gray-600">Earned:</span>
+                            <span data-testid="earned-commission" className="ml-1 font-medium text-green-600">
+                              {formatCurrency(member.earnedCommission)}
+                            </span>
+                          </div>
+                        )}
+                        {member.pendingCommission > 0 && (
+                          <div className="text-xs">
+                            <span className="text-gray-600">Pending:</span>
+                            <span data-testid="pending-commission" className="ml-1 font-medium text-blue-600">
+                              {formatCurrency(member.pendingCommission)}
+                            </span>
+                          </div>
+                        )}
+                        {member.onHoldCommission > 0 && (
+                          <div className="text-xs">
+                            <span className="text-gray-600">On Hold:</span>
+                            <span data-testid="on-hold-commission" className="ml-1 font-medium text-orange-600">
+                              {formatCurrency(member.onHoldCommission)}
+                            </span>
+                          </div>
+                        )}
+                        {member.lostCommission > 0 && (
+                          <div className="text-xs">
+                            <span className="text-gray-600">Lost:</span>
+                            <span data-testid="lost-commission" className="ml-1 font-medium text-red-600">
+                              {formatCurrency(member.lostCommission)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         )}
 
         {/* Business Note */}

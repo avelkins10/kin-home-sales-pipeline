@@ -2,7 +2,7 @@ export const runtime = 'nodejs'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/auth/guards'
 import { sql } from '@/lib/db/client'
-import { logInfo, logError, logAudit } from '@/lib/logging/logger'
+import { logInfo, logError, logAudit, logWarn } from '@/lib/logging/logger'
 import { z } from 'zod'
 import { bulkAssignOfficesSchema } from '@/lib/validation/admin'
 
@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
 
     // Start a transaction
     await sql.query('BEGIN')
+    logInfo('[OFFICE_ASSIGNMENT] Starting transaction', { userCount: userIds.length, officeCount: officeNames.length });
 
     try {
       // Validate all users exist and have appropriate roles
@@ -35,8 +36,11 @@ export async function POST(request: NextRequest) {
       if (userResult.rows.length !== userIds.length) {
         const foundIds = userResult.rows.map(row => row.id)
         const missingIds = userIds.filter(id => !foundIds.includes(id))
+        logWarn('[OFFICE_ASSIGNMENT] Some users not found or invalid', { requestedCount: userIds.length, foundCount: userResult.rows.length, missingIds });
         throw new Error(`Invalid or inactive users: ${missingIds.join(', ')}`)
       }
+      
+      logInfo('[OFFICE_ASSIGNMENT] Validated users', { requestedCount: userIds.length, foundCount: userResult.rows.length });
 
       // Validate all offices exist
       const officeValidationQuery = `
@@ -49,8 +53,11 @@ export async function POST(request: NextRequest) {
       if (officeResult.rows.length !== officeNames.length) {
         const foundNames = officeResult.rows.map(row => row.name)
         const missingNames = officeNames.filter(name => !foundNames.includes(name))
+        logWarn('[OFFICE_ASSIGNMENT] Some offices not found or invalid', { requestedCount: officeNames.length, foundCount: officeResult.rows.length, missingNames });
         throw new Error(`Invalid or inactive offices: ${missingNames.join(', ')}`)
       }
+      
+      logInfo('[OFFICE_ASSIGNMENT] Validated offices', { requestedCount: officeNames.length, foundCount: officeResult.rows.length });
 
       // Bulk insert/update office assignments
       let createdCount = 0
@@ -88,6 +95,8 @@ export async function POST(request: NextRequest) {
             accessLevel
           })
 
+          logInfo('[OFFICE_ASSIGNMENT] Created/updated assignment', { userId, userName: user.name, officeName, accessLevel, wasInserted });
+
           // Log audit event for each assignment
           await logAudit(
             'assign',
@@ -109,10 +118,12 @@ export async function POST(request: NextRequest) {
           WHERE id = $2
         `
         await sql.query(updateUserOfficesQuery, [officeNames, userId])
+        logInfo('[OFFICE_ASSIGNMENT] Updated user sales_office array', { userId, officeCount: officeNames.length });
       }
 
       // Commit transaction
       await sql.query('COMMIT')
+      logInfo('[OFFICE_ASSIGNMENT] Transaction committed successfully', { created: createdCount, updated: updatedCount });
 
       logInfo('Bulk office assignments completed', {
         userIds: userIds.length,
@@ -133,6 +144,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       // Rollback transaction on error
       await sql.query('ROLLBACK')
+      logError('[OFFICE_ASSIGNMENT] Transaction rolled back', error as Error, { userIds, officeNames });
       throw error
     }
 

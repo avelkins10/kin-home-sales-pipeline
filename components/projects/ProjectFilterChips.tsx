@@ -4,7 +4,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
 import { cn } from '@/lib/utils/cn';
-import { Loader2 } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { QuickbaseProject } from '@/lib/types/project';
 import { PROJECT_FIELDS } from '@/lib/constants/fieldIds';
 
@@ -29,14 +30,21 @@ export function ProjectFilterChips({ isFetching = false }: ProjectFilterChipsPro
 
   // Get current view parameter, default to 'all'
   const currentView = searchParams.get('view') || 'all';
+  
+  // Get current ownership parameter, default to 'all'
+  const currentOwnership = searchParams.get('ownership') || 'all';
 
   // Fetch all projects for count calculation (lightweight query)
   const { data: projects = [] } = useQuery({
-    queryKey: ['project-counts', session?.user?.quickbaseUserId, session?.user?.role],
+    queryKey: ['project-counts', session?.user?.quickbaseUserId, session?.user?.role, currentOwnership],
     queryFn: async () => {
       if (!session?.user?.quickbaseUserId || !session?.user?.role) return [];
       // Note: API gets userId/role from session, not query params
-      const response = await fetch(`/api/projects`);
+      const params = new URLSearchParams();
+      if (currentOwnership && currentOwnership !== 'all') {
+        params.set('ownership', currentOwnership);
+      }
+      const response = await fetch(`/api/projects?${params.toString()}`);
       if (!response.ok) return [];
       return response.json();
     },
@@ -107,6 +115,12 @@ export function ProjectFilterChips({ isFetching = false }: ProjectFilterChipsPro
     router.push(`/projects?${params.toString()}`);
   };
 
+  const handleRemoveOwnershipFilter = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('ownership');
+    router.push(`/projects?${params.toString()}`);
+  };
+
   // Color mapping for active state
   const getActiveColors = (color: string) => {
     const colorMap: Record<string, { bg: string; hover: string; ring: string; badge: string }> = {
@@ -143,6 +157,42 @@ export function ProjectFilterChips({ isFetching = false }: ProjectFilterChipsPro
           <div className="flex items-center gap-2 text-indigo-600">
             <Loader2 className="h-4 w-4 animate-spin" />
             <span className="text-sm font-medium">Loading...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Active Filters Display */}
+      {(currentOwnership !== 'all' || searchParams.get('memberEmail')) && (
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-sm text-gray-600 font-medium">Active Filters:</span>
+          <div className="flex gap-2">
+            {currentOwnership !== 'all' && (
+              <Badge
+                variant="secondary"
+                className="px-3 py-1.5 cursor-pointer hover:bg-gray-200 transition-colors flex items-center gap-2"
+                onClick={handleRemoveOwnershipFilter}
+                data-testid="active-filter-chip"
+              >
+                <span className="text-sm">
+                  {currentOwnership === 'my-projects' ? 'My Projects' : 'Team Projects'}
+                </span>
+                <X className="h-3 w-3" />
+              </Badge>
+            )}
+            {searchParams.get('memberEmail') && (
+              <Badge
+                variant="secondary"
+                className="px-3 py-1.5 cursor-pointer hover:bg-gray-200 transition-colors flex items-center gap-2"
+                onClick={() => {
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.delete('memberEmail');
+                  router.push(`/projects?${params.toString()}`);
+                }}
+              >
+                <span className="text-sm">Team Member: {searchParams.get('memberEmail')}</span>
+                <X className="h-3 w-3" />
+              </Badge>
+            )}
           </div>
         </div>
       )}
