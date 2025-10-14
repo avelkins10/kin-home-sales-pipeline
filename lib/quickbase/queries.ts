@@ -401,6 +401,7 @@ export async function getProjectsForUserList(userId: string, role: string, view?
         PROJECT_FIELDS.INTAKE_INSTALL_DATE_TENTATIVE,
         PROJECT_FIELDS.SURVEY_SUBMITTED,
         PROJECT_FIELDS.SURVEY_APPROVED,
+        PROJECT_FIELDS.SITE_SURVEY_ARRIVY_SCHEDULED, // Survey scheduled date from Arrivy (for calendar)
         // Design
         PROJECT_FIELDS.DESIGN_COMPLETED,
         PROJECT_FIELDS.CAD_DESIGN_APPROVED,

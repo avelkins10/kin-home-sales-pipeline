@@ -85,6 +85,7 @@ export interface Project {
   surveyApproved: string | null;
   maxSurveySubmitted: string | null;
   maxSurveyApproved: string | null;
+  siteSurveyArrivyScheduled: string | null; // Arrivy scheduled date/time (field 2526) - 100% usage
 
   // MILESTONE 3: Design
   predesignApproved: string | null;
