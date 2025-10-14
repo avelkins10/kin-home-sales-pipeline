@@ -112,7 +112,7 @@ describe('Admin API Validation', () => {
 
   describe('createOfficeSchema', () => {
     it('accepts valid office data', () => {
-      const input = { name: 'Phoenix Office', region: 'southwest', leaderId: 'user-123' }
+      const input = { name: 'Phoenix', region: 'southwest', leaderId: 'user-123' }
       expect(() => createOfficeSchema.parse(input)).not.toThrow()
     })
 
@@ -129,20 +129,26 @@ describe('Admin API Validation', () => {
     it('accepts all valid regions', () => {
       const regions = ['southwest', 'southeast', 'midwest', 'northeast', 'west']
       for (const region of regions) {
-        const input = { name: 'Office', region, leaderId: 'user-123' }
+        const input = { name: 'Phoenix', region, leaderId: 'user-123' }
         expect(() => createOfficeSchema.parse(input)).not.toThrow()
       }
     })
 
-    it('rejects missing leaderId', () => {
-      const input = { name: 'Phoenix', region: 'southwest', leaderId: '' }
+    it('accepts optional leaderId', () => {
+      // leaderId is now optional in the schema
+      const input = { name: 'Phoenix', region: 'southwest' }
+      expect(() => createOfficeSchema.parse(input)).not.toThrow()
+    })
+
+    it('rejects invalid office name', () => {
+      const input = { name: 'Invalid Office', region: 'southwest', leaderId: 'user-123' }
       expect(() => createOfficeSchema.parse(input)).toThrow()
     })
   })
 
   describe('updateOfficeSchema', () => {
-    it('accepts partial updates', () => {
-      const input = { name: 'New Name' }
+    it('accepts partial updates with valid office name', () => {
+      const input = { name: 'Dallas' }
       expect(() => updateOfficeSchema.parse(input)).not.toThrow()
     })
 
@@ -153,6 +159,11 @@ describe('Admin API Validation', () => {
 
     it('rejects invalid region in update', () => {
       const input: any = { region: 'invalid' }
+      expect(() => updateOfficeSchema.parse(input)).toThrow()
+    })
+
+    it('rejects invalid office name in update', () => {
+      const input = { name: 'Invalid Office Name' }
       expect(() => updateOfficeSchema.parse(input)).toThrow()
     })
   })

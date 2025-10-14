@@ -22,7 +22,7 @@ export function getBaseUrl(forServer: boolean = false): string {
       process.env.NEXT_PUBLIC_APP_URL ||
       process.env.NEXTAUTH_URL ||
       'http://localhost:3000';
-    return base.replace(/\/$/, '');
+    return base.replace(/\/+$/, ''); // Remove all trailing slashes
   }
 
   // In the browser (non-test): prefer relative URLs for same-origin calls
@@ -30,7 +30,7 @@ export function getBaseUrl(forServer: boolean = false): string {
   const origin = window.location?.origin || '';
   const testBase = process.env.BASE_URL;
   if (testBase && origin && origin !== testBase) {
-    return origin.replace(/\/$/, '');
+    return origin.replace(/\/+$/, ''); // Remove all trailing slashes
   }
   // Otherwise allow relative URLs
   return '';
