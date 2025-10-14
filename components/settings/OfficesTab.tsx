@@ -412,12 +412,6 @@ export default function OfficesTab() {
                     Managers: {office.managerCount}
                   </span>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Briefcase className="h-4 w-4 text-gray-500" />
-                  <span className="text-sm text-gray-600">
-                    Projects: {office.activeProjects} active
-                  </span>
-                </div>
               </CardContent>
             </Card>
           ))}
