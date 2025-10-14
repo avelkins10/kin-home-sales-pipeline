@@ -834,6 +834,28 @@ export default function UsersTab() {
                 />
               </div>
               <div>
+                <Label htmlFor="edit-role">Role</Label>
+                <Select
+                  value={editingUser.role}
+                  onValueChange={(value) => setEditingUser({ ...editingUser, role: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="closer">Closer</SelectItem>
+                    <SelectItem value="setter">Setter</SelectItem>
+                    <SelectItem value="team_lead">Team Lead</SelectItem>
+                    <SelectItem value="office_leader">Office Leader</SelectItem>
+                    <SelectItem value="area_director">Area Director</SelectItem>
+                    <SelectItem value="divisional">Divisional</SelectItem>
+                    <SelectItem value="regional">Regional Manager</SelectItem>
+                    <SelectItem value="super_admin">Super Admin</SelectItem>
+                    <SelectItem value="coordinator">Coordinator</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
                 <Label htmlFor="edit-quickbaseUserId">QuickBase User ID</Label>
                 <Input
                   id="edit-quickbaseUserId"
@@ -868,6 +890,7 @@ export default function UsersTab() {
                       name: editingUser.name,
                       phone: editingUser.phone || undefined,
                       quickbaseUserId: editingUser.quickbaseUserId || undefined,
+                      role: editingUser.role,
                     },
                   })
                 }}
