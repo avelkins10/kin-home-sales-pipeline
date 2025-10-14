@@ -31,7 +31,7 @@ export const CalendarFilters = ({
           onValueChange={onEventTypeChange}
           disabled={disabled}
         >
-          <SelectTrigger className="w-full bg-white border-slate-200 shadow-sm">
+          <SelectTrigger data-testid="event-type-filter" className="w-full bg-white border-slate-200 shadow-sm">
             <SelectValue placeholder="Select event type" />
           </SelectTrigger>
           <SelectContent>
@@ -52,7 +52,7 @@ export const CalendarFilters = ({
           onValueChange={onStatusChange}
           disabled={disabled}
         >
-          <SelectTrigger className="w-full bg-white border-slate-200 shadow-sm">
+          <SelectTrigger data-testid="status-filter" className="w-full bg-white border-slate-200 shadow-sm">
             <SelectValue placeholder="Select status" />
           </SelectTrigger>
           <SelectContent>

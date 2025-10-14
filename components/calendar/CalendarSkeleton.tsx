@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils/cn'
 
 export const CalendarSkeleton = () => {
   return (
-    <Card className="bg-white rounded-lg border shadow-sm">
+    <Card data-testid="loading-skeleton" className="bg-white rounded-lg border shadow-sm">
       <CardHeader>
         <div className="h-8 w-48 bg-slate-200 rounded animate-pulse" />
       </CardHeader>

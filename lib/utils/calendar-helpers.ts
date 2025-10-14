@@ -21,11 +21,25 @@ export interface CalendarEvent {
 }
 
 /**
+ * Normalize date string by trimming whitespace and checking if empty
+ */
+function normalizeDateString(dateString: string | undefined | null): string | null {
+  if (!dateString) return null;
+  const trimmed = dateString.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+/**
  * Extract calendar dates from Quickbase project data using field IDs
  * This function reads values from the raw Quickbase row using PROJECT_FIELDS constants
  */
-export function getCalendarDates(project: QuickbaseProject): CalendarEvent[] {
+export function getCalendarDates(project?: QuickbaseProject | null): CalendarEvent[] {
   const events: CalendarEvent[] = [];
+
+  // Early return for null/undefined projects
+  if (!project) {
+    return events;
+  }
 
   // Extract project identity fields for payload
   const recordId = project[PROJECT_FIELDS.RECORD_ID]?.value;
@@ -54,7 +68,7 @@ export function getCalendarDates(project: QuickbaseProject): CalendarEvent[] {
   };
 
   // Survey scheduled date: SITE_SURVEY_ARRIVY_SCHEDULED (field 2526)
-  const surveyScheduled = project[PROJECT_FIELDS.SITE_SURVEY_ARRIVY_SCHEDULED]?.value;
+  const surveyScheduled = normalizeDateString(project[PROJECT_FIELDS.SITE_SURVEY_ARRIVY_SCHEDULED]?.value);
   if (surveyScheduled) {
     events.push({
       id: `${recordId}-survey-scheduled`,
@@ -67,7 +81,7 @@ export function getCalendarDates(project: QuickbaseProject): CalendarEvent[] {
   }
 
   // Survey approved: SURVEY_APPROVED (field 165)
-  const surveyApproved = project[PROJECT_FIELDS.SURVEY_APPROVED]?.value;
+  const surveyApproved = normalizeDateString(project[PROJECT_FIELDS.SURVEY_APPROVED]?.value);
   if (surveyApproved) {
     events.push({
       id: `${recordId}-survey-approved`,
@@ -80,7 +94,7 @@ export function getCalendarDates(project: QuickbaseProject): CalendarEvent[] {
   }
 
   // Install scheduled candidates: INSTALL_SCHEDULED_DATE_CAPTURE (field 710) - PRIMARY
-  const installScheduled = project[PROJECT_FIELDS.INSTALL_SCHEDULED_DATE_CAPTURE]?.value;
+  const installScheduled = normalizeDateString(project[PROJECT_FIELDS.INSTALL_SCHEDULED_DATE_CAPTURE]?.value);
   if (installScheduled) {
     events.push({
       id: `${recordId}-install-scheduled`,
@@ -93,7 +107,7 @@ export function getCalendarDates(project: QuickbaseProject): CalendarEvent[] {
   }
 
   // Install scheduled start date: INSTALL_SCHEDULED_START_DATE (field 178) - BACKUP
-  const installStartDate = project[PROJECT_FIELDS.INSTALL_SCHEDULED_START_DATE]?.value;
+  const installStartDate = normalizeDateString(project[PROJECT_FIELDS.INSTALL_SCHEDULED_START_DATE]?.value);
   if (installStartDate && !installScheduled) {
     events.push({
       id: `${recordId}-install-start`,
@@ -106,7 +120,7 @@ export function getCalendarDates(project: QuickbaseProject): CalendarEvent[] {
   }
 
   // Estimated install date: ESTIMATED_INSTALL_DATE (field 1124) - BACKUP
-  const estimatedInstall = project[PROJECT_FIELDS.ESTIMATED_INSTALL_DATE]?.value;
+  const estimatedInstall = normalizeDateString(project[PROJECT_FIELDS.ESTIMATED_INSTALL_DATE]?.value);
   if (estimatedInstall && !installScheduled && !installStartDate) {
     events.push({
       id: `${recordId}-install-estimated`,
@@ -119,7 +133,7 @@ export function getCalendarDates(project: QuickbaseProject): CalendarEvent[] {
   }
 
   // Install completed: INSTALL_COMPLETED_DATE (field 534)
-  const installCompleted = project[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value;
+  const installCompleted = normalizeDateString(project[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value);
   if (installCompleted) {
     events.push({
       id: `${recordId}-install-completed`,
@@ -132,7 +146,7 @@ export function getCalendarDates(project: QuickbaseProject): CalendarEvent[] {
   }
 
   // Inspection scheduled: INSPECTION_SCHEDULED_DATE (field 226)
-  const inspectionScheduled = project[PROJECT_FIELDS.INSPECTION_SCHEDULED_DATE]?.value;
+  const inspectionScheduled = normalizeDateString(project[PROJECT_FIELDS.INSPECTION_SCHEDULED_DATE]?.value);
   if (inspectionScheduled) {
     events.push({
       id: `${recordId}-inspection-scheduled`,
@@ -145,7 +159,7 @@ export function getCalendarDates(project: QuickbaseProject): CalendarEvent[] {
   }
 
   // Inspection completed: PASSING_INSPECTION_COMPLETED (field 491)
-  const inspectionCompleted = project[PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED]?.value;
+  const inspectionCompleted = normalizeDateString(project[PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED]?.value);
   if (inspectionCompleted) {
     events.push({
       id: `${recordId}-inspection-completed`,
@@ -158,7 +172,7 @@ export function getCalendarDates(project: QuickbaseProject): CalendarEvent[] {
   }
 
   // PTO submitted: PTO_SUBMITTED (field 537)
-  const ptoSubmitted = project[PROJECT_FIELDS.PTO_SUBMITTED]?.value;
+  const ptoSubmitted = normalizeDateString(project[PROJECT_FIELDS.PTO_SUBMITTED]?.value);
   if (ptoSubmitted) {
     events.push({
       id: `${recordId}-pto-submitted`,
@@ -171,7 +185,7 @@ export function getCalendarDates(project: QuickbaseProject): CalendarEvent[] {
   }
 
   // PTO approved: PTO_APPROVED (field 538)
-  const ptoApproved = project[PROJECT_FIELDS.PTO_APPROVED]?.value;
+  const ptoApproved = normalizeDateString(project[PROJECT_FIELDS.PTO_APPROVED]?.value);
   if (ptoApproved) {
     events.push({
       id: `${recordId}-pto-approved`,
