@@ -17,14 +17,15 @@ interface ProjectTableViewProps {
   sort: string;
   memberEmail?: string;
   ownership?: string; // NEW: Ownership filter (all | my-projects | team-projects)
+  office?: string; // NEW: Office filter
   onFetchingChange?: (isFetching: boolean, reason?: 'manual' | 'background') => void;
 }
 
-export function ProjectTableView({ userId, role, userEmail, view, search, sort, memberEmail, ownership = 'all', onFetchingChange }: ProjectTableViewProps) {
+export function ProjectTableView({ userId, role, userEmail, view, search, sort, memberEmail, ownership = 'all', office, onFetchingChange }: ProjectTableViewProps) {
   const [isManualRefetch, setIsManualRefetch] = React.useState(false);
-  
+
   const { data: projects, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['projects', userId, role, view, search, sort, memberEmail, ownership],
+    queryKey: ['projects', userId, role, view, search, sort, memberEmail, ownership, office],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (view && view !== 'all') params.set('view', view);
@@ -32,6 +33,7 @@ export function ProjectTableView({ userId, role, userEmail, view, search, sort, 
       if (sort && sort !== 'default') params.set('sort', sort);
       if (memberEmail) params.set('memberEmail', memberEmail);
       if (ownership && ownership !== 'all') params.set('ownership', ownership);
+      if (office) params.set('office', office);
       
       const response = await fetch(`/api/projects?${params.toString()}`);
       if (!response.ok) {

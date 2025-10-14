@@ -8,6 +8,7 @@ import { ProjectFilterChips } from '@/components/projects/ProjectFilterChips'
 import { SearchBar } from '@/components/projects/SearchBar'
 import { SortDropdown } from '@/components/projects/SortDropdown'
 import { OwnershipFilterToggle } from '@/components/projects/OwnershipFilterToggle'
+import { OfficeFilterDropdown } from '@/components/projects/OfficeFilterDropdown'
 import { isManagerRole } from '@/lib/utils/role-helpers'
 
 interface ProjectsPageProps {
@@ -17,6 +18,7 @@ interface ProjectsPageProps {
     sort?: string
     memberEmail?: string
     ownership?: string // NEW: Ownership filter (all | my-projects | team-projects)
+    office?: string // NEW: Office filter
   }
 }
 
@@ -44,16 +46,17 @@ export default function ProjectsPage({ searchParams }: ProjectsPageProps) {
 
         {/* Controls Section */}
         <div className="mb-6 space-y-4">
-          {/* Search Bar and Sort */}
+          {/* Search Bar, Office Filter, and Sort */}
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1">
               <SearchBar defaultValue={searchParams.search} isFetching={isFetching && fetchReason === 'manual'} />
             </div>
+            <OfficeFilterDropdown isFetching={isFetching && fetchReason === 'manual'} />
             <SortDropdown isFetching={isFetching && fetchReason === 'manual'} />
           </div>
 
           {/* Ownership Filter Toggle (Team Projects option only for managers) */}
-          <OwnershipFilterToggle 
+          <OwnershipFilterToggle
             currentOwnership={searchParams.ownership || 'all'}
             userRole={session.user.role}
           />
@@ -73,6 +76,7 @@ export default function ProjectsPage({ searchParams }: ProjectsPageProps) {
             sort={searchParams.sort || 'default'}
             memberEmail={searchParams.memberEmail}
             ownership={searchParams.ownership || 'all'} // NEW: Pass ownership filter
+            office={searchParams.office} // NEW: Pass office filter
             onFetchingChange={(fetching, reason) => {
               setIsFetching(fetching);
               if (reason) setFetchReason(reason);

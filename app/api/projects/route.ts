@@ -34,6 +34,7 @@ export async function GET(req: Request) {
     const sort = searchParams.get('sort') || undefined;
     const memberEmail = searchParams.get('memberEmail') || undefined;
     const ownership = searchParams.get('ownership') || 'all';
+    const office = searchParams.get('office') || undefined;
 
     // Validate view parameter against allowed values
     const allowedViews = ['all', 'active', 'pending-kca', 'rejected', 'on-hold', 'install-ready', 'install-scheduled', 'install-completed', 'pending-cancel', 'cancelled', 'needs-attention']
@@ -63,7 +64,7 @@ export async function GET(req: Request) {
     }
 
     // Check cache first
-    const cacheKey = `${userId}:${role}:${view || 'all'}:${search || ''}:${sort || 'default'}:${memberEmail || ''}:${ownership}`;
+    const cacheKey = `${userId}:${role}:${view || 'all'}:${search || ''}:${sort || 'default'}:${memberEmail || ''}:${ownership}:${office || ''}`;
     const cached = getCachedProjects(cacheKey);
     if (cached) {
       const duration = Date.now() - startedAt;
@@ -87,7 +88,7 @@ export async function GET(req: Request) {
     // from the office_assignments table, ensuring immediate visibility
     // of newly assigned offices without requiring logout/login.
     logInfo('[OFFICE_RESOLUTION] Fetching offices from database for user', { userId, role, reqId });
-    const projects = await getProjectsForUserList(userId, role, view, search, sort, undefined, memberEmail, ownership, reqId);
+    const projects = await getProjectsForUserList(userId, role, view, search, sort, undefined, memberEmail, ownership, office, reqId);
 
     // Cache the result
     setCachedProjects(cacheKey, projects);

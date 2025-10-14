@@ -162,10 +162,10 @@ export function ProjectFilterChips({ isFetching = false }: ProjectFilterChipsPro
       )}
 
       {/* Active Filters Display */}
-      {(currentOwnership !== 'all' || searchParams.get('memberEmail')) && (
+      {(currentOwnership !== 'all' || searchParams.get('memberEmail') || searchParams.get('office')) && (
         <div className="flex items-center gap-2 mb-3">
           <span className="text-sm text-gray-600 font-medium">Active Filters:</span>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             {currentOwnership !== 'all' && (
               <Badge
                 variant="secondary"
@@ -176,6 +176,20 @@ export function ProjectFilterChips({ isFetching = false }: ProjectFilterChipsPro
                 <span className="text-sm">
                   {currentOwnership === 'my-projects' ? 'My Projects' : 'Team Projects'}
                 </span>
+                <X className="h-3 w-3" />
+              </Badge>
+            )}
+            {searchParams.get('office') && (
+              <Badge
+                variant="secondary"
+                className="px-3 py-1.5 cursor-pointer hover:bg-gray-200 transition-colors flex items-center gap-2"
+                onClick={() => {
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.delete('office');
+                  router.push(`/projects?${params.toString()}`);
+                }}
+              >
+                <span className="text-sm">Office: {searchParams.get('office')}</span>
                 <X className="h-3 w-3" />
               </Badge>
             )}

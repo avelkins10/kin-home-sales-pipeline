@@ -240,8 +240,8 @@ export function buildRoleClause(
  * Lean selector for list view - only essential fields for performance
  * @param salesOffice - (Deprecated) Offices to filter by. If not provided, will be fetched from office_assignments table for office-based roles. Passing this parameter is discouraged as it may contain stale data.
  */
-export async function getProjectsForUserList(userId: string, role: string, view?: string, search?: string, sort?: string, salesOffice?: string[], memberEmail?: string, ownership?: string, reqId?: string) {
-  console.log('[getProjectsForUserList] START - userId:', userId, 'role:', role, 'view:', view, 'search:', search, 'sort:', sort, 'ownership:', ownership, 'salesOffice:', salesOffice, 'reqId:', reqId);
+export async function getProjectsForUserList(userId: string, role: string, view?: string, search?: string, sort?: string, salesOffice?: string[], memberEmail?: string, ownership?: string, officeFilter?: string, reqId?: string) {
+  console.log('[getProjectsForUserList] START - userId:', userId, 'role:', role, 'view:', view, 'search:', search, 'sort:', sort, 'ownership:', ownership, 'officeFilter:', officeFilter, 'salesOffice:', salesOffice, 'reqId:', reqId);
 
   // Get user email for email-based filtering (needed for ownership filter)
   let userEmail: string | null = null;
@@ -284,6 +284,18 @@ export async function getProjectsForUserList(userId: string, role: string, view?
     }
   }
 
+  // Add office filter if provided (for office-based filtering)
+  let officeFilterClause: string | undefined;
+  if (officeFilter) {
+    const sanitizedOffice = sanitizeQbLiteral(officeFilter);
+    officeFilterClause = `{${PROJECT_FIELDS.SALES_OFFICE}.EX.'${sanitizedOffice}'}`;
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[getProjectsForUserList] Filtering by office:', officeFilter);
+    } else {
+      console.log('[getProjectsForUserList] Filtering by office');
+    }
+  }
+
   // Build view-based filter
   const viewFilter = buildViewFilter(view);
 
@@ -303,6 +315,9 @@ export async function getProjectsForUserList(userId: string, role: string, view?
   }
   if (memberEmailFilter) {
     whereClause = `(${whereClause}) AND (${memberEmailFilter})`;
+  }
+  if (officeFilterClause) {
+    whereClause = `(${whereClause}) AND (${officeFilterClause})`;
   }
   if (viewFilter) {
     whereClause = `(${whereClause}) AND (${viewFilter})`;
