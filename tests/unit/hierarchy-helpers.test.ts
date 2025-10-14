@@ -297,7 +297,7 @@ describe('getManagerRoleConstraints', () => {
 
   it('should return correct constraints for super_admin', () => {
     const constraints = getManagerRoleConstraints('super_admin');
-    expect(constraints.canManage).toEqual(['regional', 'divisional', 'area_director', 'office_leader', 'team_lead', 'closer', 'setter']);
+    expect(constraints.canManage).toEqual(['regional', 'divisional', 'area_director', 'office_leader', 'coordinator', 'team_lead', 'closer', 'setter']);
     expect(constraints.cannotManage).toEqual([]);
   });
 
@@ -389,7 +389,7 @@ describe('validateBulkAssignmentSize', () => {
   it('should warn for large assignments', () => {
     const result = validateBulkAssignmentSize(25);
     expect(result.valid).toBe(true);
-    expect(result.warning).toContain('Assigning more than 20 users may take a moment');
+    expect(result.warnings).toContain('Assigning more than 20 users may take a moment');
   });
 
   it('should reject assignments over limit', () => {

@@ -100,56 +100,60 @@ describe('Project Helpers', () => {
   });
 
   describe('getProjectAge', () => {
-    it('returns age from PROJECT_AGE field', () => {
+    it('calculates age from SALES_DATE field', () => {
+      const salesDate = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000);
       const project = createMockProject({
-        [PROJECT_FIELDS.PROJECT_AGE]: '45',
+        [PROJECT_FIELDS.SALES_DATE]: salesDate.toISOString(),
       });
 
       const result = getProjectAge(project);
       expect(result).toBe(45);
     });
 
-    it('returns 0 for missing field', () => {
+    it('returns 0 for missing SALES_DATE', () => {
       const project = createMockProject({});
 
       const result = getProjectAge(project);
       expect(result).toBe(0);
     });
 
-    it('returns 0 for invalid number', () => {
+    it('returns 0 for invalid date', () => {
       const project = createMockProject({
-        [PROJECT_FIELDS.PROJECT_AGE]: 'invalid',
+        [PROJECT_FIELDS.SALES_DATE]: 'invalid-date',
       });
 
       const result = getProjectAge(project);
       expect(result).toBe(0);
     });
 
-    it('parses string to integer', () => {
+    it('rounds down to nearest whole day', () => {
+      const salesDate = new Date(Date.now() - 45.7 * 24 * 60 * 60 * 1000);
       const project = createMockProject({
-        [PROJECT_FIELDS.PROJECT_AGE]: '45.7',
+        [PROJECT_FIELDS.SALES_DATE]: salesDate.toISOString(),
       });
 
       const result = getProjectAge(project);
       expect(result).toBe(45);
     });
 
-    it('handles zero age', () => {
+    it('handles same-day sales (age 0)', () => {
+      const salesDate = new Date();
       const project = createMockProject({
-        [PROJECT_FIELDS.PROJECT_AGE]: '0',
+        [PROJECT_FIELDS.SALES_DATE]: salesDate.toISOString(),
       });
 
       const result = getProjectAge(project);
       expect(result).toBe(0);
     });
 
-    it('handles negative age', () => {
+    it('handles recent sales (age 1)', () => {
+      const salesDate = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000);
       const project = createMockProject({
-        [PROJECT_FIELDS.PROJECT_AGE]: '-5',
+        [PROJECT_FIELDS.SALES_DATE]: salesDate.toISOString(),
       });
 
       const result = getProjectAge(project);
-      expect(result).toBe(-5);
+      expect(result).toBe(1);
     });
   });
 

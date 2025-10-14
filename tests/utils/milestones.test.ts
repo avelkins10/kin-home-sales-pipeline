@@ -20,124 +20,126 @@ function createMockProject(fields: Record<number, any>): QuickbaseProject {
 }
 
 describe('getCurrentMilestone', () => {
-  it('returns Intake for new project with no milestone data', () => {
+  it('returns intake for new project with no milestone data', () => {
     const project = createMockProject({})
     const result = getCurrentMilestone(project)
-    expect(result).toBe('Intake')
+    expect(result).toBe('intake')
   })
 
-  it('returns Survey when survey approved', () => {
+  it('returns survey when survey approved', () => {
     const project = createMockProject({
       [PROJECT_FIELDS.SURVEY_APPROVED]: '2024-01-01'
     })
     const result = getCurrentMilestone(project)
-    expect(result).toBe('Survey')
+    expect(result).toBe('survey')
   })
 
-  it('returns Design when design completed', () => {
+  it('returns design when design completed', () => {
     const project = createMockProject({
       [PROJECT_FIELDS.DESIGN_COMPLETED]: '2024-01-01'
     })
     const result = getCurrentMilestone(project)
-    expect(result).toBe('Design')
+    expect(result).toBe('design')
   })
 
-  it('returns Permit when permit approved', () => {
+  it('returns permitting when permit submitted', () => {
     const project = createMockProject({
+      [PROJECT_FIELDS.PERMIT_SUBMITTED]: '2024-01-01'
+    })
+    const result = getCurrentMilestone(project)
+    expect(result).toBe('permitting')
+  })
+
+  it('returns permitting when NEM and permit approved', () => {
+    const project = createMockProject({
+      [PROJECT_FIELDS.NEM_APPROVED]: '2024-01-01',
       [PROJECT_FIELDS.PERMIT_APPROVED]: '2024-01-01'
     })
     const result = getCurrentMilestone(project)
-    expect(result).toBe('Permit')
+    expect(result).toBe('permitting')
   })
 
-  it('returns NEM when NEM approved', () => {
-    const project = createMockProject({
-      [PROJECT_FIELDS.NEM_APPROVED]: '2024-01-01'
-    })
-    const result = getCurrentMilestone(project)
-    expect(result).toBe('NEM')
-  })
-
-  it('returns Install when install scheduled', () => {
+  it('returns install when install scheduled', () => {
     const project = createMockProject({
       [PROJECT_FIELDS.INSTALL_SCHEDULED_DATE_CAPTURE]: '2024-01-01'
     })
     const result = getCurrentMilestone(project)
-    expect(result).toBe('Install')
+    expect(result).toBe('install')
   })
 
-  it('returns Verification when install completed', () => {
+  it('returns install when install completed', () => {
     const project = createMockProject({
       [PROJECT_FIELDS.INSTALL_COMPLETED_DATE]: '2024-01-01'
     })
     const result = getCurrentMilestone(project)
-    expect(result).toBe('Verification')
+    expect(result).toBe('install')
   })
 
-  it('returns Inspection when inspection passed', () => {
+  it('returns inspection when inspection passed', () => {
     const project = createMockProject({
       [PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED]: '2024-01-01'
     })
     const result = getCurrentMilestone(project)
-    expect(result).toBe('Inspection')
+    expect(result).toBe('inspection')
   })
 
-  it('returns PTO when PTO approved (final milestone)', () => {
+  it('returns pto when PTO approved (final milestone)', () => {
     const project = createMockProject({
       [PROJECT_FIELDS.PTO_APPROVED]: '2024-01-01'
     })
     const result = getCurrentMilestone(project)
-    expect(result).toBe('PTO')
+    expect(result).toBe('pto')
   })
 
-  it('prioritizes later milestones (if both design and install complete, returns Verification)', () => {
+  it('prioritizes later milestones (if both design and install complete, returns install)', () => {
     const project = createMockProject({
       [PROJECT_FIELDS.DESIGN_COMPLETED]: '2024-01-01',
       [PROJECT_FIELDS.INSTALL_COMPLETED_DATE]: '2024-01-02'
     })
     const result = getCurrentMilestone(project)
-    expect(result).toBe('Verification')
+    expect(result).toBe('install')
   })
 })
 
 describe('getMilestoneProgress', () => {
-  it('returns 0 for project with only intake data', () => {
+  it('returns 0 for project with no completed milestones', () => {
     const project = createMockProject({})
     const result = getMilestoneProgress(project)
     expect(result).toBe(0)
   })
 
-  it('returns ~11% (1/9) for project with intake only', () => {
+  it('returns ~14.29% (1/7) for project with intake completed', () => {
     const project = createMockProject({
-      [PROJECT_FIELDS.INTAKE_INSTALL_DATE_TENTATIVE]: '2024-01-01'
+      [PROJECT_FIELDS.INTAKE_COMPLETED_DATE]: '2024-01-01'
     })
     const result = getMilestoneProgress(project)
-    expect(result).toBeCloseTo(11.11, 1)
+    expect(result).toBeCloseTo(14.29, 1)
   })
 
-  it('returns ~22% (2/9) for project with intake and survey', () => {
+  it('returns ~28.57% (2/7) for project with intake and survey', () => {
     const project = createMockProject({
-      [PROJECT_FIELDS.INTAKE_INSTALL_DATE_TENTATIVE]: '2024-01-01',
+      [PROJECT_FIELDS.INTAKE_COMPLETED_DATE]: '2024-01-01',
       [PROJECT_FIELDS.SURVEY_APPROVED]: '2024-01-02'
     })
     const result = getMilestoneProgress(project)
-    expect(result).toBeCloseTo(22.22, 1)
+    expect(result).toBeCloseTo(28.57, 1)
   })
 
-  it('returns ~44% (4/9) for project through design', () => {
+  it('returns ~57.14% (4/7) for project through permitting', () => {
     const project = createMockProject({
-      [PROJECT_FIELDS.INTAKE_INSTALL_DATE_TENTATIVE]: '2024-01-01',
+      [PROJECT_FIELDS.INTAKE_COMPLETED_DATE]: '2024-01-01',
       [PROJECT_FIELDS.SURVEY_APPROVED]: '2024-01-02',
       [PROJECT_FIELDS.DESIGN_COMPLETED]: '2024-01-03',
-      [PROJECT_FIELDS.PERMIT_APPROVED]: '2024-01-04'
+      [PROJECT_FIELDS.PERMIT_APPROVED]: '2024-01-04',
+      [PROJECT_FIELDS.NEM_APPROVED]: '2024-01-05'
     })
     const result = getMilestoneProgress(project)
-    expect(result).toBeCloseTo(44.44, 1)
+    expect(result).toBeCloseTo(57.14, 1)
   })
 
   it('returns 100% for project with PTO approved', () => {
     const project = createMockProject({
-      [PROJECT_FIELDS.INTAKE_INSTALL_DATE_TENTATIVE]: '2024-01-01',
+      [PROJECT_FIELDS.INTAKE_COMPLETED_DATE]: '2024-01-01',
       [PROJECT_FIELDS.SURVEY_APPROVED]: '2024-01-02',
       [PROJECT_FIELDS.DESIGN_COMPLETED]: '2024-01-03',
       [PROJECT_FIELDS.PERMIT_APPROVED]: '2024-01-04',
@@ -152,20 +154,20 @@ describe('getMilestoneProgress', () => {
 
   it('handles missing fields gracefully (doesn\'t crash)', () => {
     const project = createMockProject({
-      [PROJECT_FIELDS.INTAKE_INSTALL_DATE_TENTATIVE]: '2024-01-01'
+      [PROJECT_FIELDS.INTAKE_COMPLETED_DATE]: '2024-01-01'
     })
     const result = getMilestoneProgress(project)
     expect(result).toBeGreaterThanOrEqual(0)
     expect(result).toBeLessThanOrEqual(100)
   })
 
-  it('counts verification milestone when install complete', () => {
+  it('counts install milestone when install complete', () => {
     const project = createMockProject({
-      [PROJECT_FIELDS.INTAKE_INSTALL_DATE_TENTATIVE]: '2024-01-01',
+      [PROJECT_FIELDS.INTAKE_COMPLETED_DATE]: '2024-01-01',
       [PROJECT_FIELDS.INSTALL_COMPLETED_DATE]: '2024-01-02'
     })
     const result = getMilestoneProgress(project)
-    expect(result).toBeGreaterThan(11.11) // Should include verification
+    expect(result).toBeGreaterThan(14.29) // Should include install
   })
 })
 
@@ -262,22 +264,13 @@ describe('getProjectUrgency', () => {
 
 describe('getMilestoneColor', () => {
   it('returns correct color classes for each milestone name', () => {
-    const milestones = [
-      { name: 'Intake', expectedClasses: 'bg-gray-100 text-gray-800' },
-      { name: 'Survey', expectedClasses: 'bg-blue-100 text-blue-800' },
-      { name: 'Design', expectedClasses: 'bg-purple-100 text-purple-800' },
-      { name: 'Permit', expectedClasses: 'bg-yellow-100 text-yellow-800' },
-      { name: 'NEM', expectedClasses: 'bg-orange-100 text-orange-800' },
-      { name: 'Install', expectedClasses: 'bg-indigo-100 text-indigo-800' },
-      { name: 'Verification', expectedClasses: 'bg-cyan-100 text-cyan-800' },
-      { name: 'Inspection', expectedClasses: 'bg-teal-100 text-teal-800' },
-      { name: 'PTO', expectedClasses: 'bg-green-100 text-green-800' }
-    ]
-
-    milestones.forEach(({ name, expectedClasses }) => {
-      const result = getMilestoneColor(name)
-      expect(result).toBe(expectedClasses)
-    })
+    expect(getMilestoneColor('intake')).toBe('bg-gray-100 text-gray-800')
+    expect(getMilestoneColor('survey')).toBe('bg-blue-100 text-blue-800')
+    expect(getMilestoneColor('design')).toBe('bg-purple-100 text-purple-800')
+    expect(getMilestoneColor('permitting')).toBe('bg-indigo-100 text-indigo-800')
+    expect(getMilestoneColor('install')).toBe('bg-green-100 text-green-800')
+    expect(getMilestoneColor('inspection')).toBe('bg-teal-100 text-teal-800')
+    expect(getMilestoneColor('pto')).toBe('bg-emerald-100 text-emerald-800')
   })
 
   it('returns default gray classes for unknown milestone name', () => {
@@ -287,205 +280,163 @@ describe('getMilestoneColor', () => {
 })
 
 describe('getNextMilestone', () => {
-  it('returns Survey when current is Intake', () => {
-    const result = getNextMilestone('Intake')
-    expect(result).toBe('Survey')
+  it('returns survey when current is intake', () => {
+    const result = getNextMilestone('intake')
+    expect(result).toBe('survey')
   })
 
-  it('returns Design when current is Survey', () => {
-    const result = getNextMilestone('Survey')
-    expect(result).toBe('Design')
+  it('returns design when current is survey', () => {
+    const result = getNextMilestone('survey')
+    expect(result).toBe('design')
   })
 
-  it('returns Permit when current is Design', () => {
-    const result = getNextMilestone('Design')
-    expect(result).toBe('Permit')
+  it('returns permitting when current is design', () => {
+    const result = getNextMilestone('design')
+    expect(result).toBe('permitting')
   })
 
-  it('returns NEM when current is Permit', () => {
-    const result = getNextMilestone('Permit')
-    expect(result).toBe('NEM')
+  it('returns install when current is permitting', () => {
+    const result = getNextMilestone('permitting')
+    expect(result).toBe('install')
   })
 
-  it('returns Install when current is NEM', () => {
-    const result = getNextMilestone('NEM')
-    expect(result).toBe('Install')
+  it('returns inspection when current is install', () => {
+    const result = getNextMilestone('install')
+    expect(result).toBe('inspection')
   })
 
-  it('returns Verification when current is Install', () => {
-    const result = getNextMilestone('Install')
-    expect(result).toBe('Verification')
+  it('returns pto when current is inspection', () => {
+    const result = getNextMilestone('inspection')
+    expect(result).toBe('pto')
   })
 
-  it('returns Inspection when current is Verification', () => {
-    const result = getNextMilestone('Verification')
-    expect(result).toBe('Inspection')
+  it('returns complete when current is pto', () => {
+    const result = getNextMilestone('pto')
+    expect(result).toBe('complete')
   })
 
-  it('returns PTO when current is Inspection', () => {
-    const result = getNextMilestone('Inspection')
-    expect(result).toBe('PTO')
-  })
-
-  it('returns Complete when current is PTO', () => {
-    const result = getNextMilestone('PTO')
-    expect(result).toBe('Complete')
-  })
-
-  it('returns Complete for unknown milestone', () => {
+  it('returns complete for unknown milestone', () => {
     const result = getNextMilestone('Unknown')
-    expect(result).toBe('Complete')
+    expect(result).toBe('complete')
   })
 })
 
 describe('isMilestoneOverdue', () => {
-  it('returns false for Intake milestone when project age < 7 days', () => {
+  it('returns false for intake milestone when project age < 7 days', () => {
     const project = createMockProject({
       [PROJECT_FIELDS.PROJECT_AGE]: '5'
     })
-    const result = isMilestoneOverdue(project, 'Intake')
+    const result = isMilestoneOverdue(project, 'intake')
     expect(result).toBe(false)
   })
 
-  it('returns true for Intake milestone when project age > 7 days', () => {
+  it('returns true for intake milestone when project age > 7 days', () => {
     const project = createMockProject({
       [PROJECT_FIELDS.PROJECT_AGE]: '10'
     })
-    const result = isMilestoneOverdue(project, 'Intake')
+    const result = isMilestoneOverdue(project, 'intake')
     expect(result).toBe(true)
   })
 
-  it('returns false for Survey milestone when project age < 14 days', () => {
+  it('returns false for survey milestone when project age < 14 days', () => {
     const project = createMockProject({
       [PROJECT_FIELDS.PROJECT_AGE]: '10'
     })
-    const result = isMilestoneOverdue(project, 'Survey')
+    const result = isMilestoneOverdue(project, 'survey')
     expect(result).toBe(false)
   })
 
-  it('returns true for Survey milestone when project age > 14 days', () => {
+  it('returns true for survey milestone when project age > 14 days', () => {
     const project = createMockProject({
       [PROJECT_FIELDS.PROJECT_AGE]: '20'
     })
-    const result = isMilestoneOverdue(project, 'Survey')
+    const result = isMilestoneOverdue(project, 'survey')
     expect(result).toBe(true)
   })
 
-  it('returns false for Design milestone when project age < 21 days', () => {
+  it('returns false for design milestone when project age < 21 days', () => {
     const project = createMockProject({
       [PROJECT_FIELDS.PROJECT_AGE]: '15'
     })
-    const result = isMilestoneOverdue(project, 'Design')
+    const result = isMilestoneOverdue(project, 'design')
     expect(result).toBe(false)
   })
 
-  it('returns true for Design milestone when project age > 21 days', () => {
+  it('returns true for design milestone when project age > 21 days', () => {
     const project = createMockProject({
       [PROJECT_FIELDS.PROJECT_AGE]: '25'
     })
-    const result = isMilestoneOverdue(project, 'Design')
+    const result = isMilestoneOverdue(project, 'design')
     expect(result).toBe(true)
   })
 
-  it('returns false for Permit milestone when project age < 35 days', () => {
+  it('returns false for permitting milestone when project age < 45 days', () => {
     const project = createMockProject({
       [PROJECT_FIELDS.PROJECT_AGE]: '30'
     })
-    const result = isMilestoneOverdue(project, 'Permit')
+    const result = isMilestoneOverdue(project, 'permitting')
     expect(result).toBe(false)
   })
 
-  it('returns true for Permit milestone when project age > 35 days', () => {
-    const project = createMockProject({
-      [PROJECT_FIELDS.PROJECT_AGE]: '40'
-    })
-    const result = isMilestoneOverdue(project, 'Permit')
-    expect(result).toBe(true)
-  })
-
-  it('returns false for NEM milestone when project age < 45 days', () => {
-    const project = createMockProject({
-      [PROJECT_FIELDS.PROJECT_AGE]: '40'
-    })
-    const result = isMilestoneOverdue(project, 'NEM')
-    expect(result).toBe(false)
-  })
-
-  it('returns true for NEM milestone when project age > 45 days', () => {
+  it('returns true for permitting milestone when project age > 45 days', () => {
     const project = createMockProject({
       [PROJECT_FIELDS.PROJECT_AGE]: '50'
     })
-    const result = isMilestoneOverdue(project, 'NEM')
+    const result = isMilestoneOverdue(project, 'permitting')
     expect(result).toBe(true)
   })
 
-  it('returns false for Install milestone when project age < 60 days', () => {
+  it('returns false for install milestone when project age < 60 days', () => {
     const project = createMockProject({
       [PROJECT_FIELDS.PROJECT_AGE]: '55'
     })
-    const result = isMilestoneOverdue(project, 'Install')
+    const result = isMilestoneOverdue(project, 'install')
     expect(result).toBe(false)
   })
 
-  it('returns true for Install milestone when project age > 60 days', () => {
+  it('returns true for install milestone when project age > 60 days', () => {
     const project = createMockProject({
       [PROJECT_FIELDS.PROJECT_AGE]: '65'
     })
-    const result = isMilestoneOverdue(project, 'Install')
+    const result = isMilestoneOverdue(project, 'install')
     expect(result).toBe(true)
   })
 
-  it('returns false for Verification milestone when project age < 65 days', () => {
-    const project = createMockProject({
-      [PROJECT_FIELDS.PROJECT_AGE]: '60'
-    })
-    const result = isMilestoneOverdue(project, 'Verification')
-    expect(result).toBe(false)
-  })
-
-  it('returns true for Verification milestone when project age > 65 days', () => {
+  it('returns false for inspection milestone when project age < 75 days', () => {
     const project = createMockProject({
       [PROJECT_FIELDS.PROJECT_AGE]: '70'
     })
-    const result = isMilestoneOverdue(project, 'Verification')
-    expect(result).toBe(true)
-  })
-
-  it('returns false for Inspection milestone when project age < 75 days', () => {
-    const project = createMockProject({
-      [PROJECT_FIELDS.PROJECT_AGE]: '70'
-    })
-    const result = isMilestoneOverdue(project, 'Inspection')
+    const result = isMilestoneOverdue(project, 'inspection')
     expect(result).toBe(false)
   })
 
-  it('returns true for Inspection milestone when project age > 75 days', () => {
+  it('returns true for inspection milestone when project age > 75 days', () => {
     const project = createMockProject({
       [PROJECT_FIELDS.PROJECT_AGE]: '80'
     })
-    const result = isMilestoneOverdue(project, 'Inspection')
+    const result = isMilestoneOverdue(project, 'inspection')
     expect(result).toBe(true)
   })
 
-  it('returns false for PTO milestone when project age < 90 days', () => {
+  it('returns false for pto milestone when project age < 90 days', () => {
     const project = createMockProject({
       [PROJECT_FIELDS.PROJECT_AGE]: '85'
     })
-    const result = isMilestoneOverdue(project, 'PTO')
+    const result = isMilestoneOverdue(project, 'pto')
     expect(result).toBe(false)
   })
 
-  it('returns true for PTO milestone when project age > 90 days', () => {
+  it('returns true for pto milestone when project age > 90 days', () => {
     const project = createMockProject({
       [PROJECT_FIELDS.PROJECT_AGE]: '95'
     })
-    const result = isMilestoneOverdue(project, 'PTO')
+    const result = isMilestoneOverdue(project, 'pto')
     expect(result).toBe(true)
   })
 
   it('handles missing PROJECT_AGE field (treats as 0, returns false)', () => {
     const project = createMockProject({})
-    const result = isMilestoneOverdue(project, 'Intake')
+    const result = isMilestoneOverdue(project, 'intake')
     expect(result).toBe(false)
   })
 })

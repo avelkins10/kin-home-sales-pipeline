@@ -16,10 +16,10 @@ function createMockProject(fields: Record<string, any>): QuickbaseProject {
 
 describe('Traffic Lights Utilities', () => {
   describe('calculateMilestoneState - intake', () => {
-    it('returns complete when survey approved', () => {
+    it('returns complete when intake approved', () => {
       const project = createMockProject({
-        [PROJECT_FIELDS.SURVEY_APPROVED]: '2024-01-15',
-        [PROJECT_FIELDS.PROJECT_AGE]: '5',
+        [PROJECT_FIELDS.WEBHOOK_INTAKE_COMPLETE]: 'true',
+        [PROJECT_FIELDS.SALES_DATE]: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
       });
 
       const result = calculateMilestoneState(project, 'intake');
@@ -28,8 +28,7 @@ describe('Traffic Lights Utilities', () => {
 
     it('returns overdue when project age > 7 days', () => {
       const project = createMockProject({
-        [PROJECT_FIELDS.SURVEY_APPROVED]: '',
-        [PROJECT_FIELDS.PROJECT_AGE]: '10',
+        [PROJECT_FIELDS.SALES_DATE]: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
       });
 
       const result = calculateMilestoneState(project, 'intake');
@@ -120,7 +119,7 @@ describe('Traffic Lights Utilities', () => {
         [PROJECT_FIELDS.SURVEY_APPROVED]: '2024-01-15',
         [PROJECT_FIELDS.CAD_DESIGN_APPROVED]: '',
         [PROJECT_FIELDS.DESIGN_COMPLETED]: '',
-        [PROJECT_FIELDS.PROJECT_AGE]: '25',
+        [PROJECT_FIELDS.SALES_DATE]: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString(),
       });
 
       const result = calculateMilestoneState(project, 'design');
@@ -397,36 +396,36 @@ describe('Traffic Lights Utilities', () => {
   describe('getMilestoneStatusText', () => {
     it('returns intake text when in intake', () => {
       const project = createMockProject({
-        [PROJECT_FIELDS.SURVEY_APPROVED]: '',
+        [PROJECT_FIELDS.SALES_DATE]: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
       });
 
       const result = getMilestoneStatusText(project);
-      expect(result).toBe('Intake: Scheduling survey');
+      expect(result).toMatch(/⏳ Pending Intake • \d+d waiting/);
     });
 
     it('returns survey scheduled text with date', () => {
       const project = createMockProject({
+        [PROJECT_FIELDS.WEBHOOK_INTAKE_COMPLETE]: 'true',
         [PROJECT_FIELDS.SURVEY_APPROVED]: '',
         [PROJECT_FIELDS.SURVEY_SUBMITTED]: '2024-01-20',
       });
 
       const result = getMilestoneStatusText(project);
-      expect(result).toBe('Survey: Scheduled for 1/20');
+      expect(result).toMatch(/📅 Survey Scheduled 1\/20 • \d+d ago/);
     });
 
     it('returns intake text when survey not yet scheduled', () => {
       const project = createMockProject({
-        [PROJECT_FIELDS.SURVEY_APPROVED]: '',
-        [PROJECT_FIELDS.SURVEY_SUBMITTED]: '',
-        [PROJECT_FIELDS.PROJECT_AGE]: '5',
+        [PROJECT_FIELDS.SALES_DATE]: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
       });
 
       const result = getMilestoneStatusText(project);
-      expect(result).toBe('Intake: Scheduling survey');
+      expect(result).toMatch(/⏳ Pending Intake • \d+d waiting/);
     });
 
     it('returns NEM submitted text with days waiting', () => {
       const project = createMockProject({
+        [PROJECT_FIELDS.WEBHOOK_INTAKE_COMPLETE]: 'true',
         [PROJECT_FIELDS.SURVEY_APPROVED]: '2024-01-15',
         [PROJECT_FIELDS.CAD_DESIGN_APPROVED]: '2024-01-20',
         [PROJECT_FIELDS.NEM_APPROVED]: '',
@@ -434,11 +433,12 @@ describe('Traffic Lights Utilities', () => {
       });
 
       const result = getMilestoneStatusText(project);
-      expect(result).toMatch(/NEM: Submitted 1\/25 • \d+d waiting/);
+      expect(result).toMatch(/⚡ NEM • Submitted 1\/25 \(\d+d waiting\)/);
     });
 
     it('returns permit submitted text with days waiting', () => {
       const project = createMockProject({
+        [PROJECT_FIELDS.WEBHOOK_INTAKE_COMPLETE]: 'true',
         [PROJECT_FIELDS.SURVEY_APPROVED]: '2024-01-15',
         [PROJECT_FIELDS.CAD_DESIGN_APPROVED]: '2024-01-20',
         [PROJECT_FIELDS.NEM_APPROVED]: '2024-01-25',
@@ -447,11 +447,12 @@ describe('Traffic Lights Utilities', () => {
       });
 
       const result = getMilestoneStatusText(project);
-      expect(result).toMatch(/Permit: Submitted 1\/30 • \d+d waiting/);
+      expect(result).toMatch(/📄 Permit • Submitted 1\/30 \(\d+d waiting\)/);
     });
 
     it('returns install started text with date', () => {
       const project = createMockProject({
+        [PROJECT_FIELDS.WEBHOOK_INTAKE_COMPLETE]: 'true',
         [PROJECT_FIELDS.SURVEY_APPROVED]: '2024-01-15',
         [PROJECT_FIELDS.CAD_DESIGN_APPROVED]: '2024-01-20',
         [PROJECT_FIELDS.NEM_APPROVED]: '2024-01-25',
@@ -461,11 +462,12 @@ describe('Traffic Lights Utilities', () => {
       });
 
       const result = getMilestoneStatusText(project);
-      expect(result).toBe('Install: Started 2/1');
+      expect(result).toBe('🔧 Install • In progress since 2/1');
     });
 
     it('returns install scheduled text with date', () => {
       const project = createMockProject({
+        [PROJECT_FIELDS.WEBHOOK_INTAKE_COMPLETE]: 'true',
         [PROJECT_FIELDS.SURVEY_APPROVED]: '2024-01-15',
         [PROJECT_FIELDS.CAD_DESIGN_APPROVED]: '2024-01-20',
         [PROJECT_FIELDS.NEM_APPROVED]: '2024-01-25',
@@ -476,11 +478,12 @@ describe('Traffic Lights Utilities', () => {
       });
 
       const result = getMilestoneStatusText(project);
-      expect(result).toBe('Install: Scheduled for 2/1');
+      expect(result).toBe('📅 Install • Scheduled 2/1');
     });
 
     it('returns inspection passed text with date', () => {
       const project = createMockProject({
+        [PROJECT_FIELDS.WEBHOOK_INTAKE_COMPLETE]: 'true',
         [PROJECT_FIELDS.SURVEY_APPROVED]: '2024-01-15',
         [PROJECT_FIELDS.CAD_DESIGN_APPROVED]: '2024-01-20',
         [PROJECT_FIELDS.NEM_APPROVED]: '2024-01-25',
@@ -491,7 +494,7 @@ describe('Traffic Lights Utilities', () => {
       });
 
       const result = getMilestoneStatusText(project);
-      expect(result).toBe('Inspection: Passed 2/5 • Awaiting PTO');
+      expect(result).toMatch(/✅ Inspection Passed 2\/5 • Awaiting PTO \(\d+d\)/);
     });
   });
 });
