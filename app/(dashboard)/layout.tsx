@@ -5,6 +5,7 @@ import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { WebVitalsCollector } from '@/components/ui/WebVitalsCollector';
 import { FrontChatProvider } from '@/components/providers/FrontChatProvider';
 import { TopNavbar } from '@/components/layout/TopNavbar';
+import 'react-big-calendar/lib/css/react-big-calendar.css';
 
 export default async function DashboardLayout({
   children,
