@@ -23,20 +23,26 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search')?.trim().slice(0, 100)
-    const role = searchParams.get('role')
+    const roleParam = searchParams.get('role')
     const office = searchParams.get('office')?.trim().slice(0, 100)
     const managedBy = searchParams.get('managedBy') // Filter users by their manager
     const manages = searchParams.get('manages') // Get users managed by a specific user
     const activeOnly = searchParams.get('activeOnly') === 'true' // Filter users with recent activity
     const monthsBack = parseInt(searchParams.get('monthsBack') || '12') // Activity timeframe
 
-    // Validate role parameter against allowed values (including new manager roles)
+    // Parse role parameter - can be comma-separated for multiple roles
     const allowedRoles = ['closer', 'setter', 'team_lead', 'office_leader', 'area_director', 'divisional', 'regional', 'super_admin', 'all']
-    if (role && !allowedRoles.includes(role)) {
-      return NextResponse.json(
-        { error: 'Invalid role parameter' },
-        { status: 400 }
-      )
+    let roles: string[] = []
+    if (roleParam && roleParam !== 'all') {
+      roles = roleParam.split(',').map(r => r.trim())
+      // Validate each role
+      const invalidRoles = roles.filter(r => !allowedRoles.includes(r))
+      if (invalidRoles.length > 0) {
+        return NextResponse.json(
+          { error: `Invalid role parameter: ${invalidRoles.join(', ')}` },
+          { status: 400 }
+        )
+      }
     }
 
     let query = `
@@ -77,9 +83,9 @@ export async function GET(request: NextRequest) {
       params.push(`%${search}%`)
     }
 
-    if (role && role !== 'all') {
-      conditions.push(`u.role = $${params.length + 1}`)
-      params.push(role)
+    if (roles.length > 0) {
+      conditions.push(`u.role = ANY($${params.length + 1})`)
+      params.push(roles)
     }
 
     if (office && office !== 'all') {
@@ -117,9 +123,9 @@ export async function GET(request: NextRequest) {
     const result = await sql.query(query, params)
     const users = result.rows
 
-    logInfo('Users fetched', { 
-      count: users.length, 
-      filters: { search, role, office, managedBy, manages, activeOnly, monthsBack } 
+    logInfo('Users fetched', {
+      count: users.length,
+      filters: { search, roles: roleParam, office, managedBy, manages, activeOnly, monthsBack }
     })
 
     logApiResponse('GET', '/api/admin/users', Date.now() - startedAt, { count: users.length }, reqId);
