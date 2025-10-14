@@ -34,9 +34,19 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { UserPlus, Search, Edit, Key, Mail, Users, RefreshCw, UserMinus, Eye, Info, X } from 'lucide-react'
+import { UserPlus, Search, Edit, Key, Mail, Users, RefreshCw, UserMinus, Eye, Info, X, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { User, CreateUserInput } from '@/lib/types/user'
 import { getBaseUrl } from '@/lib/utils/baseUrl'
@@ -62,6 +72,8 @@ export default function UsersTab() {
   const [isHierarchyView, setIsHierarchyView] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [userToDelete, setUserToDelete] = useState<User | null>(null)
   const [newUser, setNewUser] = useState<CreateUserInput & { 
     offices?: string[]
     managedBy?: string
@@ -236,6 +248,28 @@ export default function UsersTab() {
     },
   })
 
+  // Delete user mutation
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const response = await fetch(`${getBaseUrl()}/api/admin/users/${userId}`, {
+        method: 'DELETE',
+      })
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to delete user')
+      }
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      setIsDeleteDialogOpen(false)
+      setUserToDelete(null)
+      toast.success('User deleted successfully')
+    },
+    onError: (error: Error) => {
+      toast.error(error.message)
+    },
+  })
 
   const handleCreateUser = () => {
     if (!newUser.name || !newUser.email || !newUser.temporaryPassword) {
@@ -764,6 +798,17 @@ export default function UsersTab() {
                         >
                           <Key className="h-4 w-4" />
                         </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setUserToDelete(user)
+                            setIsDeleteDialogOpen(true)
+                          }}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -902,6 +947,35 @@ export default function UsersTab() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete User</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{userToDelete?.name}</strong> ({userToDelete?.email})?
+              This action cannot be undone and will remove all associated data including office assignments and hierarchy relationships.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setUserToDelete(null)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (userToDelete) {
+                  deleteUserMutation.mutate(userToDelete.id)
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleteUserMutation.isPending}
+            >
+              {deleteUserMutation.isPending ? 'Deleting...' : 'Delete User'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

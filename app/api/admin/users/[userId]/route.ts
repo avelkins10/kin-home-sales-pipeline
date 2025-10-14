@@ -8,6 +8,87 @@ import { updateUserSchema } from '@/lib/validation/admin'
 import { validateOffices } from '@/lib/db/offices'
 import { normalizeOfficeName } from '@/lib/constants/offices'
 
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { userId: string } }
+) {
+  try {
+    const auth = await requireRole(['super_admin'])
+    if (!auth.authorized) {
+      return auth.response
+    }
+
+    const { userId } = params
+
+    // Prevent self-deletion
+    if (userId === auth.session.user.id) {
+      logWarn('Admin attempted self-deletion', { userId })
+      return NextResponse.json(
+        { error: 'Cannot delete your own account' },
+        { status: 400 }
+      )
+    }
+
+    // Get user data for audit log before deletion
+    const userResult = await sql.query(`
+      SELECT
+        u.id, u.name, u.email, u.role, u.sales_office, u.is_active
+      FROM users u
+      WHERE u.id = $1
+    `, [userId])
+
+    if (userResult.rows.length === 0) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      )
+    }
+
+    const user = userResult.rows[0]
+
+    // Start transaction
+    await sql.query('BEGIN')
+
+    try {
+      // Delete related data first (foreign key constraints)
+
+      // Delete user hierarchies (both as manager and managed user)
+      await sql.query('DELETE FROM user_hierarchies WHERE user_id = $1 OR manager_id = $1', [userId])
+
+      // Delete office assignments
+      await sql.query('DELETE FROM office_assignments WHERE user_id = $1', [userId])
+
+      // Delete the user
+      await sql.query('DELETE FROM users WHERE id = $1', [userId])
+
+      // Commit transaction
+      await sql.query('COMMIT')
+
+      // Log audit event
+      await logAudit(
+        'delete',
+        'user',
+        userId,
+        auth.session.user.id,
+        { deletedUser: user }
+      )
+
+      logInfo('User deleted', { userId, userName: user.name, userEmail: user.email })
+
+      return NextResponse.json({ success: true, message: 'User deleted successfully' })
+    } catch (error) {
+      await sql.query('ROLLBACK')
+      throw error
+    }
+  } catch (error) {
+    logError('Failed to delete user', error instanceof Error ? error : new Error(String(error)))
+    return NextResponse.json(
+      { error: 'Failed to delete user' },
+      { status: 500 }
+    )
+  }
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { userId: string } }
