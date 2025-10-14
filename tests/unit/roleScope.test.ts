@@ -30,27 +30,27 @@ describe('Role Scoping (DEPRECATED - Legacy ID-based tests)', () => {
      */
     it('should filter by closer ID for closer role (DEPRECATED - now uses email)', () => {
       const clause = buildRoleClause('user123', 'closer');
-      // Note: This test is now incorrect as the actual implementation uses email-based filtering
-      // The buildRoleClause wrapper delegates to buildProjectAccessClause which expects email, not ID
-      expect(clause).toBe('{3.EQ.0}'); // No email provided, so no projects
+      // Note: The buildRoleClause wrapper now delegates to buildProjectAccessClause
+      // which treats the input as an email and creates email-based filters
+      expect(clause).toBe("({518.EX.'user123'}) OR ({331.EX.'user123'})");
     });
 
     it('should filter by setter ID for setter role (DEPRECATED - now uses email)', () => {
       const clause = buildRoleClause('user123', 'setter');
-      // Note: This test is now incorrect as the actual implementation uses email-based filtering
-      expect(clause).toBe('{3.EQ.0}'); // No email provided, so no projects
+      // Note: Treated as email, creates email-based filter
+      expect(clause).toBe("({518.EX.'user123'}) OR ({331.EX.'user123'})");
     });
 
     it('should handle multiple user IDs for closer role (DEPRECATED - now uses email)', () => {
       const clause = buildRoleClause('user123,user456', 'closer');
-      // Note: This test is now incorrect as the actual implementation uses email-based filtering
-      expect(clause).toBe('{3.EQ.0}'); // No email provided, so no projects
+      // Note: The comma-separated string is treated as a single email value
+      expect(clause).toBe("({518.EX.'user123,user456'}) OR ({331.EX.'user123,user456'})");
     });
 
     it('should handle multiple user IDs for setter role (DEPRECATED - now uses email)', () => {
       const clause = buildRoleClause('user123,user456', 'setter');
-      // Note: This test is now incorrect as the actual implementation uses email-based filtering
-      expect(clause).toBe('{3.EQ.0}'); // No email provided, so no projects
+      // Note: The comma-separated string is treated as a single email value
+      expect(clause).toBe("({518.EX.'user123,user456'}) OR ({331.EX.'user123,user456'})");
     });
 
     it('should filter by office for office_leader role with assigned offices', () => {
@@ -75,13 +75,14 @@ describe('Role Scoping (DEPRECATED - Legacy ID-based tests)', () => {
 
     it('should handle whitespace in user IDs (DEPRECATED - now uses email)', () => {
       const clause = buildRoleClause(' user123 , user456 ', 'closer');
-      // Note: This test is now incorrect as the actual implementation uses email-based filtering
-      expect(clause).toBe('{3.EQ.0}'); // No email provided, so no projects
+      // Note: Whitespace is preserved in the email string
+      expect(clause).toBe("({518.EX.' user123 , user456 '}) OR ({331.EX.' user123 , user456 '})");
     });
 
     it('should handle unknown role gracefully', () => {
       const clause = buildRoleClause('user123', 'unknown_role' as any);
-      expect(clause).toBe('{3.EQ.0}'); // No email provided, so no projects (changed from old default)
+      // Unknown roles default to closer email filter behavior
+      expect(clause).toBe("{518.EX.'user123'}");
     });
   });
 
@@ -128,8 +129,9 @@ describe('Role Scoping (DEPRECATED - Legacy ID-based tests)', () => {
       // Ensure other roles are not affected by the office leader fix
       expect(buildRoleClause('user123', 'super_admin')).toBe('{3.GT.0}');
       expect(buildRoleClause('user123', 'regional')).toBe('{3.GT.0}');
-      expect(buildRoleClause('user123', 'closer')).toBe(`{${PROJECT_FIELDS.CLOSER_ID}.EX.'user123'}`);
-      expect(buildRoleClause('user123', 'setter')).toBe(`{${PROJECT_FIELDS.SETTER_ID}.EX.'user123'}`);
+      // Note: Now uses email-based fields (518=CLOSER_EMAIL, 331=SETTER_EMAIL) instead of ID fields
+      expect(buildRoleClause('user123', 'closer')).toBe("({518.EX.'user123'}) OR ({331.EX.'user123'})");
+      expect(buildRoleClause('user123', 'setter')).toBe("({518.EX.'user123'}) OR ({331.EX.'user123'})");
     });
   });
 });
