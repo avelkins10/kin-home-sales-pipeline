@@ -5,6 +5,8 @@ import { PROJECT_FIELDS } from '@/lib/constants/fieldIds';
 describe('calculateProjectBucketsByTeamMember', () => {
   // Note: Function now creates separate entries for closer and setter
   // For tests expecting single result, set setter fields to null
+  // Note: Function still uses PROJECT_AGE field (not SALES_DATE calculation)
+  // Note: Set permits to null by default so projects aren't automatically readyForInstall
   const createMockProject = (overrides: any = {}) => ({
     [PROJECT_FIELDS.RECORD_ID]: { value: '1' },
     [PROJECT_FIELDS.CLOSER_NAME]: { value: 'John Doe' },
@@ -13,11 +15,12 @@ describe('calculateProjectBucketsByTeamMember', () => {
     [PROJECT_FIELDS.SETTER_EMAIL]: { value: null }, // Set to null for closer-only tests
     [PROJECT_FIELDS.PROJECT_STATUS]: { value: 'Active' },
     [PROJECT_FIELDS.ON_HOLD]: { value: 'No' },
-    [PROJECT_FIELDS.PROJECT_AGE]: { value: '45' },
+    [PROJECT_FIELDS.PROJECT_AGE]: { value: '45' }, // Still uses PROJECT_AGE field
+    [PROJECT_FIELDS.SALES_DATE]: { value: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString() },
     [PROJECT_FIELDS.INSTALL_COMPLETED_DATE]: { value: null },
     [PROJECT_FIELDS.PTO_APPROVED]: { value: null },
-    [PROJECT_FIELDS.NEM_APPROVED]: { value: 'Yes' },
-    [PROJECT_FIELDS.PERMIT_APPROVED]: { value: 'Yes' },
+    [PROJECT_FIELDS.NEM_APPROVED]: { value: null }, // null by default to avoid auto-readyForInstall
+    [PROJECT_FIELDS.PERMIT_APPROVED]: { value: null }, // null by default to avoid auto-readyForInstall
     [PROJECT_FIELDS.INSTALL_SCHEDULED_DATE_CAPTURE]: { value: null },
     [PROJECT_FIELDS.DATE_ON_HOLD]: { value: null },
     ...overrides,
@@ -76,12 +79,16 @@ describe('calculateProjectBucketsByTeamMember', () => {
       const projects = [
         createMockProject({
           [PROJECT_FIELDS.RECORD_ID]: { value: '1' },
+          [PROJECT_FIELDS.CLOSER_NAME]: { value: null }, // No closer for setter-only test
+          [PROJECT_FIELDS.CLOSER_EMAIL]: { value: null },
           [PROJECT_FIELDS.SETTER_NAME]: { value: 'Alice Johnson' },
           [PROJECT_FIELDS.SETTER_EMAIL]: { value: 'alice@example.com' },
           [PROJECT_FIELDS.ON_HOLD]: { value: 'Yes' },
         }),
         createMockProject({
           [PROJECT_FIELDS.RECORD_ID]: { value: '2' },
+          [PROJECT_FIELDS.CLOSER_NAME]: { value: null }, // No closer for setter-only test
+          [PROJECT_FIELDS.CLOSER_EMAIL]: { value: null },
           [PROJECT_FIELDS.SETTER_NAME]: { value: 'Charlie Brown' },
           [PROJECT_FIELDS.SETTER_EMAIL]: { value: 'charlie@example.com' },
           [PROJECT_FIELDS.ON_HOLD]: { value: 'Yes' },
@@ -486,7 +493,9 @@ describe('calculateProjectBucketsByTeamMember', () => {
       });
     });
 
-    it('handles missing closer name and email (Unassigned)', () => {
+    it('handles missing closer name and email (skips unassigned)', () => {
+      // Note: Function doesn't create entries for projects with NO team members
+      // Projects without closer or setter are not included in member buckets
       const projects = [
         createMockProject({
           [PROJECT_FIELDS.RECORD_ID]: { value: '1' },
@@ -498,14 +507,8 @@ describe('calculateProjectBucketsByTeamMember', () => {
 
       const result = calculateProjectBucketsByTeamMember(projects);
 
-      expect(result).toHaveLength(1);
-      expect(result[0]).toMatchObject({
-        memberName: 'Unassigned',
-        memberEmail: null,
-        role: 'closer',
-        onHold: 1,
-        totalProjects: 1,
-      });
+      // Projects with no team members are skipped
+      expect(result).toHaveLength(0);
     });
 
     it('handles empty project array', () => {
