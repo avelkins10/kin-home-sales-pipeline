@@ -15,7 +15,7 @@ import { CalendarEvent } from '@/lib/utils/calendar-helpers'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { AlertCircle, RefreshCw } from 'lucide-react'
-import { statusColorMap } from '@/lib/constants/designTokens'
+import { eventColorMap, statusColorMap } from '@/lib/constants/designTokens'
 
 interface CalendarPageProps {
   searchParams: {
@@ -96,21 +96,25 @@ export default function CalendarPage({ searchParams }: CalendarPageProps) {
     redirect('/login')
   }
 
-  // Event styling
+  // Event styling - color coordinated by both type (survey/install) and status
   const eventPropGetter = (event: any) => {
     const { resource } = event
-    const status = resource.status as keyof typeof statusColorMap
-    const colors = statusColorMap[status] || statusColorMap.default
+    const eventType = resource.type as keyof typeof eventColorMap
+    const eventStatus = resource.status as 'scheduled' | 'completed' | 'pending'
+
+    // Get colors based on both type and status
+    const colors = eventColorMap[eventType]?.[eventStatus] || statusColorMap.default
 
     return {
       style: {
         backgroundColor: colors.background,
         borderColor: colors.border,
         color: colors.text,
-        border: `1px solid ${colors.border}`,
+        border: `2px solid ${colors.border}`,
         borderRadius: '4px',
         fontSize: '12px',
-        padding: '2px 4px'
+        padding: '2px 4px',
+        fontWeight: '500'
       }
     }
   }
@@ -142,6 +146,49 @@ export default function CalendarPage({ searchParams }: CalendarPageProps) {
           onStatusChange={setStatus}
           disabled={isLoading}
         />
+
+        {/* Color Legend */}
+        <div className="mb-4 bg-white rounded-lg border border-slate-200 p-4">
+          <h3 className="text-sm font-semibold text-slate-700 mb-3">Color Legend</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Surveys */}
+            <div>
+              <p className="text-xs font-medium text-slate-600 mb-2">Site Surveys</p>
+              <div className="flex flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded" style={{ backgroundColor: eventColorMap.survey.scheduled.background, border: `2px solid ${eventColorMap.survey.scheduled.border}` }} />
+                  <span className="text-xs text-slate-600">Scheduled</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded" style={{ backgroundColor: eventColorMap.survey.completed.background, border: `2px solid ${eventColorMap.survey.completed.border}` }} />
+                  <span className="text-xs text-slate-600">Completed</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded" style={{ backgroundColor: eventColorMap.survey.pending.background, border: `2px solid ${eventColorMap.survey.pending.border}` }} />
+                  <span className="text-xs text-slate-600">Pending</span>
+                </div>
+              </div>
+            </div>
+            {/* Installs */}
+            <div>
+              <p className="text-xs font-medium text-slate-600 mb-2">Installations</p>
+              <div className="flex flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded" style={{ backgroundColor: eventColorMap.install.scheduled.background, border: `2px solid ${eventColorMap.install.scheduled.border}` }} />
+                  <span className="text-xs text-slate-600">Scheduled</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded" style={{ backgroundColor: eventColorMap.install.completed.background, border: `2px solid ${eventColorMap.install.completed.border}` }} />
+                  <span className="text-xs text-slate-600">Completed</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded" style={{ backgroundColor: eventColorMap.install.pending.background, border: `2px solid ${eventColorMap.install.pending.border}` }} />
+                  <span className="text-xs text-slate-600">Pending</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Calendar content */}
         {isLoading ? (
