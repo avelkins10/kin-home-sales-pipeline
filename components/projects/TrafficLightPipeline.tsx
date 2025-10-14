@@ -200,6 +200,14 @@ export function TrafficLightPipeline({ project }: TrafficLightPipelineProps) {
                 </div>
               )}
 
+              {/* Scheduled date display for in-progress milestones */}
+              {status.state === 'in-progress' && status.scheduledDate && !status.completedDate && (
+                <div className="text-[9px] text-blue-600 mt-0.5 flex items-center gap-0.5">
+                  <Clock className="w-2.5 h-2.5" />
+                  {status.scheduledDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </div>
+              )}
+
               {/* Days badge for in-progress milestones */}
               {status.state === 'in-progress' && status.daysInProgress !== undefined && status.daysInProgress > 0 && (
                 <span className={cn(

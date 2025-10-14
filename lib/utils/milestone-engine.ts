@@ -652,18 +652,19 @@ function isLaterMilestoneActive(project: QuickbaseProject, milestoneId: string, 
     return false;
   }
 
-  // EXCEPTION: Survey can be in-progress while Intake is still pending
-  // Only auto-complete Survey if Design or later is active
+  // EXCEPTION: Survey should NOT auto-complete just because Design is in-progress
+  // Survey can be in-progress (scheduled) at the same time as Design
+  // Only auto-complete Survey if a later milestone is COMPLETE (not just in-progress)
   if (milestoneId === 'survey') {
     const allConfigs = getAllMilestoneConfigs(dynamicConfig);
     const designIndex = allConfigs.findIndex(c => c.id === 'design');
 
     if (designIndex !== -1) {
-      // Check only Design and later milestones
+      // Check only Design and later milestones - but ONLY if they're complete
       for (let i = designIndex; i < allConfigs.length; i++) {
         const laterConfig = allConfigs[i];
-        if (isMilestoneComplete(project, laterConfig.id, dynamicConfig) ||
-            isMilestoneInProgress(project, laterConfig.id, dynamicConfig)) {
+        // Only auto-complete if later milestone is COMPLETE (not just in-progress)
+        if (isMilestoneComplete(project, laterConfig.id, dynamicConfig)) {
           return true;
         }
       }
