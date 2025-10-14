@@ -71,7 +71,7 @@ export const PROJECT_FIELDS = {
   PROJECT_COORDINATOR_PHONE: 821,  // ⚠️ LOW - 1.3% - Coordinator phone number
 
   // Office/Region (2 fields)
-  SALES_OFFICE: 2087,              // ✅ PRIMARY - 100% - For office filtering
+  SALES_OFFICE: 339,               // ✅ PRIMARY - 100% - For office filtering
   AHJ: 1123,                       // ✅ PRIMARY - 100% - Permitting jurisdiction
 
   // ============================================================
