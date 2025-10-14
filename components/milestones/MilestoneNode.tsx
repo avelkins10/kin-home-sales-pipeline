@@ -10,6 +10,7 @@ interface MilestoneNodeProps {
     name: string
     status: MilestoneState
     date?: Date | null
+    scheduledDate?: Date | null
     estimatedDate?: Date | null
     substeps?: Array<{ name: string; date: Date | null; state: string; }>
     warning?: string
@@ -97,6 +98,11 @@ export function MilestoneNode({ milestone, isBlocked }: MilestoneNodeProps) {
         {milestone.date ? (
           <p className="text-xs text-gray-600">
             {formatDate(milestone.date)}
+          </p>
+        ) : milestone.scheduledDate ? (
+          <p className="text-xs text-blue-600 flex items-center justify-center gap-1">
+            <Clock className="w-3 h-3" />
+            {formatDate(milestone.scheduledDate)}
           </p>
         ) : milestone.estimatedDate ? (
           <p className="text-xs text-gray-400">

@@ -44,6 +44,8 @@ export function Timeline({ project }: TimelineProps) {
         calculated: config.calculated,
         status: status.state,
         date: status.date,
+        scheduledDate: status.scheduledDate,
+        estimatedDate: status.estimatedDate,
         substeps: status.substeps,
         blockedReason: status.blockedReason,
         urgency: status.urgency

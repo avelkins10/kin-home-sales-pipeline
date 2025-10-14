@@ -621,6 +621,29 @@ function getMilestoneHelperData(project: QuickbaseProject, milestoneId: string, 
 // ============================================================================
 
 /**
+ * Checks if any later milestone is active (in-progress or complete)
+ */
+function isLaterMilestoneActive(project: QuickbaseProject, milestoneId: string, dynamicConfig?: MilestoneConfiguration): boolean {
+  const allConfigs = getAllMilestoneConfigs(dynamicConfig);
+  const currentIndex = allConfigs.findIndex(c => c.id === milestoneId);
+
+  if (currentIndex === -1) return false;
+
+  // Check all milestones that come after this one
+  for (let i = currentIndex + 1; i < allConfigs.length; i++) {
+    const laterConfig = allConfigs[i];
+
+    // If a later milestone is complete or in-progress, return true
+    if (isMilestoneComplete(project, laterConfig.id, dynamicConfig) ||
+        isMilestoneInProgress(project, laterConfig.id, dynamicConfig)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
  * Gets complete milestone status
  */
 export function getMilestoneStatus(project: QuickbaseProject, milestoneId: string, dynamicConfig?: MilestoneConfiguration): MilestoneStatus {
@@ -646,6 +669,10 @@ export function getMilestoneStatus(project: QuickbaseProject, milestoneId: strin
     }
     // Check complete
     else if (isMilestoneComplete(project, milestoneId, dynamicConfig)) {
+      state = 'complete';
+    }
+    // AUTO-COMPLETE: If a later milestone is active, this one must be complete
+    else if (isLaterMilestoneActive(project, milestoneId, dynamicConfig)) {
       state = 'complete';
     }
     // Check in progress
