@@ -22,6 +22,7 @@ export function DashboardFilters({
 
   const timeRanges: { value: TimeRange; label: string }[] = [
     { value: 'lifetime', label: 'Lifetime' },
+    { value: 'ytd', label: 'Year to Date' },
     { value: 'month', label: 'This Month' },
     { value: 'week', label: 'This Week' },
   ];

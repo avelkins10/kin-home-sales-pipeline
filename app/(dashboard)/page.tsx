@@ -130,7 +130,7 @@ function RecentProjectsSkeleton() {
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
-  const [timeRange, setTimeRange] = useState<TimeRange>('lifetime');
+  const [timeRange, setTimeRange] = useState<TimeRange>('ytd'); // Default to Year-to-Date
   const [customDateRange, setCustomDateRange] = useState<{ startDate: string; endDate: string } | undefined>();
   const [scope, setScope] = useState<MetricsScope>('team'); // Default to team view
 

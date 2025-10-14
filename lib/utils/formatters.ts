@@ -1,5 +1,7 @@
 // lib/utils/formatters.ts
 
+import { parseQuickbaseDate } from './date-helpers';
+
 export function formatDate(
   date: string | Date | null | undefined,
   timezone?: string
@@ -83,13 +85,11 @@ export function formatDaysAgo(
   if (!date) return 'N/A';
 
   try {
-    const dateObj = typeof date === 'string' ? new Date(date) : date;
-    if (isNaN(dateObj.getTime())) return 'N/A';
+    // Use timezone-aware date parsing for string dates to prevent off-by-one errors
+    const dateObj = typeof date === 'string' ? parseQuickbaseDate(date) : date;
+    if (!dateObj || isNaN(dateObj.getTime())) return 'N/A';
 
-    // Use the provided timezone or default to America/New_York
-    const effectiveTimezone = timezone || 'America/New_York';
-
-    // Get current time in user's timezone
+    // Get current time
     const now = new Date();
 
     // Calculate difference in days

@@ -866,7 +866,7 @@ function buildTimeRangeFilter(timeRange: 'lifetime' | 'month' | 'week'): string 
 export async function getEnhancedDashboardMetrics(
   userId: string,
   role: string,
-  timeRange: 'lifetime' | 'month' | 'week' | 'custom' = 'lifetime',
+  timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' = 'lifetime',
   officeIds?: number[],
   customDateRange?: { startDate: string; endDate: string },
   scope: 'personal' | 'team' = 'team', // NEW PARAMETER
@@ -995,12 +995,16 @@ export async function getEnhancedDashboardMetrics(
   const monthEnd = new Date(currentYear, currentMonth + 1, 0);
   const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
+  // Year-to-date range: January 1st of current year to today
+  const ytdStart = new Date(currentYear, 0, 1); // January 1st
+  const ytdEnd = new Date(); // Today
+
   // Custom date range support
   let customStart: Date | undefined;
   let customEnd: Date | undefined;
   if (timeRange === 'custom' && customDateRange) {
-    customStart = new Date(customDateRange.startDate);
-    customEnd = new Date(customDateRange.endDate);
+    customStart = parseQuickbaseDate(customDateRange.startDate) || new Date(customDateRange.startDate);
+    customEnd = parseQuickbaseDate(customDateRange.endDate) || new Date(customDateRange.endDate);
     // Set to end of day for endDate to include the entire day
     customEnd.setHours(23, 59, 59, 999);
   }
@@ -1010,11 +1014,15 @@ export async function getEnhancedDashboardMetrics(
     const salesDate = project[PROJECT_FIELDS.SALES_DATE]?.value;
     if (!salesDate) return false;
 
-    const projectDate = new Date(salesDate);
+    // Use timezone-aware date parsing to prevent off-by-one errors
+    const projectDate = parseQuickbaseDate(salesDate);
+    if (!projectDate) return false;
 
     switch (timeRange) {
       case 'custom':
         return customStart && customEnd && projectDate >= customStart && projectDate <= customEnd;
+      case 'ytd':
+        return projectDate >= ytdStart && projectDate <= ytdEnd;
       case 'month':
         return projectDate >= monthStart && projectDate <= monthEnd;
       case 'week':
@@ -1030,11 +1038,15 @@ export async function getEnhancedDashboardMetrics(
     const installDate = project[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value;
     if (!installDate) return false;
 
-    const projectDate = new Date(installDate);
+    // Use timezone-aware date parsing to prevent off-by-one errors
+    const projectDate = parseQuickbaseDate(installDate);
+    if (!projectDate) return false;
 
     switch (timeRange) {
       case 'custom':
         return customStart && customEnd && projectDate >= customStart && projectDate <= customEnd;
+      case 'ytd':
+        return projectDate >= ytdStart && projectDate <= ytdEnd;
       case 'month':
         return projectDate >= monthStart && projectDate <= monthEnd;
       case 'week':
@@ -1050,11 +1062,15 @@ export async function getEnhancedDashboardMetrics(
     const fundingDate = project[PROJECT_FIELDS.LENDER_FUNDING_RECEIVED_DATE]?.value;
     if (!fundingDate) return false;
 
-    const projectDate = new Date(fundingDate);
+    // Use timezone-aware date parsing to prevent off-by-one errors
+    const projectDate = parseQuickbaseDate(fundingDate);
+    if (!projectDate) return false;
 
     switch (timeRange) {
       case 'custom':
         return customStart && customEnd && projectDate >= customStart && projectDate <= customEnd;
+      case 'ytd':
+        return projectDate >= ytdStart && projectDate <= ytdEnd;
       case 'month':
         return projectDate >= monthStart && projectDate <= monthEnd;
       case 'week':
@@ -1131,7 +1147,7 @@ export async function getEnhancedDashboardMetrics(
 }
 
 // Calculate basic metrics (existing functionality)
-function calculateBasicMetrics(data: any[], timeRange: 'lifetime' | 'month' | 'week' | 'custom') {
+function calculateBasicMetrics(data: any[], timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom') {
   const now = new Date();
   const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const currentMonth = now.getMonth();
@@ -1615,7 +1631,7 @@ function getProjectBucketCounts(data: any[]) {
 }
 
 // Calculate retention rate with business-approved statuses
-function calculateRetentionRate(data: any[], timeRange: 'lifetime' | 'month' | 'week' | 'custom' = 'lifetime'): { lifetime: number; period: number } {
+function calculateRetentionRate(data: any[], timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' = 'lifetime'): { lifetime: number; period: number } {
   // Business-approved status categories
   const retainedStatuses = ['Active', 'Completed', 'Installed', 'PTO Approved'];
   const lostStatuses = ['Cancelled', 'Canceled', 'Rejected', 'Pending Cancel'];
@@ -2110,8 +2126,11 @@ function determineActivity(project: any): TeamActivityItem | null {
     return null; // No relevant activity
   }
 
-  // Calculate days ago
-  const daysAgo = Math.floor((Date.now() - new Date(timestamp).getTime()) / (1000 * 60 * 60 * 24));
+  // Calculate days ago using timezone-aware date parsing
+  const timestampDate = parseQuickbaseDate(timestamp);
+  const daysAgo = timestampDate
+    ? Math.floor((Date.now() - timestampDate.getTime()) / (1000 * 60 * 60 * 24))
+    : 0;
 
   return {
     recordId,

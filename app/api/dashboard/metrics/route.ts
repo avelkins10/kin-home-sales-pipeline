@@ -9,10 +9,12 @@ import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
 const metricsCache = new Map<string, { data: any; timestamp: number; ttl: number }>();
 
 // Determine TTL based on timeRange
-function getCacheTTL(timeRange: 'lifetime' | 'month' | 'week' | 'custom'): number {
+function getCacheTTL(timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom'): number {
   switch (timeRange) {
     case 'lifetime':
       return 120 * 1000; // 2 minutes for lifetime data (changes less frequently)
+    case 'ytd':
+      return 60 * 1000; // 1 minute for YTD data (changes daily)
     case 'month':
       return 60 * 1000; // 1 minute for monthly data
     case 'week':
@@ -39,10 +41,10 @@ export async function GET(req: Request) {
     }
 
     // Extract time range parameter with validation
-    const timeRange = searchParams.get('timeRange') as 'lifetime' | 'month' | 'week' | 'custom' | null;
-    const validTimeRanges = ['lifetime', 'month', 'week', 'custom'];
+    const timeRange = searchParams.get('timeRange') as 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | null;
+    const validTimeRanges = ['lifetime', 'ytd', 'month', 'week', 'custom'];
     if (timeRange && !validTimeRanges.includes(timeRange)) {
-      return NextResponse.json({ error: 'Invalid timeRange parameter. Must be one of: lifetime, month, week, custom' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid timeRange parameter. Must be one of: lifetime, ytd, month, week, custom' }, { status: 400 });
     }
     const effectiveTimeRange = timeRange || 'lifetime';
 
