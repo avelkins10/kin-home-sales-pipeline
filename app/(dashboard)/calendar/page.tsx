@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { parseISO } from 'date-fns'
+import { parseQuickbaseDate } from '@/lib/utils/date-helpers'
 import { CalendarWrapper } from '@/components/calendar/CalendarWrapper'
 import { CalendarFilters } from '@/components/calendar/CalendarFilters'
 import { CalendarSkeleton } from '@/components/calendar/CalendarSkeleton'
@@ -69,7 +69,8 @@ export default function CalendarPage({ searchParams }: CalendarPageProps) {
   // Transform events for react-big-calendar
   const transformedEvents = useMemo(() => {
     return filteredEvents.map((event: CalendarEvent) => {
-      const start = parseISO(event.date)
+      // Use timezone-aware date parsing to prevent off-by-one day errors
+      const start = parseQuickbaseDate(event.date) || new Date()
       return {
         id: event.id,
         title: event.title,

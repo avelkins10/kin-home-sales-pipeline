@@ -2,6 +2,7 @@
 
 import { PROJECT_FIELDS } from '@/lib/constants/fieldIds';
 import { QuickbaseProject } from '@/lib/types/project';
+import { calculateDaysFromDate } from './date-helpers';
 
 /**
  * Parse customer name into first and last name
@@ -60,25 +61,13 @@ export function formatAddress(address: string): { line1: string; line2: string }
 /**
  * Get project age in days
  * Calculate from SALES_DATE instead of using PROJECT_AGE field (which returns garbage values)
+ * Uses timezone-aware date parsing to prevent off-by-one errors
  * @param project - Quickbase project object
  * @returns age in days since sales date, 0 if missing or invalid
  */
 export function getProjectAge(project: QuickbaseProject): number {
   const salesDateValue = project[PROJECT_FIELDS.SALES_DATE]?.value;
-
-  if (!salesDateValue) return 0;
-
-  try {
-    const salesDate = new Date(salesDateValue);
-    const now = new Date();
-    const diffTime = now.getTime() - salesDate.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-    // Return 0 if negative (future date) or if calculation failed
-    return diffDays >= 0 ? diffDays : 0;
-  } catch {
-    return 0;
-  }
+  return calculateDaysFromDate(salesDateValue);
 }
 
 /**

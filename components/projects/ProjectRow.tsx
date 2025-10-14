@@ -15,6 +15,7 @@ import { useProjectUnreadCount } from '@/lib/hooks/useNotifications';
 import { parseCustomerName, getProjectAge, determineProjectOwnership } from '@/lib/utils/project-helpers';
 import { detectHoldStatus, extractHoldType } from '@/lib/utils/hold-detection';
 import { formatSystemSize, formatCurrency } from '@/lib/utils/formatters';
+import { formatQuickbaseDate } from '@/lib/utils/date-helpers';
 import { projectKey } from '@/lib/queryKeys';
 import { getBaseUrl } from '@/lib/utils/baseUrl';
 import { getProjectCompletionPercentage } from '@/lib/utils/milestone-engine';
@@ -82,16 +83,8 @@ export function ProjectRow({ project, userEmail, userRole }: ProjectRowProps) {
   const isRejected = projectStatus.toLowerCase().includes('reject');
   const rejectionReasons = project[PROJECT_FIELDS.INTAKE_MISSING_ITEMS_COMBINED]?.value ?? null;
 
-  // Format sales date
-  const formatSalesDate = (date: string) => {
-    if (!date) return '';
-    try {
-      const d = new Date(date);
-      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    } catch {
-      return '';
-    }
-  };
+  // Format sales date using timezone-aware utility
+  const formattedSalesDate = formatQuickbaseDate(salesDate);
 
   // Prefetch project detail on hover
   const handlePrefetch = () => {
@@ -172,10 +165,10 @@ export function ProjectRow({ project, userEmail, userRole }: ProjectRowProps) {
               <span className="font-medium">Office:</span> {office}
             </div>
           )}
-          {salesDate && (
+          {formattedSalesDate && (
             <div className="flex items-center gap-1">
               <Calendar className="h-3.5 w-3.5" />
-              <span className="font-medium">Sold:</span> {formatSalesDate(salesDate)}
+              <span className="font-medium">Sold:</span> {formattedSalesDate}
             </div>
           )}
           {projectAge > 0 && (

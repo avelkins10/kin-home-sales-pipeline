@@ -21,6 +21,7 @@ import { buildProjectAccessClause } from '@/lib/auth/projectAuthorization';
 import type { TeamActivityItem, TeamActivityType } from '@/lib/types/dashboard';
 import { isManagerRole } from '@/lib/utils/role-helpers';
 import type { MetricsScope, TeamMemberCommission, TeamMemberBuckets } from '@/lib/types/dashboard';
+import { parseQuickbaseDate } from '@/lib/utils/date-helpers';
 
 // In-process cache for commission/team bucket calculations
 interface CacheEntry<T> {
@@ -1975,9 +1976,12 @@ export async function getRecentProjects(userId: string, role: string, officeIds?
       return status.includes('Active') && onHold !== 'Yes';
     })
     .sort((a: any, b: any) => {
-      const dateA = new Date(a[PROJECT_FIELDS.SALES_DATE]?.value || 0);
-      const dateB = new Date(b[PROJECT_FIELDS.SALES_DATE]?.value || 0);
-      return dateB.getTime() - dateA.getTime(); // Newest first
+      // Use timezone-aware date parsing to prevent off-by-one errors
+      const dateA = parseQuickbaseDate(a[PROJECT_FIELDS.SALES_DATE]?.value);
+      const dateB = parseQuickbaseDate(b[PROJECT_FIELDS.SALES_DATE]?.value);
+      const timeA = dateA?.getTime() || 0;
+      const timeB = dateB?.getTime() || 0;
+      return timeB - timeA; // Newest first
     })
     .slice(0, 5); // Take first 5
   
