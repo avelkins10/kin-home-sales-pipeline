@@ -28,6 +28,15 @@ export function SystemSpecsCard({ project }: SystemSpecsCardProps) {
   const financing = project[PROJECT_FIELDS.FINANCING]?.value || ''
   const financingPlan = project[PROJECT_FIELDS.FINANCING_PLAN]?.value || ''
 
+  // Debug logging
+  console.log('Financing Debug:', {
+    financing,
+    financingPlan,
+    hasFinancing: !!(financing || financingPlan),
+    field645: project[645],
+    field649: project[649]
+  })
+
   return (
     <Card>
       <CardHeader>
