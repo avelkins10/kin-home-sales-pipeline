@@ -144,9 +144,9 @@ function buildQuickBaseProjectUrl(recordId: number): string {
 }
 
 /**
- * Set project context as custom fields in Front Chat
+ * Open chat with project context pre-filled
  */
-export function setProjectContext(context: ProjectContext): void {
+export function openChatWithProject(context: ProjectContext): void {
   if (!window.FrontChat) {
     console.error('[FrontChat] SDK not loaded');
     return;
@@ -155,28 +155,26 @@ export function setProjectContext(context: ProjectContext): void {
   const projectUrl = buildQuickBaseProjectUrl(context.recordId);
 
   try {
-    window.FrontChat('identity', {
-      customFields: {
-        project_url: projectUrl,
-        customer_name: context.customerName,
-        project_id: context.projectId,
-      },
-    });
+    // Pre-fill the message with project context
+    const contextMessage = `Project Support Request
 
-    console.log('[FrontChat] Project context set:', {
+Customer: ${context.customerName}
+Project ID: ${context.projectId}
+Project URL: ${projectUrl}
+
+---
+`;
+
+    // Open chat with pre-filled message
+    window.FrontChat('show');
+    window.FrontChat('prefill', contextMessage);
+
+    console.log('[FrontChat] Opened with project context:', {
       customer: context.customerName,
       projectId: context.projectId,
       url: projectUrl,
     });
   } catch (error) {
-    console.error('[FrontChat] Error setting project context:', error);
+    console.error('[FrontChat] Error opening chat with project context:', error);
   }
-}
-
-/**
- * Open chat with project context
- */
-export function openChatWithProject(context: ProjectContext): void {
-  setProjectContext(context);
-  showFrontChat();
 }
