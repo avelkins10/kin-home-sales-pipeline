@@ -1,7 +1,7 @@
+export const runtime = 'nodejs'
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth/authOptions'
-import { pool } from '@/lib/db/pool'
+import { requireAuth } from '@/lib/auth/guards'
+import { sql } from '@/lib/db/client'
 import { logInfo, logWarn, logError } from '@/lib/logging/logger'
 
 /**
@@ -11,9 +11,9 @@ import { logInfo, logWarn, logError } from '@/lib/logging/logger'
  */
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const auth = await requireAuth()
+    if (!auth.authorized) {
+      return auth.response
     }
 
     const { searchParams } = new URL(req.url)
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json([])
     }
 
-    const result = await pool.query(
+    const result = await sql.query(
       `SELECT
         user_id as "userId",
         office_name as "officeName",
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(result.rows)
   } catch (error) {
-    logError('[OFFICE_ASSIGNMENTS_GET] Error fetching assignments', { error })
+    logError('[OFFICE_ASSIGNMENTS_GET] Error fetching assignments', error instanceof Error ? error : new Error(String(error)))
     return NextResponse.json(
       { error: 'Failed to fetch office assignments' },
       { status: 500 }
@@ -51,16 +51,16 @@ export async function GET(req: NextRequest) {
  */
 export async function DELETE(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const auth = await requireAuth()
+    if (!auth.authorized) {
+      return auth.response
     }
 
     // Check if user has permission to manage office assignments
-    const userRole = session.user?.role
+    const userRole = auth.session.user?.role
     if (!['super_admin', 'regional'].includes(userRole || '')) {
       logWarn('[OFFICE_ASSIGNMENTS_DELETE] User lacks permission', {
-        userId: session.user?.id,
+        userId: auth.session.user?.id,
         role: userRole,
       })
       return NextResponse.json(
@@ -80,7 +80,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     // Delete the assignment
-    const result = await pool.query(
+    const result = await sql.query(
       `DELETE FROM office_assignments
        WHERE user_id = $1 AND office_name = $2
        RETURNING *`,
@@ -101,7 +101,7 @@ export async function DELETE(req: NextRequest) {
     logInfo('[OFFICE_ASSIGNMENTS_DELETE] Assignment removed successfully', {
       userId,
       officeName,
-      removedBy: session.user?.id,
+      removedBy: auth.session.user?.id,
     })
 
     return NextResponse.json({
@@ -109,7 +109,7 @@ export async function DELETE(req: NextRequest) {
       message: 'Manager removed from office successfully',
     })
   } catch (error) {
-    logError('[OFFICE_ASSIGNMENTS_DELETE] Error removing assignment', { error })
+    logError('[OFFICE_ASSIGNMENTS_DELETE] Error removing assignment', error instanceof Error ? error : new Error(String(error)))
     return NextResponse.json(
       { error: 'Failed to remove office assignment' },
       { status: 500 }
