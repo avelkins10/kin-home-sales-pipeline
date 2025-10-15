@@ -2572,6 +2572,7 @@ export async function getOfficeMetrics(
     // Group projects by office
     const officeGroups = new Map<number, any[]>();
     const officeNames = new Map<number, string>();
+    let projectsWithoutOfficeId = 0;
 
     for (const project of projects) {
       const officeId = project[PROJECT_FIELDS.OFFICE_RECORD_ID]?.value;
@@ -2583,7 +2584,18 @@ export async function getOfficeMetrics(
         }
         officeGroups.get(officeId)!.push(project);
         officeNames.set(officeId, officeName || `Office ${officeId}`);
+      } else {
+        projectsWithoutOfficeId++;
+        console.warn('[getOfficeMetrics] Project missing OFFICE_RECORD_ID:', {
+          projectId: project[PROJECT_FIELDS.PROJECT_ID]?.value,
+          officeName,
+          hasOfficeId: !!officeId
+        });
       }
+    }
+
+    if (projectsWithoutOfficeId > 0) {
+      console.error(`[getOfficeMetrics] ${projectsWithoutOfficeId} projects missing OFFICE_RECORD_ID out of ${projects.length} total projects`);
     }
 
     // Calculate metrics for each office
