@@ -46,14 +46,17 @@ import { Office, CreateOfficeInput, UpdateOfficeInput } from '@/lib/types/office
 import { User } from '@/lib/types/user'
 import { getBaseUrl } from '@/lib/utils/baseUrl'
 import BulkAssignOfficesDialog from './BulkAssignOfficesDialog'
+import ManageOfficeManagersDialog from './ManageOfficeManagersDialog'
 
 export default function OfficesTab() {
   const [searchQuery, setSearchQuery] = useState('')
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isBulkAssignDialogOpen, setIsBulkAssignDialogOpen] = useState(false)
+  const [isManageManagersDialogOpen, setIsManageManagersDialogOpen] = useState(false)
   const [officeToDelete, setOfficeToDelete] = useState<Office | null>(null)
   const [officeToEdit, setOfficeToEdit] = useState<Office | null>(null)
+  const [officeToManage, setOfficeToManage] = useState<Office | null>(null)
   const [newOffice, setNewOffice] = useState<CreateOfficeInput>({
     name: '',
     region: 'southwest',
@@ -380,15 +383,29 @@ export default function OfficesTab() {
                 {/* Assigned Managers */}
                 {office.assignedManagers && office.assignedManagers.length > 0 ? (
                   <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <Users className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm font-medium text-gray-600">Assigned Managers:</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Users className="h-4 w-4 text-gray-500" />
+                        <span className="text-sm font-medium text-gray-600">Assigned Managers:</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setOfficeToManage(office)
+                          setIsManageManagersDialogOpen(true)
+                        }}
+                        className="h-7 text-xs"
+                      >
+                        <Users className="h-3 w-3 mr-1" />
+                        Manage
+                      </Button>
                     </div>
                     <div className="flex flex-wrap gap-1">
                       {office.assignedManagers.map((manager) => (
-                        <Badge 
-                          key={manager.userId} 
-                          variant="secondary" 
+                        <Badge
+                          key={manager.userId}
+                          variant="secondary"
                           className="cursor-pointer hover:bg-gray-200"
                           onClick={() => router.push(`/settings?tab=users&userId=${manager.userId}`)}
                         >
@@ -399,11 +416,25 @@ export default function OfficesTab() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center space-x-2">
-                    <Users className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm text-gray-600">
-                      Leader: {office.leaderName}
-                    </span>
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Users className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm text-gray-600">
+                        Leader: {office.leaderName}
+                      </span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setOfficeToManage(office)
+                        setIsManageManagersDialogOpen(true)
+                      }}
+                      className="w-full"
+                    >
+                      <Users className="h-4 w-4 mr-2" />
+                      Assign Managers
+                    </Button>
                   </div>
                 )}
                 <div className="flex items-center space-x-2">
@@ -520,6 +551,13 @@ export default function OfficesTab() {
       <BulkAssignOfficesDialog
         open={isBulkAssignDialogOpen}
         onOpenChange={setIsBulkAssignDialogOpen}
+      />
+
+      {/* Manage Office Managers Dialog */}
+      <ManageOfficeManagersDialog
+        open={isManageManagersDialogOpen}
+        onOpenChange={setIsManageManagersDialogOpen}
+        office={officeToManage}
       />
     </div>
   )
