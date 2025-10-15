@@ -1,7 +1,7 @@
 // lib/types/dashboard.ts
 import type { Notification } from './notification';
 
-export type TimeRange = 'lifetime' | 'ytd' | 'month' | 'week' | 'custom';
+export type TimeRange = 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | 'last_30' | 'last_90' | 'last_12_months';
 export type MetricsScope = 'personal' | 'team';
 
 export interface CustomDateRange {

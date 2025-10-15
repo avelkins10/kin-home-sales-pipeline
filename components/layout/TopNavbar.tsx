@@ -34,7 +34,7 @@ export function TopNavbar() {
     { name: 'Projects', href: '/projects', icon: FolderKanban, roles: ['closer', 'setter', 'coordinator', 'office_leader', 'regional', 'super_admin'] },
     // { name: 'Holds', href: '/holds', icon: Clock, roles: ['closer', 'setter', 'coordinator', 'office_leader', 'regional', 'super_admin'] }, // TODO: Implement holds page
     { name: 'Calendar', href: '/calendar', icon: Calendar, roles: ['closer', 'setter', 'coordinator', 'office_leader', 'regional', 'super_admin'] },
-    // { name: 'Analytics', href: '/analytics', icon: BarChart3, roles: ['office_leader', 'regional', 'super_admin'] }, // TODO: Implement analytics page
+    { name: 'Analytics', href: '/analytics', icon: BarChart3, roles: ['office_leader', 'regional', 'super_admin'] },
     { name: 'Settings', href: '/settings', icon: Settings, roles: ['closer', 'setter', 'coordinator', 'office_leader', 'regional', 'super_admin'] },
     { name: 'KIN Sales Hub', href: 'https://sites.google.com/kinhome.com/kinhomesalesnetwork/home', icon: ExternalLink, roles: ['closer', 'setter', 'coordinator', 'office_leader', 'regional', 'super_admin'], external: true },
   ];

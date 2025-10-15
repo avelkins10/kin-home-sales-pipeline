@@ -31,29 +31,47 @@ export function formatDateForTimezone(date: Date, timezone: string = 'America/Ne
 
 /**
  * Get the start of a time period in the user's timezone
- * 
+ *
  * @param period - Time period type
  * @param timezone - User's timezone
  * @returns Date object representing the start of the period in user's timezone
  */
-export function getPeriodStart(period: 'ytd' | 'month' | 'week', timezone: string = 'America/New_York'): Date {
+export function getPeriodStart(period: 'ytd' | 'month' | 'week' | 'last_30' | 'last_90' | 'last_12_months', timezone: string = 'America/New_York'): Date {
   const now = new Date();
-  
+
   switch (period) {
     case 'ytd':
       // January 1st of current year in user's timezone
       return new Date(now.getFullYear(), 0, 1);
-      
+
     case 'month':
       // 1st of current month in user's timezone
       return new Date(now.getFullYear(), now.getMonth(), 1);
-      
+
     case 'week':
       // 7 days ago in user's timezone
       const weekStart = new Date(now);
       weekStart.setDate(now.getDate() - 7);
       return weekStart;
-      
+
+    case 'last_30':
+      // 30 days ago
+      const last30Start = new Date(now);
+      last30Start.setDate(now.getDate() - 30);
+      return last30Start;
+
+    case 'last_90':
+      // 90 days ago
+      const last90Start = new Date(now);
+      last90Start.setDate(now.getDate() - 90);
+      return last90Start;
+
+    case 'last_12_months':
+      // 12 months ago (365 days)
+      const last12MonthsStart = new Date(now);
+      last12MonthsStart.setDate(now.getDate() - 365);
+      return last12MonthsStart;
+
     default:
       return now;
   }
@@ -137,7 +155,7 @@ export function parseQuickbaseDateInTimezone(
 
 /**
  * Build date filters for Quickbase queries using user's timezone
- * 
+ *
  * @param timeRange - Time range type
  * @param timezone - User's timezone
  * @param fieldId - Quickbase field ID to filter on
@@ -146,19 +164,19 @@ export function parseQuickbaseDateInTimezone(
  * @returns Array of date filter objects for Quickbase query
  */
 export function buildTimezoneAwareDateFilters(
-  timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom',
+  timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | 'last_30' | 'last_90' | 'last_12_months',
   timezone: string = 'America/New_York',
   fieldId: number,
   customStartDate?: string,
   customEndDate?: string
 ): any[] {
   const dateFilters: any[] = [];
-  
+
   switch (timeRange) {
     case 'lifetime':
       // No date filter for lifetime
       break;
-      
+
     case 'ytd':
       const ytdStart = getPeriodStart('ytd', timezone);
       const ytdEnd = getPeriodEnd(timezone);
@@ -175,7 +193,7 @@ export function buildTimezoneAwareDateFilters(
         }
       );
       break;
-      
+
     case 'month':
       const monthStart = getPeriodStart('month', timezone);
       const monthEnd = getPeriodEnd(timezone);
@@ -192,7 +210,7 @@ export function buildTimezoneAwareDateFilters(
         }
       );
       break;
-      
+
     case 'week':
       const weekStart = getPeriodStart('week', timezone);
       const weekEnd = getPeriodEnd(timezone);
@@ -209,7 +227,58 @@ export function buildTimezoneAwareDateFilters(
         }
       );
       break;
-      
+
+    case 'last_30':
+      const last30Start = getPeriodStart('last_30', timezone);
+      const last30End = getPeriodEnd(timezone);
+      dateFilters.push(
+        {
+          field: fieldId,
+          operator: 'gte',
+          value: formatDateForTimezone(last30Start, timezone)
+        },
+        {
+          field: fieldId,
+          operator: 'lte',
+          value: formatDateForTimezone(last30End, timezone)
+        }
+      );
+      break;
+
+    case 'last_90':
+      const last90Start = getPeriodStart('last_90', timezone);
+      const last90End = getPeriodEnd(timezone);
+      dateFilters.push(
+        {
+          field: fieldId,
+          operator: 'gte',
+          value: formatDateForTimezone(last90Start, timezone)
+        },
+        {
+          field: fieldId,
+          operator: 'lte',
+          value: formatDateForTimezone(last90End, timezone)
+        }
+      );
+      break;
+
+    case 'last_12_months':
+      const last12MonthsStart = getPeriodStart('last_12_months', timezone);
+      const last12MonthsEnd = getPeriodEnd(timezone);
+      dateFilters.push(
+        {
+          field: fieldId,
+          operator: 'gte',
+          value: formatDateForTimezone(last12MonthsStart, timezone)
+        },
+        {
+          field: fieldId,
+          operator: 'lte',
+          value: formatDateForTimezone(last12MonthsEnd, timezone)
+        }
+      );
+      break;
+
     case 'custom':
       if (customStartDate && customEndDate) {
         dateFilters.push(
@@ -227,6 +296,6 @@ export function buildTimezoneAwareDateFilters(
       }
       break;
   }
-  
+
   return dateFilters;
 }

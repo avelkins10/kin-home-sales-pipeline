@@ -11,7 +11,7 @@ import type { MilestoneTimings } from '@/lib/types/analytics';
 const milestoneTimingsCache = new Map<string, { data: any; timestamp: number; ttl: number }>();
 
 // Determine TTL based on timeRange
-function getCacheTTL(timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom'): number {
+function getCacheTTL(timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | 'last_30' | 'last_90' | 'last_12_months'): number {
   switch (timeRange) {
     case 'lifetime':
       return 120 * 1000; // 2 minutes for lifetime data (changes less frequently)
@@ -21,6 +21,12 @@ function getCacheTTL(timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom'
       return 60 * 1000; // 1 minute for monthly data
     case 'week':
       return 30 * 1000; // 30 seconds for weekly data (changes more frequently)
+    case 'last_30':
+      return 60 * 1000; // 1 minute for last 30 days
+    case 'last_90':
+      return 60 * 1000; // 1 minute for last 90 days
+    case 'last_12_months':
+      return 90 * 1000; // 90 seconds for last 12 months
     case 'custom':
       return 60 * 1000; // 1 minute for custom ranges
     default:
@@ -83,7 +89,7 @@ export async function GET(req: Request) {
 
     // Extract time range parameter with validation
     const timeRange = searchParams.get('timeRange') as 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | null;
-    const validTimeRanges = ['lifetime', 'ytd', 'month', 'week', 'custom'];
+    const validTimeRanges = ['lifetime', 'ytd', 'month', 'week', 'custom', 'last_30', 'last_90', 'last_12_months'];
     if (timeRange && !validTimeRanges.includes(timeRange)) {
       return NextResponse.json({ error: 'Invalid timeRange parameter. Must be one of: lifetime, ytd, month, week, custom' }, { status: 400 });
     }

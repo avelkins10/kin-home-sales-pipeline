@@ -1,0 +1,206 @@
+[
+  {
+    "id": "1001-survey-scheduled",
+    "title": "Survey Scheduled - John Smith",
+    "date": "2024-03-15T10:00:00",
+    "type": "survey",
+    "status": "scheduled",
+    "project": {
+      "recordId": 1001,
+      "projectId": "KIN-001",
+      "customerName": "John Smith",
+      "customerAddress": "123 Main St, Phoenix, AZ",
+      "customerPhone": "555-0101",
+      "salesOffice": "Phoenix",
+      "closerName": "Test Closer",
+      "setterName": "Test Setter"
+    }
+  },
+  {
+    "id": "1001-survey-approved",
+    "title": "Survey Approved - John Smith",
+    "date": "2024-03-20T14:00:00",
+    "type": "survey",
+    "status": "completed",
+    "project": {
+      "recordId": 1001,
+      "projectId": "KIN-001",
+      "customerName": "John Smith",
+      "customerAddress": "123 Main St, Phoenix, AZ",
+      "customerPhone": "555-0101",
+      "salesOffice": "Phoenix",
+      "closerName": "Test Closer",
+      "setterName": "Test Setter"
+    }
+  },
+  {
+    "id": "1002-install-scheduled",
+    "title": "Install Scheduled - Jane Doe",
+    "date": "2024-04-01T08:00:00",
+    "type": "install",
+    "status": "scheduled",
+    "project": {
+      "recordId": 1002,
+      "projectId": "KIN-002",
+      "customerName": "Jane Doe",
+      "customerAddress": "456 Oak Ave, Scottsdale, AZ",
+      "customerPhone": "555-0102",
+      "salesOffice": "Phoenix",
+      "closerName": "Test Closer",
+      "setterName": "Test Setter"
+    }
+  },
+  {
+    "id": "1002-install-completed",
+    "title": "Install Completed - Jane Doe",
+    "date": "2024-04-05T16:00:00",
+    "type": "install",
+    "status": "completed",
+    "project": {
+      "recordId": 1002,
+      "projectId": "KIN-002",
+      "customerName": "Jane Doe",
+      "customerAddress": "456 Oak Ave, Scottsdale, AZ",
+      "customerPhone": "555-0102",
+      "salesOffice": "Phoenix",
+      "closerName": "Test Closer",
+      "setterName": "Test Setter"
+    }
+  },
+  {
+    "id": "1003-install-estimated",
+    "title": "Install Estimated - Bob Johnson",
+    "date": "2024-04-10T09:00:00",
+    "type": "install",
+    "status": "pending",
+    "project": {
+      "recordId": 1003,
+      "projectId": "KIN-003",
+      "customerName": "Bob Johnson",
+      "customerAddress": "789 Pine St, Mesa, AZ",
+      "customerPhone": "555-0103",
+      "salesOffice": "Phoenix",
+      "closerName": "Test Closer",
+      "setterName": "Test Setter"
+    }
+  },
+  {
+    "id": "1004-inspection-scheduled",
+    "title": "Inspection Scheduled - Alice Brown",
+    "date": "2024-05-01T11:00:00",
+    "type": "inspection",
+    "status": "scheduled",
+    "project": {
+      "recordId": 1004,
+      "projectId": "KIN-004",
+      "customerName": "Alice Brown",
+      "customerAddress": "321 Elm Dr, Chandler, AZ",
+      "customerPhone": "555-0104",
+      "salesOffice": "Phoenix",
+      "closerName": "Test Closer",
+      "setterName": "Test Setter"
+    }
+  },
+  {
+    "id": "1004-inspection-completed",
+    "title": "Inspection Completed - Alice Brown",
+    "date": "2024-05-05T15:00:00",
+    "type": "inspection",
+    "status": "completed",
+    "project": {
+      "recordId": 1004,
+      "projectId": "KIN-004",
+      "customerName": "Alice Brown",
+      "customerAddress": "321 Elm Dr, Chandler, AZ",
+      "customerPhone": "555-0104",
+      "salesOffice": "Phoenix",
+      "closerName": "Test Closer",
+      "setterName": "Test Setter"
+    }
+  },
+  {
+    "id": "1005-pto-submitted",
+    "title": "PTO Submitted - Charlie Davis",
+    "date": "2024-06-01T10:00:00",
+    "type": "pto",
+    "status": "completed",
+    "project": {
+      "recordId": 1005,
+      "projectId": "KIN-005",
+      "customerName": "Charlie Davis",
+      "customerAddress": "654 Maple Ln, Tempe, AZ",
+      "customerPhone": "555-0105",
+      "salesOffice": "Phoenix",
+      "closerName": "Test Closer",
+      "setterName": "Test Setter"
+    }
+  },
+  {
+    "id": "1005-pto-approved",
+    "title": "PTO Approved - Charlie Davis",
+    "date": "2024-06-10T14:00:00",
+    "type": "pto",
+    "status": "completed",
+    "project": {
+      "recordId": 1005,
+      "projectId": "KIN-005",
+      "customerName": "Charlie Davis",
+      "customerAddress": "654 Maple Ln, Tempe, AZ",
+      "customerPhone": "555-0105",
+      "salesOffice": "Phoenix",
+      "closerName": "Test Closer",
+      "setterName": "Test Setter"
+    }
+  },
+  {
+    "id": "1006-survey-scheduled-same-day",
+    "title": "Survey Scheduled - David Wilson",
+    "date": "2024-04-15T09:00:00",
+    "type": "survey",
+    "status": "scheduled",
+    "project": {
+      "recordId": 1006,
+      "projectId": "KIN-006",
+      "customerName": "David Wilson",
+      "customerAddress": "987 Cedar Rd, Gilbert, AZ",
+      "customerPhone": "555-0106",
+      "salesOffice": "Phoenix",
+      "closerName": "Test Closer",
+      "setterName": "Test Setter"
+    }
+  },
+  {
+    "id": "1007-install-scheduled-same-day",
+    "title": "Install Scheduled - Emma Garcia",
+    "date": "2024-04-15T13:00:00",
+    "type": "install",
+    "status": "scheduled",
+    "project": {
+      "recordId": 1007,
+      "projectId": "KIN-007",
+      "customerName": "Emma Garcia",
+      "customerAddress": "147 Birch St, Peoria, AZ",
+      "customerPhone": "555-0107",
+      "salesOffice": "Phoenix",
+      "closerName": "Test Closer",
+      "setterName": "Test Setter"
+    }
+  },
+  {
+    "id": "1008-inspection-scheduled-same-day",
+    "title": "Inspection Scheduled - Frank Miller",
+    "date": "2024-04-15T16:00:00",
+    "type": "inspection",
+    "status": "scheduled",
+    "project": {
+      "recordId": 1008,
+      "projectId": "KIN-008",
+      "customerName": "Frank Miller",
+      "customerAddress": "258 Spruce Ave, Glendale, AZ",
+      "customerPhone": "555-0108",
+      "salesOffice": "Phoenix",
+      "closerName": "Test Closer",
+      "setterName": "Test Setter"
+    }
+  }
+]
