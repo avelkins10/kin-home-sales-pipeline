@@ -8,6 +8,67 @@ import { updateUserSchema } from '@/lib/validation/admin'
 import { validateOffices } from '@/lib/db/offices'
 import { normalizeOfficeName } from '@/lib/constants/offices'
 
+/**
+ * GET /api/admin/users/[userId]
+ * Fetch a single user by ID with hierarchy and office access data
+ */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { userId: string } }
+) {
+  try {
+    const auth = await requireRole(['super_admin', 'regional', 'divisional', 'area_director', 'office_leader'])
+    if (!auth.authorized) {
+      return auth.response
+    }
+
+    const { userId } = params
+
+    const result = await sql.query(`
+      SELECT
+        u.id, u.email, u.name, u.phone, u.role, u.quickbase_user_id, u.sales_office,
+        u.sales_office[1] AS office, u.region, u.is_active, u.created_at, u.updated_at, u.last_login_at,
+        uh.manager_id as managed_by,
+        COALESCE(
+          (SELECT array_agg(uh2.user_id)
+           FROM user_hierarchies uh2
+           WHERE uh2.manager_id = u.id),
+          ARRAY[]::text[]
+        ) as manages,
+        COALESCE(
+          (SELECT array_agg(
+            json_build_object(
+              'officeName', oa.office_name,
+              'accessLevel', oa.access_level,
+              'assignedAt', oa.assigned_at
+            )
+          )
+           FROM office_assignments oa
+           WHERE oa.user_id = u.id),
+          ARRAY[]::json[]
+        ) as office_access
+      FROM users u
+      LEFT JOIN user_hierarchies uh ON uh.user_id = u.id
+      WHERE u.id = $1
+    `, [userId])
+
+    if (result.rows.length === 0) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json(result.rows[0])
+  } catch (error) {
+    logError('Failed to fetch user', error instanceof Error ? error : new Error(String(error)))
+    return NextResponse.json(
+      { error: 'Failed to fetch user' },
+      { status: 500 }
+    )
+  }
+}
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { userId: string } }
