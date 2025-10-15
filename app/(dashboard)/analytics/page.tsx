@@ -83,13 +83,18 @@ export default function AnalyticsPage() {
         const officesResponse = await fetch('/api/analytics/office-metrics');
         if (officesResponse.ok) {
           const officesData = await officesResponse.json();
+          console.log('[Analytics] Office metrics response:', officesData);
           // Map from OfficeMetrics to Office format
           const offices = officesData.metrics?.map((metric: any) => ({
             id: metric.officeId,
             name: metric.officeName,
             projectCount: metric.totalProjects
           })) || [];
+          console.log('[Analytics] Mapped offices:', offices);
           setAvailableOffices(offices);
+        } else {
+          console.error('[Analytics] Failed to load offices:', officesResponse.status, officesResponse.statusText);
+          setAvailableOffices([]);
         }
 
         // Load reps
@@ -103,9 +108,15 @@ export default function AnalyticsPage() {
             role: metric.role
           })) || [];
           setAvailableReps(reps);
+        } else {
+          console.error('[Analytics] Failed to load reps:', repsResponse.status, repsResponse.statusText);
+          setAvailableReps([]);
         }
       } catch (error) {
         console.error('Failed to load filter data:', error);
+        // Set empty arrays on error to prevent infinite loading
+        setAvailableOffices([]);
+        setAvailableReps([]);
       }
     };
 
@@ -116,8 +127,17 @@ export default function AnalyticsPage() {
 
   // Set default office selection based on user role
   useEffect(() => {
+    // Wait for session to be loaded
+    if (!session?.user) return;
+
+    console.log('[Analytics] Office selection effect:', {
+      availableOfficesCount: availableOffices.length,
+      selectedOfficeIdsCount: selectedOfficeIds.length,
+      userRole: session.user.role
+    });
+
     if (availableOffices.length > 0 && selectedOfficeIds.length === 0) {
-      if (session?.user?.role === 'office_leader' && session.user.salesOffice) {
+      if (session.user.role === 'office_leader' && session.user.salesOffice) {
         // For office leaders, pre-select their assigned offices
         // Handle both ID and name formats
         const assignedOfficeIds = session.user.salesOffice.map(office => {
@@ -129,15 +149,27 @@ export default function AnalyticsPage() {
           // If office is a name, find the corresponding ID
           return availableOffices.find(o => o.name === office)?.id;
         }).filter(Boolean) as number[];
+        console.log('[Analytics] Setting office IDs for office_leader:', assignedOfficeIds);
         setSelectedOfficeIds(assignedOfficeIds);
         setIsInitializingFilters(false);
-      } else if (['regional', 'super_admin'].includes(session?.user?.role || '')) {
+      } else if (['regional', 'super_admin'].includes(session.user.role)) {
         // For regional/super admin, select all offices
-        setSelectedOfficeIds(availableOffices.map(office => office.id));
+        const allOfficeIds = availableOffices.map(office => office.id);
+        console.log('[Analytics] Setting all office IDs for regional/super_admin:', allOfficeIds);
+        setSelectedOfficeIds(allOfficeIds);
+        setIsInitializingFilters(false);
+      } else {
+        // No offices to auto-select
+        console.log('[Analytics] No auto-selection logic for role:', session.user.role);
         setIsInitializingFilters(false);
       }
     } else if (availableOffices.length > 0 && selectedOfficeIds.length > 0) {
       // Offices already selected from URL params
+      console.log('[Analytics] Offices already selected from URL');
+      setIsInitializingFilters(false);
+    } else if (availableOffices.length === 0) {
+      // No offices available - still need to stop loading after reasonable time
+      console.warn('[Analytics] No offices available, stopping initialization');
       setIsInitializingFilters(false);
     }
   }, [availableOffices, session?.user, selectedOfficeIds.length]);
