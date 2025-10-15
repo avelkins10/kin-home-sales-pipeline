@@ -415,7 +415,7 @@ export function HoldAnalysisCard({
               </div>
             )}
             
-            {mostCommon && (
+            {mostCommon && typeof mostCommon.count !== 'undefined' && typeof mostCommon.percentage !== 'undefined' && (
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                 <p className="text-sm font-medium text-purple-900">Most Common Reason</p>
                 <p className="text-lg font-bold text-purple-900">{mostCommon.category}</p>

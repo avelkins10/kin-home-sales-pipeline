@@ -376,7 +376,7 @@ export function CancellationAnalysisCard({
               </div>
             </div>
             
-            {mostCommon && (
+            {mostCommon && typeof mostCommon.count !== 'undefined' && typeof mostCommon.percentage !== 'undefined' && (
               <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                 <p className="text-sm font-medium text-orange-900">Most Common Reason</p>
                 <p className="text-lg font-bold text-orange-900">{mostCommon.category}</p>
