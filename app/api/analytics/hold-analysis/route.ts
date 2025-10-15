@@ -147,7 +147,9 @@ export async function GET(req: Request) {
     }
 
     const whereClause = whereConditions.join(' AND ');
-    
+    console.log('[Hold Analysis] WHERE clause:', whereClause);
+    console.log('[Hold Analysis] Date filters:', dateFilters);
+
     const response = await qbClient.queryRecords({
       from: QB_TABLE_PROJECTS,
       select: [
