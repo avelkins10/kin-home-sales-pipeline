@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useDebounce } from 'use-debounce'
 import { useSession } from 'next-auth/react'
@@ -292,7 +292,6 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
   const [validationErrors, setValidationErrors] = useState<string[]>([])
   const [validationWarnings, setValidationWarnings] = useState<string[]>([])
   const [showToolbar, setShowToolbar] = useState(true)
-  const [dragValidationMessage, setDragValidationMessage] = useState<string | null>(null)
   const [bulkConfirmDialogOpen, setBulkConfirmDialogOpen] = useState(false)
   const [helpDialogOpen, setHelpDialogOpen] = useState(false)
   const [showUnassignedOnly, setShowUnassignedOnly] = useState(false)
@@ -672,16 +671,16 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
     )
   }
 
-  // Check if a drop is valid based on role hierarchy
-  const canDrop = (dragRole: UserRole, targetRole: UserRole): boolean => {
+  // Check if a drop is valid based on role hierarchy (memoized to prevent re-renders)
+  const canDrop = useCallback((dragRole: UserRole, targetRole: UserRole): boolean => {
     // Only allow dragging for assignable roles
     if (!['setter', 'closer', 'team_lead'].includes(dragRole)) {
       return false
     }
-    
+
     // Use canManageRole from hierarchy-helpers to check if target can manage drag role
     return canManageRole(targetRole, dragRole)
-  }
+  }, [])
 
   // Drag and drop handlers
   const handleDragStart = (event: any) => {
@@ -691,7 +690,6 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
   const handleDragEnd = (event: any) => {
     const { active, over } = event
     setActiveId(null)
-    setDragValidationMessage(null)
 
     if (!over || active.id === over.id) return
 
@@ -1916,32 +1914,25 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
 
         <DragOverlay>
           {activeId ? (
-            <div className="relative">
-              <Card className="opacity-90 shadow-lg">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <Avatar size="md" className="bg-blue-500 text-white">
-                      <AvatarFallback size="md">
-                        {getInitials(users.find((u: User) => u.id === activeId)?.name || '')}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <h4 className="font-medium">
-                        {users.find((u: User) => u.id === activeId)?.name}
-                      </h4>
-                      <p className="text-sm text-gray-600">
-                        {users.find((u: User) => u.id === activeId)?.email}
-                      </p>
-                    </div>
+            <Card className="opacity-90 shadow-lg">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <Avatar size="md" className="bg-blue-500 text-white">
+                    <AvatarFallback size="md">
+                      {getInitials(users.find((u: User) => u.id === activeId)?.name || '')}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h4 className="font-medium">
+                      {users.find((u: User) => u.id === activeId)?.name}
+                    </h4>
+                    <p className="text-sm text-gray-600">
+                      {users.find((u: User) => u.id === activeId)?.email}
+                    </p>
                   </div>
-                </CardContent>
-              </Card>
-              {dragValidationMessage && (
-                <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full shadow-lg">
-                  {dragValidationMessage}
                 </div>
-              )}
-            </div>
+              </CardContent>
+            </Card>
           ) : null}
         </DragOverlay>
       </DndContext>
