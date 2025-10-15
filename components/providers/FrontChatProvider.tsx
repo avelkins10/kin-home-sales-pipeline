@@ -27,9 +27,26 @@ export function FrontChatProvider({ children }: { children: React.ReactNode }) {
         await loadFrontChatScript(chatId!);
         console.log('[FrontChat] Script loaded successfully');
 
-        // Initialize in simple mode (matching widget configuration)
-        // Pass undefined to skip identity verification entirely
-        initializeFrontChat(chatId!);
+        // Fetch user hash from API for identity verification
+        const baseUrl = getBaseUrl();
+        const response = await fetch(`${baseUrl}/api/chat/user-hash`);
+
+        if (!response.ok) {
+          console.error('[FrontChat] Failed to fetch user hash');
+          // Fall back to simple mode without identity
+          initializeFrontChat(chatId!);
+          setIsInitialized(true);
+          return;
+        }
+
+        const { userHash, email } = await response.json();
+
+        // Initialize Front Chat with verified user identity
+        initializeFrontChat(chatId!, {
+          email,
+          name: session?.user?.name || email,
+          userHash,
+        });
 
         setIsInitialized(true);
       } catch (error) {
