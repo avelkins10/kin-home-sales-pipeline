@@ -91,7 +91,7 @@ export function PipelineForecastCard({
     );
   }
 
-  const totalForecast = data.next30Days + data.next60Days + data.next90Days;
+  const totalForecast = (data.next30Days ?? 0) + (data.next60Days ?? 0) + (data.next90Days ?? 0);
 
   if (totalForecast === 0) {
     return (
@@ -110,21 +110,21 @@ export function PipelineForecastCard({
   const forecastPeriods = [
     {
       label: 'Next 30 Days',
-      value: data.next30Days,
+      value: data.next30Days ?? 0,
       color: 'bg-green-50',
       iconColor: 'text-green-600',
       bgColor: 'bg-green-100'
     },
     {
       label: 'Next 60 Days',
-      value: data.next60Days,
+      value: data.next60Days ?? 0,
       color: 'bg-blue-50',
       iconColor: 'text-blue-600',
       bgColor: 'bg-blue-100'
     },
     {
       label: 'Next 90 Days',
-      value: data.next90Days,
+      value: data.next90Days ?? 0,
       color: 'bg-purple-50',
       iconColor: 'text-purple-600',
       bgColor: 'bg-purple-100'

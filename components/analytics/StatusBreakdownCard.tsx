@@ -52,6 +52,10 @@ function StatusBreakdownSkeleton() {
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
+    // Add defensive checks for undefined/null data
+    if (!data || typeof data.value === 'undefined' || data.value === null) {
+      return null;
+    }
     return (
       <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
         <p className="font-medium text-gray-900">{data.name}</p>
@@ -59,7 +63,7 @@ const CustomTooltip = ({ active, payload }: any) => {
           Count: {data.value.toLocaleString()}
         </p>
         <p className="text-sm text-gray-600">
-          Percentage: {formatPercentage(data.percentage)}
+          Percentage: {formatPercentage(data.percentage ?? 0)}
         </p>
       </div>
     );

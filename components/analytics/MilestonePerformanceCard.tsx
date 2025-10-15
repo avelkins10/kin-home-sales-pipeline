@@ -55,21 +55,21 @@ function MilestonePerformanceSkeleton() {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
-    // Add defensive checks for undefined data
-    if (!data || typeof data.projectCount === 'undefined') {
+    // Add defensive checks for undefined/null data
+    if (!data || typeof data.projectCount === 'undefined' || data.projectCount === null) {
       return null;
     }
     return (
       <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
         <p className="font-medium text-gray-900">{label}</p>
         <div className="space-y-1 text-sm text-gray-600">
-          <p>Avg: {data.avgDays} days</p>
+          <p>Avg: {data.avgDays ?? 0} days</p>
           {data.medianDays && <p>Median: {data.medianDays} days</p>}
           {data.minDays && data.maxDays && (
             <p>Range: {data.minDays} - {data.maxDays} days</p>
           )}
           <p>Projects: {data.projectCount.toLocaleString()}</p>
-          <p>Completion: {formatPercentage(data.completionRate)}</p>
+          <p>Completion: {formatPercentage(data.completionRate ?? 0)}</p>
         </div>
       </div>
     );

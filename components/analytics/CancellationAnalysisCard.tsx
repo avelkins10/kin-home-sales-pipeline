@@ -58,8 +58,8 @@ function CancellationAnalysisSkeleton() {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
-    // Add defensive checks for undefined data
-    if (!data || typeof data.count === 'undefined') {
+    // Add defensive checks for undefined/null data
+    if (!data || typeof data.count === 'undefined' || data.count === null) {
       return null;
     }
     return (
@@ -67,8 +67,8 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         <p className="font-medium text-gray-900">{label}</p>
         <div className="space-y-1 text-sm text-gray-600">
           <p>Count: {data.count.toLocaleString()}</p>
-          <p>Percentage: {formatPercentage(data.percentage)}</p>
-          <p>Parsed from: {data.dominantSource}</p>
+          <p>Percentage: {formatPercentage(data.percentage ?? 0)}</p>
+          <p>Parsed from: {data.dominantSource ?? 'unknown'}</p>
         </div>
       </div>
     );
