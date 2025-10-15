@@ -21,10 +21,12 @@ const nextConfig = {
               // Add 'unsafe-eval' in development for React hot reloading
               // Add chat-assets.frontapp.com for Front Chat widget
               isDev ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://chat-assets.frontapp.com" : "script-src 'self' 'unsafe-inline' https://chat-assets.frontapp.com",
-              "style-src 'self' 'unsafe-inline'",
+              // Add blob: for Front Chat dynamically generated styles
+              "style-src 'self' 'unsafe-inline' blob:",
               "img-src 'self' data: https:",
               "font-src 'self' data:",
-              "connect-src 'self' https://kin.quickbase.com https://*.vercel.app https://chat-api.frontapp.com",
+              // Add Front Chat domains: chat-api, chat.frontapp.com, and bugsnag for error tracking
+              "connect-src 'self' https://kin.quickbase.com https://*.vercel.app https://chat-api.frontapp.com https://chat.frontapp.com https://sessions.bugsnag.com",
               "worker-src 'self' blob:",
               "frame-ancestors 'none'",
               "base-uri 'self'",
