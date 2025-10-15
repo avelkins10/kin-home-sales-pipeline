@@ -762,7 +762,10 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
     const offices = new Set<string>()
     users.forEach((user: User) => {
       if (user.office) offices.add(user.office)
-      if (user.salesOffice) user.salesOffice.forEach(office => offices.add(office))
+      if (user.salesOffice) user.salesOffice.forEach(office => {
+        const officeName = typeof office === 'string' ? office : (office as any).officeName || office
+        if (typeof officeName === 'string') offices.add(officeName)
+      })
       if (user.officeAccess) user.officeAccess.forEach(oa => offices.add(oa.officeName))
     })
     return Array.from(offices).sort()
@@ -804,7 +807,9 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
     const personalOffice = node.user.office
     const managedOffices = node.user.officeAccess || []
     const allOffices = [
-      ...(node.user.salesOffice || []),
+      ...(node.user.salesOffice || []).map(office =>
+        typeof office === 'string' ? office : (office as any).officeName || office
+      ),
       ...(node.user.officeAccess?.map(oa => oa.officeName) || [])
     ].filter(Boolean)
     const hasMultipleOffices = allOffices.length > 1

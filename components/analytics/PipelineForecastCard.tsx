@@ -170,13 +170,13 @@ export function PipelineForecastCard({
               </div>
               <div className="text-right">
                 <p className="text-sm text-slate-600">
-                  {data.next30Days > 0 && `${formatPercentage(data.next30Days / totalForecast)} in 30 days`}
+                  {data.next30Days > 0 && `${formatPercentage((data.next30Days / totalForecast) * 100)} in 30 days`}
                 </p>
                 <p className="text-sm text-slate-600">
-                  {data.next60Days > 0 && `${formatPercentage(data.next60Days / totalForecast)} in 60 days`}
+                  {data.next60Days > 0 && `${formatPercentage((data.next60Days / totalForecast) * 100)} in 60 days`}
                 </p>
                 <p className="text-sm text-slate-600">
-                  {data.next90Days > 0 && `${formatPercentage(data.next90Days / totalForecast)} in 90 days`}
+                  {data.next90Days > 0 && `${formatPercentage((data.next90Days / totalForecast) * 100)} in 90 days`}
                 </p>
               </div>
             </div>
