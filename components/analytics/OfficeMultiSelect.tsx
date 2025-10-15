@@ -128,10 +128,7 @@ export function OfficeMultiSelect({
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="select-all"
-                  checked={allSelected}
-                  ref={(el) => {
-                    if (el) el.indeterminate = someSelected;
-                  }}
+                  checked={allSelected ? true : (someSelected ? "indeterminate" : false)}
                   onCheckedChange={handleSelectAll}
                 />
                 <label

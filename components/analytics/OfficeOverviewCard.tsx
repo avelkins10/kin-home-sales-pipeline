@@ -122,7 +122,7 @@ export function OfficeOverviewCard({
     acc.avgNetPpw += office.avgNetPpw * office.totalProjects;
     acc.avgCommissionablePpw += office.avgCommissionablePpw * office.totalProjects;
     if (office.avgCycleTime !== null) {
-      acc.avgCycleTime = (acc.avgCycleTime || 0) + office.avgCycleTime * office.totalProjects;
+      acc.avgCycleTime = ((acc.avgCycleTime as number) || 0) + office.avgCycleTime * office.totalProjects;
     }
     acc.intakeApprovalRate += office.intakeApprovalRate * office.totalProjects;
     acc.activeProjects += office.activeProjects;
@@ -136,7 +136,7 @@ export function OfficeOverviewCard({
     avgGrossPpw: 0,
     avgNetPpw: 0,
     avgCommissionablePpw: 0,
-    avgCycleTime: null,
+    avgCycleTime: null as number | null,
     intakeApprovalRate: 0,
     activeProjects: 0,
     cancelledProjects: 0,

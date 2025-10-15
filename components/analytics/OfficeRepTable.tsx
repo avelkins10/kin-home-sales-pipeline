@@ -15,7 +15,7 @@ interface OfficeRepTableProps {
 }
 
 // Sort data based on column and direction
-function sortReps(data: RepPerformance[], sortColumn: string, sortDirection: 'asc' | 'desc'): RepPerformance[] {
+function sortReps(data: RepPerformance[], sortColumn: string, sortDirection: 'ascending' | 'descending'): RepPerformance[] {
   return [...data].sort((a, b) => {
     let aValue: any;
     let bValue: any;
@@ -38,14 +38,14 @@ function sortReps(data: RepPerformance[], sortColumn: string, sortDirection: 'as
     
     // Handle string comparison for repName
     if (typeof aValue === 'string' && typeof bValue === 'string') {
-      return sortDirection === 'asc' 
+      return sortDirection === 'ascending' 
         ? aValue.localeCompare(bValue)
         : bValue.localeCompare(aValue);
     }
     
     // Handle numeric comparison
     const comparison = aValue - bValue;
-    return sortDirection === 'asc' ? comparison : -comparison;
+    return sortDirection === 'ascending' ? comparison : -comparison;
   });
 }
 
@@ -93,14 +93,14 @@ function RepTableSkeleton() {
 
 export function OfficeRepTable({ reps, isLoading = false, officeId }: OfficeRepTableProps) {
   const [sortColumn, setSortColumn] = useState<string>('totalProjects');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [sortDirection, setSortDirection] = useState<'ascending' | 'descending'>('descending');
 
   const handleSort = (column: string) => {
     if (sortColumn === column) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+      setSortDirection(sortDirection === 'ascending' ? 'descending' : 'ascending');
     } else {
       setSortColumn(column);
-      setSortDirection('desc');
+      setSortDirection('descending');
     }
   };
 
@@ -108,7 +108,7 @@ export function OfficeRepTable({ reps, isLoading = false, officeId }: OfficeRepT
     if (sortColumn !== column) {
       return <ArrowUpDown className="h-4 w-4 text-gray-400" />;
     }
-    return sortDirection === 'asc' 
+    return sortDirection === 'ascending' 
       ? <ArrowUp className="h-4 w-4 text-blue-600" />
       : <ArrowDown className="h-4 w-4 text-blue-600" />;
   };

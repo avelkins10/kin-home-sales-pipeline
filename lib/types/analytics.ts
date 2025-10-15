@@ -105,6 +105,8 @@ export interface OfficeMetrics {
  * Used by /api/analytics/rep-performance endpoint
  */
 export interface RepPerformance {
+  /** Optional rep ID for identification (uses email if not available) */
+  repId?: string | null;
   /** Name of the sales rep */
   repName: string;
   /** Email address of the sales rep */
@@ -145,6 +147,44 @@ export interface RepPerformance {
   installs: number;
   /** Number of holds */
   holds: number;
+  /** Cancellation rate as a percentage */
+  cancellationRate?: number;
+  /** Hold rate as a percentage */
+  holdRate?: number;
+}
+
+/**
+ * Detailed rep metrics including project list
+ * Used by /api/analytics/rep-details endpoint
+ */
+export interface RepDetailMetrics {
+  /** Rep performance metrics */
+  rep: RepPerformance;
+  /** List of projects for this rep */
+  projects: Array<{
+    recordId: number;
+    projectId: string;
+    customerName: string;
+    status: string;
+    systemSize: number;
+    grossPpw: number;
+    netPpw: number;
+    commissionablePpw: number;
+    salesDate: string | null;
+    installDate: string | null;
+    cycleTime: number | null;
+    officeName: string | null;
+  }>;
+  /** Monthly performance trends */
+  monthlyTrends: Array<{
+    month: string;
+    projects: number;
+    installs: number;
+    cancellations: number;
+    holds: number;
+    avgSystemSize: number;
+    avgNetPpw: number;
+  }>;
 }
 
 /**
@@ -290,8 +330,9 @@ export type SortColumn =
 /**
  * Sort direction for table columns
  * Used in conjunction with SortColumn for table sorting
+ * Matches HTML aria-sort attribute values
  */
-export type SortDirection = 'asc' | 'desc';
+export type SortDirection = 'ascending' | 'descending';
 
 /**
  * Office detail page metrics combining office and rep data

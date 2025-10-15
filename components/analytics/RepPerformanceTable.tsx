@@ -28,7 +28,7 @@ interface RepPerformanceTableProps {
 }
 
 type SortColumn = 'totalProjects' | 'avgSystemSize' | 'avgNetPpw' | 'avgCycleTime' | 'cancellationRate' | 'holdRate' | 'repName' | 'role' | 'officeName';
-type SortDirection = 'asc' | 'desc';
+type SortDirection = 'ascending' | 'descending';
 
 // Loading skeleton component
 function RepPerformanceTableSkeleton() {
@@ -86,7 +86,7 @@ export function RepPerformanceTable({
   showExport = true
 }: RepPerformanceTableProps) {
   const [sortColumn, setSortColumn] = useState<SortColumn>('totalProjects');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('descending');
   const [filterRole, setFilterRole] = useState<'all' | 'closer' | 'setter'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isExporting, setIsExporting] = useState(false);
@@ -113,10 +113,10 @@ export function RepPerformanceTable({
 
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+      setSortDirection(sortDirection === 'ascending' ? 'descending' : 'ascending');
     } else {
       setSortColumn(column);
-      setSortDirection('desc');
+      setSortDirection('descending');
     }
   };
 
@@ -124,7 +124,7 @@ export function RepPerformanceTable({
     if (sortColumn !== column) {
       return <ArrowUpDown className="h-4 w-4 text-gray-400" />;
     }
-    return sortDirection === 'asc' 
+    return sortDirection === 'ascending' 
       ? <ArrowUp className="h-4 w-4 text-blue-600" />
       : <ArrowDown className="h-4 w-4 text-blue-600" />;
   };
@@ -242,14 +242,14 @@ export function RepPerformanceTable({
     
     // Handle string comparison
     if (typeof aValue === 'string' && typeof bValue === 'string') {
-      return sortDirection === 'asc' 
+      return sortDirection === 'ascending' 
         ? aValue.localeCompare(bValue)
         : bValue.localeCompare(aValue);
     }
     
     // Handle numeric comparison
     const comparison = aValue - bValue;
-    return sortDirection === 'asc' ? comparison : -comparison;
+    return sortDirection === 'ascending' ? comparison : -comparison;
   });
 
   // Calculate ranks based on current sort
@@ -466,18 +466,18 @@ export function RepPerformanceTable({
                     </TableCell>
                     <TableCell className="text-right">
                       <span className={`
-                        ${rep.cancellationRate > 15 ? 'text-red-600 font-semibold' : ''}
-                        ${rep.cancellationRate < 5 ? 'text-green-600 font-semibold' : ''}
+                        ${(rep.cancellationRate ?? 0) > 15 ? 'text-red-600 font-semibold' : ''}
+                        ${(rep.cancellationRate ?? 100) < 5 ? 'text-green-600 font-semibold' : ''}
                       `}>
-                        {formatPercentage(rep.cancellationRate)}
+                        {rep.cancellationRate !== undefined ? formatPercentage(rep.cancellationRate) : 'N/A'}
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
                       <span className={`
-                        ${rep.holdRate > 20 ? 'text-red-600 font-semibold' : ''}
-                        ${rep.holdRate < 10 ? 'text-green-600 font-semibold' : ''}
+                        ${(rep.holdRate ?? 0) > 20 ? 'text-red-600 font-semibold' : ''}
+                        ${(rep.holdRate ?? 100) < 10 ? 'text-green-600 font-semibold' : ''}
                       `}>
-                        {formatPercentage(rep.holdRate)}
+                        {rep.holdRate !== undefined ? formatPercentage(rep.holdRate) : 'N/A'}
                       </span>
                     </TableCell>
                   </TableRow>

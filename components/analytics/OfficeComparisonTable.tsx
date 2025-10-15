@@ -96,14 +96,14 @@ function sortData(data: OfficeMetrics[], sortColumn: SortColumn, sortDirection: 
     
     // Handle string comparison for officeName
     if (typeof aValue === 'string' && typeof bValue === 'string') {
-      return sortDirection === 'asc' 
+      return sortDirection === 'ascending' 
         ? aValue.localeCompare(bValue)
         : bValue.localeCompare(aValue);
     }
     
     // Handle numeric comparison
     const comparison = aValue - bValue;
-    return sortDirection === 'asc' ? comparison : -comparison;
+    return sortDirection === 'ascending' ? comparison : -comparison;
   });
 }
 
@@ -195,7 +195,7 @@ export function OfficeComparisonTable({
   maxOffices = 5
 }: OfficeComparisonTableProps) {
   const [sortColumn, setSortColumn] = useState<SortColumn>('totalProjects');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('descending');
   const [showAll, setShowAll] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -232,10 +232,10 @@ export function OfficeComparisonTable({
 
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+      setSortDirection(sortDirection === 'ascending' ? 'descending' : 'ascending');
     } else {
       setSortColumn(column);
-      setSortDirection('desc');
+      setSortDirection('descending');
     }
   };
 
@@ -295,7 +295,7 @@ export function OfficeComparisonTable({
     if (sortColumn !== column) {
       return <ArrowUpDown className="h-4 w-4 text-gray-400" />;
     }
-    return sortDirection === 'asc' 
+    return sortDirection === 'ascending' 
       ? <ArrowUp className="h-4 w-4 text-blue-600" />
       : <ArrowDown className="h-4 w-4 text-blue-600" />;
   };
