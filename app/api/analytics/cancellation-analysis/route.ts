@@ -7,6 +7,7 @@ import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
 import { parseCancelReason } from '@/lib/utils/reason-parser';
 import { PROJECT_FIELDS } from '@/lib/constants/fieldIds';
 import { buildTimezoneAwareDateFilters } from '@/lib/utils/timezone-helpers';
+import { buildProjectAccessClause } from '@/lib/auth/projectAuthorization';
 import type { CancellationAnalysis, CancelReasonCategory } from '@/lib/types/analytics';
 
 // Quickbase table ID for projects
@@ -99,8 +100,9 @@ export async function GET(req: Request) {
       }
     }
 
-    const { id, role, salesOffice, timezone } = auth.session.user as any;
+    const { id, role, salesOffice, timezone, email } = auth.session.user as any;
     const userId = id as string;
+    const userEmail = email as string;
     const userTimezone = timezone || 'America/New_York';
 
     // Check cache first - include timeRange, officeIds, and custom dates in cache key
@@ -109,11 +111,15 @@ export async function GET(req: Request) {
     const cacheKey = `${userId}:${role}:${officeKey}:${effectiveTimeRange}:${customRangeKey}`;
     const cached = cancellationAnalysisCache.get(cacheKey);
     const cacheTTL = 60 * 1000; // 60 seconds
-    
+
     if (cached && Date.now() - cached.timestamp < cacheTTL) {
       logApiResponse('GET', '/api/analytics/cancellation-analysis', Date.now() - startedAt, { cached: true, timeRange: effectiveTimeRange, totalCancellations: cached.data.analysis?.length || 0 }, reqId);
       return NextResponse.json(cached.data, { status: 200 });
     }
+
+    // Build project access clause (REQUIRED for proper authorization)
+    const effectiveOfficeIds = officeIds || salesOffice;
+    const accessClause = buildProjectAccessClause(userEmail, role, effectiveOfficeIds, undefined, reqId);
 
     // Build timezone-aware date filters based on timeRange - filter by SALES_DATE within the period
     const dateFilters = buildTimezoneAwareDateFilters(
@@ -124,41 +130,22 @@ export async function GET(req: Request) {
       endDate || undefined
     );
 
-    // Build office filter based on role
-    let officeFilter: any = {};
-    if (role === 'office_leader' && salesOffice && salesOffice.length > 0) {
-      officeFilter = {
-        field: PROJECT_FIELDS.OFFICE_RECORD_ID,
-        operator: 'in',
-        value: salesOffice
-      };
-    } else if (role === 'regional' && officeIds && officeIds.length > 0) {
-      officeFilter = {
-        field: PROJECT_FIELDS.OFFICE_RECORD_ID,
-        operator: 'in',
-        value: officeIds
-      };
-    }
-
     // Query cancelled projects from Quickbase
     const { qbClient } = await import('@/lib/quickbase/client');
-    
-    // Build where clause for Quickbase query
-    const whereConditions = [`{${PROJECT_FIELDS.PROJECT_STATUS}.EX.Cancelled}`];
-    
+
+    // Build where clause for Quickbase query - MUST include access clause
+    const whereConditions = [
+      accessClause,
+      `{${PROJECT_FIELDS.PROJECT_STATUS}.EX.Cancelled}`
+    ];
+
     // Add date filters
     if (dateFilters.length > 0) {
       dateFilters.forEach(filter => {
         whereConditions.push(`{${filter.field}.${filter.operator.toUpperCase()}.${filter.value}}`);
       });
     }
-    
-    // Add office filter
-    if (Object.keys(officeFilter).length > 0) {
-      const officeValues = officeFilter.value.map((id: number) => id.toString()).join(',');
-      whereConditions.push(`{${officeFilter.field}.IN.${officeValues}}`);
-    }
-    
+
     const whereClause = whereConditions.join(' AND ');
     
     const response = await qbClient.queryRecords({
