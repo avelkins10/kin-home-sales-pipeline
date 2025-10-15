@@ -34,6 +34,7 @@ export default function AnalyticsPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [availableOffices, setAvailableOffices] = useState<Array<{ id: number; name: string; projectCount?: number }>>([]);
   const [availableReps, setAvailableReps] = useState<Array<{ email: string; name: string; role: 'closer' | 'setter' }>>([]);
+  const [isInitializingFilters, setIsInitializingFilters] = useState(true);
 
   // Parse URL params on mount and when they change
   useEffect(() => {
@@ -129,10 +130,15 @@ export default function AnalyticsPage() {
           return availableOffices.find(o => o.name === office)?.id;
         }).filter(Boolean) as number[];
         setSelectedOfficeIds(assignedOfficeIds);
+        setIsInitializingFilters(false);
       } else if (['regional', 'super_admin'].includes(session?.user?.role || '')) {
         // For regional/super admin, select all offices
         setSelectedOfficeIds(availableOffices.map(office => office.id));
+        setIsInitializingFilters(false);
       }
+    } else if (availableOffices.length > 0 && selectedOfficeIds.length > 0) {
+      // Offices already selected from URL params
+      setIsInitializingFilters(false);
     }
   }, [availableOffices, session?.user, selectedOfficeIds.length]);
 
@@ -243,9 +249,17 @@ export default function AnalyticsPage() {
       />
 
       {/* Analytics Content */}
-      <div className="space-y-6">
-        {/* Office Overview - Full Width */}
-        <OfficeOverviewCard 
+      {isInitializingFilters ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading analytics data...</p>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* Office Overview - Full Width */}
+          <OfficeOverviewCard 
           userId={session.user.id} 
           role={session.user.role} 
           timeRange={timeRange} 
@@ -318,7 +332,8 @@ export default function AnalyticsPage() {
           officeIds={selectedOfficeIds}
           maxOffices={5}
         />
-      </div>
+        </div>
+      )}
     </div>
   );
 }
