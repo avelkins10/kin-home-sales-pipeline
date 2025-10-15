@@ -151,6 +151,122 @@ interface HierarchyNode {
   level: number
 }
 
+// Draggable User Node Component (extracted to module level to avoid hooks violations)
+interface DraggableUserNodeProps {
+  node: HierarchyNode
+  children: React.ReactNode
+  bulkSelectionMode: boolean
+  canManageHierarchies: boolean
+}
+
+function DraggableUserNode({ node, children, bulkSelectionMode, canManageHierarchies }: DraggableUserNodeProps) {
+  const canDrag = ['setter', 'closer', 'team_lead'].includes(node.user.role) && !bulkSelectionMode && canManageHierarchies
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: node.user.id,
+    disabled: !canDrag
+  })
+
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+  } : undefined
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={`${isDragging ? 'opacity-50' : ''} ${canDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-not-allowed'}`}
+    >
+      {children}
+    </div>
+  )
+}
+
+// Droppable Manager Node Component (extracted to module level to avoid hooks violations)
+interface DroppableManagerNodeProps {
+  node: HierarchyNode
+  children: React.ReactNode
+  activeId: string | null
+  users: User[]
+  hierarchies: Hierarchy[]
+  setDragValidationMessage: (message: string | null) => void
+  canDrop: (dragRole: UserRole, targetRole: UserRole) => boolean
+}
+
+function DroppableManagerNode({
+  node,
+  children,
+  activeId,
+  users,
+  hierarchies,
+  setDragValidationMessage,
+  canDrop
+}: DroppableManagerNodeProps) {
+  const { isOver, setNodeRef } = useDroppable({
+    id: node.user.id
+  })
+
+  // Check if current drag would be valid
+  const isDragValid = activeId ? (() => {
+    const draggedUser = users.find((u: User) => u.id === activeId)
+    if (!draggedUser) return false
+
+    // Check for self-assignment
+    if (draggedUser.id === node.user.id) {
+      setDragValidationMessage('Cannot assign to self')
+      return false
+    }
+
+    // Check for circular hierarchy
+    const descendants = getDescendants(draggedUser.id, hierarchies)
+    if (descendants.includes(node.user.id)) {
+      setDragValidationMessage('Would create circular hierarchy')
+      return false
+    }
+
+    // Check role compatibility
+    if (!canDrop(draggedUser.role, node.user.role)) {
+      setDragValidationMessage(`${node.user.role} cannot manage ${draggedUser.role}`)
+      return false
+    }
+
+    setDragValidationMessage(null)
+    return true
+  })() : false
+
+  const getDropStyles = () => {
+    if (!isOver) return ''
+    if (isDragValid) {
+      return 'ring-2 ring-green-500 ring-opacity-50'
+    } else {
+      return 'ring-2 ring-red-500 ring-opacity-50 cursor-not-allowed'
+    }
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`relative ${getDropStyles()}`}
+    >
+      {children}
+      {/* Droppable hover tooltip */}
+      {isOver && activeId && (
+        <div
+          className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded shadow-lg z-50 whitespace-nowrap"
+          aria-live="polite"
+        >
+          {isDragValid ? (
+            `Drop here to assign ${users.find((u: User) => u.id === activeId)?.name} to ${node.user.name}`
+          ) : (
+            dragValidationMessage || 'Cannot drop here'
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
   const { data: session } = useSession()
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
@@ -676,98 +792,6 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
     }
   }
 
-  // Draggable User Node Component
-  function DraggableUserNode({ node, children }: { node: HierarchyNode; children: React.ReactNode }) {
-    const canDrag = ['setter', 'closer', 'team_lead'].includes(node.user.role) && !bulkSelectionMode && canManageHierarchies
-    const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-      id: node.user.id,
-      disabled: !canDrag
-    })
-
-    const style = transform ? {
-      transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-    } : undefined
-
-    return (
-      <div
-        ref={setNodeRef}
-        style={style}
-        {...attributes}
-        {...listeners}
-        className={`${isDragging ? 'opacity-50' : ''} ${canDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-not-allowed'}`}
-      >
-        {children}
-      </div>
-    )
-  }
-
-  // Droppable Manager Node Component
-  function DroppableManagerNode({ node, children }: { node: HierarchyNode; children: React.ReactNode }) {
-    const { isOver, setNodeRef } = useDroppable({
-      id: node.user.id
-    })
-
-    // Check if current drag would be valid
-    const isDragValid = activeId ? (() => {
-      const draggedUser = users.find((u: User) => u.id === activeId)
-      if (!draggedUser) return false
-      
-      // Check for self-assignment
-      if (draggedUser.id === node.user.id) {
-        setDragValidationMessage('Cannot assign to self')
-        return false
-      }
-      
-      // Check for circular hierarchy
-      const descendants = getDescendants(draggedUser.id, hierarchies)
-      if (descendants.includes(node.user.id)) {
-        setDragValidationMessage('Would create circular hierarchy')
-        return false
-      }
-      
-      // Check role compatibility
-      if (!canDrop(draggedUser.role, node.user.role)) {
-        setDragValidationMessage(`${node.user.role} cannot manage ${draggedUser.role}`)
-        return false
-      }
-      
-      setDragValidationMessage(null)
-      return true
-    })() : false
-
-    const getDropStyles = () => {
-      if (!isOver) return ''
-      if (isDragValid) {
-        return 'ring-2 ring-green-500 ring-opacity-50'
-      } else {
-        return 'ring-2 ring-red-500 ring-opacity-50 cursor-not-allowed'
-      }
-    }
-
-    return (
-      <div
-        ref={setNodeRef}
-        className={`relative ${getDropStyles()}`}
-      >
-        {children}
-        {/* Droppable hover tooltip */}
-        {isOver && activeId && (
-          <div 
-            className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded shadow-lg z-50 whitespace-nowrap"
-            aria-live="polite"
-          >
-            {isDragValid ? (
-              `Drop here to assign ${users.find((u: User) => u.id === activeId)?.name} to ${node.user.name}`
-            ) : (
-              dragValidationMessage || 'Cannot drop here'
-            )}
-          </div>
-        )}
-      </div>
-    )
-  }
-
-
   const renderNode = (node: HierarchyNode, isFirstChild = false, isLastChild = false) => {
     const isExpanded = expandedNodes.has(node.user.id)
     const hasChildren = node.children.length > 0
@@ -1106,15 +1130,26 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
 
     return (
       <div key={node.user.id}>
-        <DroppableManagerNode node={node}>
-          <DraggableUserNode node={node}>
+        <DroppableManagerNode
+          node={node}
+          activeId={activeId}
+          users={users}
+          hierarchies={hierarchies}
+          setDragValidationMessage={setDragValidationMessage}
+          canDrop={canDrop}
+        >
+          <DraggableUserNode
+            node={node}
+            bulkSelectionMode={bulkSelectionMode}
+            canManageHierarchies={canManageHierarchies}
+          >
             {nodeContent}
           </DraggableUserNode>
         </DroppableManagerNode>
-        
+
         {isExpanded && hasChildren && (
           <div>
-            {node.children.map((child, index) => 
+            {node.children.map((child, index) =>
               renderNode(child, index === 0, index === node.children.length - 1)
             )}
           </div>
