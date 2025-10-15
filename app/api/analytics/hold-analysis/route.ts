@@ -138,10 +138,11 @@ export async function GET(req: Request) {
     // Build where clause for Quickbase query - MUST include access clause
     const whereConditions = [accessClause];
 
-    // Add date filters
+    // Add date filters using correct Quickbase query syntax
     if (dateFilters.length > 0) {
       dateFilters.forEach(filter => {
-        whereConditions.push(`{${filter.field}.${filter.operator.toUpperCase()}.${filter.value}}`);
+        const operator = filter.operator === 'gte' ? '>=' : filter.operator === 'lte' ? '<=' : '=';
+        whereConditions.push(`{${filter.field}} ${operator} '${filter.value}'`);
       });
     }
 

@@ -226,9 +226,9 @@ export function CancellationAnalysisCard({
 
   // Calculate period-over-period comparison
   let comparisonAlert = null;
-  if (showComparison && previousData?.metadata) {
-    const currentTotal = currentData.metadata.totalCancellations;
-    const previousTotal = previousData.metadata.totalCancellations;
+  if (showComparison && previousData?.metadata && currentData?.metadata) {
+    const currentTotal = currentData.metadata.totalCancellations || 0;
+    const previousTotal = previousData.metadata.totalCancellations || 0;
     const delta = currentTotal - previousTotal;
     const percentageChange = previousTotal > 0 ? (delta / previousTotal) * 100 : 0;
     
@@ -278,7 +278,7 @@ export function CancellationAnalysisCard({
     };
   });
 
-  const totalCancellations = currentData.metadata.totalCancellations;
+  const totalCancellations = currentData?.metadata?.totalCancellations || 0;
   const mostCommon = chartData[0];
 
   return (
@@ -366,7 +366,7 @@ export function CancellationAnalysisCard({
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-red-700">
-                    {currentData.metadata.officeCount} office{currentData.metadata.officeCount !== 1 ? 's' : ''}
+                    {currentData?.metadata?.officeCount || 0} office{currentData?.metadata?.officeCount !== 1 ? 's' : ''}
                   </p>
                 </div>
               </div>

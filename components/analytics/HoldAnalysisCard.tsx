@@ -230,9 +230,9 @@ export function HoldAnalysisCard({
 
   // Calculate period-over-period comparison
   let comparisonAlert = null;
-  if (showComparison && previousData?.metadata) {
-    const currentTotal = currentData.metadata.totalHolds;
-    const previousTotal = previousData.metadata.totalHolds;
+  if (showComparison && previousData?.metadata && currentData?.metadata) {
+    const currentTotal = currentData.metadata.totalHolds || 0;
+    const previousTotal = previousData.metadata.totalHolds || 0;
     const delta = currentTotal - previousTotal;
     const percentageChange = previousTotal > 0 ? (delta / previousTotal) * 100 : 0;
     
@@ -280,13 +280,13 @@ export function HoldAnalysisCard({
     };
   });
 
-  const totalHolds = currentData.metadata.totalHolds;
-  const resolvedHolds = currentData.metadata.resolvedHolds;
-  const activeHolds = currentData.metadata.activeHolds;
+  const totalHolds = currentData?.metadata?.totalHolds || 0;
+  const resolvedHolds = currentData?.metadata?.resolvedHolds || 0;
+  const activeHolds = currentData?.metadata?.activeHolds || 0;
   const mostCommon = chartData[0];
 
   // Use weighted average resolution time from API
-  const overallAvgResolution = currentData.metadata.overallAvgResolution;
+  const overallAvgResolution = currentData?.metadata?.overallAvgResolution;
 
   return (
     <Card className="w-full" aria-label="Hold analysis">
@@ -373,7 +373,7 @@ export function HoldAnalysisCard({
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-orange-700">
-                    {currentData.metadata.officeCount} office{currentData.metadata.officeCount !== 1 ? 's' : ''}
+                    {currentData?.metadata?.officeCount || 0} office{currentData?.metadata?.officeCount !== 1 ? 's' : ''}
                   </p>
                 </div>
               </div>
