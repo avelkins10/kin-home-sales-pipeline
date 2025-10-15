@@ -888,7 +888,7 @@ function buildTimeRangeFilter(timeRange: 'lifetime' | 'month' | 'week'): string 
 export async function getEnhancedDashboardMetrics(
   userId: string,
   role: string,
-  timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' = 'lifetime',
+  timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | 'last_30' | 'last_90' | 'last_12_months' = 'lifetime',
   officeIds?: number[],
   customDateRange?: { startDate: string; endDate: string },
   scope: 'personal' | 'team' = 'team', // NEW PARAMETER
@@ -1172,7 +1172,7 @@ export async function getEnhancedDashboardMetrics(
 // Calculate basic metrics (existing functionality)
 // NOTE: This function receives ALL data (not filtered by period) to calculate absolute metrics
 // like "Active Projects" and "On Hold" which should always show current state
-function calculateBasicMetrics(allData: any[], installedInPeriod: any[], timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom') {
+function calculateBasicMetrics(allData: any[], installedInPeriod: any[], timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | 'last_30' | 'last_90' | 'last_12_months') {
   const now = new Date();
   const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const currentMonth = now.getMonth();
@@ -1667,7 +1667,7 @@ function getProjectBucketCounts(data: any[]) {
 }
 
 // Calculate retention rate with business-approved statuses
-function calculateRetentionRate(data: any[], timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' = 'lifetime'): { lifetime: number; period: number } {
+function calculateRetentionRate(data: any[], timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | 'last_30' | 'last_90' | 'last_12_months' = 'lifetime'): { lifetime: number; period: number } {
   // Business-approved status categories
   const retainedStatuses = ['Active', 'Completed', 'Installed', 'PTO Approved'];
   const lostStatuses = ['Cancelled', 'Canceled', 'Rejected', 'Pending Cancel'];
@@ -2407,7 +2407,7 @@ function calculateMonthlyInstalls(completedProjects: any[]): Array<{ month: stri
 export async function getOfficeMetrics(
   userId: string,
   role: string,
-  timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' = 'ytd',
+  timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | 'last_30' | 'last_90' | 'last_12_months' = 'ytd',
   officeIds?: number[],
   customDateRange?: { startDate: string; endDate: string },
   reqId?: string,
@@ -2475,6 +2475,54 @@ export async function getOfficeMetrics(
             month: '2-digit',
             day: '2-digit',
           }).format(oneWeekAgo);
+          endDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(now);
+          break;
+        case 'last_30':
+          const last30Start = new Date(now);
+          last30Start.setDate(last30Start.getDate() - 30);
+          startDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(last30Start);
+          endDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(now);
+          break;
+        case 'last_90':
+          const last90Start = new Date(now);
+          last90Start.setDate(last90Start.getDate() - 90);
+          startDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(last90Start);
+          endDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(now);
+          break;
+        case 'last_12_months':
+          const last12Start = new Date(now);
+          last12Start.setDate(last12Start.getDate() - 365);
+          startDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(last12Start);
           endDate = new Intl.DateTimeFormat('en-CA', {
             timeZone: timezone,
             year: 'numeric',
@@ -2637,7 +2685,7 @@ export async function getOfficeMetrics(
 export async function getRepPerformance(
   userId: string,
   role: string,
-  timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' = 'ytd',
+  timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | 'last_30' | 'last_90' | 'last_12_months' = 'ytd',
   officeIds?: number[],
   customDateRange?: { startDate: string; endDate: string },
   reqId?: string,
@@ -2705,6 +2753,54 @@ export async function getRepPerformance(
             month: '2-digit',
             day: '2-digit',
           }).format(oneWeekAgo);
+          endDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(now);
+          break;
+        case 'last_30':
+          const last30Start = new Date(now);
+          last30Start.setDate(last30Start.getDate() - 30);
+          startDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(last30Start);
+          endDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(now);
+          break;
+        case 'last_90':
+          const last90Start = new Date(now);
+          last90Start.setDate(last90Start.getDate() - 90);
+          startDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(last90Start);
+          endDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(now);
+          break;
+        case 'last_12_months':
+          const last12Start = new Date(now);
+          last12Start.setDate(last12Start.getDate() - 365);
+          startDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(last12Start);
           endDate = new Intl.DateTimeFormat('en-CA', {
             timeZone: timezone,
             year: 'numeric',
@@ -2898,7 +2994,7 @@ export async function getRepPerformance(
 export async function getPipelineForecast(
   userId: string,
   role: string,
-  timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' = 'ytd',
+  timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | 'last_30' | 'last_90' | 'last_12_months' = 'ytd',
   officeIds?: number[],
   includeDetails: boolean = true,
   reqId?: string
@@ -3060,7 +3156,7 @@ export async function getPipelineForecast(
 export async function getMilestoneTimings(
   userId: string,
   role: string,
-  timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' = 'ytd',
+  timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | 'last_30' | 'last_90' | 'last_12_months' = 'ytd',
   officeIds?: number[],
   customDateRange?: { startDate: string; endDate: string },
   reqId?: string,
@@ -3128,6 +3224,54 @@ export async function getMilestoneTimings(
             month: '2-digit',
             day: '2-digit',
           }).format(oneWeekAgo);
+          endDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(now);
+          break;
+        case 'last_30':
+          const last30Start = new Date(now);
+          last30Start.setDate(last30Start.getDate() - 30);
+          startDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(last30Start);
+          endDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(now);
+          break;
+        case 'last_90':
+          const last90Start = new Date(now);
+          last90Start.setDate(last90Start.getDate() - 90);
+          startDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(last90Start);
+          endDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(now);
+          break;
+        case 'last_12_months':
+          const last12Start = new Date(now);
+          last12Start.setDate(last12Start.getDate() - 365);
+          startDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(last12Start);
           endDate = new Intl.DateTimeFormat('en-CA', {
             timeZone: timezone,
             year: 'numeric',

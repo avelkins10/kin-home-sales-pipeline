@@ -438,8 +438,7 @@ export function RepPerformanceTable({
                       </span>
                     </TableCell>
                     <TableCell className="sticky left-0 bg-white font-medium">
-                      {/* TODO: Create rep detail route at /analytics/rep/[repId] or /analytics/rep/[email] */}
-                      <Link 
+                      <Link
                         href={`/analytics/rep/${rep.repId || rep.repEmail}`}
                         className="text-blue-600 hover:text-blue-800 hover:underline"
                       >

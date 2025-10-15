@@ -126,12 +126,46 @@ export async function GET(req: Request) {
     }
 
     // Fetch rep performance metrics
+    // Convert extended time ranges to custom for getRepPerformance
+    let timeRangeForQuery: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' = effectiveTimeRange as any;
+    let customRangeForQuery = effectiveTimeRange === 'custom' ? { startDate: startDate!, endDate: endDate! } : undefined;
+
+    // Convert last_30, last_90, last_12_months to custom ranges
+    if (['last_30', 'last_90', 'last_12_months'].includes(effectiveTimeRange)) {
+      const now = new Date();
+      const endDateForQuery = now.toISOString().split('T')[0];
+      let startDateForQuery: string;
+
+      switch (effectiveTimeRange) {
+        case 'last_30':
+          const thirtyDaysAgo = new Date(now);
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          startDateForQuery = thirtyDaysAgo.toISOString().split('T')[0];
+          break;
+        case 'last_90':
+          const ninetyDaysAgo = new Date(now);
+          ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+          startDateForQuery = ninetyDaysAgo.toISOString().split('T')[0];
+          break;
+        case 'last_12_months':
+          const twelveMonthsAgo = new Date(now);
+          twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+          startDateForQuery = twelveMonthsAgo.toISOString().split('T')[0];
+          break;
+        default:
+          startDateForQuery = endDateForQuery;
+      }
+
+      timeRangeForQuery = 'custom';
+      customRangeForQuery = { startDate: startDateForQuery, endDate: endDateForQuery };
+    }
+
     const allReps = await getRepPerformance(
       userId,
       role,
-      effectiveTimeRange,
+      timeRangeForQuery,
       undefined,
-      effectiveTimeRange === 'custom' ? { startDate: startDate!, endDate: endDate! } : undefined,
+      customRangeForQuery,
       reqId,
       userTimezone
     );
@@ -268,22 +302,21 @@ async function fetchRepProjects(
   // Query projects
   const query = `{${repEmailField}} = '${repEmail}' ${timeFilter}`;
 
-  const response = await qbClient.getRecords({
-    tableId: process.env.QUICKBASE_TABLE_ID!,
-    query,
+  const response = await qbClient.queryRecords({
+    from: process.env.QUICKBASE_TABLE_ID!,
+    where: query,
     select: [
       PROJECT_FIELDS.RECORD_ID,
       PROJECT_FIELDS.PROJECT_ID,
       PROJECT_FIELDS.CUSTOMER_NAME,
-      PROJECT_FIELDS.STATUS,
-      PROJECT_FIELDS.SYSTEM_SIZE,
+      PROJECT_FIELDS.PROJECT_STATUS,
+      PROJECT_FIELDS.SYSTEM_SIZE_KW,
       PROJECT_FIELDS.GROSS_PPW,
       PROJECT_FIELDS.NET_PPW,
       PROJECT_FIELDS.COMMISSIONABLE_PPW,
       PROJECT_FIELDS.SALES_DATE,
       PROJECT_FIELDS.INSTALL_COMPLETED_DATE,
-      PROJECT_FIELDS.SALES_OFFICE_NAME,
-      PROJECT_FIELDS.SALES_DATE,
+      PROJECT_FIELDS.SALES_OFFICE,
       PROJECT_FIELDS.PTO_APPROVED,
     ],
   });
@@ -306,15 +339,15 @@ async function fetchRepProjects(
       recordId: record[PROJECT_FIELDS.RECORD_ID]?.value || 0,
       projectId: record[PROJECT_FIELDS.PROJECT_ID]?.value || '',
       customerName: record[PROJECT_FIELDS.CUSTOMER_NAME]?.value || '',
-      status: record[PROJECT_FIELDS.STATUS]?.value || '',
-      systemSize: record[PROJECT_FIELDS.SYSTEM_SIZE]?.value || 0,
+      status: record[PROJECT_FIELDS.PROJECT_STATUS]?.value || '',
+      systemSize: record[PROJECT_FIELDS.SYSTEM_SIZE_KW]?.value || 0,
       grossPpw: record[PROJECT_FIELDS.GROSS_PPW]?.value || 0,
       netPpw: record[PROJECT_FIELDS.NET_PPW]?.value || 0,
       commissionablePpw: record[PROJECT_FIELDS.COMMISSIONABLE_PPW]?.value || 0,
       salesDate,
       installDate,
       cycleTime,
-      officeName: record[PROJECT_FIELDS.SALES_OFFICE_NAME]?.value || null,
+      officeName: record[PROJECT_FIELDS.SALES_OFFICE]?.value || null,
     };
   });
 }
