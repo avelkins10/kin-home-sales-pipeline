@@ -27,7 +27,8 @@ const nextConfig = {
               // Add chat-assets.frontapp.com for Front Chat fonts (Inter font)
               "font-src 'self' data: https://chat-assets.frontapp.com",
               // Add Front Chat domains: chat-api, chat.frontapp.com, regional chat servers (*.frontapp.com), Ably realtime (used by Front Chat), and bugsnag
-              "connect-src 'self' https://kin.quickbase.com https://*.vercel.app https://*.frontapp.com https://*.ably.io https://*.ably-realtime.com https://sessions.bugsnag.com",
+              // Include wss:// for WebSocket connections used by Ably
+              "connect-src 'self' https://kin.quickbase.com https://*.vercel.app https://*.frontapp.com https://*.ably.io wss://*.ably.io https://*.ably-realtime.com wss://*.ably-realtime.com https://sessions.bugsnag.com",
               "worker-src 'self' blob:",
               "frame-ancestors 'none'",
               "base-uri 'self'",
