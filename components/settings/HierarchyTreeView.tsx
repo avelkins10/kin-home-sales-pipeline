@@ -190,7 +190,6 @@ interface DroppableManagerNodeProps {
   activeId: string | null
   users: User[]
   hierarchies: Hierarchy[]
-  setDragValidationMessage: (message: string | null) => void
   canDrop: (dragRole: UserRole, targetRole: UserRole) => boolean
 }
 
@@ -200,44 +199,41 @@ function DroppableManagerNode({
   activeId,
   users,
   hierarchies,
-  setDragValidationMessage,
   canDrop
 }: DroppableManagerNodeProps) {
   const { isOver, setNodeRef } = useDroppable({
     id: node.user.id
   })
 
-  // Check if current drag would be valid
-  const isDragValid = activeId ? (() => {
+  // Compute validation result and message locally (don't set state during render)
+  const validationResult = useMemo(() => {
+    if (!activeId) return { isValid: false, message: null }
+
     const draggedUser = users.find((u: User) => u.id === activeId)
-    if (!draggedUser) return false
+    if (!draggedUser) return { isValid: false, message: 'User not found' }
 
     // Check for self-assignment
     if (draggedUser.id === node.user.id) {
-      setDragValidationMessage('Cannot assign to self')
-      return false
+      return { isValid: false, message: 'Cannot assign to self' }
     }
 
     // Check for circular hierarchy
     const descendants = getDescendants(draggedUser.id, hierarchies)
     if (descendants.includes(node.user.id)) {
-      setDragValidationMessage('Would create circular hierarchy')
-      return false
+      return { isValid: false, message: 'Would create circular hierarchy' }
     }
 
     // Check role compatibility
     if (!canDrop(draggedUser.role, node.user.role)) {
-      setDragValidationMessage(`${node.user.role} cannot manage ${draggedUser.role}`)
-      return false
+      return { isValid: false, message: `${node.user.role} cannot manage ${draggedUser.role}` }
     }
 
-    setDragValidationMessage(null)
-    return true
-  })() : false
+    return { isValid: true, message: null }
+  }, [activeId, users, node.user.id, hierarchies, canDrop])
 
   const getDropStyles = () => {
     if (!isOver) return ''
-    if (isDragValid) {
+    if (validationResult.isValid) {
       return 'ring-2 ring-green-500 ring-opacity-50'
     } else {
       return 'ring-2 ring-red-500 ring-opacity-50 cursor-not-allowed'
@@ -256,10 +252,10 @@ function DroppableManagerNode({
           className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded shadow-lg z-50 whitespace-nowrap"
           aria-live="polite"
         >
-          {isDragValid ? (
+          {validationResult.isValid ? (
             `Drop here to assign ${users.find((u: User) => u.id === activeId)?.name} to ${node.user.name}`
           ) : (
-            dragValidationMessage || 'Cannot drop here'
+            validationResult.message || 'Cannot drop here'
           )}
         </div>
       )}
@@ -1135,7 +1131,6 @@ export function HierarchyTreeView({ className }: HierarchyTreeViewProps) {
           activeId={activeId}
           users={users}
           hierarchies={hierarchies}
-          setDragValidationMessage={setDragValidationMessage}
           canDrop={canDrop}
         >
           <DraggableUserNode
