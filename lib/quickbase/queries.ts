@@ -2413,33 +2413,33 @@ export async function getOfficeMetrics(
   reqId?: string,
   timezone: string = 'America/New_York'
 ) {
-  console.log('[getOfficeMetrics] === START ===');
-  console.log('[getOfficeMetrics] userId:', userId);
-  console.log('[getOfficeMetrics] role:', role);
-  console.log('[getOfficeMetrics] timeRange:', timeRange);
-  console.log('[getOfficeMetrics] officeIds:', officeIds);
-  console.log('[getOfficeMetrics] customDateRange:', customDateRange);
-  console.log('[getOfficeMetrics] reqId:', reqId);
+  console.error('[getOfficeMetrics] === START ===');
+  console.error('[getOfficeMetrics] userId:', userId);
+  console.error('[getOfficeMetrics] role:', role);
+  console.error('[getOfficeMetrics] timeRange:', timeRange);
+  console.error('[getOfficeMetrics] officeIds:', officeIds);
+  console.error('[getOfficeMetrics] customDateRange:', customDateRange);
+  console.error('[getOfficeMetrics] reqId:', reqId);
   const startTime = Date.now();
 
   try {
     // Get assigned office IDs for office-based roles if no office IDs provided
     let effectiveOfficeIds = officeIds;
     if (!effectiveOfficeIds && ['office_leader', 'area_director', 'divisional', 'regional'].includes(role)) {
-      console.log('[getOfficeMetrics] Fetching assigned offices for role:', role);
+      console.error('[getOfficeMetrics] Fetching assigned offices for role:', role);
       effectiveOfficeIds = await getAssignedOffices(userId);
-      console.log('[getOfficeMetrics] Assigned office IDs:', effectiveOfficeIds);
+      console.error('[getOfficeMetrics] Assigned office IDs:', effectiveOfficeIds);
     }
 
     // Get user email for role-based filtering
-    console.log('[getOfficeMetrics] Getting user email...');
+    console.error('[getOfficeMetrics] Getting user email...');
     const userEmail = await getUserEmail(userId);
-    console.log('[getOfficeMetrics] User email:', userEmail);
+    console.error('[getOfficeMetrics] User email:', userEmail);
 
     // Build role-based access clause
-    console.log('[getOfficeMetrics] Building access clause...');
+    console.error('[getOfficeMetrics] Building access clause...');
     const accessClause = buildProjectAccessClause(userEmail, role, effectiveOfficeIds);
-    console.log('[getOfficeMetrics] Access clause:', accessClause);
+    console.error('[getOfficeMetrics] Access clause:', accessClause);
 
     // Build timezone-aware time range filter
     let timeFilter = '';
@@ -2552,8 +2552,8 @@ export async function getOfficeMetrics(
     }
 
     const whereClause = `${accessClause} ${timeFilter}`.trim();
-    console.log('[getOfficeMetrics] WHERE clause:', whereClause);
-    console.log('[getOfficeMetrics] Querying QuickBase...');
+    console.error('[getOfficeMetrics] WHERE clause:', whereClause);
+    console.error('[getOfficeMetrics] Querying QuickBase...');
 
     // Query projects with office and metrics fields
     const response = await qbClient.queryRecords({
@@ -2579,10 +2579,10 @@ export async function getOfficeMetrics(
       },
     });
 
-    console.log('[getOfficeMetrics] QB response received, data length:', response.data?.length || 0);
+    console.error('[getOfficeMetrics] QB response received, data length:', response.data?.length || 0);
 
     const projects = response.data || [];
-    console.log('[getOfficeMetrics] Fetched projects:', projects.length);
+    console.error('[getOfficeMetrics] Fetched projects:', projects.length);
 
     // Group projects by office
     const officeGroups = new Map<number, any[]>();
@@ -2609,8 +2609,14 @@ export async function getOfficeMetrics(
       }
     }
 
+    console.error('[getOfficeMetrics] Office groups created:', {
+      totalOfficeGroups: officeGroups.size,
+      projectsWithoutOfficeId,
+      totalProjects: projects.length
+    });
+
     if (projectsWithoutOfficeId > 0) {
-      console.error(`[getOfficeMetrics] ${projectsWithoutOfficeId} projects missing OFFICE_RECORD_ID out of ${projects.length} total projects`);
+      console.error(`[getOfficeMetrics] WARNING: ${projectsWithoutOfficeId} projects missing OFFICE_RECORD_ID out of ${projects.length} total projects`);
     }
 
     // Calculate metrics for each office
@@ -2696,7 +2702,11 @@ export async function getOfficeMetrics(
     officeMetrics.sort((a, b) => b.totalProjects - a.totalProjects);
 
     const duration = Date.now() - startTime;
-    console.log('[getOfficeMetrics] COMPLETED - duration:', duration, 'ms, offices:', officeMetrics.length);
+    console.error('[getOfficeMetrics] COMPLETED - duration:', duration, 'ms, offices:', officeMetrics.length);
+
+    if (officeMetrics.length === 0) {
+      console.error('[getOfficeMetrics] WARNING: Returning 0 offices! Check WHERE clause and QB response above.');
+    }
 
     return officeMetrics;
   } catch (error) {

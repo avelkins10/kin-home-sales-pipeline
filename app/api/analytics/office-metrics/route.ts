@@ -135,6 +135,16 @@ export async function GET(req: Request) {
       return NextResponse.json(cached.data, { status: 200 });
     }
 
+    // DEBUG: Log query parameters before calling getOfficeMetrics
+    console.error('[office-metrics] DEBUG - About to call getOfficeMetrics with:', {
+      userId,
+      role,
+      timeRange: effectiveTimeRange,
+      officeIds,
+      customDateRange: effectiveTimeRange === 'custom' ? { startDate, endDate } : undefined,
+      timezone: userTimezone
+    });
+
     // Fetch office metrics with timezone awareness
     const metrics = await getOfficeMetrics(
       userId,
@@ -145,6 +155,11 @@ export async function GET(req: Request) {
       reqId,
       userTimezone
     );
+
+    console.error('[office-metrics] DEBUG - getOfficeMetrics returned:', {
+      metricsCount: metrics.length,
+      sampleMetric: metrics[0] || null
+    });
 
     const response = {
       metrics,
