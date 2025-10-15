@@ -144,7 +144,7 @@ function buildQuickBaseProjectUrl(recordId: number): string {
 }
 
 /**
- * Open chat with project context pre-filled
+ * Open chat with project context
  */
 export function openChatWithProject(context: ProjectContext): void {
   if (!window.FrontChat) {
@@ -155,19 +155,8 @@ export function openChatWithProject(context: ProjectContext): void {
   const projectUrl = buildQuickBaseProjectUrl(context.recordId);
 
   try {
-    // Pre-fill the message with project context
-    const contextMessage = `Project Support Request
-
-Customer: ${context.customerName}
-Project ID: ${context.projectId}
-Project URL: ${projectUrl}
-
----
-`;
-
-    // Open chat with pre-filled message
+    // Open the chat window
     window.FrontChat('show');
-    window.FrontChat('prefill', contextMessage);
 
     console.log('[FrontChat] Opened with project context:', {
       customer: context.customerName,

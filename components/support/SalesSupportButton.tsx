@@ -23,10 +23,10 @@ export function SalesSupportButton({
       // Open chat with project context
       openChatWithProject(projectContext);
 
-      // Show confirmation toast
-      toast.success('Project details sent to support', {
-        description: `Regarding: ${projectContext.customerName}`,
-        duration: 2000,
+      // Show helpful toast with project info
+      toast.info('Opening support chat', {
+        description: `Project: ${projectContext.customerName} (#${projectContext.projectId})`,
+        duration: 3000,
       });
     } else {
       // Open generic chat
