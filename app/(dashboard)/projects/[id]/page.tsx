@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useRouter } from 'next/navigation'
 import { notFound } from 'next/navigation'
 import { ProjectHeader } from '@/components/projects/ProjectHeader'
+import { ProjectDetailMobileHeader } from '@/components/projects/ProjectDetailMobileHeader'
 import { CustomerContactCard } from '@/components/projects/CustomerContactCard'
 import { SystemSpecsCard } from '@/components/projects/SystemSpecsCard'
 import { TeamMembersCard } from '@/components/projects/TeamMembersCard'
@@ -92,10 +93,15 @@ export default function ProjectDetailPage({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Project Header */}
-        <ProjectHeader project={project} />
+    <div className="min-h-screen bg-gray-50">
+      {/* Mobile Sticky Header - Only shows on mobile (< 640px) */}
+      <ProjectDetailMobileHeader project={project} />
+
+      <div className="max-w-7xl mx-auto space-y-6 p-6">
+        {/* Project Header - Hidden on mobile, shown on desktop */}
+        <div className="hidden mobile:block">
+          <ProjectHeader project={project} />
+        </div>
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
