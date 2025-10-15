@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import { notFound } from 'next/navigation'
 import { ProjectHeader } from '@/components/projects/ProjectHeader'
 import { ProjectDetailMobileHeader } from '@/components/projects/ProjectDetailMobileHeader'
+import { ProjectDetailMobileLayout } from '@/components/projects/ProjectDetailMobileLayout'
 import { CustomerContactCard } from '@/components/projects/CustomerContactCard'
 import { SystemSpecsCard } from '@/components/projects/SystemSpecsCard'
 import { TeamMembersCard } from '@/components/projects/TeamMembersCard'
@@ -97,11 +98,13 @@ export default function ProjectDetailPage({
       {/* Mobile Sticky Header - Only shows on mobile (< 640px) */}
       <ProjectDetailMobileHeader project={project} />
 
-      <div className="max-w-7xl mx-auto space-y-6 p-6">
-        {/* Project Header - Hidden on mobile, shown on desktop */}
-        <div className="hidden mobile:block">
-          <ProjectHeader project={project} />
-        </div>
+      {/* Mobile Layout - Accordion-based collapsible sections (< 640px) */}
+      <ProjectDetailMobileLayout project={project} projectId={projectId} />
+
+      {/* Desktop Layout - Traditional grid (>= 640px) */}
+      <div className="hidden mobile:block max-w-7xl mx-auto space-y-6 p-6">
+        {/* Project Header */}
+        <ProjectHeader project={project} />
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
