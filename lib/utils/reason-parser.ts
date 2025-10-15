@@ -207,17 +207,18 @@ export function parseHoldReason(input: ReasonParserInput): ParsedReason {
  * @returns First matching keyword or null if none found
  */
 function extractKeywords(text: string, keywords: string[]): string | null {
-  if (!text || !keywords.length) {
+  // Ensure text is a string and not empty
+  if (!text || typeof text !== 'string' || !keywords.length) {
     return null;
   }
 
   const lowerText = text.toLowerCase();
-  
+
   for (const keyword of keywords) {
     if (lowerText.includes(keyword.toLowerCase())) {
       return keyword;
     }
   }
-  
+
   return null;
 }
