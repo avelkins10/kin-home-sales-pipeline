@@ -9,6 +9,9 @@ import { PROJECT_FIELDS } from '@/lib/constants/fieldIds';
 import { buildTimezoneAwareDateFilters, calculateDaysDifference, parseQuickbaseDateInTimezone } from '@/lib/utils/timezone-helpers';
 import type { HoldAnalysis, HoldReasonCategory } from '@/lib/types/analytics';
 
+// Quickbase table ID for projects
+const QB_TABLE_PROJECTS = process.env.QUICKBASE_TABLE_PROJECTS || 'br9kwm8na';
+
 // Simple in-memory cache for hold analysis with 60-second TTL
 const holdAnalysisCache = new Map<string, { data: any; timestamp: number }>();
 
@@ -161,7 +164,7 @@ export async function GET(req: Request) {
     const whereClause = whereConditions.length > 0 ? whereConditions.join(' AND ') : '';
     
     const response = await qbClient.queryRecords({
-      from: 'bqj8h8k8', // Projects table
+      from: QB_TABLE_PROJECTS,
       select: [
         PROJECT_FIELDS.RECORD_ID,
         PROJECT_FIELDS.PROJECT_STATUS,

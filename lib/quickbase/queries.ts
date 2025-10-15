@@ -2544,7 +2544,7 @@ export async function getOfficeMetrics(
 
     // Query projects with office and metrics fields
     const response = await qbClient.queryRecords({
-      from: 'bsb6bqt3a', // Projects table
+      from: QB_TABLE_PROJECTS, // Projects table
       where: whereClause,
       select: [
         PROJECT_FIELDS.RECORD_ID,
@@ -2822,7 +2822,7 @@ export async function getRepPerformance(
 
     // Query projects with rep and metrics fields
     const response = await qbClient.queryRecords({
-      from: 'bsb6bqt3a', // Projects table
+      from: QB_TABLE_PROJECTS, // Projects table
       where: whereClause,
       select: [
         PROJECT_FIELDS.RECORD_ID,
@@ -3021,7 +3021,7 @@ export async function getPipelineForecast(
 
     // Query active projects with install date fields
     const response = await qbClient.queryRecords({
-      from: 'bsb6bqt3a', // Projects table
+      from: QB_TABLE_PROJECTS, // Projects table
       where: whereClause,
       select: [
         PROJECT_FIELDS.RECORD_ID,
@@ -3293,7 +3293,7 @@ export async function getMilestoneTimings(
 
     // Query projects with milestone date fields
     const response = await qbClient.queryRecords({
-      from: 'bsb6bqt3a', // Projects table
+      from: QB_TABLE_PROJECTS, // Projects table
       where: whereClause,
       select: [
         PROJECT_FIELDS.RECORD_ID,
