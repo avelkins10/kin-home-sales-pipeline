@@ -58,6 +58,10 @@ function CancellationAnalysisSkeleton() {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
+    // Add defensive checks for undefined data
+    if (!data || typeof data.count === 'undefined') {
+      return null;
+    }
     return (
       <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
         <p className="font-medium text-gray-900">{label}</p>
