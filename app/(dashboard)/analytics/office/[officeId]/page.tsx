@@ -72,13 +72,37 @@ export default function OfficeDetailPage() {
   const { data: session, status } = useSession();
   const params = useParams();
   const router = useRouter();
-  
+
   const officeId = params.officeId as string;
   const officeIdNumber = parseInt(officeId);
-  
+  const isValidOfficeId = !isNaN(officeIdNumber);
 
-  // Validate office ID
-  if (isNaN(officeIdNumber)) {
+  // Fetch office metrics - always call hooks unconditionally
+  const { data: officeData, isLoading: isLoadingOffice, error: officeError } = useQuery<OfficeMetrics[]>({
+    queryKey: ['office-detail', officeIdNumber, session?.user?.id, session?.user?.role],
+    queryFn: async () => {
+      const response = await fetch(`${getBaseUrl()}/api/analytics/office-metrics?officeIds=${officeIdNumber}`);
+      if (!response.ok) throw new Error('Failed to fetch office metrics');
+      const result = await response.json();
+      return result.metrics || [];
+    },
+    enabled: !!session?.user && isValidOfficeId,
+  });
+
+  // Fetch rep performance data - always call hooks unconditionally
+  const { data: repsData, isLoading: isLoadingReps, error: repsError } = useQuery<RepPerformance[]>({
+    queryKey: ['office-reps', officeIdNumber, session?.user?.id, session?.user?.role],
+    queryFn: async () => {
+      const response = await fetch(`${getBaseUrl()}/api/analytics/rep-performance?officeIds=${officeIdNumber}`);
+      if (!response.ok) throw new Error('Failed to fetch rep performance');
+      const data = await response.json();
+      return data.metrics || [];
+    },
+    enabled: !!session?.user && isValidOfficeId,
+  });
+
+  // Validate office ID after hooks are called
+  if (!isValidOfficeId) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
@@ -94,30 +118,6 @@ export default function OfficeDetailPage() {
       </div>
     );
   }
-
-  // Fetch office metrics
-  const { data: officeData, isLoading: isLoadingOffice, error: officeError } = useQuery<OfficeMetrics[]>({
-    queryKey: ['office-detail', officeIdNumber, session?.user?.id, session?.user?.role],
-    queryFn: async () => {
-      const response = await fetch(`${getBaseUrl()}/api/analytics/office-metrics?officeIds=${officeIdNumber}`);
-      if (!response.ok) throw new Error('Failed to fetch office metrics');
-      const result = await response.json();
-      return result.metrics || [];
-    },
-    enabled: !!session?.user,
-  });
-
-  // Fetch rep performance data
-  const { data: repsData, isLoading: isLoadingReps, error: repsError } = useQuery<RepPerformance[]>({
-    queryKey: ['office-reps', officeIdNumber, session?.user?.id, session?.user?.role],
-    queryFn: async () => {
-      const response = await fetch(`${getBaseUrl()}/api/analytics/rep-performance?officeIds=${officeIdNumber}`);
-      if (!response.ok) throw new Error('Failed to fetch rep performance');
-      const data = await response.json();
-      return data.metrics || [];
-    },
-    enabled: !!session?.user,
-  });
 
   if (status === 'loading') {
     return <div>Loading...</div>;
@@ -135,7 +135,7 @@ export default function OfficeDetailPage() {
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h1>
           <p className="text-gray-600">
-            You don't have permission to access the Analytics dashboard.
+            You don&apos;t have permission to access the Analytics dashboard.
           </p>
         </div>
       </div>
@@ -215,7 +215,7 @@ export default function OfficeDetailPage() {
           <div className="text-center">
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h1>
             <p className="text-gray-600 mb-4">
-              You don't have permission to view this office.
+              You don&apos;t have permission to view this office.
             </p>
             <Link href="/analytics">
               <Button variant="outline">

@@ -203,21 +203,32 @@ export function OfficeComparisonTable({
     queryKey: ['office-comparison', userId, role, timeRange, customDateRange, officeIds],
     queryFn: async () => {
       let url = `${getBaseUrl()}/api/analytics/office-metrics?timeRange=${timeRange}`;
-      
+
       if (officeIds && officeIds.length > 0) {
         url += `&officeIds=${officeIds.join(',')}`;
       }
-      
+
       if (timeRange === 'custom' && customDateRange) {
         url += `&startDate=${customDateRange.startDate}&endDate=${customDateRange.endDate}`;
       }
-      
+
       const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch office comparison data');
       const result = await response.json();
       return result.metrics || [];
     },
   });
+
+  // Calculate comparison rows - always call hooks unconditionally
+  const comparisonRows = useMemo(() =>
+    data ? transformToComparisonRows(data, sortColumn, sortDirection) : [],
+    [data, sortColumn, sortDirection]
+  );
+  const sortedData = useMemo(() =>
+    data ? sortData(data, sortColumn, sortDirection) : [],
+    [data, sortColumn, sortDirection]
+  );
+  const displayRows = showAll ? comparisonRows : comparisonRows.slice(0, maxOffices);
 
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
@@ -230,11 +241,11 @@ export function OfficeComparisonTable({
 
   const handleExport = async () => {
     if (!data) return;
-    
+
     setIsExporting(true);
     try {
       // Prepare data for export
-      const exportData = sortedData.map(office => ({
+      const exportData = comparisonRows.map(office => ({
         rank: office.rank,
         officeName: office.officeName,
         totalProjects: office.totalProjects,
@@ -317,13 +328,6 @@ export function OfficeComparisonTable({
       </Card>
     );
   }
-
-  const comparisonRows = useMemo(() => 
-    transformToComparisonRows(data, sortColumn, sortDirection), 
-    [data, sortColumn, sortDirection]
-  );
-  const sortedData = sortData(data, sortColumn, sortDirection);
-  const displayRows = showAll ? comparisonRows : comparisonRows.slice(0, maxOffices);
 
   return (
     <Card>
