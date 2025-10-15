@@ -191,7 +191,7 @@ export function OfficeOverviewCard({
             </div>
             <div className="flex-1">
               <p className="text-sm text-gray-600">Total Projects</p>
-              <p className="text-2xl font-semibold text-gray-900">{aggregated.totalProjects.toLocaleString()}</p>
+              <p className="text-2xl font-semibold text-gray-900">{(aggregated.totalProjects || 0).toLocaleString()}</p>
             </div>
           </div>
 
@@ -253,9 +253,9 @@ export function OfficeOverviewCard({
             <div className="flex-1">
               <p className="text-sm text-gray-600">Status Summary</p>
               <div className="text-sm font-medium text-gray-900 space-y-1">
-                <div>Active: {aggregated.activeProjects.toLocaleString()}</div>
-                <div>Cancelled: {aggregated.cancelledProjects.toLocaleString()}</div>
-                <div>Holds: {aggregated.onHoldProjects.toLocaleString()}</div>
+                <div>Active: {(aggregated.activeProjects || 0).toLocaleString()}</div>
+                <div>Cancelled: {(aggregated.cancelledProjects || 0).toLocaleString()}</div>
+                <div>Holds: {(aggregated.onHoldProjects || 0).toLocaleString()}</div>
               </div>
             </div>
           </div>

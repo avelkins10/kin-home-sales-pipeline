@@ -55,6 +55,10 @@ function MilestonePerformanceSkeleton() {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
+    // Add defensive checks for undefined data
+    if (!data || typeof data.projectCount === 'undefined') {
+      return null;
+    }
     return (
       <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
         <p className="font-medium text-gray-900">{label}</p>
@@ -231,7 +235,7 @@ export function MilestonePerformanceCard({
               </div>
               <div className="text-right">
                 <p className="text-sm text-blue-700">
-                  {data.overallCycleTime.projectCount.toLocaleString()} projects
+                  {(data.overallCycleTime.projectCount || 0).toLocaleString()} projects
                 </p>
                 <p className="text-sm text-blue-700">
                   {formatPercentage(data.overallCycleTime.completionRate)} completion rate

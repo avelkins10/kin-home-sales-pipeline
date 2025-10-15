@@ -479,7 +479,7 @@ export function OfficeComparisonTable({
                     </Link>
                   </TableCell>
                   <TableCell className="text-right">
-                    {office.totalProjects.toLocaleString()}
+                    {(office.totalProjects || 0).toLocaleString()}
                   </TableCell>
                   <TableCell className="text-right">
                     {formatSystemSize(office.avgSystemSize)}
@@ -491,13 +491,13 @@ export function OfficeComparisonTable({
                     {office.avgCycleTime ? `${Math.round(office.avgCycleTime)} days` : 'N/A'}
                   </TableCell>
                   <TableCell className="text-right">
-                    {office.activeProjects.toLocaleString()}
+                    {(office.activeProjects || 0).toLocaleString()}
                   </TableCell>
                   <TableCell className="text-right">
-                    {office.cancelledProjects.toLocaleString()}
+                    {(office.cancelledProjects || 0).toLocaleString()}
                   </TableCell>
                   <TableCell className="text-right">
-                    {office.onHoldProjects.toLocaleString()}
+                    {(office.onHoldProjects || 0).toLocaleString()}
                   </TableCell>
                   <TableCell className="text-center">
                     <OfficeSparkline data={office.sparklineData} />
