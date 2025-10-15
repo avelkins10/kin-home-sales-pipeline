@@ -1,6 +1,6 @@
 'use client'
 
-import { User, Phone, Mail } from 'lucide-react'
+import { User, Phone, MessageSquare } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -30,31 +30,28 @@ export function TeamMembersCard({ project }: TeamMembersCardProps) {
 
   const salesOffice = project[PROJECT_FIELDS.SALES_OFFICE]?.value || ''
 
-  // Team members array with actual contact information
+  // Team members array with phone contact information
   const teamMembers = [
     {
       role: 'Closer',
       name: closerName,
       id: closerId,
-      email: closerEmail,
       phone: closerPhone,
-      hasContact: !!(closerEmail || closerPhone)
+      hasContact: !!closerPhone
     },
     {
       role: 'Setter',
       name: setterName,
       id: setterId,
-      email: setterEmail,
       phone: setterPhone,
-      hasContact: !!(setterEmail || setterPhone)
+      hasContact: !!setterPhone
     },
     {
       role: 'Coordinator',
       name: coordinatorName,
       id: coordinatorId,
-      email: coordinatorEmail,
       phone: coordinatorPhone,
-      hasContact: !!(coordinatorEmail || coordinatorPhone)
+      hasContact: !!coordinatorPhone
     }
   ].filter(member => member.name) // Only show members with names
 
@@ -86,7 +83,10 @@ export function TeamMembersCard({ project }: TeamMembersCardProps) {
                     <p className="text-xs uppercase text-gray-500 font-medium">
                       {member.role}
                     </p>
-                    <p className="text-sm text-gray-900 font-semibold">
+                    <p 
+                      className="text-sm text-gray-900 font-semibold"
+                      data-testid={member.role.toLowerCase() === 'closer' ? 'closer-name' : undefined}
+                    >
                       {member.name}
                     </p>
                   </div>
@@ -109,12 +109,12 @@ export function TeamMembersCard({ project }: TeamMembersCardProps) {
                       asChild
                       variant="ghost"
                       size="sm"
-                      disabled={!member.email}
+                      disabled={!member.phone}
                       className="h-8 w-8 p-0"
-                      title={member.email ? `Email ${member.name}` : 'Email not available'}
+                      title={member.phone ? `Text ${member.name}` : 'Phone number not available'}
                     >
-                      <a href={member.email ? `mailto:${member.email}` : '#'}>
-                        <Mail className="w-4 h-4" />
+                      <a href={member.phone ? `sms:${member.phone}` : '#'}>
+                        <MessageSquare className="w-4 h-4" />
                       </a>
                     </Button>
                   </div>
