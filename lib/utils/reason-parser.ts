@@ -86,7 +86,7 @@ export function parseCancelReason(input: ReasonParserInput): ParsedReason {
   }
 
   // Priority 4: Check intake missing items
-  if (intakeMissingItems) {
+  if (intakeMissingItems && typeof intakeMissingItems === 'string') {
     // Parse multitext field and return first 2 items
     const items = intakeMissingItems.split(/[,;\n]/).map(item => item.trim()).filter(Boolean);
     if (items.length > 0) {
@@ -179,7 +179,7 @@ export function parseHoldReason(input: ReasonParserInput): ParsedReason {
   }
 
   // Priority 4: Check intake missing items
-  if (intakeMissingItems) {
+  if (intakeMissingItems && typeof intakeMissingItems === 'string') {
     const items = intakeMissingItems.split(/[,;\n]/).map(item => item.trim()).filter(Boolean);
     if (items.length > 0) {
       return {
