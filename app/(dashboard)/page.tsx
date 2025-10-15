@@ -178,19 +178,19 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 mobile:space-y-6">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col mobile:flex-row mobile:items-center mobile:justify-between gap-3 mobile:gap-0">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">
+          <h1 className="text-xl mobile:text-2xl ipad:text-3xl font-bold text-gray-900">
             Welcome back, {session.user.name}
           </h1>
-          <p className="text-gray-600">
-            {getRoleDisplayName(session.user.role)} - 
+          <p className="text-sm mobile:text-base text-gray-600 mt-0.5">
+            {getRoleDisplayName(session.user.role)} -
             {isManager && scope === 'team' ? 'Team Performance Dashboard' : 'Your Performance Dashboard'}
           </p>
         </div>
-        <div className="flex items-center space-x-4">
+        <div className="flex flex-col mobile:flex-row items-stretch mobile:items-center gap-2 mobile:gap-4 mobile:space-x-0">
           {/* Show scope toggle only for managers */}
           {isManager && (
             <DashboardScopeToggle
@@ -223,9 +223,9 @@ export default function DashboardPage() {
       </Suspense>
 
       {/* Two Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mobile:gap-6">
         {/* Left Column - 2/3 width */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-4 mobile:space-y-6">
           {/* Basic Metrics */}
           <Suspense fallback={<DashboardMetricsSkeleton />}>
             <DashboardMetrics
@@ -238,20 +238,20 @@ export default function DashboardPage() {
         </div>
 
         {/* Right Column - 1/3 width */}
-        <div className="lg:col-span-1 space-y-6">
+        <div className="lg:col-span-1 space-y-4 mobile:space-y-6">
           {/* Notifications Feed */}
           <Suspense fallback={<NotificationsFeedSkeleton />}>
-            <NotificationsFeed 
-              userId={session.user.quickbaseUserId} 
-              role={session.user.role} 
+            <NotificationsFeed
+              userId={session.user.quickbaseUserId}
+              role={session.user.role}
             />
           </Suspense>
 
           {/* Team Activity Feed (managers only) */}
           {isManager && (
             <Suspense fallback={<TeamActivityFeedSkeleton />}>
-              <TeamActivityFeed 
-                userId={session.user.quickbaseUserId} 
+              <TeamActivityFeed
+                userId={session.user.quickbaseUserId}
               />
             </Suspense>
           )}

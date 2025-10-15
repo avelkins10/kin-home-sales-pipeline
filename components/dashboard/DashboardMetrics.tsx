@@ -136,22 +136,22 @@ export function DashboardMetrics({ userId, role, timeRange = 'lifetime', customD
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 mobile:gap-4 ipad:gap-6">
       {stats.map((stat) => {
         const Icon = stat.icon;
         return (
           <Card key={stat.label} className="hover:shadow-md transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">{stat.label}</p>
-                  <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
+            <CardContent className="p-3 mobile:p-4 ipad:p-6">
+              <div className="flex flex-col mobile:flex-row items-start mobile:items-center mobile:justify-between gap-2 mobile:gap-0">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs mobile:text-sm font-medium text-gray-600 truncate">{stat.label}</p>
+                  <p className="text-xl mobile:text-2xl ipad:text-3xl font-bold text-gray-900">{stat.value}</p>
                   {stat.subtitle && (
-                    <p className="text-xs text-gray-500 mt-1">{stat.subtitle}</p>
+                    <p className="text-xs text-gray-500 mt-0.5 mobile:mt-1 truncate">{stat.subtitle}</p>
                   )}
                 </div>
-                <div className={`p-3 rounded-full ${stat.bgColor}`}>
-                  <Icon className={`h-8 w-8 ${stat.color}`} />
+                <div className={`p-2 mobile:p-2.5 ipad:p-3 rounded-full ${stat.bgColor} flex-shrink-0`}>
+                  <Icon className={`h-5 w-5 mobile:h-6 mobile:w-6 ipad:h-8 ipad:w-8 ${stat.color}`} />
                 </div>
               </div>
             </CardContent>
