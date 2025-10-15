@@ -24,9 +24,10 @@ const nextConfig = {
               // Add blob: for Front Chat dynamically generated styles
               "style-src 'self' 'unsafe-inline' blob:",
               "img-src 'self' data: https:",
-              "font-src 'self' data:",
-              // Add Front Chat domains: chat-api, chat.frontapp.com, and bugsnag for error tracking
-              "connect-src 'self' https://kin.quickbase.com https://*.vercel.app https://chat-api.frontapp.com https://chat.frontapp.com https://sessions.bugsnag.com",
+              // Add chat-assets.frontapp.com for Front Chat fonts (Inter font)
+              "font-src 'self' data: https://chat-assets.frontapp.com",
+              // Add Front Chat domains: chat-api, chat.frontapp.com, regional chat servers (*.frontapp.com), and bugsnag
+              "connect-src 'self' https://kin.quickbase.com https://*.vercel.app https://*.frontapp.com https://sessions.bugsnag.com",
               "worker-src 'self' blob:",
               "frame-ancestors 'none'",
               "base-uri 'self'",
