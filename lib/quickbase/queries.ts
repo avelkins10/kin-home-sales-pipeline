@@ -2413,20 +2413,31 @@ export async function getOfficeMetrics(
   reqId?: string,
   timezone: string = 'America/New_York'
 ) {
-  console.log('[getOfficeMetrics] START - userId:', userId, 'role:', role, 'timeRange:', timeRange, 'officeIds:', officeIds, 'reqId:', reqId);
+  console.log('[getOfficeMetrics] === START ===');
+  console.log('[getOfficeMetrics] userId:', userId);
+  console.log('[getOfficeMetrics] role:', role);
+  console.log('[getOfficeMetrics] timeRange:', timeRange);
+  console.log('[getOfficeMetrics] officeIds:', officeIds);
+  console.log('[getOfficeMetrics] customDateRange:', customDateRange);
+  console.log('[getOfficeMetrics] reqId:', reqId);
   const startTime = Date.now();
 
   try {
     // Get assigned office IDs for office-based roles if no office IDs provided
     let effectiveOfficeIds = officeIds;
     if (!effectiveOfficeIds && ['office_leader', 'area_director', 'divisional', 'regional'].includes(role)) {
+      console.log('[getOfficeMetrics] Fetching assigned offices for role:', role);
       effectiveOfficeIds = await getAssignedOffices(userId);
+      console.log('[getOfficeMetrics] Assigned office IDs:', effectiveOfficeIds);
     }
 
     // Get user email for role-based filtering
+    console.log('[getOfficeMetrics] Getting user email...');
     const userEmail = await getUserEmail(userId);
+    console.log('[getOfficeMetrics] User email:', userEmail);
 
     // Build role-based access clause
+    console.log('[getOfficeMetrics] Building access clause...');
     const accessClause = buildProjectAccessClause(userEmail, role, effectiveOfficeIds);
     console.log('[getOfficeMetrics] Access clause:', accessClause);
 
@@ -2541,6 +2552,8 @@ export async function getOfficeMetrics(
     }
 
     const whereClause = `${accessClause} ${timeFilter}`.trim();
+    console.log('[getOfficeMetrics] WHERE clause:', whereClause);
+    console.log('[getOfficeMetrics] Querying QuickBase...');
 
     // Query projects with office and metrics fields
     const response = await qbClient.queryRecords({
@@ -2565,6 +2578,8 @@ export async function getOfficeMetrics(
         top: 5000, // Handle large datasets
       },
     });
+
+    console.log('[getOfficeMetrics] QB response received, data length:', response.data?.length || 0);
 
     const projects = response.data || [];
     console.log('[getOfficeMetrics] Fetched projects:', projects.length);
