@@ -70,6 +70,12 @@ export interface Project {
   dateOnHold: string | null;
   userPlacedOnHold: string | null;
 
+  // Cancel/Hold Analysis Fields (for reason parsing)
+  cancelReason: string | null;
+  auditLogPreCancelStatus: string | null;
+  recentNoteCategory: string | null;
+  intakeMissingItemsCombined: string | null;
+
   // Adders
   totalAdders: number | null;
   totalAdderCost: number | null;
