@@ -66,7 +66,7 @@ export function loadFrontChatScript(chatId: string): Promise<void> {
  */
 export function initializeFrontChat(
   chatId: string,
-  identity: FrontChatIdentity
+  identity?: FrontChatIdentity
 ): void {
   if (!window.FrontChat) {
     console.error('[FrontChat] SDK not loaded');
@@ -74,13 +74,21 @@ export function initializeFrontChat(
   }
 
   try {
-    window.FrontChat('init', {
+    // Match widget configuration: useDefaultLauncher: true, optional identity
+    const config: any = {
       chatId,
-      email: identity.email,
-      name: identity.name,
-      userHash: identity.userHash,
-      useDefaultLauncher: false, // Hide default button, we'll use custom
-    });
+      useDefaultLauncher: true, // Use Front's default launcher button
+    };
+
+    // Only add identity if we have a valid userHash for identity verification
+    // Without userHash, Front Chat expects no identity info (simple mode)
+    if (identity?.userHash) {
+      config.email = identity.email;
+      config.name = identity.name;
+      config.userHash = identity.userHash;
+    }
+
+    window.FrontChat('init', config);
 
     console.log('[FrontChat] Initialized successfully');
   } catch (error) {
