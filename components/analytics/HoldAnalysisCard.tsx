@@ -260,29 +260,37 @@ export function HoldAnalysisCard({
     );
   }
 
-  // Prepare chart data with colors based on resolution time
-  const chartData: ChartData[] = currentData.analysis.slice(0, 10).map((item: HoldAnalysis) => {
-    let color = '#6b7280'; // Default gray for no resolution
-    
-    if (item.avgResolutionDays !== null) {
-      if (item.avgResolutionDays < 7) {
-        color = '#10b981'; // Green for fast resolution
-      } else if (item.avgResolutionDays <= 14) {
-        color = '#f59e0b'; // Yellow for medium resolution
-      } else {
-        color = '#ef4444'; // Red for slow resolution
+  // Prepare chart data with colors based on resolution time - filter out invalid entries
+  const chartData: ChartData[] = currentData.analysis
+    .slice(0, 10)
+    .filter((item: HoldAnalysis) =>
+      typeof item.count !== 'undefined' &&
+      typeof item.percentage !== 'undefined' &&
+      item.count !== null &&
+      item.percentage !== null
+    )
+    .map((item: HoldAnalysis) => {
+      let color = '#6b7280'; // Default gray for no resolution
+
+      if (item.avgResolutionDays !== null) {
+        if (item.avgResolutionDays < 7) {
+          color = '#10b981'; // Green for fast resolution
+        } else if (item.avgResolutionDays <= 14) {
+          color = '#f59e0b'; // Yellow for medium resolution
+        } else {
+          color = '#ef4444'; // Red for slow resolution
+        }
       }
-    }
-    
-    return {
-      category: item.category,
-      count: item.count,
-      percentage: item.percentage,
-      avgResolutionDays: item.avgResolutionDays,
-      dominantSource: item.dominantSource,
-      color
-    };
-  });
+
+      return {
+        category: item.category || 'Unknown',
+        count: item.count,
+        percentage: item.percentage,
+        avgResolutionDays: item.avgResolutionDays,
+        dominantSource: item.dominantSource || 'unknown',
+        color
+      };
+    });
 
   const totalHolds = currentData?.metadata?.totalHolds || 0;
   const resolvedHolds = currentData?.metadata?.resolvedHolds || 0;

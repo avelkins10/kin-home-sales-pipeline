@@ -256,31 +256,39 @@ export function CancellationAnalysisCard({
     );
   }
 
-  // Prepare chart data with colors based on severity
-  const chartData: ChartData[] = currentData.analysis.slice(0, 10).map((item: CancellationAnalysis, index: number) => {
-    let color = '#6b7280'; // Default gray
-    
-    // Assign colors based on category severity
-    if (item.category.includes('Finance') || item.category.includes('Failed Loan')) {
-      color = '#ef4444'; // Red for financial issues
-    } else if (item.category.includes('Customer') || item.category.includes('Unresponsive')) {
-      color = '#f59e0b'; // Orange for customer issues
-    } else if (item.category.includes('Documentation') || item.category.includes('Rejected')) {
-      color = '#eab308'; // Yellow for documentation issues
-    } else if (item.category.includes('Property') || item.category.includes('Roof')) {
-      color = '#8b5cf6'; // Purple for property issues
-    } else if (item.category.includes('Permit')) {
-      color = '#06b6d4'; // Cyan for permit issues
-    }
-    
-    return {
-      category: item.category,
-      count: item.count,
-      percentage: item.percentage,
-      dominantSource: item.dominantSource,
-      color
-    };
-  });
+  // Prepare chart data with colors based on severity - filter out invalid entries
+  const chartData: ChartData[] = currentData.analysis
+    .slice(0, 10)
+    .filter((item: CancellationAnalysis) =>
+      typeof item.count !== 'undefined' &&
+      typeof item.percentage !== 'undefined' &&
+      item.count !== null &&
+      item.percentage !== null
+    )
+    .map((item: CancellationAnalysis, index: number) => {
+      let color = '#6b7280'; // Default gray
+
+      // Assign colors based on category severity
+      if (item.category.includes('Finance') || item.category.includes('Failed Loan')) {
+        color = '#ef4444'; // Red for financial issues
+      } else if (item.category.includes('Customer') || item.category.includes('Unresponsive')) {
+        color = '#f59e0b'; // Orange for customer issues
+      } else if (item.category.includes('Documentation') || item.category.includes('Rejected')) {
+        color = '#eab308'; // Yellow for documentation issues
+      } else if (item.category.includes('Property') || item.category.includes('Roof')) {
+        color = '#8b5cf6'; // Purple for property issues
+      } else if (item.category.includes('Permit')) {
+        color = '#06b6d4'; // Cyan for permit issues
+      }
+
+      return {
+        category: item.category || 'Unknown',
+        count: item.count,
+        percentage: item.percentage,
+        dominantSource: item.dominantSource || 'unknown',
+        color
+      };
+    });
 
   const totalCancellations = currentData?.metadata?.totalCancellations || 0;
   const mostCommon = chartData[0];
