@@ -39,7 +39,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { Building2, Search, Users, Briefcase, Edit, Trash2, RefreshCw } from 'lucide-react'
+import { Building2, Search, Users, Briefcase, Edit, Trash2, RefreshCw, Database } from 'lucide-react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { Office, CreateOfficeInput, UpdateOfficeInput } from '@/lib/types/office'
@@ -54,6 +54,7 @@ export default function OfficesTab() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isBulkAssignDialogOpen, setIsBulkAssignDialogOpen] = useState(false)
   const [isManageManagersDialogOpen, setIsManageManagersDialogOpen] = useState(false)
+  const [isMigrateLeadersDialogOpen, setIsMigrateLeadersDialogOpen] = useState(false)
   const [officeToDelete, setOfficeToDelete] = useState<Office | null>(null)
   const [officeToEdit, setOfficeToEdit] = useState<Office | null>(null)
   const [officeToManage, setOfficeToManage] = useState<Office | null>(null)
@@ -143,6 +144,33 @@ export default function OfficesTab() {
     },
     onError: (error: Error) => {
       toast.error(error.message)
+    },
+  })
+
+  // Migrate legacy office leaders mutation
+  const migrateLeadersMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`${getBaseUrl()}/api/admin/offices/migrate-leaders`, {
+        method: 'POST',
+      })
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to migrate leaders')
+      }
+      return response.json()
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['offices'] })
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      setIsMigrateLeadersDialogOpen(false)
+      toast.success(data.message, {
+        description: `${data.stats.migrated} leaders migrated, ${data.stats.skipped} skipped`,
+      })
+    },
+    onError: (error: Error) => {
+      toast.error('Migration failed', {
+        description: error.message,
+      })
     },
   })
 
@@ -242,6 +270,13 @@ export default function OfficesTab() {
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${syncOfficeMutation.isPending ? 'animate-spin' : ''}`} />
             {syncOfficeMutation.isPending ? 'Syncing...' : 'Sync from QuickBase'}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setIsMigrateLeadersDialogOpen(true)}
+          >
+            <Database className="h-4 w-4 mr-2" />
+            Migrate Leaders
           </Button>
           <Button
             variant="outline"
@@ -559,6 +594,48 @@ export default function OfficesTab() {
         onOpenChange={setIsManageManagersDialogOpen}
         office={officeToManage}
       />
+
+      {/* Migrate Leaders Confirmation Dialog */}
+      <AlertDialog open={isMigrateLeadersDialogOpen} onOpenChange={setIsMigrateLeadersDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Migrate Legacy Office Leaders?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will migrate all office leaders assigned via the legacy <code className="bg-gray-100 px-1 rounded">leader_id</code> field to the new multi-manager system.
+              <br />
+              <br />
+              <strong>What this does:</strong>
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>Creates records in <code className="bg-gray-100 px-1 rounded">office_assignments</code> table</li>
+                <li>Grants managers access to their office&apos;s projects</li>
+                <li>Sets access level to &quot;admin&quot; for all migrated leaders</li>
+                <li>Skips offices where assignments already exist</li>
+              </ul>
+              <br />
+              <strong className="text-blue-600">Safe to run multiple times</strong> - existing assignments will not be duplicated.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={migrateLeadersMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => migrateLeadersMutation.mutate()}
+              disabled={migrateLeadersMutation.isPending}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {migrateLeadersMutation.isPending ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Migrating...
+                </>
+              ) : (
+                'Migrate Leaders'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
