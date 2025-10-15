@@ -19,11 +19,12 @@ const nextConfig = {
             value: [
               "default-src 'self'",
               // Add 'unsafe-eval' in development for React hot reloading
-              isDev ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'" : "script-src 'self' 'unsafe-inline'",
+              // Add chat-assets.frontapp.com for Front Chat widget
+              isDev ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://chat-assets.frontapp.com" : "script-src 'self' 'unsafe-inline' https://chat-assets.frontapp.com",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https:",
               "font-src 'self' data:",
-              "connect-src 'self' https://kin.quickbase.com https://*.vercel.app",
+              "connect-src 'self' https://kin.quickbase.com https://*.vercel.app https://chat-api.frontapp.com",
               "worker-src 'self' blob:",
               "frame-ancestors 'none'",
               "base-uri 'self'",
