@@ -22,6 +22,18 @@ import type { TeamActivityItem, TeamActivityType } from '@/lib/types/dashboard';
 import { isManagerRole } from '@/lib/utils/role-helpers';
 import type { MetricsScope, TeamMemberCommission, TeamMemberBuckets } from '@/lib/types/dashboard';
 import { parseQuickbaseDate } from '@/lib/utils/date-helpers';
+import type { OfficeMetrics, RepPerformance, PipelineForecast, MilestoneTimings } from '@/lib/types/analytics';
+
+/**
+ * Helper function to normalize QuickBase boolean values
+ * Treats 1, '1', true, 'true' as true, everything else as false
+ */
+function isTrueQB(value: any): boolean {
+  if (value === 1 || value === '1' || value === true || value === 'true') {
+    return true;
+  }
+  return false;
+}
 
 // In-process cache for commission/team bucket calculations
 interface CacheEntry<T> {
@@ -714,12 +726,12 @@ export async function getDashboardMetrics(userId: string, role: string) {
   const activeProjects = projects.filter((project: any) => {
     const status = project[PROJECT_FIELDS.PROJECT_STATUS]?.value || '';
     const onHold = project[PROJECT_FIELDS.ON_HOLD]?.value;
-    return status.includes('Active') && onHold !== 'Yes';
+    return status.includes('Active') && !isTrueQB(onHold);
   }).length;
   
   // Calculate on hold projects
   const onHold = projects.filter((project: any) => {
-    return project[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes';
+    return isTrueQB(project[PROJECT_FIELDS.ON_HOLD]?.value);
   }).length;
   
   // Calculate installs this month
@@ -732,7 +744,7 @@ export async function getDashboardMetrics(userId: string, role: string) {
   
   // Calculate hold breakdown
   const holdReasons = projects
-    .filter((project: any) => project[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes')
+    .filter((project: any) => isTrueQB(project[PROJECT_FIELDS.ON_HOLD]?.value))
     .map((project: any) => project[PROJECT_FIELDS.HOLD_REASON]?.value || '')
     .filter((reason: string) => reason);
   
@@ -812,10 +824,10 @@ export async function getDashboardMetricsOptimized(userId: string, role: string,
   const activeProjects = data.filter((p: any) => {
     const status = p[PROJECT_FIELDS.PROJECT_STATUS]?.value || '';
     const onHold = p[PROJECT_FIELDS.ON_HOLD]?.value;
-    return status.includes('Active') && onHold !== 'Yes';
+    return status.includes('Active') && !isTrueQB(onHold);
   }).length;
 
-  const onHold = data.filter((p: any) => p[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes').length;
+  const onHold = data.filter((p: any) => isTrueQB(p[PROJECT_FIELDS.ON_HOLD]?.value)).length;
 
   const installsThisMonth = data.filter((p: any) => {
     const installDate = p[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value;
@@ -827,7 +839,7 @@ export async function getDashboardMetricsOptimized(userId: string, role: string,
   }).length;
 
   const holdReasons = data
-    .filter((p: any) => p[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes')
+    .filter((p: any) => isTrueQB(p[PROJECT_FIELDS.ON_HOLD]?.value))
     .map((p: any) => p[PROJECT_FIELDS.HOLD_REASON]?.value || '')
     .filter((r: string) => r);
   const holdBreakdownMap = new Map<string, number>();
@@ -1181,11 +1193,11 @@ function calculateBasicMetrics(allData: any[], installedInPeriod: any[], timeRan
   const activeProjects = allData.filter((p: any) => {
     const status = p[PROJECT_FIELDS.PROJECT_STATUS]?.value || '';
     const onHold = p[PROJECT_FIELDS.ON_HOLD]?.value;
-    return status.includes('Active') && onHold !== 'Yes';
+    return status.includes('Active') && !isTrueQB(onHold);
   }).length;
 
   // On Hold - always shows current state (not affected by time range filter)
-  const onHold = allData.filter((p: any) => p[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes').length;
+  const onHold = allData.filter((p: any) => isTrueQB(p[PROJECT_FIELDS.ON_HOLD]?.value)).length;
 
   // For "Monthly Installs" - use timezone-aware parsing and always show current month
   // This is independent of the time range filter (shows actual installs this month)
@@ -1200,7 +1212,7 @@ function calculateBasicMetrics(allData: any[], installedInPeriod: any[], timeRan
 
   // Hold reasons - always current state
   const holdReasons = allData
-    .filter((p: any) => p[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes')
+    .filter((p: any) => isTrueQB(p[PROJECT_FIELDS.ON_HOLD]?.value))
     .map((p: any) => p[PROJECT_FIELDS.HOLD_REASON]?.value || '')
     .filter((r: string) => r);
 
@@ -1264,7 +1276,7 @@ function calculateCommissionBreakdown(allData: any[], fundedInPeriod: any[]) {
   const lostCommission = calculateCommission(lostProjects);
 
   // On Hold: Projects currently on hold (use allData for lifetime view)
-  const onHoldProjects = allData.filter((p: any) => p[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes');
+  const onHoldProjects = allData.filter((p: any) => isTrueQB(p[PROJECT_FIELDS.ON_HOLD]?.value));
   const onHoldCommission = calculateCommission(onHoldProjects);
 
   // Pending: Active projects not yet installed (use allData for lifetime view)
@@ -1272,7 +1284,7 @@ function calculateCommissionBreakdown(allData: any[], fundedInPeriod: any[]) {
     const status = p[PROJECT_FIELDS.PROJECT_STATUS]?.value || '';
     const onHold = p[PROJECT_FIELDS.ON_HOLD]?.value;
     const installed = p[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value;
-    return status.includes('Active') && onHold !== 'Yes' && !installed;
+    return status.includes('Active') && !isTrueQB(onHold) && !installed;
   });
   const pendingCommission = calculateCommission(pendingProjects);
 
@@ -1352,7 +1364,7 @@ export function calculateCommissionByTeamMember(
   allData.forEach((project: any) => {
     const fullCommission = calculateProjectCommission(project);
     const status = project[PROJECT_FIELDS.PROJECT_STATUS]?.value || '';
-    const onHold = project[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes';
+    const onHold = isTrueQB(project[PROJECT_FIELDS.ON_HOLD]?.value);
     const installed = project[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value;
     const funded = fundedIds.has(project[PROJECT_FIELDS.RECORD_ID]?.value);
 
@@ -1466,13 +1478,13 @@ export function calculateProjectBucketsByTeamMember(
     }
 
     // On Hold: Projects currently on hold
-    if (project[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes') {
+    if (isTrueQB(project[PROJECT_FIELDS.ON_HOLD]?.value)) {
       buckets.push('onHold');
     }
 
     // Rep Attention: Projects >90 days old OR on hold >7 days
     const age = parseInt(project[PROJECT_FIELDS.PROJECT_AGE]?.value || '0');
-    const onHold = project[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes';
+    const onHold = isTrueQB(project[PROJECT_FIELDS.ON_HOLD]?.value);
     const holdDate = project[PROJECT_FIELDS.DATE_ON_HOLD]?.value;
     
     if (age > 90) {
@@ -1621,12 +1633,12 @@ function getProjectBucketCounts(data: any[]) {
   }).length;
 
   // On Hold: Projects currently on hold
-  const onHold = data.filter((p: any) => p[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes').length;
+  const onHold = data.filter((p: any) => isTrueQB(p[PROJECT_FIELDS.ON_HOLD]?.value)).length;
 
   // Rep Attention: Projects >90 days old OR on hold >7 days
   const repAttention = data.filter((p: any) => {
     const age = parseInt(p[PROJECT_FIELDS.PROJECT_AGE]?.value || '0');
-    const onHold = p[PROJECT_FIELDS.ON_HOLD]?.value === 'Yes';
+    const onHold = isTrueQB(p[PROJECT_FIELDS.ON_HOLD]?.value);
     const holdDate = p[PROJECT_FIELDS.DATE_ON_HOLD]?.value;
     
     if (age > 90) return true;
@@ -2346,6 +2358,945 @@ export async function createNoteForProject(projectRecordId: string | number, not
     return response;
   } catch (error) {
     logError('Failed to create note for project', error as Error, { projectRecordId, createdBy });
+    throw error;
+  }
+}
+
+// ============================================================================
+// ANALYTICS QUERY FUNCTIONS
+// ============================================================================
+
+/**
+ * Calculate monthly install counts for the last 6 months
+ * Used for sparkline visualization in office comparison table
+ */
+function calculateMonthlyInstalls(completedProjects: any[]): Array<{ month: string; installs: number }> {
+  const now = new Date();
+  const monthlyData: Array<{ month: string; installs: number }> = [];
+  
+  // Generate last 6 months
+  for (let i = 5; i >= 0; i--) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const month = date.toISOString().slice(0, 7); // YYYY-MM format
+    
+    // Count installs in this month
+    const installsInMonth = completedProjects.filter(project => {
+      const installDate = project[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value;
+      if (!installDate) return false;
+      
+      const install = parseQuickbaseDate(installDate);
+      if (!install) return false;
+      
+      return install.getFullYear() === date.getFullYear() && 
+             install.getMonth() === date.getMonth();
+    }).length;
+    
+    monthlyData.push({
+      month,
+      installs: installsInMonth
+    });
+  }
+  
+  return monthlyData;
+}
+
+/**
+ * Fetch and aggregate office-level metrics for analytics dashboard
+ * Groups projects by office and calculates comprehensive metrics
+ */
+export async function getOfficeMetrics(
+  userId: string,
+  role: string,
+  timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' = 'ytd',
+  officeIds?: number[],
+  customDateRange?: { startDate: string; endDate: string },
+  reqId?: string,
+  timezone: string = 'America/New_York'
+) {
+  console.log('[getOfficeMetrics] START - userId:', userId, 'role:', role, 'timeRange:', timeRange, 'officeIds:', officeIds, 'reqId:', reqId);
+  const startTime = Date.now();
+
+  try {
+    // Get assigned office IDs for office-based roles if no office IDs provided
+    let effectiveOfficeIds = officeIds;
+    if (!effectiveOfficeIds && ['office_leader', 'area_director', 'divisional', 'regional'].includes(role)) {
+      effectiveOfficeIds = await getAssignedOffices(userId);
+    }
+
+    // Get user email for role-based filtering
+    const userEmail = await getUserEmail(userId);
+
+    // Build role-based access clause
+    const accessClause = buildProjectAccessClause(userEmail, role, effectiveOfficeIds);
+    console.log('[getOfficeMetrics] Access clause:', accessClause);
+
+    // Build timezone-aware time range filter
+    let timeFilter = '';
+    if (timeRange === 'custom' && customDateRange) {
+      timeFilter = `AND {${PROJECT_FIELDS.SALES_DATE}} >= '${customDateRange.startDate}' AND {${PROJECT_FIELDS.SALES_DATE}} <= '${customDateRange.endDate}'`;
+    } else if (timeRange !== 'lifetime') {
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+      
+      let startDate: string;
+      let endDate: string;
+      
+      switch (timeRange) {
+        case 'ytd':
+          startDate = `${currentYear}-01-01`;
+          endDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(now);
+          break;
+        case 'month':
+          const monthStart = new Date(currentYear, currentMonth, 1);
+          endDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(now);
+          startDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(monthStart);
+          break;
+        case 'week':
+          const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          startDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(oneWeekAgo);
+          endDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(now);
+          break;
+        default:
+          startDate = '';
+          endDate = '';
+      }
+      
+      if (startDate && endDate) {
+        timeFilter = `AND {${PROJECT_FIELDS.SALES_DATE}} >= '${startDate}' AND {${PROJECT_FIELDS.SALES_DATE}} <= '${endDate}'`;
+      }
+    }
+
+    const whereClause = `${accessClause} ${timeFilter}`.trim();
+
+    // Query projects with office and metrics fields
+    const response = await qbClient.queryRecords({
+      from: 'bsb6bqt3a', // Projects table
+      where: whereClause,
+      select: [
+        PROJECT_FIELDS.RECORD_ID,
+        PROJECT_FIELDS.PROJECT_STATUS,
+        PROJECT_FIELDS.SALES_DATE,
+        PROJECT_FIELDS.SYSTEM_SIZE_KW,
+        PROJECT_FIELDS.GROSS_PPW,
+        PROJECT_FIELDS.NET_PPW,
+        PROJECT_FIELDS.COMMISSIONABLE_PPW,
+        PROJECT_FIELDS.PROJECT_AGE,
+        PROJECT_FIELDS.INTAKE_STATUS,
+        PROJECT_FIELDS.ON_HOLD,
+        PROJECT_FIELDS.INSTALL_COMPLETED_DATE,
+        PROJECT_FIELDS.OFFICE_RECORD_ID,
+        PROJECT_FIELDS.SALES_OFFICE,
+      ],
+      options: {
+        top: 5000, // Handle large datasets
+      },
+    });
+
+    const projects = response.data || [];
+    console.log('[getOfficeMetrics] Fetched projects:', projects.length);
+
+    // Group projects by office
+    const officeGroups = new Map<number, any[]>();
+    const officeNames = new Map<number, string>();
+
+    for (const project of projects) {
+      const officeId = project[PROJECT_FIELDS.OFFICE_RECORD_ID]?.value;
+      const officeName = project[PROJECT_FIELDS.SALES_OFFICE]?.value;
+
+      if (officeId) {
+        if (!officeGroups.has(officeId)) {
+          officeGroups.set(officeId, []);
+        }
+        officeGroups.get(officeId)!.push(project);
+        officeNames.set(officeId, officeName || `Office ${officeId}`);
+      }
+    }
+
+    // Calculate metrics for each office
+    const officeMetrics = Array.from(officeGroups.entries()).map(([officeId, officeProjects]) => {
+      const totalProjects = officeProjects.length;
+      
+      // Calculate averages
+      const systemSizes = officeProjects
+        .map(p => p[PROJECT_FIELDS.SYSTEM_SIZE_KW]?.value)
+        .filter(size => size != null);
+      const avgSystemSize = systemSizes.length > 0 ? systemSizes.reduce((sum, size) => sum + size, 0) / systemSizes.length : 0;
+
+      const grossPpws = officeProjects
+        .map(p => p[PROJECT_FIELDS.GROSS_PPW]?.value)
+        .filter(ppw => ppw != null);
+      const avgGrossPpw = grossPpws.length > 0 ? grossPpws.reduce((sum, ppw) => sum + ppw, 0) / grossPpws.length : 0;
+
+      const netPpws = officeProjects
+        .map(p => p[PROJECT_FIELDS.NET_PPW]?.value)
+        .filter(ppw => ppw != null);
+      const avgNetPpw = netPpws.length > 0 ? netPpws.reduce((sum, ppw) => sum + ppw, 0) / netPpws.length : 0;
+
+      const commissionablePpws = officeProjects
+        .map(p => p[PROJECT_FIELDS.COMMISSIONABLE_PPW]?.value)
+        .filter(ppw => ppw != null);
+      const avgCommissionablePpw = commissionablePpws.length > 0 ? commissionablePpws.reduce((sum, ppw) => sum + ppw, 0) / commissionablePpws.length : 0;
+
+      // Calculate cycle time for completed projects
+      const completedProjects = officeProjects.filter(p => p[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value);
+      const cycleTimes = completedProjects
+        .map(p => p[PROJECT_FIELDS.PROJECT_AGE]?.value)
+        .filter(age => age != null);
+      const avgCycleTime = cycleTimes.length > 0 ? cycleTimes.reduce((sum, age) => sum + age, 0) / cycleTimes.length : null;
+
+      // Calculate intake approval rate
+      const approvedIntakes = officeProjects.filter(p => 
+        p[PROJECT_FIELDS.INTAKE_STATUS]?.value?.toLowerCase().includes('approved')
+      ).length;
+      const intakeApprovalRate = totalProjects > 0 ? (approvedIntakes / totalProjects) * 100 : 0;
+
+      // Count by status
+      const statusCounts = officeProjects.reduce((acc, project) => {
+        const status = project[PROJECT_FIELDS.PROJECT_STATUS]?.value || 'Unknown';
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      const activeProjects = statusCounts['Active'] || 0;
+      const cancelledProjects = statusCounts['Cancelled'] || 0;
+      const onHoldProjects = officeProjects.filter(p => isTrueQB(p[PROJECT_FIELDS.ON_HOLD]?.value)).length;
+      const projectsSubmitted = statusCounts['Submitted'] || 0;
+      const projectsApproved = statusCounts['Approved'] || 0;
+      const projectsRejected = statusCounts['Rejected'] || 0;
+      const installs = completedProjects.length;
+      const holds = onHoldProjects;
+
+      // Calculate monthly install data for sparklines (last 6 months)
+      const monthlyInstalls = calculateMonthlyInstalls(completedProjects);
+
+      return {
+        officeName: officeNames.get(officeId) || `Office ${officeId}`,
+        officeId,
+        totalProjects,
+        avgSystemSize: Math.round(avgSystemSize * 100) / 100,
+        avgGrossPpw: Math.round(avgGrossPpw * 100) / 100,
+        avgNetPpw: Math.round(avgNetPpw * 100) / 100,
+        avgCommissionablePpw: Math.round(avgCommissionablePpw * 100) / 100,
+        avgCycleTime: avgCycleTime ? Math.round(avgCycleTime) : null,
+        intakeApprovalRate: Math.round(intakeApprovalRate * 100) / 100,
+        activeProjects,
+        cancelledProjects,
+        onHoldProjects,
+        projectsSubmitted,
+        projectsApproved,
+        projectsRejected,
+        installs,
+        holds,
+        monthlyInstalls,
+      };
+    });
+
+    // Sort by total projects descending
+    officeMetrics.sort((a, b) => b.totalProjects - a.totalProjects);
+
+    const duration = Date.now() - startTime;
+    console.log('[getOfficeMetrics] COMPLETED - duration:', duration, 'ms, offices:', officeMetrics.length);
+
+    return officeMetrics;
+  } catch (error) {
+    logError('Failed to fetch office metrics', error as Error, { userId, role, timeRange, officeIds, reqId });
+    throw error;
+  }
+}
+
+/**
+ * Fetch and aggregate per-rep performance metrics for analytics dashboard
+ * Groups projects by closer and setter, handling cases where same person is both
+ */
+export async function getRepPerformance(
+  userId: string,
+  role: string,
+  timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' = 'ytd',
+  officeIds?: number[],
+  customDateRange?: { startDate: string; endDate: string },
+  reqId?: string,
+  timezone: string = 'America/New_York'
+) {
+  console.log('[getRepPerformance] START - userId:', userId, 'role:', role, 'timeRange:', timeRange, 'officeIds:', officeIds, 'reqId:', reqId);
+  const startTime = Date.now();
+
+  try {
+    // Get assigned office IDs for office-based roles if no office IDs provided
+    let effectiveOfficeIds = officeIds;
+    if (!effectiveOfficeIds && ['office_leader', 'area_director', 'divisional', 'regional'].includes(role)) {
+      effectiveOfficeIds = await getAssignedOffices(userId);
+    }
+
+    // Get user email for role-based filtering
+    const userEmail = await getUserEmail(userId);
+
+    // Build role-based access clause
+    const accessClause = buildProjectAccessClause(userEmail, role, effectiveOfficeIds);
+    console.log('[getRepPerformance] Access clause:', accessClause);
+
+    // Build timezone-aware time range filter
+    let timeFilter = '';
+    if (timeRange === 'custom' && customDateRange) {
+      timeFilter = `AND {${PROJECT_FIELDS.SALES_DATE}} >= '${customDateRange.startDate}' AND {${PROJECT_FIELDS.SALES_DATE}} <= '${customDateRange.endDate}'`;
+    } else if (timeRange !== 'lifetime') {
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+      
+      let startDate: string;
+      let endDate: string;
+      
+      switch (timeRange) {
+        case 'ytd':
+          startDate = `${currentYear}-01-01`;
+          endDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(now);
+          break;
+        case 'month':
+          const monthStart = new Date(currentYear, currentMonth, 1);
+          endDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(now);
+          startDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(monthStart);
+          break;
+        case 'week':
+          const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          startDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(oneWeekAgo);
+          endDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(now);
+          break;
+        default:
+          startDate = '';
+          endDate = '';
+      }
+      
+      if (startDate && endDate) {
+        timeFilter = `AND {${PROJECT_FIELDS.SALES_DATE}} >= '${startDate}' AND {${PROJECT_FIELDS.SALES_DATE}} <= '${endDate}'`;
+      }
+    }
+
+    const whereClause = `${accessClause} ${timeFilter}`.trim();
+
+    // Query projects with rep and metrics fields
+    const response = await qbClient.queryRecords({
+      from: 'bsb6bqt3a', // Projects table
+      where: whereClause,
+      select: [
+        PROJECT_FIELDS.RECORD_ID,
+        PROJECT_FIELDS.PROJECT_STATUS,
+        PROJECT_FIELDS.SALES_DATE,
+        PROJECT_FIELDS.SYSTEM_SIZE_KW,
+        PROJECT_FIELDS.GROSS_PPW,
+        PROJECT_FIELDS.NET_PPW,
+        PROJECT_FIELDS.COMMISSIONABLE_PPW,
+        PROJECT_FIELDS.PROJECT_AGE,
+        PROJECT_FIELDS.INTAKE_STATUS,
+        PROJECT_FIELDS.ON_HOLD,
+        PROJECT_FIELDS.INSTALL_COMPLETED_DATE,
+        PROJECT_FIELDS.OFFICE_RECORD_ID,
+        PROJECT_FIELDS.SALES_OFFICE,
+        PROJECT_FIELDS.CLOSER_NAME,
+        PROJECT_FIELDS.CLOSER_EMAIL,
+        PROJECT_FIELDS.SETTER_NAME,
+        PROJECT_FIELDS.SETTER_EMAIL,
+      ],
+      options: {
+        top: 5000, // Handle large datasets
+      },
+    });
+
+    const projects = response.data || [];
+    console.log('[getRepPerformance] Fetched projects:', projects.length);
+
+    // Group projects by rep (closer and setter)
+    const repGroups = new Map<string, { projects: any[], role: 'closer' | 'setter', repName: string, repEmail: string, officeId: number | null, officeName: string | null }>();
+
+    for (const project of projects) {
+      const officeId = project[PROJECT_FIELDS.OFFICE_RECORD_ID]?.value;
+      const officeName = project[PROJECT_FIELDS.SALES_OFFICE]?.value;
+
+      // Process closer
+      const closerEmail = project[PROJECT_FIELDS.CLOSER_EMAIL]?.value;
+      const closerName = project[PROJECT_FIELDS.CLOSER_NAME]?.value;
+      if (closerEmail && closerName) {
+        const key = `closer:${closerEmail}`;
+        if (!repGroups.has(key)) {
+          repGroups.set(key, {
+            projects: [],
+            role: 'closer',
+            repName: closerName,
+            repEmail: closerEmail,
+            officeId,
+            officeName,
+          });
+        }
+        repGroups.get(key)!.projects.push(project);
+      }
+
+      // Process setter
+      const setterEmail = project[PROJECT_FIELDS.SETTER_EMAIL]?.value;
+      const setterName = project[PROJECT_FIELDS.SETTER_NAME]?.value;
+      if (setterEmail && setterName) {
+        const key = `setter:${setterEmail}`;
+        if (!repGroups.has(key)) {
+          repGroups.set(key, {
+            projects: [],
+            role: 'setter',
+            repName: setterName,
+            repEmail: setterEmail,
+            officeId,
+            officeName,
+          });
+        }
+        repGroups.get(key)!.projects.push(project);
+      }
+    }
+
+    // Calculate metrics for each rep
+    const repMetrics = Array.from(repGroups.entries()).map(([key, repData]) => {
+      const { projects: repProjects, role, repName, repEmail, officeId, officeName } = repData;
+      const totalProjects = repProjects.length;
+      
+      // Calculate averages (same logic as office metrics)
+      const systemSizes = repProjects
+        .map(p => p[PROJECT_FIELDS.SYSTEM_SIZE_KW]?.value)
+        .filter(size => size != null);
+      const avgSystemSize = systemSizes.length > 0 ? systemSizes.reduce((sum, size) => sum + size, 0) / systemSizes.length : 0;
+
+      const grossPpws = repProjects
+        .map(p => p[PROJECT_FIELDS.GROSS_PPW]?.value)
+        .filter(ppw => ppw != null);
+      const avgGrossPpw = grossPpws.length > 0 ? grossPpws.reduce((sum, ppw) => sum + ppw, 0) / grossPpws.length : 0;
+
+      const netPpws = repProjects
+        .map(p => p[PROJECT_FIELDS.NET_PPW]?.value)
+        .filter(ppw => ppw != null);
+      const avgNetPpw = netPpws.length > 0 ? netPpws.reduce((sum, ppw) => sum + ppw, 0) / netPpws.length : 0;
+
+      const commissionablePpws = repProjects
+        .map(p => p[PROJECT_FIELDS.COMMISSIONABLE_PPW]?.value)
+        .filter(ppw => ppw != null);
+      const avgCommissionablePpw = commissionablePpws.length > 0 ? commissionablePpws.reduce((sum, ppw) => sum + ppw, 0) / commissionablePpws.length : 0;
+
+      // Calculate cycle time for completed projects
+      const completedProjects = repProjects.filter(p => p[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value);
+      const cycleTimes = completedProjects
+        .map(p => p[PROJECT_FIELDS.PROJECT_AGE]?.value)
+        .filter(age => age != null);
+      const avgCycleTime = cycleTimes.length > 0 ? cycleTimes.reduce((sum, age) => sum + age, 0) / cycleTimes.length : null;
+
+      // Calculate intake approval rate
+      const approvedIntakes = repProjects.filter(p => 
+        p[PROJECT_FIELDS.INTAKE_STATUS]?.value?.toLowerCase().includes('approved')
+      ).length;
+      const intakeApprovalRate = totalProjects > 0 ? (approvedIntakes / totalProjects) * 100 : 0;
+
+      // Count by status
+      const statusCounts = repProjects.reduce((acc, project) => {
+        const status = project[PROJECT_FIELDS.PROJECT_STATUS]?.value || 'Unknown';
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      const activeProjects = statusCounts['Active'] || 0;
+      const cancelledProjects = statusCounts['Cancelled'] || 0;
+      const onHoldProjects = repProjects.filter(p => isTrueQB(p[PROJECT_FIELDS.ON_HOLD]?.value)).length;
+      const projectsSubmitted = statusCounts['Submitted'] || 0;
+      const projectsApproved = statusCounts['Approved'] || 0;
+      const projectsRejected = statusCounts['Rejected'] || 0;
+      const installs = completedProjects.length;
+      const holds = onHoldProjects;
+
+      return {
+        repName,
+        repEmail,
+        role,
+        officeId,
+        officeName,
+        totalProjects,
+        avgSystemSize: Math.round(avgSystemSize * 100) / 100,
+        avgGrossPpw: Math.round(avgGrossPpw * 100) / 100,
+        avgNetPpw: Math.round(avgNetPpw * 100) / 100,
+        avgCommissionablePpw: Math.round(avgCommissionablePpw * 100) / 100,
+        avgCycleTime: avgCycleTime ? Math.round(avgCycleTime) : null,
+        intakeApprovalRate: Math.round(intakeApprovalRate * 100) / 100,
+        activeProjects,
+        cancelledProjects,
+        onHoldProjects,
+        projectsSubmitted,
+        projectsApproved,
+        projectsRejected,
+        installs,
+        holds,
+      };
+    });
+
+    // Sort by total projects descending
+    repMetrics.sort((a, b) => b.totalProjects - a.totalProjects);
+
+    const duration = Date.now() - startTime;
+    console.log('[getRepPerformance] COMPLETED - duration:', duration, 'ms, reps:', repMetrics.length);
+
+    return repMetrics;
+  } catch (error) {
+    logError('Failed to fetch rep performance metrics', error as Error, { userId, role, timeRange, officeIds, reqId });
+    throw error;
+  }
+}
+
+/**
+ * Forecast installs for next 30/60/90 days based on scheduled and estimated dates
+ * Uses priority: scheduled > estimated > tentative
+ */
+export async function getPipelineForecast(
+  userId: string,
+  role: string,
+  timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' = 'ytd',
+  officeIds?: number[],
+  includeDetails: boolean = true,
+  reqId?: string
+) {
+  console.log('[getPipelineForecast] START - userId:', userId, 'role:', role, 'officeIds:', officeIds, 'reqId:', reqId);
+  const startTime = Date.now();
+
+  try {
+    // Get assigned office IDs for office-based roles if no office IDs provided
+    let effectiveOfficeIds = officeIds;
+    if (!effectiveOfficeIds && ['office_leader', 'area_director', 'divisional', 'regional'].includes(role)) {
+      effectiveOfficeIds = await getAssignedOffices(userId);
+    }
+
+    // Get user email for role-based filtering
+    const userEmail = await getUserEmail(userId);
+
+    // Build role-based access clause
+    const accessClause = buildProjectAccessClause(userEmail, role, effectiveOfficeIds);
+    console.log('[getPipelineForecast] Access clause:', accessClause);
+
+    // Only query active projects for forecasting
+    const whereClause = `${accessClause} AND {${PROJECT_FIELDS.PROJECT_STATUS}} = 'Active'`.trim();
+
+    // Query active projects with install date fields
+    const response = await qbClient.queryRecords({
+      from: 'bsb6bqt3a', // Projects table
+      where: whereClause,
+      select: [
+        PROJECT_FIELDS.RECORD_ID,
+        PROJECT_FIELDS.PROJECT_ID,
+        PROJECT_FIELDS.CUSTOMER_NAME,
+        PROJECT_FIELDS.SYSTEM_SIZE_KW,
+        PROJECT_FIELDS.INSTALL_SCHEDULED_DATE_CAPTURE, // Field 710 - highest reliability (54.4%)
+        PROJECT_FIELDS.ESTIMATED_INSTALL_DATE, // Field 1124 - medium reliability (27.5%)
+        PROJECT_FIELDS.INTAKE_INSTALL_DATE_TENTATIVE, // Field 902 - tentative (100% but tentative)
+      ],
+      options: {
+        top: 5000, // Handle large datasets
+      },
+    });
+
+    const projects = response.data || [];
+    console.log('[getPipelineForecast] Fetched active projects:', projects.length);
+
+    const today = new Date();
+    const next30Days = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const next60Days = new Date(today.getTime() + 60 * 24 * 60 * 60 * 1000);
+    const next90Days = new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000);
+
+    let next30Count = 0;
+    let next60Count = 0;
+    let next90Count = 0;
+    let anyForecastCount = 0;
+    const forecastProjects: any[] = includeDetails ? [] : [];
+
+    for (const project of projects) {
+      const recordId = project[PROJECT_FIELDS.RECORD_ID]?.value;
+      const projectId = project[PROJECT_FIELDS.PROJECT_ID]?.value;
+      const customerName = project[PROJECT_FIELDS.CUSTOMER_NAME]?.value;
+      const systemSize = project[PROJECT_FIELDS.SYSTEM_SIZE_KW]?.value || 0;
+
+      // Determine forecast date using priority: scheduled > estimated > tentative
+      let forecastDate: Date | null = null;
+      let forecastSource: 'scheduled' | 'estimated' | 'tentative' = 'tentative';
+
+      // Try scheduled date first (highest reliability)
+      const scheduledDate = project[PROJECT_FIELDS.INSTALL_SCHEDULED_DATE_CAPTURE]?.value;
+      if (scheduledDate) {
+        forecastDate = parseQuickbaseDate(scheduledDate);
+        forecastSource = 'scheduled';
+      }
+
+      // Fall back to estimated date
+      if (!forecastDate) {
+        const estimatedDate = project[PROJECT_FIELDS.ESTIMATED_INSTALL_DATE]?.value;
+        if (estimatedDate) {
+          forecastDate = parseQuickbaseDate(estimatedDate);
+          forecastSource = 'estimated';
+        }
+      }
+
+      // Fall back to tentative date
+      if (!forecastDate) {
+        const tentativeDate = project[PROJECT_FIELDS.INTAKE_INSTALL_DATE_TENTATIVE]?.value;
+        if (tentativeDate) {
+          forecastDate = parseQuickbaseDate(tentativeDate);
+          forecastSource = 'tentative';
+        }
+      }
+
+      if (forecastDate) {
+        anyForecastCount++;
+        
+        if (includeDetails) {
+          const projectDetails = {
+            recordId,
+            projectId,
+            customerName,
+            systemSize,
+            forecastDate: forecastDate.toISOString().split('T')[0],
+            estimatedInstallDate: project[PROJECT_FIELDS.ESTIMATED_INSTALL_DATE]?.value || null,
+            scheduledInstallDate: scheduledDate || null,
+            forecastSource,
+          };
+
+          if (forecastDate <= next30Days) {
+            next30Count++;
+            forecastProjects.push(projectDetails);
+          } else if (forecastDate <= next60Days) {
+            next60Count++;
+            forecastProjects.push(projectDetails);
+          } else if (forecastDate <= next90Days) {
+            next90Count++;
+            forecastProjects.push(projectDetails);
+          }
+        } else {
+          // Only count buckets when includeDetails is false
+          if (forecastDate <= next30Days) {
+            next30Count++;
+          } else if (forecastDate <= next60Days) {
+            next60Count++;
+          } else if (forecastDate <= next90Days) {
+            next90Count++;
+          }
+        }
+      }
+    }
+
+    // Calculate metadata
+    const totalActiveProjects = projects.length;
+    const projectsWithForecast = anyForecastCount;
+    const projectsWithin90Days = next30Count + next60Count + next90Count;
+
+    const duration = Date.now() - startTime;
+    console.log('[getPipelineForecast] COMPLETED - duration:', duration, 'ms, forecast projects:', includeDetails ? forecastProjects.length : 'N/A (details not requested)');
+
+    const result = {
+      next30Days: next30Count,
+      next60Days: next60Count,
+      next90Days: next90Count,
+      totalActiveProjects,
+      projectsWithForecast,
+      projectsWithin90Days,
+      ...(includeDetails && { projects: forecastProjects }),
+    };
+
+    return result;
+  } catch (error) {
+    logError('Failed to fetch pipeline forecast', error as Error, { userId, role, officeIds, reqId });
+    throw error;
+  }
+}
+
+/**
+ * Calculate average time per milestone for process optimization
+ * Analyzes duration between milestone dates to identify bottlenecks
+ */
+export async function getMilestoneTimings(
+  userId: string,
+  role: string,
+  timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' = 'ytd',
+  officeIds?: number[],
+  customDateRange?: { startDate: string; endDate: string },
+  reqId?: string,
+  timezone: string = 'America/New_York'
+) {
+  console.log('[getMilestoneTimings] START - userId:', userId, 'role:', role, 'timeRange:', timeRange, 'officeIds:', officeIds, 'reqId:', reqId);
+  const startTime = Date.now();
+
+  try {
+    // Get assigned office IDs for office-based roles if no office IDs provided
+    let effectiveOfficeIds = officeIds;
+    if (!effectiveOfficeIds && ['office_leader', 'area_director', 'divisional', 'regional'].includes(role)) {
+      effectiveOfficeIds = await getAssignedOffices(userId);
+    }
+
+    // Get user email for role-based filtering
+    const userEmail = await getUserEmail(userId);
+
+    // Build role-based access clause
+    const accessClause = buildProjectAccessClause(userEmail, role, effectiveOfficeIds);
+    console.log('[getMilestoneTimings] Access clause:', accessClause);
+
+    // Build timezone-aware time range filter
+    let timeFilter = '';
+    if (timeRange === 'custom' && customDateRange) {
+      timeFilter = `AND {${PROJECT_FIELDS.SALES_DATE}} >= '${customDateRange.startDate}' AND {${PROJECT_FIELDS.SALES_DATE}} <= '${customDateRange.endDate}'`;
+    } else if (timeRange !== 'lifetime') {
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+      
+      let startDate: string;
+      let endDate: string;
+      
+      switch (timeRange) {
+        case 'ytd':
+          startDate = `${currentYear}-01-01`;
+          endDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(now);
+          break;
+        case 'month':
+          const monthStart = new Date(currentYear, currentMonth, 1);
+          endDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(now);
+          startDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(monthStart);
+          break;
+        case 'week':
+          const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          startDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(oneWeekAgo);
+          endDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(now);
+          break;
+        default:
+          startDate = '';
+          endDate = '';
+      }
+      
+      if (startDate && endDate) {
+        timeFilter = `AND {${PROJECT_FIELDS.SALES_DATE}} >= '${startDate}' AND {${PROJECT_FIELDS.SALES_DATE}} <= '${endDate}'`;
+      }
+    }
+
+    const whereClause = `${accessClause} ${timeFilter}`.trim();
+
+    // Query projects with milestone date fields
+    const response = await qbClient.queryRecords({
+      from: 'bsb6bqt3a', // Projects table
+      where: whereClause,
+      select: [
+        PROJECT_FIELDS.RECORD_ID,
+        PROJECT_FIELDS.SALES_DATE,
+        PROJECT_FIELDS.INTAKE_FIRST_PASS_COMPLETE, // Field 1951
+        PROJECT_FIELDS.SURVEY_APPROVED, // Field 165
+        PROJECT_FIELDS.DESIGN_COMPLETED, // Field 315
+        PROJECT_FIELDS.PERMIT_APPROVED, // Field 208
+        PROJECT_FIELDS.INSTALL_COMPLETED_DATE, // Field 534
+        PROJECT_FIELDS.PTO_APPROVED, // Field 538
+      ],
+      options: {
+        top: 5000, // Handle large datasets
+      },
+    });
+
+    const projects = response.data || [];
+    console.log('[getMilestoneTimings] Fetched projects:', projects.length);
+
+    // Helper function to calculate duration between dates
+    const calculateMilestoneDuration = (startDate: string | null, endDate: string | null): number | null => {
+      if (!startDate || !endDate) return null;
+      
+      const start = parseQuickbaseDate(startDate);
+      const end = parseQuickbaseDate(endDate);
+      
+      if (!start || !end) return null;
+      
+      const diffTime = end.getTime() - start.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      // Filter out outliers (>365 days)
+      return diffDays > 365 ? null : diffDays;
+    };
+
+    // Calculate durations for each milestone
+    const milestoneData = {
+      intake: [] as number[],
+      survey: [] as number[],
+      design: [] as number[],
+      permit: [] as number[],
+      install: [] as number[],
+      pto: [] as number[],
+      overall: [] as number[],
+    };
+
+    let totalProjects = projects.length;
+    let completedProjects = 0;
+
+    for (const project of projects) {
+      const salesDate = project[PROJECT_FIELDS.SALES_DATE]?.value;
+      const intakeComplete = project[PROJECT_FIELDS.INTAKE_FIRST_PASS_COMPLETE]?.value;
+      const surveyApproved = project[PROJECT_FIELDS.SURVEY_APPROVED]?.value;
+      const designCompleted = project[PROJECT_FIELDS.DESIGN_COMPLETED]?.value;
+      const permitApproved = project[PROJECT_FIELDS.PERMIT_APPROVED]?.value;
+      const installCompleted = project[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value;
+      const ptoApproved = project[PROJECT_FIELDS.PTO_APPROVED]?.value;
+
+      // Calculate milestone durations
+      const intakeDuration = calculateMilestoneDuration(salesDate, intakeComplete);
+      if (intakeDuration !== null) milestoneData.intake.push(intakeDuration);
+
+      const surveyDuration = calculateMilestoneDuration(intakeComplete, surveyApproved);
+      if (surveyDuration !== null) milestoneData.survey.push(surveyDuration);
+
+      const designDuration = calculateMilestoneDuration(surveyApproved, designCompleted);
+      if (designDuration !== null) milestoneData.design.push(designDuration);
+
+      const permitDuration = calculateMilestoneDuration(designCompleted, permitApproved);
+      if (permitDuration !== null) milestoneData.permit.push(permitDuration);
+
+      const installDuration = calculateMilestoneDuration(permitApproved, installCompleted);
+      if (installDuration !== null) milestoneData.install.push(installDuration);
+
+      const ptoDuration = calculateMilestoneDuration(installCompleted, ptoApproved);
+      if (ptoDuration !== null) milestoneData.pto.push(ptoDuration);
+
+      // Calculate overall cycle time
+      const overallDuration = calculateMilestoneDuration(salesDate, ptoApproved);
+      if (overallDuration !== null) {
+        milestoneData.overall.push(overallDuration);
+        completedProjects++;
+      }
+    }
+
+    // Helper function to calculate statistics
+    const calculateStats = (durations: number[], milestoneName: string) => {
+      if (durations.length === 0) {
+        return {
+          milestoneName,
+          avgDays: null,
+          medianDays: null,
+          minDays: null,
+          maxDays: null,
+          projectCount: durations.length,
+          completionRate: totalProjects > 0 ? (durations.length / totalProjects) * 100 : 0,
+        };
+      }
+
+      const sorted = [...durations].sort((a, b) => a - b);
+      const avg = durations.reduce((sum, days) => sum + days, 0) / durations.length;
+      const median = sorted.length % 2 === 0 
+        ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+        : sorted[Math.floor(sorted.length / 2)];
+
+      return {
+        milestoneName,
+        avgDays: Math.round(avg),
+        medianDays: Math.round(median),
+        minDays: Math.min(...durations),
+        maxDays: Math.max(...durations),
+        projectCount: durations.length,
+        completionRate: totalProjects > 0 ? (durations.length / totalProjects) * 100 : 0,
+      };
+    };
+
+    // Calculate statistics for each milestone
+    const overallCycleTime = calculateStats(milestoneData.overall, 'Overall Cycle Time');
+    const milestones = [
+      calculateStats(milestoneData.intake, 'Intake'),
+      calculateStats(milestoneData.survey, 'Survey'),
+      calculateStats(milestoneData.design, 'Design'),
+      calculateStats(milestoneData.permit, 'Permit'),
+      calculateStats(milestoneData.install, 'Install'),
+      calculateStats(milestoneData.pto, 'PTO'),
+    ];
+
+    // Compute bottleneck - milestone with highest avgDays (skip nulls)
+    const bottleneck = milestones
+      .filter(m => m.avgDays !== null)
+      .reduce((max, current) => 
+        (current.avgDays || 0) > (max.avgDays || 0) ? current : max, 
+        milestones.find(m => m.avgDays !== null) || milestones[0]
+      );
+
+    const duration = Date.now() - startTime;
+    console.log('[getMilestoneTimings] COMPLETED - duration:', duration, 'ms, total projects:', totalProjects, 'completed:', completedProjects);
+
+    return {
+      overallCycleTime,
+      milestones,
+      totalProjects,
+      completedProjects,
+      bottleneck: bottleneck?.milestoneName || null,
+    };
+  } catch (error) {
+    logError('Failed to fetch milestone timings', error as Error, { userId, role, timeRange, officeIds, reqId });
     throw error;
   }
 }

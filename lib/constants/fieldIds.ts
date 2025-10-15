@@ -79,12 +79,13 @@ export const PROJECT_FIELDS = {
   // HOLDS & BLOCKERS
   // ============================================================
 
-  // General Hold Fields (6 fields)
+  // General Hold Fields (7 fields)
   ON_HOLD: 231,                    // ✅ PRIMARY - Checkbox - Boolean hold status
   HOLD_REASON: 232,                // ✅ PRIMARY - 21% - Why project stopped
   BLOCK_REASON: 233,               // ✅ SECONDARY - 15% - Specific blocker
   HOLD_BLOCKERS: 1389,             // ✅ PRIMARY - Multi-line - Detailed description
   DATE_ON_HOLD: 235,               // ✅ PRIMARY - 21% - When hold started
+  HOLD_END_DATE: 9998,             // ⚠️ PLACEHOLDER - Field ID unknown - needs configuration
   USER_PLACED_ON_HOLD: 234,        // ✅ SECONDARY - 21% - Who placed hold
 
   // Specific Hold Types (5 fields)
@@ -93,6 +94,17 @@ export const PROJECT_FIELDS = {
   SITE_SURVEY_HOLD: 1413,          // ⚠️ Checkbox - Site survey hold
   ENGINEERING_HOLD: 2099,          // ⚠️ Checkbox - Engineering hold
   PERMITTING_HOLD: 2100,           // ⚠️ Checkbox - Permitting hold
+
+  // Cancel Reason Fields (2 fields)
+  CANCEL_REASON: 2222,             // ✅ PRIMARY - 41.3% - Multitext field containing cancellation reasons like "Failedloan", "unresponsive customer", etc.
+  AUDIT_LOG_PRE_CANCEL_STATUS: 2447, // ✅ PRIMARY - Audit trail information about project status before cancellation (e.g., "Roof Hold", "Rejected")
+
+  // ============================================================
+  // NOTES & COMMUNICATION
+  // ============================================================
+
+  // Note Categories (1 field)
+  RECENT_NOTE_CATEGORY: 1141,      // ✅ PRIMARY - Categorizes recent notes (e.g., "Retention", "Permitting")
 
   // ============================================================
   // ADDERS
