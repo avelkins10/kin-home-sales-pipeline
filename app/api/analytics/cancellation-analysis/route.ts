@@ -189,12 +189,12 @@ export async function GET(req: Request) {
 
       const category = parsedReason.category as CancelReasonCategory;
       const currentData = reasonData.get(category) || { count: 0, sources: new Map() };
-      
+
       // Track source distribution
       const source = parsedReason.source;
       currentData.sources.set(source, (currentData.sources.get(source) || 0) + 1);
       currentData.count++;
-      
+
       reasonData.set(category, currentData);
     }
 

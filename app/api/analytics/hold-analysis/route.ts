@@ -170,7 +170,6 @@ export async function GET(req: Request) {
         PROJECT_FIELDS.RECENT_NOTE_CATEGORY,
         PROJECT_FIELDS.INTAKE_MISSING_ITEMS_COMBINED,
         PROJECT_FIELDS.DATE_ON_HOLD,
-        PROJECT_FIELDS.HOLD_END_DATE,
         PROJECT_FIELDS.ON_HOLD
       ],
       where: whereClause,
@@ -196,32 +195,23 @@ export async function GET(req: Request) {
 
       const category = parsedReason.category as HoldReasonCategory;
       const currentData = reasonData.get(category) || { count: 0, totalResolutionDays: 0, resolvedCount: 0, sources: new Map() };
-      
+
       // Track source distribution
       const source = parsedReason.source;
       currentData.sources.set(source, (currentData.sources.get(source) || 0) + 1);
-      
-      // Check if project is resolved using HOLD_END_DATE field
-      const endDate = project[PROJECT_FIELDS.HOLD_END_DATE]?.value;
-      const isResolved = Boolean(endDate);
-      
+
+      // Check if project is resolved using ON_HOLD field (false = resolved, true = still on hold)
+      const onHold = project[PROJECT_FIELDS.ON_HOLD]?.value;
+      const isResolved = !onHold; // false, null, or undefined means hold is resolved
+
       if (isResolved) {
         resolvedHolds++;
-        // Calculate resolution time using actual end date with timezone awareness
-        const holdStartDate = project[PROJECT_FIELDS.DATE_ON_HOLD]?.value;
-        if (holdStartDate && endDate) {
-          const holdStart = parseQuickbaseDateInTimezone(holdStartDate, userTimezone);
-          const holdEnd = parseQuickbaseDateInTimezone(endDate, userTimezone);
-          if (holdStart && holdEnd) {
-            const resolutionDays = calculateDaysDifference(holdStart, holdEnd, userTimezone);
-            currentData.totalResolutionDays += resolutionDays;
-            currentData.resolvedCount++;
-          }
-        }
+        // Note: Cannot calculate exact resolution time without HOLD_END_DATE field (placeholder field 9998)
+        // avgResolutionDays will remain null for MVP
       } else {
         activeHolds++;
       }
-      
+
       currentData.count++;
       reasonData.set(category, currentData);
     }
