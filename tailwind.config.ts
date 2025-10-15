@@ -82,10 +82,12 @@ const config: Config = {
         pulse: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
       },
       screens: {
-        // iPad-first responsive breakpoints
-        'ipad': '768px',
-        'ipad-lg': '1024px',
-        'desktop': '1280px',
+        // Mobile-first responsive breakpoints
+        'xs': '475px',      // Large phones (iPhone 14 Pro: 393px, plus margin)
+        'mobile': '640px',  // Small tablets / landscape phones (alias for Tailwind 'sm')
+        'ipad': '768px',    // iPad portrait
+        'ipad-lg': '1024px', // iPad landscape
+        'desktop': '1280px', // Desktop
       },
     },
   },

@@ -7,6 +7,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { PROJECT_FIELDS } from '@/lib/constants/fieldIds';
 import { QuickbaseProject } from '@/lib/types/project';
 import { TrafficLightPipeline } from './TrafficLightPipeline';
+import { TrafficLightPipelineMobile } from './TrafficLightPipelineMobile';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from './StatusBadge';
 import { RejectionReasonBadge } from './RejectionReasonBadge';
@@ -22,6 +23,7 @@ import { getProjectCompletionPercentage } from '@/lib/utils/milestone-engine';
 import { useMilestoneConfig } from '@/lib/hooks/useMilestoneConfig';
 import { OwnershipBadge } from './OwnershipBadge';
 import { isManagerRole } from '@/lib/utils/role-helpers';
+import { useIsMobile } from '@/lib/hooks/useMediaQuery';
 
 interface ProjectRowProps {
   project: QuickbaseProject;
@@ -35,6 +37,7 @@ export function ProjectRow({ project, userEmail, userRole }: ProjectRowProps) {
   const queryClient = useQueryClient();
   const router = useRouter();
   const { config } = useMilestoneConfig();
+  const isMobile = useIsMobile();
 
   // Extract data from project
   const recordId = project[PROJECT_FIELDS.RECORD_ID]?.value;
@@ -111,19 +114,19 @@ export function ProjectRow({ project, userEmail, userRole }: ProjectRowProps) {
       data-testid="project-row"
     >
       {/* Header Section */}
-      <div className="p-4 border-b border-slate-100">
-        <div className="flex items-start justify-between">
+      <div className={isMobile ? "p-3 border-b border-slate-100" : "p-4 border-b border-slate-100"}>
+        <div className={isMobile ? "space-y-2" : "flex items-start justify-between"}>
           {/* Left: Customer Name + Badge */}
           <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <h3 className="text-lg font-semibold text-slate-900">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <h3 className={isMobile ? "text-base font-semibold text-slate-900" : "text-lg font-semibold text-slate-900"}>
                 {parsedName.firstName} {parsedName.lastName}
               </h3>
               <StatusBadge status={projectStatus} />
               {showOwnershipBadge && (
-                <OwnershipBadge 
-                  status={ownership.status} 
-                  displayName={ownership.displayName} 
+                <OwnershipBadge
+                  status={ownership.status}
+                  displayName={ownership.displayName}
                 />
               )}
               {unreadCount > 0 && (
@@ -134,38 +137,45 @@ export function ProjectRow({ project, userEmail, userRole }: ProjectRowProps) {
               <RejectionReasonBadge reasons={rejectionReasons} />
             )}
             <div className="flex items-center gap-1 text-sm text-slate-600">
-              <MapPin className="h-3.5 w-3.5" />
-              <span>{customerAddress}</span>
+              <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+              <span className={isMobile ? "line-clamp-1" : ""}>{customerAddress}</span>
             </div>
           </div>
 
-          {/* Right: System Metrics */}
-          <div className="text-right">
-            <div className="text-2xl font-bold text-slate-900">{formatSystemSize(systemSizeKw)}</div>
-            <div className="text-lg font-semibold text-emerald-600">{formatCurrency(systemPrice)}</div>
-            <div className="text-xs text-slate-500">Net PPW: {netPPW ? `$${netPPW.toFixed(2)}/W` : 'N/A'}</div>
+          {/* Right: System Metrics - stacks below on mobile */}
+          <div className={isMobile ? "flex items-center gap-3 mt-2" : "text-right"}>
+            <div className={isMobile ? "text-left" : ""}>
+              <div className={isMobile ? "text-xl font-bold text-slate-900" : "text-2xl font-bold text-slate-900"}>{formatSystemSize(systemSizeKw)}</div>
+              <div className={isMobile ? "text-base font-semibold text-emerald-600" : "text-lg font-semibold text-emerald-600"}>{formatCurrency(systemPrice)}</div>
+            </div>
+            {netPPW && (
+              <div className={isMobile ? "text-xs text-slate-500" : "text-xs text-slate-500"}>
+                Net PPW: ${netPPW.toFixed(2)}/W
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Metadata Row */}
-        <div className="flex items-center gap-4 mt-3 text-xs text-slate-600">
+        {/* Metadata Row - compressed on mobile */}
+        <div className={isMobile ? "flex items-center gap-3 mt-2 text-xs text-slate-600" : "flex items-center gap-4 mt-3 text-xs text-slate-600"}>
           {setterName && (
             <div className="flex items-center gap-1">
-              <span className="font-medium">Setter:</span> {setterName}
+              <span className="font-medium">Setter:</span> <span className={isMobile ? "truncate max-w-[80px]" : ""}>{setterName}</span>
             </div>
           )}
           {closerName && (
             <div className="flex items-center gap-1">
-              <span className="font-medium">Closer:</span> {closerName}
+              <span className="font-medium">Closer:</span> <span className={isMobile ? "truncate max-w-[80px]" : ""}>{closerName}</span>
             </div>
           )}
-          {office && (
+          {/* Hide office and sales date on mobile to save space */}
+          {!isMobile && office && (
             <div className="flex items-center gap-1">
               <Building2 className="h-3.5 w-3.5" />
               <span className="font-medium">Office:</span> {office}
             </div>
           )}
-          {formattedSalesDate && (
+          {!isMobile && formattedSalesDate && (
             <div className="flex items-center gap-1">
               <Calendar className="h-3.5 w-3.5" />
               <span className="font-medium">Sold:</span> {formattedSalesDate}
@@ -173,15 +183,15 @@ export function ProjectRow({ project, userEmail, userRole }: ProjectRowProps) {
           )}
           {projectAge > 0 && (
             <div className="flex items-center gap-1">
-              <Calendar className="h-3.5 w-3.5" />
-              <span className="font-medium">Project Age:</span> {projectAge} days
+              <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
+              <span className="font-medium">Age:</span> {projectAge}d
             </div>
           )}
         </div>
       </div>
 
       {/* Progress Section */}
-      <div className="px-4 py-3 bg-slate-50">
+      <div className={isMobile ? "px-3 py-2 bg-slate-50" : "px-4 py-3 bg-slate-50"}>
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-semibold text-slate-700">Project Progress</span>
           <span className="text-xs font-bold text-slate-900">{completionPercentage}% Complete</span>
@@ -194,18 +204,24 @@ export function ProjectRow({ project, userEmail, userRole }: ProjectRowProps) {
         </div>
       </div>
 
-      {/* Traffic Lights Section */}
-      <div className="px-4 py-4">
-        <TrafficLightPipeline project={project} />
+      {/* Traffic Lights Section - mobile-optimized version on small screens */}
+      <div className={isMobile ? "px-3 py-3" : "px-4 py-4"}>
+        {isMobile ? (
+          <TrafficLightPipelineMobile project={project} />
+        ) : (
+          <TrafficLightPipeline project={project} />
+        )}
       </div>
 
-      {/* Footer Section */}
-      <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-center">
-        <div className="flex items-center gap-2 text-sm text-slate-500">
-          <Eye className="h-4 w-4" />
-          <span>Click to view details</span>
+      {/* Footer Section - hide on mobile to save space */}
+      {!isMobile && (
+        <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-center">
+          <div className="flex items-center gap-2 text-sm text-slate-500">
+            <Eye className="h-4 w-4" />
+            <span>Click to view details</span>
+          </div>
         </div>
-      </div>
+      )}
     </Link>
   );
 }

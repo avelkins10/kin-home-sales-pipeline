@@ -20,16 +20,30 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { 
+      use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 1280, height: 720 }
       },
     },
     {
       name: 'iPad',
-      use: { 
+      use: {
         ...devices['iPad Pro'],
         viewport: { width: 1024, height: 768 } // Primary target
+      },
+    },
+    {
+      name: 'iPhone 14 Pro',
+      use: {
+        ...devices['iPhone 14 Pro'],
+        viewport: { width: 393, height: 852 } // Mobile phone testing
+      },
+    },
+    {
+      name: 'iPhone SE',
+      use: {
+        ...devices['iPhone SE'],
+        viewport: { width: 375, height: 667 } // Small phone testing
       },
     },
   ],

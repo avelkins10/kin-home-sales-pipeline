@@ -41,25 +41,25 @@ export default function ProjectsPage({ searchParams }: ProjectsPageProps) {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Page Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-slate-900">My Projects</h1>
-          <p className="mt-1.5 text-sm text-slate-600">Manage and track all your solar installation projects</p>
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        {/* Page Header - more compact on mobile */}
+        <div className="mb-4 sm:mb-8">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">My Projects</h1>
+          <p className="mt-1 sm:mt-1.5 text-xs sm:text-sm text-slate-600">Manage and track all your solar installation projects</p>
         </div>
 
-        {/* Controls Section */}
-        <div className="mb-6 space-y-4">
+        {/* Controls Section - optimized for mobile */}
+        <div className="mb-4 sm:mb-6 space-y-3 sm:space-y-4">
           {/* Search Bar and Sort */}
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
             <div className="flex-1">
               <SearchBar defaultValue={searchParams.search} isFetching={isFetching && fetchReason === 'manual'} />
             </div>
             <SortDropdown isFetching={isFetching && fetchReason === 'manual'} />
           </div>
 
-          {/* Rep and Office Filters */}
-          <div className="flex flex-col sm:flex-row gap-3">
+          {/* Rep and Office Filters - more compact on mobile */}
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
             <SetterFilterDropdown isFetching={isFetching && fetchReason === 'manual'} />
             <CloserFilterDropdown isFetching={isFetching && fetchReason === 'manual'} />
             <OfficeFilterDropdown isFetching={isFetching && fetchReason === 'manual'} />

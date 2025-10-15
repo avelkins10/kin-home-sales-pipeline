@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { Search, Loader2 } from 'lucide-react'
+import { useIsMobile } from '@/lib/hooks/useMediaQuery'
 
 interface SearchBarProps {
   defaultValue?: string
@@ -15,6 +16,7 @@ export function SearchBar({ defaultValue, isFetching = false }: SearchBarProps) 
   const [isSearching, setIsSearching] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
+  const isMobile = useIsMobile()
   
   // Search is limited to 100 characters for performance and QuickBase query limits
   const MAX_SEARCH_LENGTH = 100
@@ -57,7 +59,7 @@ export function SearchBar({ defaultValue, isFetching = false }: SearchBarProps) 
       )}
       <Input
         type="search"
-        placeholder="Search by customer name, project ID, or address..."
+        placeholder={isMobile ? "Search projects..." : "Search by customer name, project ID, or address..."}
         value={search}
         onChange={(e) => setSearch(e.target.value.slice(0, MAX_SEARCH_LENGTH))}
         maxLength={MAX_SEARCH_LENGTH}
