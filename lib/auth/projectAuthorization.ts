@@ -175,10 +175,26 @@ export function buildProjectAccessClause(
   let clause: string;
   switch (role) {
     case 'super_admin':
-    case 'regional':
-      // These roles see all projects, no user filter
+      // Super admin always sees all projects
       clause = '{3.GT.0}'; // Record ID > 0 (matches all records)
-      logInfo('[PROJECT_AUTHORIZATION] Admin role detected, granting all-projects access', { role });
+      logInfo('[PROJECT_AUTHORIZATION] Super admin role detected, granting all-projects access', { role });
+      break;
+    case 'regional':
+      // Regional managers WITH office assignments see those specific offices
+      // Regional managers WITHOUT office assignments see all projects (legacy/unrestricted)
+      if (officeIds && officeIds.length > 0) {
+        clause = buildOfficeClause(officeIds);
+        logInfo('[PROJECT_AUTHORIZATION] Regional manager with office assignments', {
+          role,
+          officeIds: officeIds,
+          officeCount: officeIds.length,
+          reqId
+        });
+      } else {
+        // No office assignments = see all projects (backward compatibility)
+        clause = '{3.GT.0}';
+        logInfo('[PROJECT_AUTHORIZATION] Regional manager with no office assignments, granting all-projects access', { role, reqId });
+      }
       break;
     case 'office_leader':
     case 'area_director':

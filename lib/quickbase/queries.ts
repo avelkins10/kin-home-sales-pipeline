@@ -266,7 +266,7 @@ export async function getProjectsForUserList(userId: string, role: string, view?
 
   // Get assigned office IDs for office-based roles if not provided
   let effectiveOfficeIds = officeIds;
-  if (!effectiveOfficeIds && ['office_leader', 'area_director', 'divisional'].includes(role)) {
+  if (!effectiveOfficeIds && ['office_leader', 'area_director', 'divisional', 'regional'].includes(role)) {
     effectiveOfficeIds = await getAssignedOffices(userId);
     logInfo('[PROJECT_QUERY] Fetched offices from database', { userId, role, officeCount: effectiveOfficeIds?.length || 0 });
   } else if (effectiveOfficeIds) {
@@ -274,7 +274,7 @@ export async function getProjectsForUserList(userId: string, role: string, view?
   }
 
   // Check for empty office assignments for office-based roles
-  if (['office_leader', 'area_director', 'divisional'].includes(role) && (!effectiveOfficeIds || effectiveOfficeIds.length === 0)) {
+  if (['office_leader', 'area_director', 'divisional', 'regional'].includes(role) && (!effectiveOfficeIds || effectiveOfficeIds.length === 0)) {
     logWarn('[OFFICE_ASSIGNMENT_RESOLUTION] No offices assigned to office-based role', { userId, role });
   }
 
@@ -482,7 +482,7 @@ export async function getProjectsForUser(userId: string, role: string, view?: st
 
   // Get assigned office IDs for office-based roles if not provided
   let effectiveOfficeIds = officeIds;
-  if (!effectiveOfficeIds && ['office_leader', 'area_director', 'divisional'].includes(role)) {
+  if (!effectiveOfficeIds && ['office_leader', 'area_director', 'divisional', 'regional'].includes(role)) {
     effectiveOfficeIds = await getAssignedOffices(userId);
   }
 
@@ -774,7 +774,7 @@ export async function getDashboardMetricsOptimized(userId: string, role: string,
 
   // Get assigned office IDs for office-based roles if no office IDs provided
   let effectiveOfficeIds = officeIds;
-  if (!effectiveOfficeIds && ['office_leader', 'area_director', 'divisional'].includes(role)) {
+  if (!effectiveOfficeIds && ['office_leader', 'area_director', 'divisional', 'regional'].includes(role)) {
     effectiveOfficeIds = await getAssignedOffices(userId);
   }
 
@@ -899,7 +899,7 @@ export async function getEnhancedDashboardMetrics(
 
   // Get assigned office IDs (QuickBase Record IDs from Field 810) for office-based roles if no office IDs provided
   let effectiveOfficeIds = officeIds;
-  if (!effectiveOfficeIds && ['office_leader', 'area_director', 'divisional'].includes(role)) {
+  if (!effectiveOfficeIds && ['office_leader', 'area_director', 'divisional', 'regional'].includes(role)) {
     effectiveOfficeIds = await getAssignedOffices(userId);
   }
 
@@ -2048,9 +2048,7 @@ export async function getTeamActivityFeed(
   let offices: number[] = [];
   let managedEmails: string[] = [];
 
-  if (role === 'office_leader') {
-    offices = officeIds || await getAssignedOffices(userId);
-  } else if (['area_director', 'divisional', 'regional'].includes(role)) {
+  if (['office_leader', 'area_director', 'divisional', 'regional'].includes(role)) {
     offices = officeIds || await getAssignedOffices(userId);
   } else if (role === 'team_lead') {
     managedEmails = await getManagedUserEmails(userId);
@@ -2204,7 +2202,7 @@ export async function getProjectsOnHold(userId: string, role: string, officeIds?
 
   // Get assigned office IDs (QuickBase Record IDs from Field 810) for office-based roles if no office IDs provided
   let effectiveOfficeIds = officeIds;
-  if (!effectiveOfficeIds && ['office_leader', 'area_director', 'divisional'].includes(role)) {
+  if (!effectiveOfficeIds && ['office_leader', 'area_director', 'divisional', 'regional'].includes(role)) {
     effectiveOfficeIds = await getAssignedOffices(userId);
   }
 
