@@ -107,7 +107,9 @@ export async function getNotificationRecipientsForProject(
       recipients.push(...officeLeaders);
     }
 
-    // 6. Add admins (super_admin and regional roles)
+    // 6. Add super admins (but NOT regional managers)
+    // Regional managers should only receive notifications when explicitly mentioned
+    // or when they're the closer/setter on a project, not for every project message
     const admins = await getAdmins();
     recipients.push(...admins);
 
@@ -158,7 +160,9 @@ async function getOfficeLeaders(salesOffice: string): Promise<NotificationRecipi
 }
 
 /**
- * Get all admin users from the database
+ * Get super admin users from the database
+ * Note: Regional managers are NOT included here - they only receive notifications
+ * when explicitly mentioned or when they're the closer/setter on a project.
  */
 async function getAdmins(): Promise<NotificationRecipient[]> {
   try {
@@ -169,7 +173,7 @@ async function getAdmins(): Promise<NotificationRecipient[]> {
     }>`
       SELECT email, name, role
       FROM users
-      WHERE role IN ('super_admin', 'regional')
+      WHERE role = 'super_admin'
     `;
 
     return result.rows.map(user => ({
