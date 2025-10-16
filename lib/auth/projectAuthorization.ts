@@ -72,7 +72,7 @@ export function canUserAccessProject(
   const role = getUserRole(session);
 
   // Office-based roles see everything (office filtering happens at query level)
-  if (['office_leader', 'area_director', 'divisional'].includes(role)) {
+  if (['office_leader', 'regional', 'area_director', 'divisional'].includes(role)) {
     return true;
   }
 
@@ -108,7 +108,7 @@ export function hasUnrestrictedAccess(session: Session): boolean {
   const role = getUserRole(session);
   return (
     isAdmin(session) ||
-    ['office_leader', 'area_director', 'divisional', 'team_lead'].includes(role)
+    ['office_leader', 'regional', 'area_director', 'divisional', 'team_lead'].includes(role)
   );
 }
 
