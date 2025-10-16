@@ -24,8 +24,8 @@ export default function AnalyticsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   
-  // Filter state from URL params
-  const [timeRange, setTimeRange] = useState<TimeRange>('ytd');
+  // Filter state from URL params - default to last_12_months for better data visibility
+  const [timeRange, setTimeRange] = useState<TimeRange>('last_12_months');
   const [customDateRange, setCustomDateRange] = useState<CustomDateRange | undefined>();
   const [selectedOfficeIds, setSelectedOfficeIds] = useState<number[]>([]);
   const [selectedRepEmail, setSelectedRepEmail] = useState<string | undefined>();
@@ -44,7 +44,7 @@ export default function AnalyticsPage() {
     const startDateParam = searchParams.get('startDate');
     const endDateParam = searchParams.get('endDate');
 
-    if (timeRangeParam && ['ytd', 'last_30', 'last_90', 'last_12_months', 'custom'].includes(timeRangeParam)) {
+    if (timeRangeParam && ['ytd', 'last_30', 'last_90', 'last_12_months', 'custom', 'lifetime'].includes(timeRangeParam)) {
       setTimeRange(timeRangeParam);
     }
 
@@ -65,12 +65,12 @@ export default function AnalyticsPage() {
     }
   }, [searchParams]);
 
-  // Persist default YTD to URL for fully shareable default state
+  // Persist default last_12_months to URL for fully shareable default state
   useEffect(() => {
     const timeRangeParam = searchParams.get('timeRange');
     if (!timeRangeParam) {
       const params = new URLSearchParams(searchParams.toString());
-      params.set('timeRange', 'ytd');
+      params.set('timeRange', 'last_12_months');
       router.replace(`/analytics?${params.toString()}`);
     }
   }, [searchParams, router]);
