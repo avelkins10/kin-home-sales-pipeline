@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import {
   Dialog,
   DialogContent,
@@ -9,6 +9,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -19,8 +29,8 @@ import { getRoleBadgeVariant, getRoleDisplayName } from '@/lib/utils/roles'
 import { getActivityStatus, getActivityColor, getActivityLabel, formatLastActivity } from '@/lib/utils/activity'
 import { getInitials, getAvatarColor, getAvatarTextColor } from '@/lib/utils/avatar'
 import type { UserRole } from '@/lib/types/project'
-import { 
-  Users, 
+import {
+  Users,
   MapPin,
   Calendar,
   Mail,
@@ -31,7 +41,8 @@ import {
   UserCheck,
   UserX,
   Copy,
-  Edit
+  Edit,
+  Key
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -78,6 +89,8 @@ interface Hierarchy {
 
 export function UserDetailsDialog({ userId, isOpen, onClose }: UserDetailsDialogProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null)
+  const [showResetPasswordDialog, setShowResetPasswordDialog] = useState(false)
+  const [newPassword, setNewPassword] = useState<string | null>(null)
 
   // Fetch user details
   const { data: user, isLoading: userLoading } = useQuery({
@@ -113,11 +126,43 @@ export function UserDetailsDialog({ userId, isOpen, onClose }: UserDetailsDialog
     enabled: isOpen,
   })
 
+  // Reset password mutation
+  const resetPasswordMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const response = await fetch(`${getBaseUrl()}/api/admin/users/${userId}/reset-password`, {
+        method: 'POST',
+      })
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to reset password')
+      }
+      return response.json()
+    },
+    onSuccess: (data) => {
+      setNewPassword(data.temporaryPassword)
+      toast.success('Password reset successfully!', {
+        description: 'Copy the temporary password to share with the user.',
+      })
+    },
+    onError: (error: Error) => {
+      toast.error('Failed to reset password', {
+        description: error.message,
+      })
+    },
+  })
+
   const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text)
     setCopiedField(field)
     toast.success(`${field} copied to clipboard`)
     setTimeout(() => setCopiedField(null), 2000)
+  }
+
+  const handleResetPassword = () => {
+    if (userId) {
+      resetPasswordMutation.mutate(userId)
+      setShowResetPasswordDialog(false)
+    }
   }
 
   const getRoleIcon = (role: UserRole) => {
@@ -392,6 +437,13 @@ export function UserDetailsDialog({ userId, isOpen, onClose }: UserDetailsDialog
               <Button variant="outline" onClick={onClose}>
                 Close
               </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowResetPasswordDialog(true)}
+              >
+                <Key className="h-4 w-4 mr-2" />
+                Reset Password
+              </Button>
               <Button variant="outline">
                 <Edit className="h-4 w-4 mr-2" />
                 Edit User
@@ -400,6 +452,76 @@ export function UserDetailsDialog({ userId, isOpen, onClose }: UserDetailsDialog
           </div>
         ) : null}
       </DialogContent>
+
+      {/* Reset Password Confirmation Dialog */}
+      <AlertDialog open={showResetPasswordDialog} onOpenChange={setShowResetPasswordDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset User Password?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will generate a new temporary password for <strong>{user?.name}</strong>.
+              The temporary password will be displayed once - make sure to save it or share it with the user immediately.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={resetPasswordMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleResetPassword}
+              disabled={resetPasswordMutation.isPending}
+            >
+              {resetPasswordMutation.isPending ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Resetting...
+                </>
+              ) : (
+                'Reset Password'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Show New Password Dialog */}
+      <AlertDialog open={!!newPassword} onOpenChange={(open) => !open && setNewPassword(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Password Reset Successful</AlertDialogTitle>
+            <AlertDialogDescription>
+              The new temporary password for <strong>{user?.name}</strong> is:
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="bg-gray-100 p-4 rounded-md">
+            <div className="flex items-center justify-between">
+              <code className="text-lg font-mono font-bold">{newPassword}</code>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (newPassword) {
+                    copyToClipboard(newPassword, 'Password')
+                  }
+                }}
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                Copy
+              </Button>
+            </div>
+          </div>
+          <AlertDialogDescription className="text-amber-600 mt-4">
+            ⚠️ <strong>Important:</strong> This password will only be shown once.
+            Make sure to copy it and share it with {user?.name} securely.
+            You can now use this password to log in as them for testing.
+          </AlertDialogDescription>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setNewPassword(null)}>
+              Done
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   )
 }
