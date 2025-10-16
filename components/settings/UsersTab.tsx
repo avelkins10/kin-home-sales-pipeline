@@ -46,7 +46,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { UserPlus, Search, Edit, Key, Mail, Users, RefreshCw, UserMinus, Eye, Info, X, Trash2 } from 'lucide-react'
+import { UserPlus, Search, Edit, Key, Mail, Users, RefreshCw, UserMinus, Eye, Info, X, Trash2, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 import { User, CreateUserInput } from '@/lib/types/user'
 import { getBaseUrl } from '@/lib/utils/baseUrl'
@@ -74,6 +74,8 @@ export default function UsersTab() {
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [userToDelete, setUserToDelete] = useState<User | null>(null)
+  const [newPassword, setNewPassword] = useState<string | null>(null)
+  const [passwordResetUser, setPasswordResetUser] = useState<User | null>(null)
   const [newUser, setNewUser] = useState<CreateUserInput & { 
     offices?: string[]
     managedBy?: string
@@ -215,8 +217,11 @@ export default function UsersTab() {
       }
       return response.json()
     },
-    onSuccess: (data) => {
-      toast.success(`Temp password: ${data.temporaryPassword}`)
+    onSuccess: (data, userId) => {
+      const user = users.find((u: User) => u.id === userId)
+      setNewPassword(data.temporaryPassword)
+      setPasswordResetUser(user || null)
+      toast.success('Password reset successfully!')
     },
     onError: (error: Error) => {
       toast.error(error.message)
@@ -318,6 +323,11 @@ export default function UsersTab() {
 
   const isTeamLeadRole = (role: string) => {
     return role === 'team_lead'
+  }
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+    toast.success('Password copied to clipboard')
   }
 
   return (
@@ -913,36 +923,47 @@ export default function UsersTab() {
                 </p>
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="flex-col sm:flex-row gap-2">
               <Button
                 variant="outline"
-                onClick={() => {
-                  setIsEditDialogOpen(false)
-                  setEditingUser(null)
-                }}
+                onClick={() => resetPasswordMutation.mutate(editingUser.id)}
+                disabled={resetPasswordMutation.isPending}
+                className="sm:mr-auto"
               >
-                Cancel
+                <Key className="h-4 w-4 mr-2" />
+                {resetPasswordMutation.isPending ? 'Resetting...' : 'Reset Password'}
               </Button>
-              <Button
-                onClick={() => {
-                  if (!editingUser.name) {
-                    toast.error('Name is required')
-                    return
-                  }
-                  updateUserMutation.mutate({
-                    userId: editingUser.id,
-                    updates: {
-                      name: editingUser.name,
-                      phone: editingUser.phone || undefined,
-                      quickbaseUserId: editingUser.quickbaseUserId || undefined,
-                      role: editingUser.role,
-                    },
-                  })
-                }}
-                disabled={updateUserMutation.isPending}
-              >
-                {updateUserMutation.isPending ? 'Saving...' : 'Save Changes'}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsEditDialogOpen(false)
+                    setEditingUser(null)
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (!editingUser.name) {
+                      toast.error('Name is required')
+                      return
+                    }
+                    updateUserMutation.mutate({
+                      userId: editingUser.id,
+                      updates: {
+                        name: editingUser.name,
+                        phone: editingUser.phone || undefined,
+                        quickbaseUserId: editingUser.quickbaseUserId || undefined,
+                        role: editingUser.role,
+                      },
+                    })
+                  }}
+                  disabled={updateUserMutation.isPending}
+                >
+                  {updateUserMutation.isPending ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </div>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -972,6 +993,45 @@ export default function UsersTab() {
               disabled={deleteUserMutation.isPending}
             >
               {deleteUserMutation.isPending ? 'Deleting...' : 'Delete User'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Password Reset Success Dialog */}
+      <AlertDialog open={!!newPassword} onOpenChange={(open) => !open && setNewPassword(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Password Reset Successful</AlertDialogTitle>
+            <AlertDialogDescription>
+              The new temporary password for <strong>{passwordResetUser?.name}</strong> is:
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="bg-gray-100 p-4 rounded-md">
+            <div className="flex items-center justify-between">
+              <code className="text-lg font-mono font-bold">{newPassword}</code>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (newPassword) {
+                    copyToClipboard(newPassword)
+                  }
+                }}
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                Copy
+              </Button>
+            </div>
+          </div>
+          <AlertDialogDescription className="text-amber-600 mt-4">
+            ⚠️ <strong>Important:</strong> This password will only be shown once.
+            Make sure to copy it and share it with {passwordResetUser?.name} securely.
+            You can now use this password to log in as them for testing.
+          </AlertDialogDescription>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setNewPassword(null)}>
+              Done
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
