@@ -13,6 +13,7 @@ import {
   Clock,
   Calendar,
   BarChart3,
+  FileText,
   Settings,
   ExternalLink,
   Menu,
@@ -35,6 +36,7 @@ export function TopNavbar() {
     // { name: 'Holds', href: '/holds', icon: Clock, roles: ['closer', 'setter', 'coordinator', 'office_leader', 'regional', 'super_admin'] }, // TODO: Implement holds page
     { name: 'Calendar', href: '/calendar', icon: Calendar, roles: ['closer', 'setter', 'coordinator', 'office_leader', 'regional', 'super_admin'] },
     { name: 'Analytics', href: '/analytics', icon: BarChart3, roles: ['office_leader', 'regional', 'super_admin'] },
+    { name: 'Reports', href: '/reports/intake-weekly', icon: FileText, roles: ['office_leader', 'regional', 'super_admin'] },
     { name: 'Settings', href: '/settings', icon: Settings, roles: ['closer', 'setter', 'coordinator', 'office_leader', 'regional', 'super_admin'] },
     { name: 'KIN Sales Hub', href: 'https://sites.google.com/kinhome.com/kinhomesalesnetwork/home', icon: ExternalLink, roles: ['closer', 'setter', 'coordinator', 'office_leader', 'regional', 'super_admin'], external: true },
   ];
