@@ -245,6 +245,23 @@ export function OfficeOverviewCard({
             </div>
           </div>
 
+          {/* First-Time Pass Rate (Clean Deals) */}
+          <div className="flex items-center space-x-3 p-3 bg-green-50 rounded-lg">
+            <div className="p-2 bg-green-100 rounded-lg">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm text-gray-600">First-Time Pass Rate</p>
+              <p className={`text-2xl font-semibold ${
+                (aggregated.firstTimePassRate ?? 0) >= 90 ? 'text-green-600' :
+                (aggregated.firstTimePassRate ?? 0) >= 75 ? 'text-yellow-600' :
+                'text-red-600'
+              }`}>
+                {formatPercentage(aggregated.firstTimePassRate ?? 0)}
+              </p>
+            </div>
+          </div>
+
           {/* Status Summary */}
           <div className="flex items-center space-x-3 p-3 bg-slate-50 rounded-lg">
             <div className="p-2 bg-slate-100 rounded-lg">

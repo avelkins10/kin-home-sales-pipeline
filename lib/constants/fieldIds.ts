@@ -154,6 +154,10 @@ export const PROJECT_FIELDS = {
   // Intake Rejection (1 field)
   INTAKE_MISSING_ITEMS_COMBINED: 1871, // ✅ PRIMARY - Multitext - Intake rejection reasons
 
+  // Intake Quality Tracking (2 fields - for closer scorecards)
+  INTAKE_FIRST_PASS_FINANCE_APPROVED: 1831, // ⭐ CRITICAL - 98.9% - "Approve" or "Reject" - NEVER changes after first review!
+  PRIOR_STATUS_WAS_REJECTED_BINARY: 1930,   // ⭐ CRITICAL - 100% - Binary flag: 1 = ever rejected, 0 = never rejected
+
   // ============================================================
   // MILESTONE 2: SURVEY
   // ============================================================

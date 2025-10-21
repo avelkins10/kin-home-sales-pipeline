@@ -71,20 +71,18 @@ export function calculateMilestoneState(project: QuickbaseProject, milestoneId: 
 
 // Intake milestone calculator
 function calculateIntakeState(project: QuickbaseProject): MilestoneState {
-  const projectStatus = project[PROJECT_FIELDS.PROJECT_STATUS]?.value || '';
-  const intakeComplete = project[PROJECT_FIELDS.WEBHOOK_INTAKE_COMPLETE]?.value;
-  const financeIntakeApproved = project[PROJECT_FIELDS.FINANCE_INTAKE_APPROVED]?.value;
+  const intakeCompletedDate = project[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value;
+  const firstPassResult = project[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value;
   const projectAge = getProjectAge(project); // Use calculated age from SALES_DATE
 
-  // Check if rejected or cancelled
-  const statusLower = projectStatus.toLowerCase();
-  if (statusLower.includes('rejected') || statusLower.includes('cancel')) {
-    return 'rejected'; // Intake was rejected/failed
+  // Check if intake completed (final approval)
+  if (intakeCompletedDate) {
+    return 'complete';
   }
 
-  // Check if intake approved/complete
-  if (intakeComplete || financeIntakeApproved) {
-    return 'complete';
+  // Check if rejected on first pass and awaiting resubmit
+  if (firstPassResult === 'Reject') {
+    return 'rejected';
   }
 
   // Check if overdue (more than 7 days waiting for intake)
@@ -249,16 +247,17 @@ export function getMilestoneStatusText(project: QuickbaseProject): string {
 
   switch (currentMilestone) {
     case 'intake':
-      // Check if rejected
-      if (projectStatus.toLowerCase().includes('rejected')) {
-        return '⛔ Intake Rejected';
+      const intakeCompletedDate = project[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value;
+      const firstPassResult = project[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value;
+
+      // Check if intake completed (approved)
+      if (intakeCompletedDate) {
+        return '✅ Intake Approved • Ready for survey';
       }
 
-      const intakeComplete = project[PROJECT_FIELDS.WEBHOOK_INTAKE_COMPLETE]?.value;
-      const financeIntakeApproved = project[PROJECT_FIELDS.FINANCE_INTAKE_APPROVED]?.value;
-
-      if (intakeComplete || financeIntakeApproved) {
-        return '✅ Intake Approved • Ready for survey';
+      // Check if rejected on first pass
+      if (firstPassResult === 'Reject') {
+        return '⛔ Intake Rejected - Awaiting Resubmit';
       }
 
       const projectAge = getProjectAge(project);

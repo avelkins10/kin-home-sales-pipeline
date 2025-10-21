@@ -328,9 +328,12 @@ function isMilestoneBlocked(project: QuickbaseProject, milestoneId: string): { b
 
   // Special handling for Intake milestone (rejection check)
   if (milestoneId === 'intake') {
-    const intakeStatus = getStringField(project, 347); // Intake Status field
-    if (intakeStatus && intakeStatus.toLowerCase().includes('rejected')) {
-      return { blocked: true, reason: 'Intake Rejected' };
+    // Check if intake was rejected on first pass AND not yet completed (awaiting resubmit)
+    const firstPassResult = getStringField(project, 1831); // INTAKE_FIRST_PASS_FINANCE_APPROVED
+    const intakeCompleted = getDateField(project, 461); // INTAKE_COMPLETED_DATE
+
+    if (firstPassResult === 'Reject' && !intakeCompleted) {
+      return { blocked: true, reason: 'Intake Rejected - Awaiting Resubmit' };
     }
   }
 

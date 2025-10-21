@@ -27,7 +27,7 @@ interface RepPerformanceTableProps {
   showExport?: boolean;
 }
 
-type SortColumn = 'totalProjects' | 'avgSystemSize' | 'avgNetPpw' | 'avgCycleTime' | 'cancellationRate' | 'holdRate' | 'repName' | 'role' | 'officeName';
+type SortColumn = 'totalProjects' | 'avgSystemSize' | 'avgNetPpw' | 'avgCycleTime' | 'firstTimePassRate' | 'cancellationRate' | 'holdRate' | 'repName' | 'role' | 'officeName';
 type SortDirection = 'ascending' | 'descending';
 
 // Loading skeleton component
@@ -145,6 +145,8 @@ export function RepPerformanceTable({
         avgNetPpw: rep.avgNetPpw,
         avgCommissionablePpw: rep.avgCommissionablePpw,
         avgCycleTime: rep.avgCycleTime || 'N/A',
+        firstTimePassRate: rep.firstTimePassRate,
+        rejectionRate: rep.rejectionRate,
         cancellationRate: rep.cancellationRate,
         holdRate: rep.holdRate,
         activeProjects: rep.activeProjects,
@@ -164,6 +166,8 @@ export function RepPerformanceTable({
         avgNetPpw: 'Avg Net PPW',
         avgCommissionablePpw: 'Avg Commissionable PPW',
         avgCycleTime: 'Avg Cycle Time (days)',
+        firstTimePassRate: 'First-Time Pass Rate (%)',
+        rejectionRate: 'Rejection Rate (%)',
         cancellationRate: 'Cancellation Rate (%)',
         holdRate: 'Hold Rate (%)',
         activeProjects: 'Active',
@@ -381,7 +385,7 @@ export function RepPerformanceTable({
                     {getSortIcon('avgNetPpw')}
                   </div>
                 </TableHead>
-                <TableHead 
+                <TableHead
                   className="text-right cursor-pointer hover:bg-gray-50"
                   onClick={() => handleSort('avgCycleTime')}
                   aria-sort={sortColumn === 'avgCycleTime' ? sortDirection : 'none'}
@@ -391,7 +395,17 @@ export function RepPerformanceTable({
                     {getSortIcon('avgCycleTime')}
                   </div>
                 </TableHead>
-                <TableHead 
+                <TableHead
+                  className="text-right cursor-pointer hover:bg-gray-50"
+                  onClick={() => handleSort('firstTimePassRate')}
+                  aria-sort={sortColumn === 'firstTimePassRate' ? sortDirection : 'none'}
+                >
+                  <div className="flex items-center justify-end space-x-1">
+                    <span>First-Time Pass %</span>
+                    {getSortIcon('firstTimePassRate')}
+                  </div>
+                </TableHead>
+                <TableHead
                   className="text-right cursor-pointer hover:bg-gray-50"
                   onClick={() => handleSort('cancellationRate')}
                   aria-sort={sortColumn === 'cancellationRate' ? sortDirection : 'none'}
@@ -462,6 +476,15 @@ export function RepPerformanceTable({
                     </TableCell>
                     <TableCell className="text-right">
                       {rep.avgCycleTime ? `${Math.round(rep.avgCycleTime)} days` : 'N/A'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <span className={`
+                        ${(rep.firstTimePassRate ?? 0) >= 90 ? 'text-green-600 font-semibold' : ''}
+                        ${(rep.firstTimePassRate ?? 0) >= 75 && (rep.firstTimePassRate ?? 0) < 90 ? 'text-yellow-600' : ''}
+                        ${(rep.firstTimePassRate ?? 0) < 75 ? 'text-red-600 font-semibold' : ''}
+                      `}>
+                        {rep.firstTimePassRate !== undefined ? formatPercentage(rep.firstTimePassRate) : 'N/A'}
+                      </span>
                     </TableCell>
                     <TableCell className="text-right">
                       <span className={`

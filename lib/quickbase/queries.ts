@@ -419,6 +419,10 @@ export async function getProjectsForUserList(userId: string, role: string, view?
         // Intake
         PROJECT_FIELDS.INTAKE_STATUS, // Field 347 - Primary status indicator for intake
         PROJECT_FIELDS.INTAKE_COMPLETED_DATE,
+        PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED, // Field 1831 - First pass result: "Approve" or "Reject"
+        PROJECT_FIELDS.PRIOR_STATUS_WAS_REJECTED_BINARY, // Field 1930 - Ever rejected flag
+        PROJECT_FIELDS.INTAKE_MISSING_ITEMS_COMBINED, // Field 1871 - Rejection reasons array
+        PROJECT_FIELDS.INTAKE_FIRST_PASS_COMPLETE, // Field 1951 - First review timestamp
         // Survey
         PROJECT_FIELDS.SURVEY_STATUS, // Field 162 - Primary status indicator for survey
         PROJECT_FIELDS.INTAKE_INSTALL_DATE_TENTATIVE,
@@ -2646,11 +2650,76 @@ export async function getOfficeMetrics(
         .filter(time => time != null && time > 0) as number[];
       const avgCycleTime = cycleTimes.length > 0 ? cycleTimes.reduce((sum, time) => sum + time, 0) / cycleTimes.length : null;
 
-      // Calculate intake approval rate
-      const approvedIntakes = officeProjects.filter(p => 
-        p[PROJECT_FIELDS.INTAKE_STATUS]?.value?.toLowerCase().includes('approved')
+      // Calculate intake approval rate (projects with completed intake)
+      const approvedIntakes = officeProjects.filter(p =>
+        p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value
       ).length;
       const intakeApprovalRate = totalProjects > 0 ? (approvedIntakes / totalProjects) * 100 : 0;
+
+      // Calculate intake quality metrics for closer scorecard
+      const projectsWithFirstPass = officeProjects.filter(p =>
+        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value
+      );
+
+      // First-time pass rate (KEY METRIC - clean deals approved on first attempt)
+      const firstTimePass = projectsWithFirstPass.filter(p =>
+        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value === 'Approve'
+      ).length;
+      const firstTimePassRate = projectsWithFirstPass.length > 0
+        ? (firstTimePass / projectsWithFirstPass.length) * 100
+        : 0;
+
+      // Rejection rate (projects rejected on first attempt)
+      const rejections = projectsWithFirstPass.filter(p =>
+        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value === 'Reject'
+      ).length;
+      const rejectionRate = projectsWithFirstPass.length > 0
+        ? (rejections / projectsWithFirstPass.length) * 100
+        : 0;
+
+      // Resubmit success rate (of rejected projects, how many eventually got approved)
+      const rejectedProjects = officeProjects.filter(p =>
+        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value === 'Reject'
+      );
+      const eventuallyApproved = rejectedProjects.filter(p =>
+        p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value
+      ).length;
+      const resubmitSuccessRate = rejectedProjects.length > 0
+        ? (eventuallyApproved / rejectedProjects.length) * 100
+        : 100;
+
+      // Average resolution time (only for rejected projects that were eventually approved)
+      const resolutionTimes = rejectedProjects
+        .map(p => {
+          const firstReview = p[PROJECT_FIELDS.INTAKE_FIRST_PASS_COMPLETE]?.value;
+          const finalApproval = p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value;
+          if (!firstReview || !finalApproval) return null;
+
+          const days = (new Date(finalApproval).getTime() - new Date(firstReview).getTime())
+            / (1000 * 60 * 60 * 24);
+          return Math.round(days);
+        })
+        .filter(time => time !== null && time > 0) as number[];
+
+      const avgResolutionTime = resolutionTimes.length > 0
+        ? resolutionTimes.reduce((sum, time) => sum + time, 0) / resolutionTimes.length
+        : null;
+
+      // Top rejection reasons (most common issues across all projects)
+      const reasonCounts: Record<string, number> = {};
+      officeProjects.forEach(p => {
+        const reasons = p[PROJECT_FIELDS.INTAKE_MISSING_ITEMS_COMBINED]?.value;
+        if (Array.isArray(reasons)) {
+          reasons.forEach(reason => {
+            reasonCounts[reason] = (reasonCounts[reason] || 0) + 1;
+          });
+        }
+      });
+
+      const topRejectionReasons = Object.entries(reasonCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([reason, count]) => ({ reason, count }));
 
       // Count by status
       const statusCounts = officeProjects.reduce((acc, project) => {
@@ -2681,6 +2750,11 @@ export async function getOfficeMetrics(
         avgCommissionablePpw: Math.round(avgCommissionablePpw * 100) / 100,
         avgCycleTime: avgCycleTime ? Math.round(avgCycleTime) : null,
         intakeApprovalRate: Math.round(intakeApprovalRate * 100) / 100,
+        firstTimePassRate: Math.round(firstTimePassRate * 100) / 100,
+        rejectionRate: Math.round(rejectionRate * 100) / 100,
+        resubmitSuccessRate: Math.round(resubmitSuccessRate * 100) / 100,
+        avgResolutionTime: avgResolutionTime ? Math.round(avgResolutionTime) : null,
+        topRejectionReasons,
         activeProjects,
         cancelledProjects,
         onHoldProjects,
@@ -2966,11 +3040,76 @@ export async function getRepPerformance(
         .filter(time => time != null && time > 0) as number[];
       const avgCycleTime = cycleTimes.length > 0 ? cycleTimes.reduce((sum, time) => sum + time, 0) / cycleTimes.length : null;
 
-      // Calculate intake approval rate
-      const approvedIntakes = repProjects.filter(p => 
-        p[PROJECT_FIELDS.INTAKE_STATUS]?.value?.toLowerCase().includes('approved')
+      // Calculate intake approval rate (projects with completed intake)
+      const approvedIntakes = repProjects.filter(p =>
+        p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value
       ).length;
       const intakeApprovalRate = totalProjects > 0 ? (approvedIntakes / totalProjects) * 100 : 0;
+
+      // Calculate intake quality metrics for closer scorecard
+      const projectsWithFirstPass = repProjects.filter(p =>
+        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value
+      );
+
+      // First-time pass rate (KEY METRIC - clean deals approved on first attempt)
+      const firstTimePass = projectsWithFirstPass.filter(p =>
+        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value === 'Approve'
+      ).length;
+      const firstTimePassRate = projectsWithFirstPass.length > 0
+        ? (firstTimePass / projectsWithFirstPass.length) * 100
+        : 0;
+
+      // Rejection rate (projects rejected on first attempt)
+      const rejections = projectsWithFirstPass.filter(p =>
+        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value === 'Reject'
+      ).length;
+      const rejectionRate = projectsWithFirstPass.length > 0
+        ? (rejections / projectsWithFirstPass.length) * 100
+        : 0;
+
+      // Resubmit success rate (of rejected projects, how many eventually got approved)
+      const rejectedProjects = repProjects.filter(p =>
+        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value === 'Reject'
+      );
+      const eventuallyApproved = rejectedProjects.filter(p =>
+        p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value
+      ).length;
+      const resubmitSuccessRate = rejectedProjects.length > 0
+        ? (eventuallyApproved / rejectedProjects.length) * 100
+        : 100;
+
+      // Average resolution time (only for rejected projects that were eventually approved)
+      const resolutionTimes = rejectedProjects
+        .map(p => {
+          const firstReview = p[PROJECT_FIELDS.INTAKE_FIRST_PASS_COMPLETE]?.value;
+          const finalApproval = p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value;
+          if (!firstReview || !finalApproval) return null;
+
+          const days = (new Date(finalApproval).getTime() - new Date(firstReview).getTime())
+            / (1000 * 60 * 60 * 24);
+          return Math.round(days);
+        })
+        .filter(time => time !== null && time > 0) as number[];
+
+      const avgResolutionTime = resolutionTimes.length > 0
+        ? resolutionTimes.reduce((sum, time) => sum + time, 0) / resolutionTimes.length
+        : null;
+
+      // Top rejection reasons (most common issues for this rep)
+      const reasonCounts: Record<string, number> = {};
+      repProjects.forEach(p => {
+        const reasons = p[PROJECT_FIELDS.INTAKE_MISSING_ITEMS_COMBINED]?.value;
+        if (Array.isArray(reasons)) {
+          reasons.forEach(reason => {
+            reasonCounts[reason] = (reasonCounts[reason] || 0) + 1;
+          });
+        }
+      });
+
+      const topRejectionReasons = Object.entries(reasonCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([reason, count]) => ({ reason, count }));
 
       // Count by status
       const statusCounts = repProjects.reduce((acc, project) => {
@@ -3001,6 +3140,11 @@ export async function getRepPerformance(
         avgCommissionablePpw: Math.round(avgCommissionablePpw * 100) / 100,
         avgCycleTime: avgCycleTime ? Math.round(avgCycleTime) : null,
         intakeApprovalRate: Math.round(intakeApprovalRate * 100) / 100,
+        firstTimePassRate: Math.round(firstTimePassRate * 100) / 100,
+        rejectionRate: Math.round(rejectionRate * 100) / 100,
+        resubmitSuccessRate: Math.round(resubmitSuccessRate * 100) / 100,
+        avgResolutionTime: avgResolutionTime ? Math.round(avgResolutionTime) : null,
+        topRejectionReasons,
         activeProjects,
         cancelledProjects,
         onHoldProjects,

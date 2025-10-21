@@ -80,6 +80,16 @@ export interface OfficeMetrics {
   avgCycleTime: number | null;
   /** Percentage of projects with approved intake status */
   intakeApprovalRate: number;
+  /** Percentage of projects approved on first intake attempt (clean deals) */
+  firstTimePassRate: number;
+  /** Percentage of projects rejected on first intake attempt */
+  rejectionRate: number;
+  /** Of rejected projects, percentage that were eventually approved after resubmit */
+  resubmitSuccessRate: number;
+  /** Average days to resolve intake rejections (from first rejection to approval) */
+  avgResolutionTime: number | null;
+  /** Most common intake rejection reasons */
+  topRejectionReasons: Array<{ reason: string; count: number }>;
   /** Number of active projects */
   activeProjects: number;
   /** Number of cancelled projects */
@@ -131,6 +141,16 @@ export interface RepPerformance {
   avgCycleTime: number | null;
   /** Percentage of projects with approved intake status */
   intakeApprovalRate: number;
+  /** Percentage of projects approved on first intake attempt (clean deals) */
+  firstTimePassRate: number;
+  /** Percentage of projects rejected on first intake attempt */
+  rejectionRate: number;
+  /** Of rejected projects, percentage that were eventually approved after resubmit */
+  resubmitSuccessRate: number;
+  /** Average days to resolve intake rejections (from first rejection to approval) */
+  avgResolutionTime: number | null;
+  /** Most common intake rejection reasons */
+  topRejectionReasons: Array<{ reason: string; count: number }>;
   /** Number of active projects */
   activeProjects: number;
   /** Number of cancelled projects */
