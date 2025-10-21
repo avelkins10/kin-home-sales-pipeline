@@ -12,6 +12,7 @@ import { PROJECT_FIELDS } from '@/lib/constants/fieldIds';
 const filterChips = [
   { value: 'all', label: 'All Projects', color: 'slate' },
   { value: 'active', label: 'Active (In Progress)', color: 'emerald' },
+  { value: 'rejected', label: 'Rejected (KCA)', color: 'red' },
   { value: 'on-hold', label: 'On Hold', color: 'amber' },
   { value: 'install-completed', label: 'Installed', color: 'blue' },
   { value: 'pending-cancel', label: 'Pending Cancel', color: 'orange' },
@@ -84,6 +85,9 @@ export function ProjectFilterChips({ isFetching = false }: ProjectFilterChipsPro
       case 'cancelled':
         // PROJECT_STATUS = "Cancelled" (not pending)
         return status === 'Cancelled' || (status.includes('Cancel') && !status.includes('Pending'));
+      case 'rejected':
+        // PROJECT_STATUS contains "Rejected" (KCA Intake rejection)
+        return status.toLowerCase().includes('rejected');
       case 'needs-attention':
         // Projects >90 days old OR on hold >7 days
         const projectAge = parseInt(project[PROJECT_FIELDS.PROJECT_AGE]?.value || '0');

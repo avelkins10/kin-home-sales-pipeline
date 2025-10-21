@@ -2444,7 +2444,7 @@ export async function getOfficeMetrics(
     // Build timezone-aware time range filter
     let timeFilter = '';
     if (timeRange === 'custom' && customDateRange) {
-      timeFilter = `AND {${PROJECT_FIELDS.SALES_DATE}} >= '${customDateRange.startDate}' AND {${PROJECT_FIELDS.SALES_DATE}} <= '${customDateRange.endDate}'`;
+      timeFilter = `AND {${PROJECT_FIELDS.SALES_DATE}.OAF.'${customDateRange.startDate}'} AND {${PROJECT_FIELDS.SALES_DATE}.OBF.'${customDateRange.endDate}'}`;
     } else if (timeRange !== 'lifetime') {
       const now = new Date();
       const currentYear = now.getFullYear();
@@ -2547,7 +2547,7 @@ export async function getOfficeMetrics(
       }
       
       if (startDate && endDate) {
-        timeFilter = `AND {${PROJECT_FIELDS.SALES_DATE}} >= '${startDate}' AND {${PROJECT_FIELDS.SALES_DATE}} <= '${endDate}'`;
+        timeFilter = `AND {${PROJECT_FIELDS.SALES_DATE}.OAF.'${startDate}'} AND {${PROJECT_FIELDS.SALES_DATE}.OBF.'${endDate}'}`;
       }
     }
 
@@ -2748,7 +2748,7 @@ export async function getRepPerformance(
     // Build timezone-aware time range filter
     let timeFilter = '';
     if (timeRange === 'custom' && customDateRange) {
-      timeFilter = `AND {${PROJECT_FIELDS.SALES_DATE}} >= '${customDateRange.startDate}' AND {${PROJECT_FIELDS.SALES_DATE}} <= '${customDateRange.endDate}'`;
+      timeFilter = `AND {${PROJECT_FIELDS.SALES_DATE}.OAF.'${customDateRange.startDate}'} AND {${PROJECT_FIELDS.SALES_DATE}.OBF.'${customDateRange.endDate}'}`;
     } else if (timeRange !== 'lifetime') {
       const now = new Date();
       const currentYear = now.getFullYear();
@@ -2851,7 +2851,7 @@ export async function getRepPerformance(
       }
       
       if (startDate && endDate) {
-        timeFilter = `AND {${PROJECT_FIELDS.SALES_DATE}} >= '${startDate}' AND {${PROJECT_FIELDS.SALES_DATE}} <= '${endDate}'`;
+        timeFilter = `AND {${PROJECT_FIELDS.SALES_DATE}.OAF.'${startDate}'} AND {${PROJECT_FIELDS.SALES_DATE}.OBF.'${endDate}'}`;
       }
     }
 
@@ -3219,7 +3219,7 @@ export async function getMilestoneTimings(
     // Build timezone-aware time range filter
     let timeFilter = '';
     if (timeRange === 'custom' && customDateRange) {
-      timeFilter = `AND {${PROJECT_FIELDS.SALES_DATE}} >= '${customDateRange.startDate}' AND {${PROJECT_FIELDS.SALES_DATE}} <= '${customDateRange.endDate}'`;
+      timeFilter = `AND {${PROJECT_FIELDS.SALES_DATE}.OAF.'${customDateRange.startDate}'} AND {${PROJECT_FIELDS.SALES_DATE}.OBF.'${customDateRange.endDate}'}`;
     } else if (timeRange !== 'lifetime') {
       const now = new Date();
       const currentYear = now.getFullYear();
@@ -3322,7 +3322,7 @@ export async function getMilestoneTimings(
       }
       
       if (startDate && endDate) {
-        timeFilter = `AND {${PROJECT_FIELDS.SALES_DATE}} >= '${startDate}' AND {${PROJECT_FIELDS.SALES_DATE}} <= '${endDate}'`;
+        timeFilter = `AND {${PROJECT_FIELDS.SALES_DATE}.OAF.'${startDate}'} AND {${PROJECT_FIELDS.SALES_DATE}.OBF.'${endDate}'}`;
       }
     }
 
