@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
     for (const [closerEmail, closerProjects] of Array.from(projectsByCloser.entries())) {
       // Get closer name from first project
       const closerName = closerProjects[0][PROJECT_FIELDS.CLOSER_NAME]?.value || closerEmail;
-      const officeName = closerProjects[0][PROJECT_FIELDS.OFFICE_NAME]?.value || null;
+      const officeName = closerProjects[0][PROJECT_FIELDS.SALES_OFFICE]?.value || null;
 
       // Total submitted = all projects sold in date range
       const totalSubmitted = closerProjects.length;
@@ -165,10 +165,10 @@ export async function GET(request: NextRequest) {
 
     // Calculate overall metrics
     const totalProjects = projects.length;
-    const allFirstTimeApproved = projects.filter(p =>
+    const allFirstTimeApproved = projects.filter((p: QuickbaseProject) =>
       p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value === 'Approve'
     ).length;
-    const projectsWithFirstPass = projects.filter(p =>
+    const projectsWithFirstPass = projects.filter((p: QuickbaseProject) =>
       p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value
     ).length;
 
@@ -182,10 +182,10 @@ export async function GET(request: NextRequest) {
 
     // Find most common rejection reason across all closers
     const allReasonCounts: Record<string, number> = {};
-    projects.forEach(p => {
+    projects.forEach((p: QuickbaseProject) => {
       const reasons = p[PROJECT_FIELDS.INTAKE_MISSING_ITEMS_COMBINED]?.value;
       if (Array.isArray(reasons)) {
-        reasons.forEach(reason => {
+        reasons.forEach((reason: string) => {
           allReasonCounts[reason] = (allReasonCounts[reason] || 0) + 1;
         });
       }
