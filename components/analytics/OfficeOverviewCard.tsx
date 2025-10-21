@@ -25,6 +25,7 @@ interface OfficeOverviewData {
   avgCommissionablePpw: number;
   avgCycleTime: number | null;
   intakeApprovalRate: number;
+  firstTimePassRate: number;
   activeProjects: number;
   cancelledProjects: number;
   onHoldProjects: number;
@@ -125,6 +126,7 @@ export function OfficeOverviewCard({
       acc.avgCycleTime = ((acc.avgCycleTime as number) || 0) + office.avgCycleTime * office.totalProjects;
     }
     acc.intakeApprovalRate += office.intakeApprovalRate * office.totalProjects;
+    acc.firstTimePassRate += office.firstTimePassRate * office.totalProjects;
     acc.activeProjects += office.activeProjects;
     acc.cancelledProjects += office.cancelledProjects;
     acc.onHoldProjects += office.onHoldProjects;
@@ -138,6 +140,7 @@ export function OfficeOverviewCard({
     avgCommissionablePpw: 0,
     avgCycleTime: null as number | null,
     intakeApprovalRate: 0,
+    firstTimePassRate: 0,
     activeProjects: 0,
     cancelledProjects: 0,
     onHoldProjects: 0,
@@ -160,6 +163,7 @@ export function OfficeOverviewCard({
     aggregated.avgCommissionablePpw /= aggregated.totalProjects;
     aggregated.avgCycleTime = projectsWithCycleTime > 0 ? aggregated.avgCycleTime! / projectsWithCycleTime : null;
     aggregated.intakeApprovalRate /= aggregated.totalProjects;
+    aggregated.firstTimePassRate /= aggregated.totalProjects;
   }
 
   const getTimeRangeLabel = () => {

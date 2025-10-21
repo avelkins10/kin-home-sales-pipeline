@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     // Group projects by closer email
     const projectsByCloser = new Map<string, QuickbaseProject[]>();
 
-    projects.forEach(project => {
+    projects.forEach((project: QuickbaseProject) => {
       const closerEmail = project[PROJECT_FIELDS.CLOSER_EMAIL]?.value;
       if (!closerEmail) return; // Skip projects without closer
 
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
     // Calculate metrics for each closer
     const closerReports: WeeklyIntakeCloserReport[] = [];
 
-    for (const [closerEmail, closerProjects] of projectsByCloser) {
+    for (const [closerEmail, closerProjects] of Array.from(projectsByCloser.entries())) {
       // Get closer name from first project
       const closerName = closerProjects[0][PROJECT_FIELDS.CLOSER_NAME]?.value || closerEmail;
       const officeName = closerProjects[0][PROJECT_FIELDS.OFFICE_NAME]?.value || null;

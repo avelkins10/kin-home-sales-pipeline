@@ -2192,6 +2192,49 @@ export async function getProjectById(recordId: number) {
   return result.data[0] || null;
 }
 
+/**
+ * Generic function to fetch projects with custom where clause
+ * Used for reporting and analytics that need flexible filtering
+ */
+export async function fetchProjects(params: {
+  userId: string;
+  role: string;
+  where?: string;
+  select?: number[];
+}) {
+  const { userId, role, where, select } = params;
+
+  // Get user access clause for authorization
+  const userEmail = await getUserEmail(userId);
+  let managedEmails: string[] | undefined;
+  if (role === 'team_lead') {
+    managedEmails = await getManagedUserEmails(userId);
+  }
+
+  // Get assigned office IDs for office-based roles
+  let officeIds: number[] | undefined;
+  if (['office_leader', 'area_director', 'divisional', 'regional'].includes(role)) {
+    officeIds = await getAssignedOffices(userId);
+  }
+
+  // Build authorization clause
+  const accessClause = buildProjectAccessClause(userEmail, role, officeIds, managedEmails);
+
+  // Combine access clause with custom where clause
+  const whereClause = where ? `(${accessClause}) AND (${where})` : accessClause;
+
+  // Default to all fields if no select is provided
+  const selectFields = select || Object.values(PROJECT_FIELDS);
+
+  const result = await qbClient.queryRecords({
+    from: QB_TABLE_PROJECTS,
+    select: selectFields,
+    where: whereClause,
+  });
+
+  return result.data;
+}
+
 export async function getProjectsOnHold(userId: string, role: string, officeIds?: number[]) {
   // Get user email for email-based filtering
   let userEmail: string | null = null;
