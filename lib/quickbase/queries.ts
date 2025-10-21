@@ -691,23 +691,8 @@ function getSortOrder(view?: string, sort?: string): { fieldId: number; order: '
     }
   }
 
-  // Fall back to view-based sorting
-  switch (view) {
-    case 'on-hold':
-      return [{ fieldId: PROJECT_FIELDS.DATE_ON_HOLD, order: 'ASC' as const }]; // Oldest first
-    case 'install-scheduled':
-      return [{ fieldId: PROJECT_FIELDS.INSTALL_SCHEDULED_DATE_CAPTURE, order: 'ASC' as const }];
-    case 'install-completed':
-      return [{ fieldId: PROJECT_FIELDS.INSTALL_COMPLETED_DATE, order: 'DESC' as const }];
-    case 'needs-attention':
-      return [{ fieldId: PROJECT_FIELDS.PROJECT_AGE, order: 'DESC' as const }]; // Oldest first
-    default:
-      return [
-        { fieldId: PROJECT_FIELDS.ON_HOLD, order: 'DESC' as const }, // Holds first
-        { fieldId: PROJECT_FIELDS.PROJECT_PRIORITY, order: 'ASC' as const }, // Then by priority
-        { fieldId: PROJECT_FIELDS.SALES_DATE, order: 'DESC' as const }, // Then newest
-      ];
-  }
+  // Default to newest first by sales date for all views
+  return [{ fieldId: PROJECT_FIELDS.SALES_DATE, order: 'DESC' as const }];
 }
 
 export async function getDashboardMetrics(userId: string, role: string) {
