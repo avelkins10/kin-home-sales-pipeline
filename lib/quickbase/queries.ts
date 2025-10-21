@@ -617,6 +617,10 @@ function buildViewFilter(view?: string): string {
       // PROJECT_STATUS = "Cancelled" (exact match or contains Cancel but not Pending)
       return `({${PROJECT_FIELDS.PROJECT_STATUS}.EX.'Cancelled'} OR ({${PROJECT_FIELDS.PROJECT_STATUS}.CT.'Cancel'} AND {${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Pending'}))`;
 
+    case 'rejected':
+      // INTAKE_STATUS contains "Rejected" (KCA Intake rejection)
+      return `{${PROJECT_FIELDS.INTAKE_STATUS}.CT.'Rejected'}`;
+
     case 'needs-attention':
       // Projects >90 days old OR on hold >7 days
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
