@@ -2633,12 +2633,18 @@ export async function getOfficeMetrics(
         .filter(ppw => ppw != null);
       const avgCommissionablePpw = commissionablePpws.length > 0 ? commissionablePpws.reduce((sum, ppw) => sum + ppw, 0) / commissionablePpws.length : 0;
 
-      // Calculate cycle time for completed projects
+      // Calculate cycle time for completed projects (days from sale to install completion)
       const completedProjects = officeProjects.filter(p => p[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value);
       const cycleTimes = completedProjects
-        .map(p => p[PROJECT_FIELDS.PROJECT_AGE]?.value)
-        .filter(age => age != null);
-      const avgCycleTime = cycleTimes.length > 0 ? cycleTimes.reduce((sum, age) => sum + age, 0) / cycleTimes.length : null;
+        .map(p => {
+          const installDate = p[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value;
+          const salesDate = p[PROJECT_FIELDS.SALES_DATE]?.value;
+          if (!installDate || !salesDate) return null;
+          const cycleTime = (new Date(installDate).getTime() - new Date(salesDate).getTime()) / (1000 * 60 * 60 * 24);
+          return Math.round(cycleTime);
+        })
+        .filter(time => time != null && time > 0) as number[];
+      const avgCycleTime = cycleTimes.length > 0 ? cycleTimes.reduce((sum, time) => sum + time, 0) / cycleTimes.length : null;
 
       // Calculate intake approval rate
       const approvedIntakes = officeProjects.filter(p => 
@@ -2947,12 +2953,18 @@ export async function getRepPerformance(
         .filter(ppw => ppw != null);
       const avgCommissionablePpw = commissionablePpws.length > 0 ? commissionablePpws.reduce((sum, ppw) => sum + ppw, 0) / commissionablePpws.length : 0;
 
-      // Calculate cycle time for completed projects
+      // Calculate cycle time for completed projects (days from sale to install completion)
       const completedProjects = repProjects.filter(p => p[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value);
       const cycleTimes = completedProjects
-        .map(p => p[PROJECT_FIELDS.PROJECT_AGE]?.value)
-        .filter(age => age != null);
-      const avgCycleTime = cycleTimes.length > 0 ? cycleTimes.reduce((sum, age) => sum + age, 0) / cycleTimes.length : null;
+        .map(p => {
+          const installDate = p[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value;
+          const salesDate = p[PROJECT_FIELDS.SALES_DATE]?.value;
+          if (!installDate || !salesDate) return null;
+          const cycleTime = (new Date(installDate).getTime() - new Date(salesDate).getTime()) / (1000 * 60 * 60 * 24);
+          return Math.round(cycleTime);
+        })
+        .filter(time => time != null && time > 0) as number[];
+      const avgCycleTime = cycleTimes.length > 0 ? cycleTimes.reduce((sum, time) => sum + time, 0) / cycleTimes.length : null;
 
       // Calculate intake approval rate
       const approvedIntakes = repProjects.filter(p => 
