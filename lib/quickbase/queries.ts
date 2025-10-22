@@ -2609,6 +2609,11 @@ export async function getOfficeMetrics(
         PROJECT_FIELDS.INSTALL_COMPLETED_DATE,
         PROJECT_FIELDS.OFFICE_RECORD_ID,
         PROJECT_FIELDS.SALES_OFFICE,
+        // Intake quality tracking fields (for closer scorecards)
+        PROJECT_FIELDS.INTAKE_COMPLETED_DATE,                    // Field 461
+        PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED,       // Field 1831 - "Approve" or "Reject"
+        PROJECT_FIELDS.INTAKE_FIRST_PASS_COMPLETE,               // Field 1951 - First review timestamp
+        PROJECT_FIELDS.INTAKE_MISSING_ITEMS_COMBINED,            // Field 1871 - Rejection reasons
       ],
       options: {
         top: 5000, // Handle large datasets
@@ -2991,6 +2996,11 @@ export async function getRepPerformance(
         PROJECT_FIELDS.CLOSER_EMAIL,
         PROJECT_FIELDS.SETTER_NAME,
         PROJECT_FIELDS.SETTER_EMAIL,
+        // Intake quality tracking fields (for closer scorecards)
+        PROJECT_FIELDS.INTAKE_COMPLETED_DATE,                    // Field 461
+        PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED,       // Field 1831 - "Approve" or "Reject"
+        PROJECT_FIELDS.INTAKE_FIRST_PASS_COMPLETE,               // Field 1951 - First review timestamp
+        PROJECT_FIELDS.INTAKE_MISSING_ITEMS_COMBINED,            // Field 1871 - Rejection reasons
       ],
       options: {
         top: 5000, // Handle large datasets
