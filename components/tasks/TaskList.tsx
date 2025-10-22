@@ -55,7 +55,7 @@ export function TaskList({ tasks, groupBy = 'none' }: TaskListProps) {
             </h3>
             <div className="space-y-3">
               {sortTasksByUrgency(projectTasks).map((task) => (
-                <TaskListItem key={task.recordId} task={task} showProject={false} />
+                <TaskListItem key={task.recordId} task={task as any} showProject={false} />
               ))}
             </div>
           </div>
