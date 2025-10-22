@@ -29,6 +29,7 @@ interface OfficeOverviewData {
   activeProjects: number;
   cancelledProjects: number;
   onHoldProjects: number;
+  projectsRejected: number;
   officeCount: number;
 }
 
@@ -130,6 +131,7 @@ export function OfficeOverviewCard({
     acc.activeProjects += office.activeProjects;
     acc.cancelledProjects += office.cancelledProjects;
     acc.onHoldProjects += office.onHoldProjects;
+    acc.projectsRejected += office.projectsRejected;
     acc.officeCount = data.length;
     return acc;
   }, {
@@ -144,6 +146,7 @@ export function OfficeOverviewCard({
     activeProjects: 0,
     cancelledProjects: 0,
     onHoldProjects: 0,
+    projectsRejected: 0,
     officeCount: 0
   });
 
@@ -275,6 +278,7 @@ export function OfficeOverviewCard({
               <p className="text-sm text-gray-600">Status Summary</p>
               <div className="text-sm font-medium text-gray-900 space-y-1">
                 <div>Active: {(aggregated.activeProjects || 0).toLocaleString()}</div>
+                <div>Rejected: {(aggregated.projectsRejected || 0).toLocaleString()}</div>
                 <div>Cancelled: {(aggregated.cancelledProjects || 0).toLocaleString()}</div>
                 <div>Holds: {(aggregated.onHoldProjects || 0).toLocaleString()}</div>
               </div>

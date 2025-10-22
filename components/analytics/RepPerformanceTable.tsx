@@ -387,16 +387,6 @@ export function RepPerformanceTable({
                 </TableHead>
                 <TableHead
                   className="text-right cursor-pointer hover:bg-gray-50"
-                  onClick={() => handleSort('avgCycleTime')}
-                  aria-sort={sortColumn === 'avgCycleTime' ? sortDirection : 'none'}
-                >
-                  <div className="flex items-center justify-end space-x-1">
-                    <span>Avg Cycle Time</span>
-                    {getSortIcon('avgCycleTime')}
-                  </div>
-                </TableHead>
-                <TableHead
-                  className="text-right cursor-pointer hover:bg-gray-50"
                   onClick={() => handleSort('firstTimePassRate')}
                   aria-sort={sortColumn === 'firstTimePassRate' ? sortDirection : 'none'}
                 >
@@ -415,7 +405,7 @@ export function RepPerformanceTable({
                     {getSortIcon('cancellationRate')}
                   </div>
                 </TableHead>
-                <TableHead 
+                <TableHead
                   className="text-right cursor-pointer hover:bg-gray-50"
                   onClick={() => handleSort('holdRate')}
                   aria-sort={sortColumn === 'holdRate' ? sortDirection : 'none'}
@@ -423,6 +413,16 @@ export function RepPerformanceTable({
                   <div className="flex items-center justify-end space-x-1">
                     <span>Hold Rate</span>
                     {getSortIcon('holdRate')}
+                  </div>
+                </TableHead>
+                <TableHead
+                  className="text-right cursor-pointer hover:bg-gray-50"
+                  onClick={() => handleSort('avgCycleTime')}
+                  aria-sort={sortColumn === 'avgCycleTime' ? sortDirection : 'none'}
+                >
+                  <div className="flex items-center justify-end space-x-1">
+                    <span>Avg Cycle Time</span>
+                    {getSortIcon('avgCycleTime')}
                   </div>
                 </TableHead>
               </TableRow>
@@ -475,9 +475,6 @@ export function RepPerformanceTable({
                       {formatPPW(rep.avgNetPpw)}
                     </TableCell>
                     <TableCell className="text-right">
-                      {rep.avgCycleTime ? `${Math.round(rep.avgCycleTime)} days` : 'N/A'}
-                    </TableCell>
-                    <TableCell className="text-right">
                       <span className={`
                         ${(rep.firstTimePassRate ?? 0) >= 90 ? 'text-green-600 font-semibold' : ''}
                         ${(rep.firstTimePassRate ?? 0) >= 75 && (rep.firstTimePassRate ?? 0) < 90 ? 'text-yellow-600' : ''}
@@ -501,6 +498,9 @@ export function RepPerformanceTable({
                       `}>
                         {rep.holdRate !== undefined ? formatPercentage(rep.holdRate) : 'N/A'}
                       </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {rep.avgCycleTime ? `${Math.round(rep.avgCycleTime)} days` : 'N/A'}
                     </TableCell>
                   </TableRow>
                 );

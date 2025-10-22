@@ -2781,7 +2781,11 @@ export async function getOfficeMetrics(
       const onHoldProjects = officeProjects.filter(p => isTrueQB(p[PROJECT_FIELDS.ON_HOLD]?.value)).length;
       const projectsSubmitted = statusCounts['Submitted'] || 0;
       const projectsApproved = statusCounts['Approved'] || 0;
-      const projectsRejected = statusCounts['Rejected'] || 0;
+      // Count projects currently rejected and awaiting resubmit (not yet fixed/approved)
+      const projectsRejected = officeProjects.filter(p =>
+        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value === 'Reject' &&
+        !p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value
+      ).length;
       const installs = completedProjects.length;
       const holds = onHoldProjects;
 
@@ -3176,7 +3180,11 @@ export async function getRepPerformance(
       const onHoldProjects = repProjects.filter(p => isTrueQB(p[PROJECT_FIELDS.ON_HOLD]?.value)).length;
       const projectsSubmitted = statusCounts['Submitted'] || 0;
       const projectsApproved = statusCounts['Approved'] || 0;
-      const projectsRejected = statusCounts['Rejected'] || 0;
+      // Count projects currently rejected and awaiting resubmit (not yet fixed/approved)
+      const projectsRejected = repProjects.filter(p =>
+        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value === 'Reject' &&
+        !p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value
+      ).length;
       const installs = completedProjects.length;
       const holds = onHoldProjects;
 
