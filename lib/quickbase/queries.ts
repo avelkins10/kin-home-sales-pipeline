@@ -3263,7 +3263,7 @@ export async function getPipelineForecast(
     // Only query active projects for forecasting
     const whereClause = `${accessClause} AND {${PROJECT_FIELDS.PROJECT_STATUS}} = 'Active'`.trim();
 
-    // Query active projects with install date fields
+    // Query projects with actual install date fields (not estimates)
     const response = await qbClient.queryRecords({
       from: QB_TABLE_PROJECTS, // Projects table
       where: whereClause,
@@ -3272,9 +3272,10 @@ export async function getPipelineForecast(
         PROJECT_FIELDS.PROJECT_ID,
         PROJECT_FIELDS.CUSTOMER_NAME,
         PROJECT_FIELDS.SYSTEM_SIZE_KW,
-        PROJECT_FIELDS.INSTALL_SCHEDULED_DATE_CAPTURE, // Field 710 - highest reliability (54.4%)
-        PROJECT_FIELDS.ESTIMATED_INSTALL_DATE, // Field 1124 - medium reliability (27.5%)
-        PROJECT_FIELDS.INTAKE_INSTALL_DATE_TENTATIVE, // Field 902 - tentative (100% but tentative)
+        PROJECT_FIELDS.PROJECT_STATUS,
+        PROJECT_FIELDS.INSTALL_COMPLETED_DATE, // Field 534 - Actual completion date
+        PROJECT_FIELDS.INSTALL_SCHEDULED_START_DATE, // Field 178 - Primary scheduled date (49.2%)
+        PROJECT_FIELDS.INSTALL_SCHEDULED_DATE_CAPTURE, // Field 710 - Backup scheduled date (54.4%)
       ],
       options: {
         top: 5000, // Handle large datasets
@@ -3323,66 +3324,72 @@ export async function getPipelineForecast(
       const customerName = project[PROJECT_FIELDS.CUSTOMER_NAME]?.value;
       const systemSize = project[PROJECT_FIELDS.SYSTEM_SIZE_KW]?.value || 0;
 
-      // Determine forecast date using priority: scheduled > estimated > tentative
-      let forecastDate: Date | null = null;
-      let forecastSource: 'scheduled' | 'estimated' | 'tentative' = 'tentative';
+      // For "Last Week": Use actual COMPLETED date
+      const completedDateValue = project[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value;
+      const completedDate = completedDateValue ? parseQuickbaseDate(completedDateValue) : null;
 
-      // Try scheduled date first (highest reliability)
-      const scheduledDate = project[PROJECT_FIELDS.INSTALL_SCHEDULED_DATE_CAPTURE]?.value;
-      if (scheduledDate) {
-        forecastDate = parseQuickbaseDate(scheduledDate);
-        forecastSource = 'scheduled';
+      // For "This Week" and "Next Week": Use SCHEDULED dates (not estimates)
+      let scheduledDate: Date | null = null;
+      let scheduledSource: 'primary' | 'capture' | null = null;
+
+      // Try INSTALL_SCHEDULED_START_DATE first (Field 178 - matches milestone tracker)
+      const scheduledStartValue = project[PROJECT_FIELDS.INSTALL_SCHEDULED_START_DATE]?.value;
+      const scheduledCaptureValue = project[PROJECT_FIELDS.INSTALL_SCHEDULED_DATE_CAPTURE]?.value;
+
+      if (scheduledStartValue) {
+        scheduledDate = parseQuickbaseDate(scheduledStartValue);
+        scheduledSource = 'primary';
+      }
+      // Fall back to INSTALL_SCHEDULED_DATE_CAPTURE (Field 710)
+      else if (scheduledCaptureValue) {
+        scheduledDate = parseQuickbaseDate(scheduledCaptureValue);
+        scheduledSource = 'capture';
       }
 
-      // Fall back to estimated date
-      if (!forecastDate) {
-        const estimatedDate = project[PROJECT_FIELDS.ESTIMATED_INSTALL_DATE]?.value;
-        if (estimatedDate) {
-          forecastDate = parseQuickbaseDate(estimatedDate);
-          forecastSource = 'estimated';
-        }
-      }
+      // Determine which week this project falls into
+      let weekBucket: 'lastWeek' | 'thisWeek' | 'nextWeek' | null = null;
+      let dateUsed: Date | null = null;
+      let dateSource: 'completed' | 'scheduled-primary' | 'scheduled-capture' | null = null;
 
-      // Fall back to tentative date
-      if (!forecastDate) {
-        const tentativeDate = project[PROJECT_FIELDS.INTAKE_INSTALL_DATE_TENTATIVE]?.value;
-        if (tentativeDate) {
-          forecastDate = parseQuickbaseDate(tentativeDate);
-          forecastSource = 'tentative';
-        }
-      }
-
-      if (forecastDate) {
+      // Last Week: Check if install was COMPLETED last week
+      if (completedDate && completedDate >= lastWeekStart && completedDate <= lastWeekEnd) {
+        lastWeekCount++;
+        weekBucket = 'lastWeek';
+        dateUsed = completedDate;
+        dateSource = 'completed';
         anyForecastCount++;
+      }
+      // This Week: Check if install is SCHEDULED for this week
+      else if (scheduledDate && scheduledDate >= thisWeekStart && scheduledDate <= thisWeekEnd) {
+        thisWeekCount++;
+        weekBucket = 'thisWeek';
+        dateUsed = scheduledDate;
+        dateSource = scheduledSource === 'primary' ? 'scheduled-primary' : 'scheduled-capture';
+        anyForecastCount++;
+      }
+      // Next Week: Check if install is SCHEDULED for next week
+      else if (scheduledDate && scheduledDate >= nextWeekStart && scheduledDate <= nextWeekEnd) {
+        nextWeekCount++;
+        weekBucket = 'nextWeek';
+        dateUsed = scheduledDate;
+        dateSource = scheduledSource === 'primary' ? 'scheduled-primary' : 'scheduled-capture';
+        anyForecastCount++;
+      }
 
-        // Determine which week this project falls into
-        let weekBucket: 'lastWeek' | 'thisWeek' | 'nextWeek' | null = null;
-
-        if (forecastDate >= lastWeekStart && forecastDate <= lastWeekEnd) {
-          lastWeekCount++;
-          weekBucket = 'lastWeek';
-        } else if (forecastDate >= thisWeekStart && forecastDate <= thisWeekEnd) {
-          thisWeekCount++;
-          weekBucket = 'thisWeek';
-        } else if (forecastDate >= nextWeekStart && forecastDate <= nextWeekEnd) {
-          nextWeekCount++;
-          weekBucket = 'nextWeek';
-        }
-
-        if (includeDetails && weekBucket) {
-          const projectDetails = {
-            recordId,
-            projectId,
-            customerName,
-            systemSize,
-            forecastDate: forecastDate.toISOString().split('T')[0],
-            estimatedInstallDate: project[PROJECT_FIELDS.ESTIMATED_INSTALL_DATE]?.value || null,
-            scheduledInstallDate: scheduledDate || null,
-            forecastSource,
-            weekBucket,
-          };
-          forecastProjects.push(projectDetails);
-        }
+      if (includeDetails && weekBucket && dateUsed) {
+        const projectDetails = {
+          recordId,
+          projectId,
+          customerName,
+          systemSize,
+          installDate: dateUsed.toISOString().split('T')[0],
+          completedDate: completedDateValue || null,
+          scheduledStartDate: scheduledStartValue || null,
+          scheduledCaptureDate: scheduledCaptureValue || null,
+          dateSource,
+          weekBucket,
+        };
+        forecastProjects.push(projectDetails);
       }
     }
 
