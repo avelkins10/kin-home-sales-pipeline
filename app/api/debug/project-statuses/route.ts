@@ -57,14 +57,14 @@ export async function GET(request: NextRequest) {
 
     // Count by PROJECT_STATUS
     const statusCounts: Record<string, number> = {};
-    projects.forEach(project => {
+    projects.forEach((project: Record<string, any>) => {
       const status = project[PROJECT_FIELDS.PROJECT_STATUS]?.value || 'Unknown';
       statusCounts[status] = (statusCounts[status] || 0) + 1;
     });
 
     // Count by intake status
     let intakeRejectedAwaitingFix = 0;
-    projects.forEach(project => {
+    projects.forEach((project: Record<string, any>) => {
       if (
         project[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value === 'Reject' &&
         !project[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value
