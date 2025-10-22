@@ -38,6 +38,9 @@ export async function GET(req: Request) {
     const setter = searchParams.get('setter') || undefined;
     const closer = searchParams.get('closer') || undefined;
     const withTasks = searchParams.get('withTasks') === 'true';
+    const dateFilter = searchParams.get('dateFilter') || undefined;
+    const startDate = searchParams.get('startDate') || undefined;
+    const endDate = searchParams.get('endDate') || undefined;
 
     // Validate view parameter against allowed values
     const allowedViews = ['all', 'active', 'pending-kca', 'rejected', 'on-hold', 'install-ready', 'install-scheduled', 'install-completed', 'pending-cancel', 'cancelled', 'needs-attention']
@@ -49,6 +52,24 @@ export async function GET(req: Request) {
     const allowedSorts = ['default', 'newest', 'oldest', 'age-desc', 'customer-asc', 'customer-desc']
     if (sort && !allowedSorts.includes(sort)) {
       return NextResponse.json({ error: 'Invalid sort parameter' }, { status: 400 });
+    }
+
+    // Validate date filter parameter
+    const allowedDateFilters = ['this-week', 'last-week', 'this-month', 'last-month', 'custom']
+    if (dateFilter && !allowedDateFilters.includes(dateFilter)) {
+      return NextResponse.json({ error: 'Invalid dateFilter parameter' }, { status: 400 });
+    }
+
+    // Validate custom date range
+    if (dateFilter === 'custom') {
+      if (!startDate || !endDate) {
+        return NextResponse.json({ error: 'startDate and endDate are required for custom date filter' }, { status: 400 });
+      }
+      // Validate date format (YYYY-MM-DD)
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
+        return NextResponse.json({ error: 'Invalid date format. Use YYYY-MM-DD' }, { status: 400 });
+      }
     }
 
     const { id, role } = auth.session.user as any;
@@ -74,7 +95,7 @@ export async function GET(req: Request) {
     }
 
     // Check cache first
-    const cacheKey = `${userId}:${role}:${view || 'all'}:${search || ''}:${sort || 'default'}:${memberEmail || ''}:${ownership}:${office || ''}:${setter || ''}:${closer || ''}:${withTasks}`;
+    const cacheKey = `${userId}:${role}:${view || 'all'}:${search || ''}:${sort || 'default'}:${memberEmail || ''}:${ownership}:${office || ''}:${setter || ''}:${closer || ''}:${withTasks}:${dateFilter || ''}:${startDate || ''}:${endDate || ''}`;
     const cached = getCachedProjects(cacheKey);
     if (cached) {
       const duration = Date.now() - startedAt;
@@ -98,7 +119,7 @@ export async function GET(req: Request) {
     // from the office_assignments table, ensuring immediate visibility
     // of newly assigned offices without requiring logout/login.
     logInfo('[OFFICE_RESOLUTION] Fetching offices from database for user', { userId, role, reqId });
-    const projects = await getProjectsForUserList(userId, role, view, search, sort, undefined, memberEmail, effectiveOwnership, office, setter, closer, reqId, withTasks);
+    const projects = await getProjectsForUserList(userId, role, view, search, sort, undefined, memberEmail, effectiveOwnership, office, setter, closer, reqId, withTasks, dateFilter, startDate, endDate);
 
     // Cache the result
     setCachedProjects(cacheKey, projects);

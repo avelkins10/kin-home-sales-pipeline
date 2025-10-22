@@ -18,7 +18,10 @@ export const projectsListKey = (
   office?: string,
   setter?: string,
   closer?: string,
-  withTasks?: string
+  withTasks?: string,
+  dateFilter?: string,
+  startDate?: string,
+  endDate?: string
 ) => [
   'projects',
   userId,
@@ -31,7 +34,10 @@ export const projectsListKey = (
   office || '',
   setter || '',
   closer || '',
-  withTasks || ''
+  withTasks || '',
+  dateFilter || '',
+  startDate || '',
+  endDate || ''
 ] as const;
 
 export const calendarEventsKey = (params?: Record<string, string | undefined>) => {

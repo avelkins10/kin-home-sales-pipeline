@@ -169,7 +169,7 @@ export function ProjectFilterChips({ isFetching = false }: ProjectFilterChipsPro
       )}
 
       {/* Active Filters Display */}
-      {(currentOwnership !== 'all' || searchParams.get('memberEmail') || searchParams.get('office') || searchParams.get('setter') || searchParams.get('closer') || withTasks) && (
+      {(currentOwnership !== 'all' || searchParams.get('memberEmail') || searchParams.get('office') || searchParams.get('setter') || searchParams.get('closer') || withTasks || searchParams.get('dateFilter')) && (
         <div className="flex items-center gap-2 mb-3">
           <span className="text-sm text-gray-600 font-medium">Active Filters:</span>
           <div className="flex gap-2 flex-wrap">
@@ -239,6 +239,32 @@ export function ProjectFilterChips({ isFetching = false }: ProjectFilterChipsPro
                 }}
               >
                 <span className="text-sm">With Tasks</span>
+                <X className="h-3 w-3" />
+              </Badge>
+            )}
+            {searchParams.get('dateFilter') && (
+              <Badge
+                variant="secondary"
+                className="px-3 py-1.5 cursor-pointer hover:bg-gray-200 transition-colors flex items-center gap-2"
+                onClick={() => {
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.delete('dateFilter');
+                  params.delete('startDate');
+                  params.delete('endDate');
+                  router.push(`/projects?${params.toString()}`);
+                }}
+              >
+                <span className="text-sm">
+                  Date: {
+                    searchParams.get('dateFilter') === 'this-week' ? 'This Week' :
+                    searchParams.get('dateFilter') === 'last-week' ? 'Last Week' :
+                    searchParams.get('dateFilter') === 'this-month' ? 'This Month' :
+                    searchParams.get('dateFilter') === 'last-month' ? 'Last Month' :
+                    searchParams.get('dateFilter') === 'custom' && searchParams.get('startDate') && searchParams.get('endDate')
+                      ? `${searchParams.get('startDate')} to ${searchParams.get('endDate')}`
+                      : 'Custom'
+                  }
+                </span>
                 <X className="h-3 w-3" />
               </Badge>
             )}

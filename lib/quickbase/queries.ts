@@ -272,8 +272,8 @@ export function buildRoleClause(
  * Lean selector for list view - only essential fields for performance
  * @param officeIds - Office IDs to filter by (QuickBase Record IDs from Field 810). If not provided, will be fetched from office_assignments table for office-based roles.
  */
-export async function getProjectsForUserList(userId: string, role: string, view?: string, search?: string, sort?: string, officeIds?: number[], memberEmail?: string, ownership?: string, officeFilter?: string, setterFilter?: string, closerFilter?: string, reqId?: string, withTasks?: boolean) {
-  console.log('[getProjectsForUserList] START - userId:', userId, 'role:', role, 'view:', view, 'search:', search, 'sort:', sort, 'ownership:', ownership, 'officeFilter:', officeFilter, 'setterFilter:', setterFilter, 'closerFilter:', closerFilter, 'officeIds:', officeIds, 'withTasks:', withTasks, 'reqId:', reqId);
+export async function getProjectsForUserList(userId: string, role: string, view?: string, search?: string, sort?: string, officeIds?: number[], memberEmail?: string, ownership?: string, officeFilter?: string, setterFilter?: string, closerFilter?: string, reqId?: string, withTasks?: boolean, dateFilter?: string, startDate?: string, endDate?: string) {
+  console.log('[getProjectsForUserList] START - userId:', userId, 'role:', role, 'view:', view, 'search:', search, 'sort:', sort, 'ownership:', ownership, 'officeFilter:', officeFilter, 'setterFilter:', setterFilter, 'closerFilter:', closerFilter, 'officeIds:', officeIds, 'withTasks:', withTasks, 'dateFilter:', dateFilter, 'startDate:', startDate, 'endDate:', endDate, 'reqId:', reqId);
 
   // Get user email for email-based filtering (needed for ownership filter)
   let userEmail: string | null = null;
@@ -352,6 +352,65 @@ export async function getProjectsForUserList(userId: string, role: string, view?
     }
   }
 
+  // Add date filter if provided
+  let dateFilterClause: string | undefined;
+  if (dateFilter) {
+    let filterStartDate: string;
+    let filterEndDate: string;
+
+    if (dateFilter === 'custom') {
+      // Use provided dates for custom range
+      filterStartDate = startDate!;
+      filterEndDate = endDate!;
+    } else {
+      // Calculate date ranges for preset options
+      const today = new Date();
+      const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+
+      if (dateFilter === 'this-week') {
+        // Get Monday of this week
+        const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay;
+        const monday = new Date(today);
+        monday.setDate(today.getDate() + mondayOffset);
+        filterStartDate = monday.toISOString().split('T')[0];
+        filterEndDate = today.toISOString().split('T')[0];
+      } else if (dateFilter === 'last-week') {
+        // Get Monday of last week
+        const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay;
+        const thisMonday = new Date(today);
+        thisMonday.setDate(today.getDate() + mondayOffset);
+        const lastMonday = new Date(thisMonday);
+        lastMonday.setDate(thisMonday.getDate() - 7);
+        const lastSunday = new Date(lastMonday);
+        lastSunday.setDate(lastMonday.getDate() + 6);
+        filterStartDate = lastMonday.toISOString().split('T')[0];
+        filterEndDate = lastSunday.toISOString().split('T')[0];
+      } else if (dateFilter === 'this-month') {
+        // Get first day of this month
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        filterStartDate = firstDay.toISOString().split('T')[0];
+        filterEndDate = today.toISOString().split('T')[0];
+      } else if (dateFilter === 'last-month') {
+        // Get first and last day of last month
+        const firstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        const lastDay = new Date(today.getFullYear(), today.getMonth(), 0);
+        filterStartDate = firstDay.toISOString().split('T')[0];
+        filterEndDate = lastDay.toISOString().split('T')[0];
+      } else {
+        // Default to no filter if unknown type
+        filterStartDate = '';
+        filterEndDate = '';
+      }
+    }
+
+    // Build the QuickBase date filter clause
+    if (filterStartDate && filterEndDate) {
+      // QuickBase date format: YYYY-MM-DD
+      dateFilterClause = `{${PROJECT_FIELDS.SALES_DATE}.OAF.'${filterStartDate}'} AND {${PROJECT_FIELDS.SALES_DATE}.OBF.'${filterEndDate}'}`;
+      console.log('[getProjectsForUserList] Filtering by date range:', filterStartDate, 'to', filterEndDate);
+    }
+  }
+
   // Build view-based filter
   const viewFilter = buildViewFilter(view);
 
@@ -418,6 +477,9 @@ export async function getProjectsForUserList(userId: string, role: string, view?
   }
   if (closerFilterClause) {
     whereClause = `(${whereClause}) AND (${closerFilterClause})`;
+  }
+  if (dateFilterClause) {
+    whereClause = `(${whereClause}) AND (${dateFilterClause})`;
   }
   if (viewFilter) {
     whereClause = `(${whereClause}) AND (${viewFilter})`;

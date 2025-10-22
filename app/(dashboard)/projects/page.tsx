@@ -12,6 +12,7 @@ import { TaskFilterToggle } from '@/components/projects/TaskFilterToggle'
 import { OfficeFilterDropdown } from '@/components/projects/OfficeFilterDropdown'
 import { SetterFilterDropdown } from '@/components/projects/SetterFilterDropdown'
 import { CloserFilterDropdown } from '@/components/projects/CloserFilterDropdown'
+import { DateFilterDropdown } from '@/components/projects/DateFilterDropdown'
 import { isManagerRole } from '@/lib/utils/role-helpers'
 
 interface ProjectsPageProps {
@@ -25,6 +26,9 @@ interface ProjectsPageProps {
     setter?: string // NEW: Setter filter
     closer?: string // NEW: Closer filter
     withTasks?: string // NEW: Task filter
+    dateFilter?: string // NEW: Date filter (this-week | last-week | this-month | last-month | custom)
+    startDate?: string // NEW: Custom start date (YYYY-MM-DD)
+    endDate?: string // NEW: Custom end date (YYYY-MM-DD)
   }
 }
 
@@ -65,6 +69,7 @@ export default function ProjectsPage({ searchParams }: ProjectsPageProps) {
             <SetterFilterDropdown isFetching={isFetching && fetchReason === 'manual'} />
             <CloserFilterDropdown isFetching={isFetching && fetchReason === 'manual'} />
             <OfficeFilterDropdown isFetching={isFetching && fetchReason === 'manual'} />
+            <DateFilterDropdown isFetching={isFetching && fetchReason === 'manual'} />
           </div>
 
           {/* Ownership Filter Toggle (Team Projects option only for managers) */}
@@ -97,6 +102,9 @@ export default function ProjectsPage({ searchParams }: ProjectsPageProps) {
             setter={searchParams.setter} // NEW: Pass setter filter
             closer={searchParams.closer} // NEW: Pass closer filter
             withTasks={searchParams.withTasks} // NEW: Pass task filter
+            dateFilter={searchParams.dateFilter} // NEW: Pass date filter
+            startDate={searchParams.startDate} // NEW: Pass custom start date
+            endDate={searchParams.endDate} // NEW: Pass custom end date
             onFetchingChange={(fetching, reason) => {
               setIsFetching(fetching);
               if (reason) setFetchReason(reason);
