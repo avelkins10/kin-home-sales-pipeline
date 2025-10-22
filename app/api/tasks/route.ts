@@ -127,16 +127,29 @@ export async function GET(req: Request) {
       reqId
     });
 
-    const projectsResponse = await qbClient.queryRecords({
-      from: QB_TABLE_PROJECTS,
-      select: [
-        PROJECT_FIELDS.RECORD_ID,
-        PROJECT_FIELDS.PROJECT_ID,
-        PROJECT_FIELDS.CUSTOMER_NAME,
-        PROJECT_FIELDS.PROJECT_STATUS
-      ],
-      where: projectAccessClause
-    });
+    // TEMPORARY DEBUG: Just try the first query
+    let projectsResponse;
+    try {
+      projectsResponse = await qbClient.queryRecords({
+        from: QB_TABLE_PROJECTS,
+        select: [
+          PROJECT_FIELDS.RECORD_ID,
+          PROJECT_FIELDS.PROJECT_ID,
+          PROJECT_FIELDS.CUSTOMER_NAME,
+          PROJECT_FIELDS.PROJECT_STATUS
+        ],
+        where: projectAccessClause
+      });
+    } catch (queryError: any) {
+      logError('Projects query failed', queryError as Error, {
+        whereClause: projectAccessClause,
+        tableId: QB_TABLE_PROJECTS,
+        errorMessage: queryError?.message,
+        errorDetails: queryError?.response?.data || queryError?.response || 'no response data',
+        reqId
+      });
+      throw queryError;
+    }
 
     if (projectsResponse.data.length === 0) {
       logApiResponse('GET', '/api/tasks', Date.now() - startedAt, { tasks: 0 }, reqId);
