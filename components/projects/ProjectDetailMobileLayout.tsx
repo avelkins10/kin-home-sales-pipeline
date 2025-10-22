@@ -15,6 +15,7 @@ import { isProjectOnHold } from '@/lib/utils/milestone-engine'
 import { Badge } from '@/components/ui/badge'
 import { useIsMobile } from '@/lib/hooks/useMediaQuery'
 import { useHasTasks } from '@/hooks/useHasTasks'
+import { PROJECT_FIELDS } from '@/lib/constants/fieldIds'
 
 interface ProjectDetailMobileLayoutProps {
   project: QuickbaseProject
@@ -42,12 +43,18 @@ export function ProjectDetailMobileLayout({
   const isMobile = useIsMobile()
   const onHold = isProjectOnHold(project)
   const hasUnreadComms = unreadNotesCount > 0 || unreadMessagesCount > 0
-  
+
   // Check if project has task groups
-  const { data: hasTasks = false } = useHasTasks({ 
-    projectId, 
+  const { data: hasTasks = false } = useHasTasks({
+    projectId,
     enabled: isMobile // Only check when on mobile
   })
+
+  // Calculate task progress
+  const totalTasks = parseInt(project[PROJECT_FIELDS.TOTAL_TASKS]?.value || '0') || 0
+  const unapprovedTasks = parseInt(project[PROJECT_FIELDS.UNAPPROVED_TASKS]?.value || '0') || 0
+  const approvedTasks = totalTasks - unapprovedTasks
+  const completionPercentage = totalTasks > 0 ? Math.round((approvedTasks / totalTasks) * 100) : 0
 
   // Handle hash navigation for mobile accordion
   useEffect(() => {
@@ -87,8 +94,13 @@ export function ProjectDetailMobileLayout({
       title: 'Action Items',
       defaultOpen: true, // Auto-expand tasks
       badge: (
-        <Badge variant="default" className="text-xs bg-orange-600">
-          Tasks
+        <Badge variant="default" className={`text-xs ${
+          completionPercentage === 100 ? 'bg-green-600' :
+          completionPercentage >= 67 ? 'bg-blue-600' :
+          completionPercentage >= 34 ? 'bg-yellow-600' :
+          'bg-orange-600'
+        }`}>
+          Tasks ({completionPercentage}%)
         </Badge>
       ),
       children: <TaskSection projectId={projectId} />

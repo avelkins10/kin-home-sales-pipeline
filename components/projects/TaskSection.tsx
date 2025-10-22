@@ -5,12 +5,12 @@ import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, CheckCircle, RefreshCw, Sparkles } from 'lucide-react'
 import { useIsMobile } from '@/lib/hooks/useMediaQuery'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { TaskCard } from './TaskCard'
+import { TaskProgress } from './TaskProgress'
 import { TaskGroup } from '@/lib/types/task'
 import { tasksKey } from '@/lib/queryKeys'
 
@@ -134,17 +134,9 @@ export function TaskSection({ projectId, className }: TaskSectionProps) {
   const totalTasks = taskGroups.reduce((sum, group) => sum + group.totalTasks, 0)
   const totalUnapproved = taskGroups.reduce((sum, group) => sum + group.unapprovedTasks, 0)
   const approvedTasks = totalTasks - totalUnapproved
-  const progressPercentage = totalTasks > 0 ? Math.round((approvedTasks / totalTasks) * 100) : 0
 
   // Get all tasks from all groups
   const allTasks = taskGroups.flatMap(group => group.tasks)
-
-  // Determine progress bar color
-  const getProgressColor = (percentage: number) => {
-    if (percentage <= 33) return 'bg-red-500'
-    if (percentage <= 66) return 'bg-yellow-500'
-    return 'bg-green-500'
-  }
 
   return (
     <Card className={className}>
@@ -190,24 +182,15 @@ export function TaskSection({ projectId, className }: TaskSectionProps) {
         )}
 
         {/* Progress section */}
-        <div 
-          className="space-y-2"
-          role="status"
-          aria-live="polite"
-          aria-label={`Task progress: ${approvedTasks} of ${totalTasks} approved`}
-        >
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-600">
-              Progress: {approvedTasks} of {totalTasks} approved
-            </span>
-            <span className="text-gray-500">{progressPercentage}%</span>
-          </div>
-          <Progress 
-            value={progressPercentage} 
-            className="h-2"
-            indicatorClassName={getProgressColor(progressPercentage)}
+        {totalTasks > 0 && (
+          <TaskProgress
+            totalTasks={totalTasks}
+            approvedTasks={approvedTasks}
+            size="default"
+            showPercentage={true}
+            showCounts={true}
           />
-        </div>
+        )}
 
         {/* Task list */}
         {allTasks.length > 0 && (

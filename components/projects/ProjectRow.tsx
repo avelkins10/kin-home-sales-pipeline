@@ -13,6 +13,7 @@ import { StatusBadge } from './StatusBadge';
 import { RejectionReasonBadge } from './RejectionReasonBadge';
 import { UnreadBadge } from '@/components/ui/UnreadBadge';
 import { TaskBadge } from '@/components/ui/TaskBadge';
+import { TaskProgress } from '@/components/projects/TaskProgress';
 import { useProjectUnreadCount } from '@/lib/hooks/useNotifications';
 import { parseCustomerName, getProjectAge, determineProjectOwnership } from '@/lib/utils/project-helpers';
 import { detectHoldStatus, extractHoldType } from '@/lib/utils/hold-detection';
@@ -137,8 +138,17 @@ export function ProjectRow({ project, userEmail, userRole }: ProjectRowProps) {
               {unreadCount > 0 && (
                 <UnreadBadge count={unreadCount} variant="default" size="small" />
               )}
-              {unapprovedTasks > 0 && (
-                <TaskBadge count={unapprovedTasks} size="small" />
+              {totalTasks > 0 && (
+                <div className="ml-2">
+                  <TaskProgress
+                    totalTasks={totalTasks}
+                    approvedTasks={totalTasks - unapprovedTasks}
+                    size="small"
+                    showPercentage={!isMobile}
+                    showCounts={false}
+                    className="min-w-[120px]"
+                  />
+                </div>
               )}
             </div>
             {isRejected && rejectionReasons && (

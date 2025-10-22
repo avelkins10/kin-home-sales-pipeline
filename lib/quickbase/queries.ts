@@ -4179,3 +4179,91 @@ export async function createTaskNotification(params: {
     // Don't throw - notification failure shouldn't break task submission
   }
 }
+
+/**
+ * Check if all tasks for a project are complete
+ * @param projectId Project record ID
+ * @returns Completion status with task counts
+ */
+export async function checkAllTasksComplete(projectId: number): Promise<{
+  allComplete: boolean;
+  totalTasks: number;
+  approvedTasks: number;
+  unapprovedTasks: number;
+}> {
+  try {
+    console.log('[checkAllTasksComplete] Checking completion for project:', projectId);
+
+    // Get task groups for this project
+    const taskGroupsResponse = await qbClient.queryRecords({
+      from: QB_TABLE_TASK_GROUPS,
+      select: [
+        TASK_GROUP_FIELDS.RECORD_ID,
+        TASK_GROUP_FIELDS.TOTAL_TASKS,
+        TASK_GROUP_FIELDS.UNAPPROVED_TASKS
+      ],
+      where: `{${TASK_GROUP_FIELDS.RELATED_PROJECT}.EX.${projectId}}`
+    });
+
+    // Sum up totals across all task groups
+    let totalTasks = 0;
+    let unapprovedTasks = 0;
+
+    taskGroupsResponse.data?.forEach((group: any) => {
+      totalTasks += parseInt(group[TASK_GROUP_FIELDS.TOTAL_TASKS]?.value || '0');
+      unapprovedTasks += parseInt(group[TASK_GROUP_FIELDS.UNAPPROVED_TASKS]?.value || '0');
+    });
+
+    const approvedTasks = totalTasks - unapprovedTasks;
+    const allComplete = totalTasks > 0 && unapprovedTasks === 0;
+
+    console.log('[checkAllTasksComplete] Result:', {
+      allComplete,
+      totalTasks,
+      approvedTasks,
+      unapprovedTasks
+    });
+
+    return {
+      allComplete,
+      totalTasks,
+      approvedTasks,
+      unapprovedTasks
+    };
+  } catch (error) {
+    logError('Failed to check task completion', error as Error, { projectId });
+    throw error;
+  }
+}
+
+/**
+ * Mark project as having all tasks complete
+ * Updates project status to indicate ready for re-intake
+ * @param projectId Project record ID
+ */
+export async function markProjectTasksComplete(projectId: number): Promise<void> {
+  try {
+    console.log('[markProjectTasksComplete] Marking project as tasks complete:', projectId);
+
+    // Update project record
+    // Note: You may need to adjust field IDs based on your project table structure
+    // This sets a timestamp to indicate when tasks were completed
+    await qbClient.updateRecord({
+      to: 'br9kwm8na', // Projects table
+      data: [
+        {
+          [PROJECT_FIELDS.RECORD_ID]: { value: projectId },
+          // Add timestamp field for task completion (adjust field ID as needed)
+          // Example: [PROJECT_FIELDS.TASKS_COMPLETED_DATE]: { value: new Date().toISOString() }
+          // You may also want to update a status field
+          // Example: [PROJECT_FIELDS.TASK_STATUS]: { value: 'Tasks Complete' }
+        }
+      ]
+    });
+
+    console.log('[markProjectTasksComplete] Project marked as tasks complete');
+  } catch (error) {
+    logError('Failed to mark project tasks complete', error as Error, { projectId });
+    throw error;
+  }
+}
