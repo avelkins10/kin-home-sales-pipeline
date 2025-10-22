@@ -132,10 +132,11 @@ export async function GET(req: Request) {
     const userTimezone = timezone || 'America/New_York';
 
     // Check cache first - include timeRange, officeIds, repEmail, and custom dates in cache key
+    // Version 2: Fixed duplicate reps and office name consistency
     const officeKey = officeIds ? officeIds.sort().join(',') : (salesOffice ? salesOffice.sort().join(',') : '');
     const customRangeKey = effectiveTimeRange === 'custom' ? `${startDate}:${endDate}` : '';
     const repEmailKey = repEmail || 'all';
-    const cacheKey = `${userId}:${role}:${officeKey}:${effectiveTimeRange}:${customRangeKey}:${repEmailKey}`;
+    const cacheKey = `v2:${userId}:${role}:${officeKey}:${effectiveTimeRange}:${customRangeKey}:${repEmailKey}`;
     const cached = repPerformanceCache.get(cacheKey);
     const cacheTTL = getCacheTTL(effectiveTimeRange);
     
