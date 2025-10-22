@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/next-auth.config';
 import { qbClient } from '@/lib/quickbase/client';
-import { QB_TABLE_PROJECTS } from '@/lib/quickbase/tables';
 import { PROJECT_FIELDS } from '@/lib/constants/fieldIds';
 import { buildProjectAccessClause } from '@/lib/auth/projectAuthorization';
 import { getUserEmail } from '@/lib/auth/userIdentity';
+
+const QB_TABLE_PROJECTS = process.env.QUICKBASE_TABLE_PROJECTS || 'br9kwm8na';
 
 /**
  * Debug endpoint to see ALL unique PROJECT_STATUS values

@@ -45,13 +45,12 @@ export function AnalyticsFilters({
   onRepEmailChange,
   isLoading = false
 }: AnalyticsFiltersProps) {
-  const [showDatePicker, setShowDatePicker] = useState(false);
-
   const timeRanges: { value: TimeRange; label: string }[] = [
+    { value: 'month', label: 'Month to Date' },
+    { value: 'last_month', label: 'Last Month' },
     { value: 'ytd', label: 'Year to Date' },
     { value: 'last_30', label: 'Last 30 Days' },
     { value: 'last_90', label: 'Last 90 Days' },
-    { value: 'last_12_months', label: 'Last 12 Months' },
   ];
 
   const handleDateRangeSelect = (range: DateRange | undefined) => {
@@ -61,7 +60,6 @@ export function AnalyticsFilters({
         endDate: format(range.to, 'yyyy-MM-dd'),
       };
       onTimeRangeChange('custom', customRange);
-      setShowDatePicker(false);
     }
   };
 
@@ -80,66 +78,46 @@ export function AnalyticsFilters({
   return (
     <div className="flex flex-col md:flex-row gap-4 flex-wrap">
       {/* Time Range Filter */}
-      <div className="flex items-center space-x-1" role="group" aria-label="Filter analytics by time range">
-        {timeRanges.map((range, index) => {
-          const isActive = selectedTimeRange === range.value;
-          const isFirst = index === 0;
+      <div className="flex items-center gap-2" role="group" aria-label="Filter analytics by time range">
+        <div className="flex items-center">
+          {timeRanges.map((range, index) => {
+            const isActive = selectedTimeRange === range.value;
+            const isFirst = index === 0;
+            const isLast = index === timeRanges.length - 1;
 
-          return (
-            <Button
-              key={range.value}
-              variant={isActive ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => onTimeRangeChange(range.value)}
-              disabled={isLoading}
-              className={`
-                px-4 py-2 text-sm font-medium transition-colors h-10
-                ${isFirst ? 'rounded-l-lg' : ''}
-                rounded-none
-                ${isFirst ? 'border-r-0' : ''}
-                border-r-0
-                ${isActive
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-300'
-                }
-              `}
-              aria-pressed={isActive}
-            >
-              {range.label}
-            </Button>
-          );
-        })}
+            return (
+              <Button
+                key={range.value}
+                variant={isActive ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => onTimeRangeChange(range.value)}
+                disabled={isLoading}
+                className={`
+                  px-3 py-2 text-sm font-medium transition-colors h-10
+                  ${isFirst ? 'rounded-l-lg rounded-r-none' : isLast ? 'rounded-r-lg rounded-l-none' : 'rounded-none'}
+                  ${!isLast ? 'border-r-0' : ''}
+                  ${isActive
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-300'
+                  }
+                `}
+                aria-pressed={isActive}
+              >
+                {range.label}
+              </Button>
+            );
+          })}
+        </div>
 
-        {/* Custom Range Button */}
-        {showDatePicker ? (
-          <div className="ml-2">
-            <DateRangePicker
-              value={customDateRange ? {
-                from: new Date(customDateRange.startDate),
-                to: new Date(customDateRange.endDate),
-              } : undefined}
-              onChange={handleDateRangeSelect}
-            />
-          </div>
-        ) : (
-          <Button
-            variant={selectedTimeRange === 'custom' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setShowDatePicker(true)}
-            disabled={isLoading}
-            className={`
-              px-4 py-2 text-sm font-medium transition-colors h-10
-              rounded-r-lg
-              ${selectedTimeRange === 'custom'
-                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-300'
-              }
-            `}
-            aria-pressed={selectedTimeRange === 'custom'}
-          >
-            {getCustomLabel()}
-          </Button>
-        )}
+        {/* Custom Range Picker */}
+        <DateRangePicker
+          value={customDateRange ? {
+            from: new Date(customDateRange.startDate),
+            to: new Date(customDateRange.endDate),
+          } : undefined}
+          onChange={handleDateRangeSelect}
+          className="w-auto"
+        />
       </div>
 
       {/* Office Multi-Select Filter */}
