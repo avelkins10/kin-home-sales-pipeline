@@ -102,7 +102,7 @@ export function RecentProjects({ userId, role }: RecentProjectsProps) {
           {projects.map((project: QuickbaseProject) => {
             const recordId = project[PROJECT_FIELDS.RECORD_ID]?.value
             const customerName = project[PROJECT_FIELDS.CUSTOMER_NAME]?.value || 'Unknown Customer'
-            const projectId = project[PROJECT_FIELDS.PROJECT_ID]?.value || 'N/A'
+            const projectId = recordId || 'N/A' // PROJECT_ID same as RECORD_ID
             const currentMilestoneId = getCurrentMilestone(project, config)
             const milestoneStatus = getMilestoneStatus(project, currentMilestoneId, config)
             const milestone = milestoneStatus.name
