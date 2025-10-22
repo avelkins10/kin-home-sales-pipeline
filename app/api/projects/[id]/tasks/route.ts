@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server';
 import { requireAuth, requireProjectAccessById } from '@/lib/auth/guards';
 import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
-import { getProjectTasks } from '@/lib/quickbase/queries';
+import { qbClient } from '@/lib/quickbase/client';
+import { TASK_GROUP_FIELDS, TASK_FIELDS, QB_TABLE_TASK_GROUPS, QB_TABLE_TASKS } from '@/lib/constants/fieldIds';
+import { TaskGroup, Task } from '@/lib/types/task';
 
 export const runtime = 'nodejs';
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   const startedAt = Date.now();
   const reqId = req.headers.get('x-request-id') || Math.random().toString(36).substring(7);
-  
+
   // Log request
   logApiRequest('GET', '/api/projects/{id}/tasks', undefined, reqId);
 
@@ -31,14 +33,91 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       return access.response;
     }
 
-    // Query tasks for the project
-    const tasks = await getProjectTasks(numericId);
+    // Step 1: Get task groups for this project with all fields
+    const taskGroupsResponse = await qbClient.queryRecords({
+      from: QB_TABLE_TASK_GROUPS,
+      select: [
+        TASK_GROUP_FIELDS.RECORD_ID,
+        TASK_GROUP_FIELDS.RELATED_PROJECT,
+        TASK_GROUP_FIELDS.TOTAL_TASKS,
+        TASK_GROUP_FIELDS.UNAPPROVED_TASKS
+      ],
+      where: `{${TASK_GROUP_FIELDS.RELATED_PROJECT}.EX.${numericId}}`
+    });
+
+    // If no task groups, return empty array
+    if (taskGroupsResponse.data.length === 0) {
+      logApiResponse('GET', '/api/projects/{id}/tasks', Date.now() - startedAt, { count: 0 }, reqId);
+      return NextResponse.json([], { status: 200 });
+    }
+
+    // Build task groups with metadata
+    const taskGroupsMap = new Map<number, TaskGroup>();
+    const taskGroupIds: number[] = [];
+
+    taskGroupsResponse.data.forEach((record: any) => {
+      const recordId = record[TASK_GROUP_FIELDS.RECORD_ID]?.value;
+      if (recordId) {
+        taskGroupIds.push(recordId);
+        taskGroupsMap.set(recordId, {
+          recordId,
+          relatedProject: record[TASK_GROUP_FIELDS.RELATED_PROJECT]?.value || numericId,
+          totalTasks: record[TASK_GROUP_FIELDS.TOTAL_TASKS]?.value || 0,
+          unapprovedTasks: record[TASK_GROUP_FIELDS.UNAPPROVED_TASKS]?.value || 0,
+          tasks: []
+        });
+      }
+    });
+
+    // Step 2: Get tasks for these task groups
+    if (taskGroupIds.length > 0) {
+      const whereClause = taskGroupIds.map((id: number) => `{${TASK_FIELDS.TASK_GROUP}.EX.${id}}`).join('OR');
+
+      const tasksResponse = await qbClient.queryRecords({
+        from: QB_TABLE_TASKS,
+        select: [
+          TASK_FIELDS.RECORD_ID,
+          TASK_FIELDS.TASK_GROUP,
+          TASK_FIELDS.STATUS,
+          TASK_FIELDS.NAME,
+          TASK_FIELDS.CATEGORY,
+          TASK_FIELDS.MAX_SUBMISSION_STATUS
+        ],
+        where: whereClause
+      });
+
+      // Group tasks by their task group
+      tasksResponse.data.forEach((record: any) => {
+        const taskGroupId = record[TASK_FIELDS.TASK_GROUP]?.value;
+        const task: Task = {
+          recordId: record[TASK_FIELDS.RECORD_ID]?.value || 0,
+          taskGroup: taskGroupId || 0,
+          status: record[TASK_FIELDS.STATUS]?.value || 'Not Started',
+          name: record[TASK_FIELDS.NAME]?.value || '',
+          category: record[TASK_FIELDS.CATEGORY]?.value || null,
+          maxSubmissionStatus: record[TASK_FIELDS.MAX_SUBMISSION_STATUS]?.value || null,
+          submissions: []
+        };
+
+        const group = taskGroupsMap.get(taskGroupId);
+        if (group) {
+          group.tasks.push(task);
+        }
+      });
+    }
+
+    // Convert map to array
+    const taskGroups = Array.from(taskGroupsMap.values());
 
     // Log response
     const duration = Date.now() - startedAt;
-    logApiResponse('GET', '/api/projects/{id}/tasks', duration, { count: tasks.length }, reqId);
+    const totalTasks = taskGroups.reduce((sum, group) => sum + group.tasks.length, 0);
+    logApiResponse('GET', '/api/projects/{id}/tasks', duration, {
+      groups: taskGroups.length,
+      tasks: totalTasks
+    }, reqId);
 
-    return NextResponse.json(tasks, { status: 200 });
+    return NextResponse.json(taskGroups, { status: 200 });
 
   } catch (error) {
     logError('Failed to fetch tasks', error as Error, { projectId: params.id });
