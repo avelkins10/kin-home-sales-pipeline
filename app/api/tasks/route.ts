@@ -119,6 +119,14 @@ export async function GET(req: Request) {
     const QB_TABLE_PROJECTS = process.env.QUICKBASE_TABLE_PROJECTS || 'br9kwm8na';
     const projectAccessClause = buildProjectAccessClause(userEmail, userRole, effectiveOfficeIds, managedEmails, reqId);
 
+    logInfo('[TASKS_API] Generated WHERE clause', {
+      clause: projectAccessClause,
+      clauseLength: projectAccessClause?.length || 0,
+      userEmail: userEmail ? 'present' : 'null',
+      role: userRole,
+      reqId
+    });
+
     const projectsResponse = await qbClient.queryRecords({
       from: QB_TABLE_PROJECTS,
       select: [
