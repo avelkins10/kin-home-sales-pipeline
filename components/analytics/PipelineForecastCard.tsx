@@ -91,7 +91,7 @@ export function PipelineForecastCard({
     );
   }
 
-  const totalForecast = (data.next30Days ?? 0) + (data.next60Days ?? 0) + (data.next90Days ?? 0);
+  const totalForecast = (data.lastWeek ?? 0) + (data.thisWeek ?? 0) + (data.nextWeek ?? 0);
 
   if (totalForecast === 0) {
     return (
@@ -99,7 +99,7 @@ export function PipelineForecastCard({
         <CardContent className="p-6">
           <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-center">
             <Info className="h-8 w-8 text-slate-400 mx-auto mb-2" />
-            <p className="text-slate-600">No installs scheduled in the next 90 days</p>
+            <p className="text-slate-600">No installs tracked for this 3-week period</p>
             <p className="text-slate-500 text-sm mt-1">Check project statuses for updates</p>
           </div>
         </CardContent>
@@ -109,25 +109,28 @@ export function PipelineForecastCard({
 
   const forecastPeriods = [
     {
-      label: 'Next 30 Days',
-      value: data.next30Days ?? 0,
-      color: 'bg-green-50',
-      iconColor: 'text-green-600',
-      bgColor: 'bg-green-100'
+      label: 'Last Week',
+      value: data.lastWeek ?? 0,
+      color: 'bg-slate-50',
+      iconColor: 'text-slate-600',
+      bgColor: 'bg-slate-100',
+      description: 'Completed installs'
     },
     {
-      label: 'Next 60 Days',
-      value: data.next60Days ?? 0,
+      label: 'This Week',
+      value: data.thisWeek ?? 0,
       color: 'bg-blue-50',
       iconColor: 'text-blue-600',
-      bgColor: 'bg-blue-100'
+      bgColor: 'bg-blue-100',
+      description: 'Scheduled this week'
     },
     {
-      label: 'Next 90 Days',
-      value: data.next90Days ?? 0,
-      color: 'bg-purple-50',
-      iconColor: 'text-purple-600',
-      bgColor: 'bg-purple-100'
+      label: 'Next Week',
+      value: data.nextWeek ?? 0,
+      color: 'bg-green-50',
+      iconColor: 'text-green-600',
+      bgColor: 'bg-green-100',
+      description: 'Scheduled next week'
     }
   ];
 
@@ -136,10 +139,10 @@ export function PipelineForecastCard({
       <CardHeader>
         <CardTitle className="flex items-center space-x-2">
           <Calendar className="h-6 w-6 text-blue-600" />
-          <span>Pipeline Forecast</span>
+          <span>Install Tracker</span>
         </CardTitle>
         <p className="text-sm text-gray-600">
-          Expected installs
+          Last week • This week • Next week
         </p>
       </CardHeader>
       <CardContent>
@@ -147,44 +150,56 @@ export function PipelineForecastCard({
           {/* Forecast Periods */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {forecastPeriods.map((period) => (
-              <div key={period.label} className={`flex items-center space-x-3 p-3 ${period.color} rounded-lg`}>
-                <div className={`p-2 ${period.bgColor} rounded-lg`}>
-                  <Clock className={`h-5 w-5 ${period.iconColor}`} />
+              <div key={period.label} className={`flex flex-col space-y-2 p-4 ${period.color} rounded-lg border-l-4 ${
+                period.label === 'Last Week' ? 'border-slate-500' :
+                period.label === 'This Week' ? 'border-blue-500' :
+                'border-green-500'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-gray-700">{period.label}</p>
+                  <div className={`p-1.5 ${period.bgColor} rounded`}>
+                    <Clock className={`h-4 w-4 ${period.iconColor}`} />
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm text-gray-600">{period.label}</p>
-                  <p className="text-2xl font-semibold text-gray-900">{period.value.toLocaleString()}</p>
-                  <p className="text-xs text-gray-500">projects scheduled for install</p>
+                <div>
+                  <p className="text-3xl font-bold text-gray-900">{period.value.toLocaleString()}</p>
+                  <p className="text-xs text-gray-600 mt-1">{period.description}</p>
                 </div>
               </div>
             ))}
           </div>
 
           {/* Summary Stats */}
-          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-900">Total Forecasted Installs</p>
-                <p className="text-lg font-bold text-slate-900">{totalForecast.toLocaleString()}</p>
-                <p className="text-sm text-slate-600">Next 90 days</p>
+                <p className="text-sm font-medium text-blue-900">Total (3 Weeks)</p>
+                <p className="text-2xl font-bold text-blue-900">{totalForecast.toLocaleString()}</p>
+                <p className="text-xs text-blue-700 mt-1">installs tracked</p>
               </div>
-              <div className="text-right">
-                <p className="text-sm text-slate-600">
-                  {data.next30Days > 0 && `${formatPercentage((data.next30Days / totalForecast) * 100)} in 30 days`}
-                </p>
-                <p className="text-sm text-slate-600">
-                  {data.next60Days > 0 && `${formatPercentage((data.next60Days / totalForecast) * 100)} in 60 days`}
-                </p>
-                <p className="text-sm text-slate-600">
-                  {data.next90Days > 0 && `${formatPercentage((data.next90Days / totalForecast) * 100)} in 90 days`}
-                </p>
+              <div className="text-right space-y-1">
+                {data.lastWeek > 0 && (
+                  <p className="text-sm text-blue-700">
+                    {formatPercentage((data.lastWeek / totalForecast) * 100)} last week
+                  </p>
+                )}
+                {data.thisWeek > 0 && (
+                  <p className="text-sm text-blue-700">
+                    {formatPercentage((data.thisWeek / totalForecast) * 100)} this week
+                  </p>
+                )}
+                {data.nextWeek > 0 && (
+                  <p className="text-sm text-blue-700">
+                    {formatPercentage((data.nextWeek / totalForecast) * 100)} next week
+                  </p>
+                )}
               </div>
             </div>
           </div>
 
           {/* Data Freshness Note */}
           <div className="text-xs text-gray-500 text-center">
-            Forecast based on scheduled and estimated install dates
+            Based on scheduled and estimated install dates
           </div>
         </div>
       </CardContent>

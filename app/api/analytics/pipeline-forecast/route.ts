@@ -118,9 +118,9 @@ export async function GET(req: Request) {
 
     const response = {
       forecast: {
-        next30Days: forecastData.next30Days,
-        next60Days: forecastData.next60Days,
-        next90Days: forecastData.next90Days,
+        lastWeek: forecastData.lastWeek,
+        thisWeek: forecastData.thisWeek,
+        nextWeek: forecastData.nextWeek,
         ...(includeDetails && { projects: forecastData.projects }),
       },
       metadata: {

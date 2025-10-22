@@ -220,12 +220,12 @@ export interface RepDetailMetrics {
  * Used by /api/analytics/pipeline-forecast endpoint
  */
 export interface PipelineForecast {
-  /** Number of projects forecasted to install in next 30 days */
-  next30Days: number;
-  /** Number of projects forecasted to install in next 60 days */
-  next60Days: number;
-  /** Number of projects forecasted to install in next 90 days */
-  next90Days: number;
+  /** Number of installs completed last week */
+  lastWeek: number;
+  /** Number of installs scheduled for this week */
+  thisWeek: number;
+  /** Number of installs scheduled for next week */
+  nextWeek: number;
   /** Detailed project list (only included if includeDetails=true) */
   projects?: Array<{
     /** Quickbase record ID */
@@ -244,6 +244,8 @@ export interface PipelineForecast {
     scheduledInstallDate: string | null;
     /** Source of the forecast date */
     forecastSource: 'scheduled' | 'estimated' | 'tentative';
+    /** Which week bucket this project falls into */
+    weekBucket: 'lastWeek' | 'thisWeek' | 'nextWeek';
   }>;
 }
 

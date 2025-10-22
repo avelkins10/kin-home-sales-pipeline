@@ -3283,14 +3283,36 @@ export async function getPipelineForecast(
     const projects = response.data || [];
     console.log('[getPipelineForecast] Fetched active projects:', projects.length);
 
-    const today = new Date();
-    const next30Days = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
-    const next60Days = new Date(today.getTime() + 60 * 24 * 60 * 60 * 1000);
-    const next90Days = new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000);
+    // Calculate week boundaries in America/New_York timezone
+    const now = new Date();
+    const timezone = 'America/New_York';
+    const nowInTimezone = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
 
-    let next30Count = 0;
-    let next60Count = 0;
-    let next90Count = 0;
+    // Get start of this week (Sunday at 00:00)
+    const thisWeekStart = new Date(nowInTimezone);
+    thisWeekStart.setDate(thisWeekStart.getDate() - thisWeekStart.getDay());
+    thisWeekStart.setHours(0, 0, 0, 0);
+
+    // Get end of this week (Saturday at 23:59:59)
+    const thisWeekEnd = new Date(thisWeekStart);
+    thisWeekEnd.setDate(thisWeekEnd.getDate() + 6);
+    thisWeekEnd.setHours(23, 59, 59, 999);
+
+    // Get start/end of last week
+    const lastWeekStart = new Date(thisWeekStart);
+    lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+    const lastWeekEnd = new Date(thisWeekStart);
+    lastWeekEnd.setMilliseconds(lastWeekEnd.getMilliseconds() - 1);
+
+    // Get start/end of next week
+    const nextWeekStart = new Date(thisWeekEnd);
+    nextWeekStart.setMilliseconds(nextWeekStart.getMilliseconds() + 1);
+    const nextWeekEnd = new Date(nextWeekStart);
+    nextWeekEnd.setDate(nextWeekEnd.getDate() + 6);
+
+    let lastWeekCount = 0;
+    let thisWeekCount = 0;
+    let nextWeekCount = 0;
     let anyForecastCount = 0;
     const forecastProjects: any[] = includeDetails ? [] : [];
 
@@ -3331,8 +3353,22 @@ export async function getPipelineForecast(
 
       if (forecastDate) {
         anyForecastCount++;
-        
-        if (includeDetails) {
+
+        // Determine which week this project falls into
+        let weekBucket: 'lastWeek' | 'thisWeek' | 'nextWeek' | null = null;
+
+        if (forecastDate >= lastWeekStart && forecastDate <= lastWeekEnd) {
+          lastWeekCount++;
+          weekBucket = 'lastWeek';
+        } else if (forecastDate >= thisWeekStart && forecastDate <= thisWeekEnd) {
+          thisWeekCount++;
+          weekBucket = 'thisWeek';
+        } else if (forecastDate >= nextWeekStart && forecastDate <= nextWeekEnd) {
+          nextWeekCount++;
+          weekBucket = 'nextWeek';
+        }
+
+        if (includeDetails && weekBucket) {
           const projectDetails = {
             recordId,
             projectId,
@@ -3342,27 +3378,9 @@ export async function getPipelineForecast(
             estimatedInstallDate: project[PROJECT_FIELDS.ESTIMATED_INSTALL_DATE]?.value || null,
             scheduledInstallDate: scheduledDate || null,
             forecastSource,
+            weekBucket,
           };
-
-          if (forecastDate <= next30Days) {
-            next30Count++;
-            forecastProjects.push(projectDetails);
-          } else if (forecastDate <= next60Days) {
-            next60Count++;
-            forecastProjects.push(projectDetails);
-          } else if (forecastDate <= next90Days) {
-            next90Count++;
-            forecastProjects.push(projectDetails);
-          }
-        } else {
-          // Only count buckets when includeDetails is false
-          if (forecastDate <= next30Days) {
-            next30Count++;
-          } else if (forecastDate <= next60Days) {
-            next60Count++;
-          } else if (forecastDate <= next90Days) {
-            next90Count++;
-          }
+          forecastProjects.push(projectDetails);
         }
       }
     }
@@ -3370,18 +3388,23 @@ export async function getPipelineForecast(
     // Calculate metadata
     const totalActiveProjects = projects.length;
     const projectsWithForecast = anyForecastCount;
-    const projectsWithin90Days = next30Count + next60Count + next90Count;
+    const projectsWithinWeeks = lastWeekCount + thisWeekCount + nextWeekCount;
 
     const duration = Date.now() - startTime;
     console.log('[getPipelineForecast] COMPLETED - duration:', duration, 'ms, forecast projects:', includeDetails ? forecastProjects.length : 'N/A (details not requested)');
+    console.log('[getPipelineForecast] Weekly breakdown:', {
+      lastWeek: lastWeekCount,
+      thisWeek: thisWeekCount,
+      nextWeek: nextWeekCount
+    });
 
     const result = {
-      next30Days: next30Count,
-      next60Days: next60Count,
-      next90Days: next90Count,
+      lastWeek: lastWeekCount,
+      thisWeek: thisWeekCount,
+      nextWeek: nextWeekCount,
       totalActiveProjects,
       projectsWithForecast,
-      projectsWithin90Days,
+      projectsWithinWeeks,
       ...(includeDetails && { projects: forecastProjects }),
     };
 
