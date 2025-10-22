@@ -108,6 +108,14 @@ export interface OfficeMetrics {
   holds: number;
   /** Monthly install data for sparkline visualization */
   monthlyInstalls: Array<{ month: string; installs: number }>;
+  /** Number of projects pending KCA */
+  pendingKcaProjects: number;
+  /** Number of projects on finance hold */
+  financeHoldProjects: number;
+  /** Number of projects pending cancellation */
+  pendingCancelProjects: number;
+  /** Number of projects on roof hold */
+  roofHoldProjects: number;
 }
 
 /**

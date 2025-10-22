@@ -30,6 +30,10 @@ interface OfficeOverviewData {
   cancelledProjects: number;
   onHoldProjects: number;
   projectsRejected: number;
+  pendingKcaProjects: number;
+  financeHoldProjects: number;
+  pendingCancelProjects: number;
+  roofHoldProjects: number;
   officeCount: number;
 }
 
@@ -132,6 +136,10 @@ export function OfficeOverviewCard({
     acc.cancelledProjects += office.cancelledProjects;
     acc.onHoldProjects += office.onHoldProjects;
     acc.projectsRejected += office.projectsRejected;
+    acc.pendingKcaProjects += office.pendingKcaProjects;
+    acc.financeHoldProjects += office.financeHoldProjects;
+    acc.pendingCancelProjects += office.pendingCancelProjects;
+    acc.roofHoldProjects += office.roofHoldProjects;
     acc.officeCount = data.length;
     return acc;
   }, {
@@ -147,6 +155,10 @@ export function OfficeOverviewCard({
     cancelledProjects: 0,
     onHoldProjects: 0,
     projectsRejected: 0,
+    pendingKcaProjects: 0,
+    financeHoldProjects: 0,
+    pendingCancelProjects: 0,
+    roofHoldProjects: 0,
     officeCount: 0
   });
 
@@ -281,6 +293,10 @@ export function OfficeOverviewCard({
                 <div>Rejected: {(aggregated.projectsRejected || 0).toLocaleString()}</div>
                 <div>Cancelled: {(aggregated.cancelledProjects || 0).toLocaleString()}</div>
                 <div>Holds: {(aggregated.onHoldProjects || 0).toLocaleString()}</div>
+                <div>Pending KCA: {(aggregated.pendingKcaProjects || 0).toLocaleString()}</div>
+                <div>Finance Hold: {(aggregated.financeHoldProjects || 0).toLocaleString()}</div>
+                <div>Pending Cancel: {(aggregated.pendingCancelProjects || 0).toLocaleString()}</div>
+                <div>Roof Hold: {(aggregated.roofHoldProjects || 0).toLocaleString()}</div>
               </div>
             </div>
           </div>

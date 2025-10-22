@@ -2789,6 +2789,12 @@ export async function getOfficeMetrics(
       const installs = completedProjects.length;
       const holds = onHoldProjects;
 
+      // Additional statuses that were missing from original counts
+      const pendingKcaProjects = statusCounts['Pending KCA'] || 0;
+      const financeHoldProjects = statusCounts['Finance Hold'] || 0;
+      const pendingCancelProjects = statusCounts['Pending Cancel'] || 0;
+      const roofHoldProjects = statusCounts['Roof Hold'] || 0;
+
       // Calculate monthly install data for sparklines (last 6 months)
       const monthlyInstalls = calculateMonthlyInstalls(completedProjects);
 
@@ -2816,6 +2822,10 @@ export async function getOfficeMetrics(
         installs,
         holds,
         monthlyInstalls,
+        pendingKcaProjects,
+        financeHoldProjects,
+        pendingCancelProjects,
+        roofHoldProjects,
       };
     });
 
