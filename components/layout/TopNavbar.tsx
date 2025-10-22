@@ -19,7 +19,8 @@ import {
   Menu,
   X,
   LogOut,
-  User
+  User,
+  CheckSquare
 } from 'lucide-react';
 import { Logo } from './Logo';
 
@@ -33,6 +34,7 @@ export function TopNavbar() {
   const navigationItems = [
     { name: 'Dashboard', href: '/', icon: Home, roles: ['closer', 'setter', 'coordinator', 'office_leader', 'regional', 'super_admin'] },
     { name: 'Projects', href: '/projects', icon: FolderKanban, roles: ['closer', 'setter', 'coordinator', 'office_leader', 'regional', 'super_admin'] },
+    { name: 'Tasks', href: '/tasks', icon: CheckSquare, roles: ['closer', 'setter', 'coordinator', 'office_leader', 'regional', 'super_admin'] },
     // { name: 'Holds', href: '/holds', icon: Clock, roles: ['closer', 'setter', 'coordinator', 'office_leader', 'regional', 'super_admin'] }, // TODO: Implement holds page
     { name: 'Calendar', href: '/calendar', icon: Calendar, roles: ['closer', 'setter', 'coordinator', 'office_leader', 'regional', 'super_admin'] },
     { name: 'Analytics', href: '/analytics', icon: BarChart3, roles: ['office_leader', 'regional', 'super_admin'] },
