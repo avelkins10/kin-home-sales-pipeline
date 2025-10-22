@@ -2768,7 +2768,6 @@ export async function getOfficeMetrics(
 
       const activeProjects = statusCounts['Active'] || 0;
       const cancelledProjects = statusCounts['Cancelled'] || 0;
-      const onHoldProjects = officeProjects.filter(p => isTrueQB(p[PROJECT_FIELDS.ON_HOLD]?.value)).length;
       const projectsSubmitted = statusCounts['Submitted'] || 0;
       const projectsApproved = statusCounts['Approved'] || 0;
       // Count projects currently rejected and awaiting resubmit (not yet fixed/approved)
@@ -2777,13 +2776,15 @@ export async function getOfficeMetrics(
         !p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value
       ).length;
       const installs = completedProjects.length;
-      const holds = onHoldProjects;
 
-      // Additional statuses that were missing from original counts
+      // All hold types from PROJECT_STATUS field
       const pendingKcaProjects = statusCounts['Pending KCA'] || 0;
       const financeHoldProjects = statusCounts['Finance Hold'] || 0;
       const pendingCancelProjects = statusCounts['Pending Cancel'] || 0;
       const roofHoldProjects = statusCounts['Roof Hold'] || 0;
+      // General "On Hold" status - this was previously using the boolean field, but should use PROJECT_STATUS
+      const onHoldProjects = statusCounts['On Hold'] || 0;
+      const holds = onHoldProjects;
 
       // Calculate monthly install data for sparklines (last 6 months)
       const monthlyInstalls = calculateMonthlyInstalls(completedProjects);
