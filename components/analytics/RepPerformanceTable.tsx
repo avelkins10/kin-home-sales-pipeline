@@ -108,7 +108,7 @@ export function RepPerformanceTable({
   };
 
   const { data, isLoading, error } = useQuery<RepPerformance[]>({
-    queryKey: ['rep-performance', userId, role, timeRange, customDateRange, officeIds],
+    queryKey: ['rep-performance-v2', userId, role, timeRange, customDateRange, officeIds],
     queryFn: async () => {
       let url = `${getBaseUrl()}/api/analytics/rep-performance?timeRange=${timeRange}`;
       
