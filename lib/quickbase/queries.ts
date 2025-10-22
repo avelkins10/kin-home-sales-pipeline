@@ -128,7 +128,7 @@ async function getManagedUserIds(managerId: string): Promise<string[]> {
 }
 
 // Helper function to get user email from dashboard database
-async function getUserEmail(userId: string): Promise<string | null> {
+export async function getUserEmail(userId: string): Promise<string | null> {
   // Input validation
   if (!userId || typeof userId !== 'string' || userId.trim() === '') {
     console.warn('[getUserEmail] Invalid userId provided:', typeof userId, userId);
@@ -167,7 +167,7 @@ async function getUserEmail(userId: string): Promise<string | null> {
 }
 
 // Helper function to get managed user emails for team leads
-async function getManagedUserEmails(managerId: string): Promise<string[]> {
+export async function getManagedUserEmails(managerId: string): Promise<string[]> {
   // Input validation
   if (!managerId || typeof managerId !== 'string' || managerId.trim() === '') {
     console.warn('[getManagedUserEmails] Invalid managerId provided:', typeof managerId, managerId);
@@ -204,7 +204,7 @@ async function getManagedUserEmails(managerId: string): Promise<string[]> {
 
 // Helper function to get assigned office IDs for managers
 // Returns QuickBase Record IDs (Field 810) for stable filtering that survives office name changes
-async function getAssignedOffices(userId: string): Promise<number[]> {
+export async function getAssignedOffices(userId: string): Promise<number[]> {
   // Input validation
   if (!userId || typeof userId !== 'string' || userId.trim() === '') {
     console.warn('[getAssignedOffices] Invalid userId provided:', typeof userId, userId);

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/guards';
-import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
+import { logApiRequest, logApiResponse, logError, logInfo } from '@/lib/logging/logger';
 import { qbClient } from '@/lib/quickbase/client';
 import {
   PROJECT_FIELDS,
@@ -40,12 +40,34 @@ export async function GET(req: Request) {
       return auth.response;
     }
 
-    const userEmail = auth.session.user.email;
+    const userId = (auth.session.user as any).id as string;
     const userRole = auth.session.user.role;
+
+    // Get user email from database (required for email-based filtering)
+    const { getUserEmail, getManagedUserEmails, getAssignedOffices } = await import('@/lib/quickbase/queries');
+    const { isManagerRole } = await import('@/lib/utils/role-helpers');
+
+    let userEmail: string | null = null;
+    if (['closer', 'setter', 'coordinator'].includes(userRole) || isManagerRole(userRole)) {
+      userEmail = await getUserEmail(userId);
+    }
+
+    // Get managed user emails for team leads
+    let managedEmails: string[] | undefined;
+    if (userRole === 'team_lead') {
+      managedEmails = await getManagedUserEmails(userId);
+    }
+
+    // Get assigned office IDs for office-based roles
+    let effectiveOfficeIds: number[] | undefined;
+    if (['office_leader', 'area_director', 'divisional', 'regional'].includes(userRole)) {
+      effectiveOfficeIds = await getAssignedOffices(userId);
+      logInfo('[TASKS_API] Fetched offices from database', { userId, role: userRole, officeCount: effectiveOfficeIds?.length || 0, reqId });
+    }
 
     // Step 1: Get accessible projects for this user
     const QB_TABLE_PROJECTS = process.env.QUICKBASE_TABLE_PROJECTS || 'br9kwm8na';
-    const projectAccessClause = buildProjectAccessClause(userEmail, userRole);
+    const projectAccessClause = buildProjectAccessClause(userEmail, userRole, effectiveOfficeIds, managedEmails, reqId);
 
     const projectsResponse = await qbClient.queryRecords({
       from: QB_TABLE_PROJECTS,
