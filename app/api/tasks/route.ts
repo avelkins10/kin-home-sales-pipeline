@@ -13,6 +13,8 @@ import {
 } from '@/lib/constants/fieldIds';
 import { Task, TaskSubmission } from '@/lib/types/task';
 import { buildProjectAccessClause } from '@/lib/auth/projectAuthorization';
+import { getUserEmail, getManagedUserEmails, getAssignedOffices } from '@/lib/quickbase/queries';
+import { isManagerRole } from '@/lib/utils/role-helpers';
 
 export const runtime = 'nodejs';
 
@@ -44,9 +46,6 @@ export async function GET(req: Request) {
     const userRole = auth.session.user.role;
 
     // Get user email from database (required for email-based filtering)
-    const { getUserEmail, getManagedUserEmails, getAssignedOffices } = await import('@/lib/quickbase/queries');
-    const { isManagerRole } = await import('@/lib/utils/role-helpers');
-
     let userEmail: string | null = null;
     if (['closer', 'setter', 'coordinator'].includes(userRole) || isManagerRole(userRole)) {
       userEmail = await getUserEmail(userId);
