@@ -74,22 +74,22 @@ const CustomTooltip = ({ active, payload }: any) => {
 const CustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, payload }: any) => {
   const pct = percent * 100;
   if (pct < 5) return null; // Don't show labels for slices < 5%
-  
+
   const RADIAN = Math.PI / 180;
   const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
   const x = cx + radius * Math.cos(-midAngle * RADIAN);
   const y = cy + radius * Math.sin(-midAngle * RADIAN);
 
   return (
-    <text 
-      x={x} 
-      y={y} 
-      fill="white" 
-      textAnchor={x > cx ? 'start' : 'end'} 
+    <text
+      x={x}
+      y={y}
+      fill="white"
+      textAnchor={x > cx ? 'start' : 'end'}
       dominantBaseline="central"
       className="text-sm font-medium"
     >
-      {formatPercentage(percent)}
+      {formatPercentage(percent * 100)}
     </text>
   );
 };
@@ -196,25 +196,25 @@ export function StatusBreakdownCard({
     {
       name: 'Active',
       value: activeTotal,
-      percentage: activeTotal / totalProjects,
+      percentage: (activeTotal / totalProjects) * 100,
       color: '#10b981' // green
     },
     {
       name: 'Needs Attention',
       value: needsAttentionTotal,
-      percentage: needsAttentionTotal / totalProjects,
+      percentage: (needsAttentionTotal / totalProjects) * 100,
       color: '#f59e0b' // yellow/orange
     },
     {
       name: 'On Hold',
       value: onHoldTotal,
-      percentage: onHoldTotal / totalProjects,
+      percentage: (onHoldTotal / totalProjects) * 100,
       color: '#3b82f6' // blue
     },
     {
       name: 'Cancelled',
       value: cancelledTotal,
-      percentage: cancelledTotal / totalProjects,
+      percentage: (cancelledTotal / totalProjects) * 100,
       color: '#ef4444' // red
     }
   ].filter(item => item.value > 0); // Only show statuses with projects
@@ -269,7 +269,7 @@ export function StatusBreakdownCard({
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-gray-600">Active</span>
                   <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded">
-                    {formatPercentage(activeTotal / totalProjects)}
+                    {formatPercentage((activeTotal / totalProjects) * 100)}
                   </span>
                 </div>
                 <div className="text-3xl font-bold text-green-700">{activeTotal}</div>
@@ -282,7 +282,7 @@ export function StatusBreakdownCard({
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-gray-600">Needs Attention</span>
                   <span className="text-xs font-medium text-yellow-700 bg-yellow-100 px-2 py-1 rounded">
-                    {formatPercentage(needsAttentionTotal / totalProjects)}
+                    {formatPercentage((needsAttentionTotal / totalProjects) * 100)}
                   </span>
                 </div>
                 <div className="text-3xl font-bold text-yellow-700 mb-2">{needsAttentionTotal}</div>
@@ -315,7 +315,7 @@ export function StatusBreakdownCard({
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-gray-600">On Hold</span>
                   <span className="text-xs font-medium text-blue-700 bg-blue-100 px-2 py-1 rounded">
-                    {formatPercentage(onHoldTotal / totalProjects)}
+                    {formatPercentage((onHoldTotal / totalProjects) * 100)}
                   </span>
                 </div>
                 <div className="text-3xl font-bold text-blue-700 mb-2">{onHoldTotal}</div>
@@ -348,7 +348,7 @@ export function StatusBreakdownCard({
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-gray-600">Cancelled</span>
                   <span className="text-xs font-medium text-red-700 bg-red-100 px-2 py-1 rounded">
-                    {formatPercentage(cancelledTotal / totalProjects)}
+                    {formatPercentage((cancelledTotal / totalProjects) * 100)}
                   </span>
                 </div>
                 <div className="text-3xl font-bold text-red-700">{cancelledTotal}</div>
