@@ -16,6 +16,9 @@ import { OfficeComparisonTable } from '@/components/analytics/OfficeComparisonTa
 import { RepPerformanceTable } from '@/components/analytics/RepPerformanceTable';
 import { CancellationAnalysisCard } from '@/components/analytics/CancellationAnalysisCard';
 import { HoldAnalysisCard } from '@/components/analytics/HoldAnalysisCard';
+import { PeriodComparisonCard } from '@/components/analytics/PeriodComparisonCard';
+import { BenchmarkComparisonCard } from '@/components/analytics/BenchmarkComparisonCard';
+import { VisualComparisonsCard } from '@/components/analytics/VisualComparisonsCard';
 import { isManagerRole } from '@/lib/utils/role-helpers';
 import type { TimeRange, CustomDateRange } from '@/lib/types/dashboard';
 
@@ -359,6 +362,32 @@ export default function AnalyticsPage() {
           }
           comparisonsContent={
             <>
+              {/* Period Comparison - Full Width */}
+              <PeriodComparisonCard
+                userId={session.user.id}
+                role={session.user.role}
+                timeRange={timeRange}
+                officeIds={selectedOfficeIds}
+              />
+
+              {/* Benchmark Comparison - Full Width */}
+              <BenchmarkComparisonCard
+                userId={session.user.id}
+                role={session.user.role}
+                timeRange={timeRange}
+                customDateRange={customDateRange}
+                officeIds={selectedOfficeIds}
+              />
+
+              {/* Visual Comparison Chart - Full Width */}
+              <VisualComparisonsCard
+                userId={session.user.id}
+                role={session.user.role}
+                timeRange={timeRange}
+                customDateRange={customDateRange}
+                officeIds={selectedOfficeIds}
+              />
+
               {/* Office Comparison Table - Full Width */}
               <OfficeComparisonTable
                 userId={session.user.id}
