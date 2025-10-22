@@ -4,6 +4,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 // Removed offline import - using API route instead
 import { ProjectRow } from './ProjectRow';
+import { projectsListKey } from '@/lib/queryKeys';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
@@ -20,14 +21,15 @@ interface ProjectTableViewProps {
   office?: string; // NEW: Office filter
   setter?: string; // NEW: Setter filter
   closer?: string; // NEW: Closer filter
+  withTasks?: string; // NEW: Task filter
   onFetchingChange?: (isFetching: boolean, reason?: 'manual' | 'background') => void;
 }
 
-export function ProjectTableView({ userId, role, userEmail, view, search, sort, memberEmail, ownership = 'all', office, setter, closer, onFetchingChange }: ProjectTableViewProps) {
+export function ProjectTableView({ userId, role, userEmail, view, search, sort, memberEmail, ownership = 'all', office, setter, closer, withTasks, onFetchingChange }: ProjectTableViewProps) {
   const [isManualRefetch, setIsManualRefetch] = React.useState(false);
 
   const { data: projects, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['projects', userId, role, view, search, sort, memberEmail, ownership, office, setter, closer],
+    queryKey: projectsListKey(userId, role, view, search, sort, memberEmail, ownership, office, setter, closer, withTasks),
     queryFn: async () => {
       const params = new URLSearchParams();
       if (view && view !== 'all') params.set('view', view);
@@ -38,6 +40,7 @@ export function ProjectTableView({ userId, role, userEmail, view, search, sort, 
       if (office) params.set('office', office);
       if (setter) params.set('setter', setter);
       if (closer) params.set('closer', closer);
+      if (withTasks === 'true') params.set('withTasks', 'true');
 
       const response = await fetch(`/api/projects?${params.toString()}`);
       if (!response.ok) {

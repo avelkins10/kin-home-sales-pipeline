@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { StatusBadge } from './StatusBadge';
 import { RejectionReasonBadge } from './RejectionReasonBadge';
 import { UnreadBadge } from '@/components/ui/UnreadBadge';
+import { TaskBadge } from '@/components/ui/TaskBadge';
 import { useProjectUnreadCount } from '@/lib/hooks/useNotifications';
 import { parseCustomerName, getProjectAge, determineProjectOwnership } from '@/lib/utils/project-helpers';
 import { detectHoldStatus, extractHoldType } from '@/lib/utils/hold-detection';
@@ -62,6 +63,10 @@ export function ProjectRow({ project, userEmail, userRole }: ProjectRowProps) {
   // PPW fields
   const soldPPW = parseFloat(project[2292]?.value || '0') || null;
   const netPPW = parseFloat(project[2480]?.value || '0') || null;
+
+  // Task count fields
+  const totalTasks = parseInt(project[PROJECT_FIELDS.TOTAL_TASKS]?.value || '0') || 0;
+  const unapprovedTasks = parseInt(project[PROJECT_FIELDS.UNAPPROVED_TASKS]?.value || '0') || 0;
 
   // Calculate derived values
   const isOnHold = detectHoldStatus(projectStatus);
@@ -131,6 +136,9 @@ export function ProjectRow({ project, userEmail, userRole }: ProjectRowProps) {
               )}
               {unreadCount > 0 && (
                 <UnreadBadge count={unreadCount} variant="default" size="small" />
+              )}
+              {unapprovedTasks > 0 && (
+                <TaskBadge count={unapprovedTasks} size="small" />
               )}
             </div>
             {isRejected && rejectionReasons && (

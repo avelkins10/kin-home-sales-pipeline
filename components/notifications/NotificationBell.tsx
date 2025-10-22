@@ -59,12 +59,18 @@ export function NotificationBell() {
         ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 rounded-lg hover:bg-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        aria-label={`Notifications ${totalUnread > 0 ? `(${totalUnread} unread)` : ''}`}
+        aria-label={`Notifications ${
+          totalUnread > 0 
+            ? `(${totalUnread} unread${unreadCounts?.task_notifications ? `, ${unreadCounts?.task_notifications} tasks` : ''})` 
+            : ''
+        }`}
       >
         <Bell
           className={`h-5 w-5 ${
             hasCritical
               ? 'text-red-600 animate-pulse'
+              : (unreadCounts?.task_notifications || 0) > 0
+              ? 'text-orange-600'
               : totalUnread > 0
               ? 'text-indigo-600'
               : 'text-slate-600'

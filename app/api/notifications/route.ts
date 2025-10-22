@@ -109,7 +109,15 @@ export async function POST(req: Request) {
     }
 
     // Validate type
-    const validTypes = ['quickbase_note', 'internal_message', 'system_alert'];
+    const validTypes = [
+      'quickbase_note', 
+      'internal_message', 
+      'system_alert',
+      'task_submitted',
+      'task_approved',
+      'task_revision_needed',
+      'all_tasks_complete'
+    ];
     if (!validTypes.includes(body.type)) {
       return NextResponse.json(
         { error: 'Invalid notification type' },

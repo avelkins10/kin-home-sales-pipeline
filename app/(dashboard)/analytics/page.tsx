@@ -15,8 +15,8 @@ import { PipelineForecastCard } from '@/components/analytics/PipelineForecastCar
 import { OfficeComparisonTable } from '@/components/analytics/OfficeComparisonTable';
 import { RepPerformanceTable } from '@/components/analytics/RepPerformanceTable';
 import { RepBenchmarkComparisonCard } from '@/components/analytics/RepBenchmarkComparisonCard';
-import { CancellationAnalysisCard } from '@/components/analytics/CancellationAnalysisCard';
-import { HoldAnalysisCard } from '@/components/analytics/HoldAnalysisCard';
+// import { CancellationAnalysisCard } from '@/components/analytics/CancellationAnalysisCard';
+// import { HoldAnalysisCard } from '@/components/analytics/HoldAnalysisCard';
 import { PeriodComparisonCard } from '@/components/analytics/PeriodComparisonCard';
 import { BenchmarkComparisonCard } from '@/components/analytics/BenchmarkComparisonCard';
 import { VisualComparisonsCard } from '@/components/analytics/VisualComparisonsCard';
@@ -414,23 +414,23 @@ export default function AnalyticsPage() {
             <>
               {/* Cancellation and Hold Analysis - Side by Side */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <CancellationAnalysisCard
+                {/* <CancellationAnalysisCard
                   userId={session.user.id}
                   role={session.user.role}
                   timeRange={timeRange}
                   customDateRange={customDateRange}
                   officeIds={selectedOfficeIds}
                   showComparison={true}
-                />
+                /> */}
 
-                <HoldAnalysisCard
+                {/* <HoldAnalysisCard
                   userId={session.user.id}
                   role={session.user.role}
                   timeRange={timeRange}
                   customDateRange={customDateRange}
                   officeIds={selectedOfficeIds}
                   showComparison={true}
-                />
+                /> */}
               </div>
             </>
           }

@@ -34,6 +34,9 @@ export function ProjectFilterChips({ isFetching = false }: ProjectFilterChipsPro
   
   // Get current ownership parameter, default to 'all'
   const currentOwnership = searchParams.get('ownership') || 'all';
+  
+  // Get current task filter parameter
+  const withTasks = searchParams.get('withTasks') === 'true';
 
   // Fetch all projects for count calculation (lightweight query)
   const { data: projects = [] } = useQuery({
@@ -166,7 +169,7 @@ export function ProjectFilterChips({ isFetching = false }: ProjectFilterChipsPro
       )}
 
       {/* Active Filters Display */}
-      {(currentOwnership !== 'all' || searchParams.get('memberEmail') || searchParams.get('office') || searchParams.get('setter') || searchParams.get('closer')) && (
+      {(currentOwnership !== 'all' || searchParams.get('memberEmail') || searchParams.get('office') || searchParams.get('setter') || searchParams.get('closer') || withTasks) && (
         <div className="flex items-center gap-2 mb-3">
           <span className="text-sm text-gray-600 font-medium">Active Filters:</span>
           <div className="flex gap-2 flex-wrap">
@@ -222,6 +225,20 @@ export function ProjectFilterChips({ isFetching = false }: ProjectFilterChipsPro
                 }}
               >
                 <span className="text-sm">Closer: {searchParams.get('closer')}</span>
+                <X className="h-3 w-3" />
+              </Badge>
+            )}
+            {withTasks && (
+              <Badge
+                variant="secondary"
+                className="px-3 py-1.5 cursor-pointer hover:bg-gray-200 transition-colors flex items-center gap-2"
+                onClick={() => {
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.delete('withTasks');
+                  router.push(`/projects?${params.toString()}`);
+                }}
+              >
+                <span className="text-sm">With Tasks</span>
                 <X className="h-3 w-3" />
               </Badge>
             )}

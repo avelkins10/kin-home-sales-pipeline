@@ -16,6 +16,7 @@ import { PricingBreakdownCard } from '@/components/projects/PricingBreakdownCard
 import { Timeline } from '@/components/milestones/Timeline'
 import { HoldManagementCard } from '@/components/projects/HoldManagementCard'
 import { ProjectCommunicationTabs } from '@/components/projects/ProjectCommunicationTabs'
+import { TaskSection } from '@/components/projects/TaskSection'
 import { ProjectDetailSkeleton } from '@/components/projects/ProjectDetailSkeleton'
 import { projectKey } from '@/lib/queryKeys'
 import { getBaseUrl } from '@/lib/utils/baseUrl'
@@ -66,6 +67,32 @@ export default function ProjectDetailPage({
     }
   }, [status, router])
 
+  // Handle hash navigation (e.g., #tasks from notifications)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const hash = window.location.hash;
+    if (hash) {
+      // Wait for component to render
+      const timeoutId = setTimeout(() => {
+        const elementId = hash.replace('#', '');
+        const element = document.getElementById(elementId);
+        
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          
+          // Optional: Add a highlight effect
+          element.classList.add('ring-2', 'ring-blue-500', 'ring-offset-2');
+          setTimeout(() => {
+            element.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2');
+          }, 2000);
+        }
+      }, 300); // Delay to ensure DOM is ready
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [projectId, project]); // Re-run when project data loads
+
   // Handle loading and unauthenticated states
   if (isLoading || status === 'loading' || status === 'unauthenticated') {
     return <ProjectDetailSkeleton />
@@ -110,6 +137,11 @@ export default function ProjectDetailPage({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - 2/3 width */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Action Items */}
+            <div id="tasks">
+              <TaskSection projectId={projectId} />
+            </div>
+
             {/* Customer Contact */}
             <CustomerContactCard project={project} />
 

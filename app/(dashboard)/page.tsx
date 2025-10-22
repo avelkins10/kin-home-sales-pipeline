@@ -12,6 +12,9 @@ import { TeamActivityFeed, TeamActivityFeedSkeleton } from '@/components/dashboa
 import { DashboardFilters } from '@/components/dashboard/DashboardFilters';
 import { DashboardScopeToggle } from '@/components/dashboard/DashboardScopeToggle';
 import { EnhancedDashboardData } from '@/components/dashboard/EnhancedDashboardData';
+import { QuickHoldInsight } from '@/components/dashboard/QuickHoldInsight';
+import { AIWinsCard } from '@/components/dashboard/AIWinsCard';
+import { LeverImpactMatrix } from '@/components/analytics/LeverImpactMatrix';
 import { syncUserTimezone } from '@/lib/utils/timezone';
 import { isManagerRole } from '@/lib/utils/role-helpers';
 import type { TimeRange, MetricsScope } from '@/lib/types/dashboard';
@@ -221,6 +224,26 @@ export default function DashboardPage() {
           scope={isManager ? scope : 'personal'} // Force personal for non-managers
         />
       </Suspense>
+
+      {/* AI Insights Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mobile:gap-6">
+        {/* Quick Hold Insights */}
+        <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+          <QuickHoldInsight userId={session.user.quickbaseUserId} />
+        </Suspense>
+
+        {/* AI Success Stories */}
+        <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+          <AIWinsCard userId={session.user.quickbaseUserId} />
+        </Suspense>
+      </div>
+
+      {/* Lever Impact Matrix (managers only) */}
+      {isManager && (
+        <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+          <LeverImpactMatrix userId={session.user.quickbaseUserId} />
+        </Suspense>
+      )}
 
       {/* Two Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mobile:gap-6">

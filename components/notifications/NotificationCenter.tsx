@@ -11,7 +11,7 @@ interface NotificationCenterProps {
 }
 
 export function NotificationCenter({ onClose }: NotificationCenterProps) {
-  const [filter, setFilter] = useState<'all' | NotificationPriority>('all');
+  const [filter, setFilter] = useState<'all' | NotificationPriority | 'tasks'>('all');
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
 
   const { data, isLoading } = useNotifications({
@@ -22,9 +22,14 @@ export function NotificationCenter({ onClose }: NotificationCenterProps) {
   const notifications = data?.notifications || [];
 
   // Filter by priority if selected
-  const filteredNotifications = filter === 'all'
-    ? notifications
-    : notifications.filter((n) => n.priority === filter);
+  const filteredNotifications = 
+    filter === 'all'
+      ? notifications
+      : filter === 'tasks'
+      ? notifications.filter((n) => 
+          ['task_submitted', 'task_approved', 'task_revision_needed', 'all_tasks_complete'].includes(n.type)
+        )
+      : notifications.filter((n) => n.priority === filter);
 
   return (
     <div className="w-[420px] max-h-[600px] flex flex-col bg-white rounded-lg shadow-xl border border-slate-200">
@@ -49,12 +54,20 @@ export function NotificationCenter({ onClose }: NotificationCenterProps) {
       {/* Priority Filter Tabs */}
       <div className="flex items-center gap-1 px-4 py-2 border-b border-slate-100 bg-slate-50">
         <Filter className="h-3.5 w-3.5 text-slate-500 mr-1" />
-        {(['all', 'critical', 'normal', 'info'] as const).map((priorityFilter) => {
+        {(['all', 'critical', 'normal', 'info', 'tasks'] as const).map((priorityFilter) => {
           const isActive = filter === priorityFilter;
-          const count =
-            priorityFilter === 'all'
-              ? notifications.length
-              : notifications.filter((n) => n.priority === priorityFilter).length;
+          
+          // Calculate count based on filter type
+          let count: number;
+          if (priorityFilter === 'all') {
+            count = notifications.length;
+          } else if (priorityFilter === 'tasks') {
+            count = notifications.filter((n) => 
+              ['task_submitted', 'task_approved', 'task_revision_needed', 'all_tasks_complete'].includes(n.type)
+            ).length;
+          } else {
+            count = notifications.filter((n) => n.priority === priorityFilter).length;
+          }
 
           return (
             <button

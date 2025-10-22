@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { MessageSquare, Users, Bell, ExternalLink } from 'lucide-react';
+import { MessageSquare, Users, Bell, ExternalLink, FileCheck, CheckCircle, AlertTriangle, ClipboardCheck } from 'lucide-react';
 import type { Notification } from '@/lib/types/notification';
 import {
   getCardClassName,
@@ -29,6 +29,14 @@ export function NotificationCard({ notification, onClick }: NotificationCardProp
     ? MessageSquare
     : notification.type === 'internal_message'
     ? Users
+    : notification.type === 'task_submitted'
+    ? FileCheck
+    : notification.type === 'task_approved'
+    ? CheckCircle
+    : notification.type === 'task_revision_needed'
+    ? AlertTriangle
+    : notification.type === 'all_tasks_complete'
+    ? ClipboardCheck
     : Bell;
 
   // Format date
@@ -114,6 +122,21 @@ export function NotificationCard({ notification, onClick }: NotificationCardProp
         <p className="text-sm text-slate-700 mb-2 line-clamp-2">
           {notification.message}
         </p>
+      )}
+
+      {/* Task-specific metadata */}
+      {(notification.type === 'task_submitted' || 
+        notification.type === 'task_approved' || 
+        notification.type === 'task_revision_needed' ||
+        notification.type === 'all_tasks_complete') && notification.metadata && (
+        <div className="text-xs text-slate-600 mb-2">
+          {notification.metadata.task_name && (
+            <div className="font-medium">{notification.metadata.task_name}</div>
+          )}
+          {notification.metadata.ops_feedback && (
+            <div className="italic mt-1">&ldquo;{notification.metadata.ops_feedback}&rdquo;</div>
+          )}
+        </div>
       )}
 
       {/* Footer - Sender info and action link */}

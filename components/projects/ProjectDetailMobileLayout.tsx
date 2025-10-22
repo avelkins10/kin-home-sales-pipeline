@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense } from 'react'
+import { Suspense, useEffect } from 'react'
 import { AccordionMobile, AccordionSection } from '@/components/ui/accordion-mobile'
 import { CustomerContactCard } from '@/components/projects/CustomerContactCard'
 import { SystemSpecsCard } from '@/components/projects/SystemSpecsCard'
@@ -9,10 +9,12 @@ import { PricingBreakdownCard } from '@/components/projects/PricingBreakdownCard
 import { HoldManagementCard } from '@/components/projects/HoldManagementCard'
 import { Timeline } from '@/components/milestones/Timeline'
 import { ProjectCommunicationTabs } from '@/components/projects/ProjectCommunicationTabs'
+import { TaskSection } from '@/components/projects/TaskSection'
 import { QuickbaseProject } from '@/lib/types/project'
 import { isProjectOnHold } from '@/lib/utils/milestone-engine'
 import { Badge } from '@/components/ui/badge'
 import { useIsMobile } from '@/lib/hooks/useMediaQuery'
+import { useHasTasks } from '@/hooks/useHasTasks'
 
 interface ProjectDetailMobileLayoutProps {
   project: QuickbaseProject
@@ -40,6 +42,37 @@ export function ProjectDetailMobileLayout({
   const isMobile = useIsMobile()
   const onHold = isProjectOnHold(project)
   const hasUnreadComms = unreadNotesCount > 0 || unreadMessagesCount > 0
+  
+  // Check if project has task groups
+  const { data: hasTasks = false } = useHasTasks({ 
+    projectId, 
+    enabled: isMobile // Only check when on mobile
+  })
+
+  // Handle hash navigation for mobile accordion
+  useEffect(() => {
+    if (!isMobile || typeof window === 'undefined') return;
+    
+    const hash = window.location.hash;
+    if (hash === '#tasks' && hasTasks) {
+      // Wait for accordion to render
+      const timeoutId = setTimeout(() => {
+        const tasksSection = document.querySelector('[data-section-id="tasks"]');
+        if (tasksSection) {
+          // Trigger accordion expansion if using AccordionMobile component
+          const button = tasksSection.querySelector('button');
+          if (button && button.getAttribute('aria-expanded') === 'false') {
+            button.click();
+          }
+          
+          // Scroll to section
+          tasksSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 300);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isMobile, hasTasks, projectId]); // Re-run when mobile state or tasks change
 
   // Don't render on desktop
   if (!isMobile) {
@@ -60,7 +93,16 @@ export function ProjectDetailMobileLayout({
       )
     },
 
-    // 2. Hold Management - Only show if on hold (high priority when applicable)
+    // 2. Action Items - High priority (tasks that block progress) - Only show if tasks exist
+    ...(hasTasks ? [{
+      id: 'tasks',
+      title: 'Action Items',
+      defaultOpen: true,
+      badge: undefined, // Could add task count badge in Phase 3
+      children: <TaskSection projectId={projectId} />
+    }] : []),
+
+    // 3. Hold Management - Only show if on hold (high priority when applicable)
     ...(onHold ? [{
       id: 'hold',
       title: 'Hold Management',
@@ -73,7 +115,7 @@ export function ProjectDetailMobileLayout({
       children: <HoldManagementCard project={project} />
     }] : []),
 
-    // 3. Communications - High priority, auto-expand if unread
+    // 4. Communications - High priority, auto-expand if unread
     {
       id: 'communications',
       title: 'Notes & Messages',
@@ -86,7 +128,7 @@ export function ProjectDetailMobileLayout({
       children: <ProjectCommunicationTabs projectId={projectId} />
     },
 
-    // 4. Customer Contact - Important for quick reference
+    // 5. Customer Contact - Important for quick reference
     {
       id: 'contact',
       title: 'Customer Contact',
@@ -94,7 +136,7 @@ export function ProjectDetailMobileLayout({
       children: <CustomerContactCard project={project} />
     },
 
-    // 5. Team Members - Medium priority
+    // 6. Team Members - Medium priority
     {
       id: 'team',
       title: 'Team Members',
@@ -102,7 +144,7 @@ export function ProjectDetailMobileLayout({
       children: <TeamMembersCard project={project} />
     },
 
-    // 6. System Specs - Lower priority (details)
+    // 7. System Specs - Lower priority (details)
     {
       id: 'specs',
       title: 'System Specifications',
@@ -110,7 +152,7 @@ export function ProjectDetailMobileLayout({
       children: <SystemSpecsCard project={project} />
     },
 
-    // 7. Pricing & Adders - Lower priority (details)
+    // 8. Pricing & Adders - Lower priority (details)
     {
       id: 'pricing',
       title: 'Pricing & Adders',
@@ -118,7 +160,7 @@ export function ProjectDetailMobileLayout({
       children: <PricingBreakdownCard project={project} />
     },
 
-    // 8. Hold Management - If NOT on hold, show at bottom
+    // 9. Hold Management - If NOT on hold, show at bottom
     ...(!onHold ? [{
       id: 'hold',
       title: 'Hold Management',

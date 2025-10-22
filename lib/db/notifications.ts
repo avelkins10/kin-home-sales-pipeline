@@ -1,4 +1,3 @@
-import 'server-only';
 import { sql } from '@vercel/postgres';
 import type {
   Notification,
@@ -250,6 +249,16 @@ export async function getUnreadCounts(userId: string): Promise<UnreadCounts> {
     GROUP BY project_id
   `;
 
+  // Get counts by notification type (for task notifications)
+  const typeResult = await sql<{ type: string; count: string }>`
+    SELECT type, COUNT(*) as count
+    FROM notifications
+    WHERE user_id = ${userId}
+      AND is_read = false
+      AND type IN ('task_submitted', 'task_approved', 'task_revision_needed', 'all_tasks_complete')
+    GROUP BY type
+  `;
+
   // Build the response object
   const by_priority = {
     critical: 0,
@@ -267,10 +276,23 @@ export async function getUnreadCounts(userId: string): Promise<UnreadCounts> {
     by_project[row.project_id] = parseInt(row.count);
   });
 
+  // Build task notification counts
+  const by_type: Record<string, number> = {};
+  typeResult.rows.forEach((row) => {
+    by_type[row.type] = parseInt(row.count);
+  });
+
+  // Calculate total task notifications
+  const task_notifications = Object.keys(by_type)
+    .filter(type => ['task_submitted', 'task_approved', 'task_revision_needed', 'all_tasks_complete'].includes(type))
+    .reduce((sum, type) => sum + by_type[type], 0);
+
   return {
     total: parseInt(totalResult.rows[0]?.count || '0'),
     by_priority,
     by_project,
+    by_type,
+    task_notifications,
   };
 }
 

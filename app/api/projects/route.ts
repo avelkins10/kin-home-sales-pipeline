@@ -37,6 +37,7 @@ export async function GET(req: Request) {
     const office = searchParams.get('office') || undefined;
     const setter = searchParams.get('setter') || undefined;
     const closer = searchParams.get('closer') || undefined;
+    const withTasks = searchParams.get('withTasks') === 'true';
 
     // Validate view parameter against allowed values
     const allowedViews = ['all', 'active', 'pending-kca', 'rejected', 'on-hold', 'install-ready', 'install-scheduled', 'install-completed', 'pending-cancel', 'cancelled', 'needs-attention']
@@ -66,7 +67,7 @@ export async function GET(req: Request) {
     }
 
     // Check cache first
-    const cacheKey = `${userId}:${role}:${view || 'all'}:${search || ''}:${sort || 'default'}:${memberEmail || ''}:${ownership}:${office || ''}:${setter || ''}:${closer || ''}`;
+    const cacheKey = `${userId}:${role}:${view || 'all'}:${search || ''}:${sort || 'default'}:${memberEmail || ''}:${ownership}:${office || ''}:${setter || ''}:${closer || ''}:${withTasks}`;
     const cached = getCachedProjects(cacheKey);
     if (cached) {
       const duration = Date.now() - startedAt;
@@ -90,7 +91,7 @@ export async function GET(req: Request) {
     // from the office_assignments table, ensuring immediate visibility
     // of newly assigned offices without requiring logout/login.
     logInfo('[OFFICE_RESOLUTION] Fetching offices from database for user', { userId, role, reqId });
-    const projects = await getProjectsForUserList(userId, role, view, search, sort, undefined, memberEmail, ownership, office, setter, closer, reqId);
+    const projects = await getProjectsForUserList(userId, role, view, search, sort, undefined, memberEmail, ownership, office, setter, closer, reqId, withTasks);
 
     // Cache the result
     setCachedProjects(cacheKey, projects);
@@ -99,6 +100,7 @@ export async function GET(req: Request) {
     logApiResponse('GET', '/api/projects', duration, { 
       cached: false, 
       count: Array.isArray(projects) ? projects.length : 0,
+      withTasks,
       cacheStats: { ...cacheStats }
     }, reqId);
     

@@ -2,7 +2,14 @@
 // Matches database schema from 001-create-notifications.sql
 
 export type NotificationPriority = 'critical' | 'normal' | 'info';
-export type NotificationType = 'quickbase_note' | 'internal_message' | 'system_alert';
+export type NotificationType = 
+  | 'quickbase_note' 
+  | 'internal_message' 
+  | 'system_alert'
+  | 'task_submitted'
+  | 'task_approved'
+  | 'task_revision_needed'
+  | 'all_tasks_complete';
 export type NotificationSource = 'quickbase' | 'internal' | 'system';
 
 export interface Notification {
@@ -78,6 +85,17 @@ export interface SystemAlertMetadata {
   requires_action?: boolean;
 }
 
+export interface TaskNotificationMetadata {
+  task_id: number;
+  task_name: string;
+  task_category?: string;
+  submission_id?: number;
+  ops_disposition?: 'Approved' | 'Needs Revision';
+  ops_feedback?: string;
+  total_tasks?: number;
+  approved_tasks?: number;
+}
+
 // Unread count responses
 export interface UnreadCounts {
   total: number;
@@ -87,6 +105,8 @@ export interface UnreadCounts {
     info: number;
   };
   by_project: Record<number, number>;
+  by_type?: Record<string, number>; // Optional for backward compatibility
+  task_notifications?: number; // Total unread task notifications
 }
 
 // API response types

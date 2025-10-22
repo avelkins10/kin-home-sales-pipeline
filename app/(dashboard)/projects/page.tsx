@@ -8,6 +8,7 @@ import { ProjectFilterChips } from '@/components/projects/ProjectFilterChips'
 import { SearchBar } from '@/components/projects/SearchBar'
 import { SortDropdown } from '@/components/projects/SortDropdown'
 import { OwnershipFilterToggle } from '@/components/projects/OwnershipFilterToggle'
+import { TaskFilterToggle } from '@/components/projects/TaskFilterToggle'
 import { OfficeFilterDropdown } from '@/components/projects/OfficeFilterDropdown'
 import { SetterFilterDropdown } from '@/components/projects/SetterFilterDropdown'
 import { CloserFilterDropdown } from '@/components/projects/CloserFilterDropdown'
@@ -23,6 +24,7 @@ interface ProjectsPageProps {
     office?: string // NEW: Office filter
     setter?: string // NEW: Setter filter
     closer?: string // NEW: Closer filter
+    withTasks?: string // NEW: Task filter
   }
 }
 
@@ -71,6 +73,11 @@ export default function ProjectsPage({ searchParams }: ProjectsPageProps) {
             userRole={session.user.role}
           />
 
+          {/* Task Filter Toggle */}
+          <div className="mb-3">
+            <TaskFilterToggle currentFilter={searchParams.withTasks === 'true'} />
+          </div>
+
           {/* Filter Chips */}
           <ProjectFilterChips isFetching={isFetching && fetchReason === 'manual'} />
         </div>
@@ -89,6 +96,7 @@ export default function ProjectsPage({ searchParams }: ProjectsPageProps) {
             office={searchParams.office} // NEW: Pass office filter
             setter={searchParams.setter} // NEW: Pass setter filter
             closer={searchParams.closer} // NEW: Pass closer filter
+            withTasks={searchParams.withTasks} // NEW: Pass task filter
             onFetchingChange={(fetching, reason) => {
               setIsFetching(fetching);
               if (reason) setFetchReason(reason);

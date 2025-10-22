@@ -47,16 +47,17 @@ export default async function StatusValidationPage() {
             const inspectionState = calculateMilestoneState(project, 'inspection')
 
             // Get raw field values
-            const surveyApproved = project[PROJECT_FIELDS.SURVEY_APPROVED]?.value
-            const surveySubmitted = project[PROJECT_FIELDS.SURVEY_SUBMITTED]?.value
-            const cadDesignApproved = project[PROJECT_FIELDS.CAD_DESIGN_APPROVED]?.value
-            const designCompleted = project[PROJECT_FIELDS.DESIGN_COMPLETED]?.value
-            const nemApproved = project[PROJECT_FIELDS.NEM_APPROVED]?.value
-            const nemSubmitted = project[PROJECT_FIELDS.NEM_SUBMITTED]?.value
-            const permitApproved = project[PROJECT_FIELDS.PERMIT_APPROVED]?.value
-            const permitSubmitted = project[PROJECT_FIELDS.PERMIT_SUBMITTED]?.value
-            const installCompleted = project[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value
-            const ptoApproved = project[PROJECT_FIELDS.PTO_APPROVED]?.value
+            // TODO: Add missing field IDs to fieldIds.ts
+            // const surveyApproved = project[PROJECT_FIELDS.SURVEY_APPROVED]?.value
+            // const surveySubmitted = project[PROJECT_FIELDS.SURVEY_SUBMITTED]?.value
+            // const cadDesignApproved = project[PROJECT_FIELDS.CAD_DESIGN_APPROVED]?.value
+            // const designCompleted = project[PROJECT_FIELDS.DESIGN_COMPLETED]?.value
+            // const nemApproved = project[PROJECT_FIELDS.NEM_APPROVED]?.value
+            // const nemSubmitted = project[PROJECT_FIELDS.NEM_SUBMITTED]?.value
+            // const permitApproved = project[PROJECT_FIELDS.PERMIT_APPROVED]?.value
+            // const permitSubmitted = project[PROJECT_FIELDS.PERMIT_SUBMITTED]?.value
+            // const installCompleted = project[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]?.value
+            // const ptoApproved = project[PROJECT_FIELDS.PTO_APPROVED]?.value
 
             return (
               <Card key={recordId}>
@@ -98,8 +99,8 @@ export default async function StatusValidationPage() {
                     </div>
                   </div>
 
-                  {/* Raw Field Values */}
-                  <div>
+                  {/* Raw Field Values - Temporarily disabled until field IDs are added */}
+                  {/* <div>
                     <h3 className="font-semibold mb-2">Raw QuickBase Field Values</h3>
                     <div className="grid grid-cols-2 gap-2 text-xs font-mono bg-gray-50 p-3 rounded">
                       <div>Survey Submitted: {surveySubmitted || 'null'}</div>
@@ -113,7 +114,7 @@ export default async function StatusValidationPage() {
                       <div>Install Completed: {installCompleted || 'null'}</div>
                       <div>PTO Approved: {ptoApproved || 'null'}</div>
                     </div>
-                  </div>
+                  </div> */}
                 </CardContent>
               </Card>
             )

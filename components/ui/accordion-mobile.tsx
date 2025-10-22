@@ -113,7 +113,7 @@ function AccordionSection({ section, isExpanded, onToggle }: AccordionSectionPro
   }, [isExpanded])
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden" data-section-id={section.id}>
       {/* Header - Clickable to expand/collapse */}
       <button
         onClick={onToggle}

@@ -42,6 +42,10 @@ export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
   quickbase_note: 'Operations Note',
   internal_message: 'Team Message',
   system_alert: 'System Alert',
+  task_submitted: 'Task Submitted',
+  task_approved: 'Task Approved',
+  task_revision_needed: 'Revision Needed',
+  all_tasks_complete: 'All Tasks Complete',
 };
 
 // Default icons for notification types
@@ -49,6 +53,10 @@ export const NOTIFICATION_TYPE_ICONS: Record<NotificationType, string> = {
   quickbase_note: 'message-square',
   internal_message: 'users',
   system_alert: 'bell',
+  task_submitted: 'file-check',
+  task_approved: 'check-circle',
+  task_revision_needed: 'alert-triangle',
+  all_tasks_complete: 'clipboard-check',
 };
 
 // Badge styles for unread counts
