@@ -9,7 +9,7 @@ import { AnalyticsHeader } from '@/components/analytics/AnalyticsHeader';
 import { AnalyticsFilters } from '@/components/analytics/AnalyticsFilters';
 import { AnalyticsTabs } from '@/components/analytics/AnalyticsTabs';
 import { OfficeOverviewCard } from '@/components/analytics/OfficeOverviewCard';
-import { StatusBreakdownCard } from '@/components/analytics/StatusBreakdownCard';
+// import { StatusBreakdownCard } from '@/components/analytics/StatusBreakdownCard';
 import { MilestonePerformanceCard } from '@/components/analytics/MilestonePerformanceCard';
 import { PipelineForecastCard } from '@/components/analytics/PipelineForecastCard';
 import { OfficeComparisonTable } from '@/components/analytics/OfficeComparisonTable';
@@ -324,13 +324,13 @@ export default function AnalyticsPage() {
 
               {/* Status Breakdown and Pipeline Forecast - Side by Side */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <StatusBreakdownCard
+                {/* <StatusBreakdownCard
                   userId={session.user.id}
                   role={session.user.role}
                   timeRange={timeRange}
                   customDateRange={customDateRange}
                   officeIds={selectedOfficeIds}
-                />
+                /> */}
                 <PipelineForecastCard
                   userId={session.user.id}
                   role={session.user.role}
