@@ -1,3 +1,5 @@
+export const runtime = 'nodejs';
+
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/guards';
 import { logApiRequest, logApiResponse, logError, logInfo } from '@/lib/logging/logger';
@@ -14,8 +16,6 @@ import {
 import { Task, TaskSubmission } from '@/lib/types/task';
 import { buildProjectAccessClause } from '@/lib/auth/projectAuthorization';
 import { sql } from '@/lib/db/client';
-
-export const runtime = 'nodejs';
 
 // Helper functions to avoid import issues
 async function getUserEmail(userId: string): Promise<string | null> {
