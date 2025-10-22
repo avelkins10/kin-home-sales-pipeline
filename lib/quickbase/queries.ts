@@ -3020,29 +3020,24 @@ export async function getRepPerformance(
     const projects = response.data || [];
     console.log('[getRepPerformance] Fetched projects:', projects.length);
 
-    // Group projects by rep (closer and setter)
-    const repGroups = new Map<string, { projects: any[], role: 'closer' | 'setter', repName: string, repEmail: string, officeId: number | null, officeName: string | null }>();
+    // Group projects by rep (closer and setter) - initially by email
+    const repGroupsByEmail = new Map<string, { projects: any[], role: 'closer' | 'setter', repName: string, repEmail: string }>();
 
     for (const project of projects) {
-      const officeId = project[PROJECT_FIELDS.OFFICE_RECORD_ID]?.value;
-      const officeName = project[PROJECT_FIELDS.SALES_OFFICE]?.value;
-
       // Process closer
       const closerEmail = project[PROJECT_FIELDS.CLOSER_EMAIL]?.value;
       const closerName = project[PROJECT_FIELDS.CLOSER_NAME]?.value;
       if (closerEmail && closerName) {
         const key = `closer:${closerEmail}`;
-        if (!repGroups.has(key)) {
-          repGroups.set(key, {
+        if (!repGroupsByEmail.has(key)) {
+          repGroupsByEmail.set(key, {
             projects: [],
             role: 'closer',
             repName: closerName,
             repEmail: closerEmail,
-            officeId,
-            officeName,
           });
         }
-        repGroups.get(key)!.projects.push(project);
+        repGroupsByEmail.get(key)!.projects.push(project);
       }
 
       // Process setter
@@ -3050,24 +3045,62 @@ export async function getRepPerformance(
       const setterName = project[PROJECT_FIELDS.SETTER_NAME]?.value;
       if (setterEmail && setterName) {
         const key = `setter:${setterEmail}`;
-        if (!repGroups.has(key)) {
-          repGroups.set(key, {
+        if (!repGroupsByEmail.has(key)) {
+          repGroupsByEmail.set(key, {
             projects: [],
             role: 'setter',
             repName: setterName,
             repEmail: setterEmail,
-            officeId,
-            officeName,
           });
         }
-        repGroups.get(key)!.projects.push(project);
+        repGroupsByEmail.get(key)!.projects.push(project);
+      }
+    }
+
+    // Merge duplicate reps (same name/role but different emails)
+    const repGroups = new Map<string, { projects: any[], role: 'closer' | 'setter', repName: string, repEmail: string }>();
+
+    for (const [emailKey, repData] of Array.from(repGroupsByEmail.entries())) {
+      const nameKey = `${repData.role}:${repData.repName.toLowerCase().trim()}`;
+
+      if (repGroups.has(nameKey)) {
+        // Merge projects with existing entry (same person, different email)
+        const existing = repGroups.get(nameKey)!;
+        existing.projects.push(...repData.projects);
+
+        // Use the email from the most recent project
+        const mostRecentProject = [...existing.projects].sort((a, b) => {
+          const dateA = a[PROJECT_FIELDS.SALES_DATE]?.value || '';
+          const dateB = b[PROJECT_FIELDS.SALES_DATE]?.value || '';
+          return dateB.localeCompare(dateA);
+        })[0];
+
+        if (mostRecentProject) {
+          const isCloser = mostRecentProject[PROJECT_FIELDS.CLOSER_NAME]?.value?.toLowerCase().trim() === repData.repName.toLowerCase().trim();
+          existing.repEmail = isCloser
+            ? (mostRecentProject[PROJECT_FIELDS.CLOSER_EMAIL]?.value || existing.repEmail)
+            : (mostRecentProject[PROJECT_FIELDS.SETTER_EMAIL]?.value || existing.repEmail);
+        }
+      } else {
+        // New rep entry
+        repGroups.set(nameKey, { ...repData });
       }
     }
 
     // Calculate metrics for each rep
     const repMetrics = Array.from(repGroups.entries()).map(([key, repData]) => {
-      const { projects: repProjects, role, repName, repEmail, officeId, officeName } = repData;
+      const { projects: repProjects, role, repName, repEmail } = repData;
       const totalProjects = repProjects.length;
+
+      // Determine office from most recent project (by sales date)
+      const sortedProjects = [...repProjects].sort((a, b) => {
+        const dateA = a[PROJECT_FIELDS.SALES_DATE]?.value || '';
+        const dateB = b[PROJECT_FIELDS.SALES_DATE]?.value || '';
+        return dateB.localeCompare(dateA); // descending - most recent first
+      });
+      const mostRecentProject = sortedProjects[0];
+      const officeId = mostRecentProject?.[PROJECT_FIELDS.OFFICE_RECORD_ID]?.value || null;
+      const officeName = mostRecentProject?.[PROJECT_FIELDS.SALES_OFFICE]?.value || null;
       
       // Calculate averages (same logic as office metrics)
       const systemSizes = repProjects
@@ -3211,6 +3244,7 @@ export async function getRepPerformance(
         : 0;
 
       return {
+        repId: repEmail, // Use email as unique identifier
         repName,
         repEmail,
         role,
