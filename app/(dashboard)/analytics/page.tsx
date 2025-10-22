@@ -14,6 +14,7 @@ import { MilestonePerformanceCard } from '@/components/analytics/MilestonePerfor
 import { PipelineForecastCard } from '@/components/analytics/PipelineForecastCard';
 import { OfficeComparisonTable } from '@/components/analytics/OfficeComparisonTable';
 import { RepPerformanceTable } from '@/components/analytics/RepPerformanceTable';
+import { RepBenchmarkComparisonCard } from '@/components/analytics/RepBenchmarkComparisonCard';
 import { CancellationAnalysisCard } from '@/components/analytics/CancellationAnalysisCard';
 import { HoldAnalysisCard } from '@/components/analytics/HoldAnalysisCard';
 import { PeriodComparisonCard } from '@/components/analytics/PeriodComparisonCard';
@@ -348,6 +349,16 @@ export default function AnalyticsPage() {
                 customDateRange={customDateRange}
                 officeIds={selectedOfficeIds}
                 showExport={true}
+              />
+
+              {/* Rep Benchmark Comparison - Full Width */}
+              <RepBenchmarkComparisonCard
+                userId={session.user.id}
+                userEmail={session.user.email}
+                role={session.user.role}
+                timeRange={timeRange}
+                customDateRange={customDateRange}
+                officeIds={selectedOfficeIds}
               />
 
               {/* Milestone Performance - Full Width */}

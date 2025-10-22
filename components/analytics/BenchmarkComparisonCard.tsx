@@ -1,13 +1,18 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Target, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Target, TrendingUp, TrendingDown, Minus, Check, ChevronsUpDown } from 'lucide-react';
 import { formatSystemSize, formatPPW, formatPercentage } from '@/lib/utils/formatters';
 import type { OfficeMetrics } from '@/lib/types/analytics';
 import type { TimeRange, CustomDateRange } from '@/lib/types/dashboard';
 import { getBaseUrl } from '@/lib/utils/baseUrl';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface BenchmarkComparisonCardProps {
   userId: string;
@@ -241,6 +246,9 @@ export function BenchmarkComparisonCard({
   customDateRange,
   officeIds
 }: BenchmarkComparisonCardProps) {
+  // State for selected comparison offices (defaults to all)
+  const [comparisonOfficeIds, setComparisonOfficeIds] = useState<number[]>([]);
+
   // Fetch your selected offices
   const { data: yourOffices, isLoading: isLoadingYours } = useQuery<OfficeMetrics[]>({
     queryKey: ['office-metrics-yours', userId, role, timeRange, customDateRange, officeIds],
@@ -261,19 +269,43 @@ export function BenchmarkComparisonCard({
 
   // Fetch all company offices for benchmarking
   const { data: allOffices, isLoading: isLoadingAll } = useQuery<OfficeMetrics[]>({
-    queryKey: ['office-metrics-all', userId, role, timeRange, customDateRange],
+    queryKey: ['office-metrics-all', userId, role, timeRange, customDateRange, comparisonOfficeIds],
     queryFn: async () => {
       let url = `${getBaseUrl()}/api/analytics/office-metrics?timeRange=${timeRange}`;
+      if (comparisonOfficeIds.length > 0) {
+        url += `&officeIds=${comparisonOfficeIds.join(',')}`;
+      }
       if (timeRange === 'custom' && customDateRange) {
         url += `&startDate=${customDateRange.startDate}&endDate=${customDateRange.endDate}`;
       }
-      // Don't filter by officeIds to get company-wide data
       const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch company office metrics');
       const result = await response.json();
       return result.metrics || [];
     },
   });
+
+  // Initialize comparison offices to all available offices
+  const { data: availableOffices } = useQuery<OfficeMetrics[]>({
+    queryKey: ['office-metrics-available', userId, role, timeRange, customDateRange],
+    queryFn: async () => {
+      let url = `${getBaseUrl()}/api/analytics/office-metrics?timeRange=${timeRange}`;
+      if (timeRange === 'custom' && customDateRange) {
+        url += `&startDate=${customDateRange.startDate}&endDate=${customDateRange.endDate}`;
+      }
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch available offices');
+      const result = await response.json();
+      return result.metrics || [];
+    },
+  });
+
+  // Set default comparison offices to all when available offices load
+  useEffect(() => {
+    if (availableOffices && availableOffices.length > 0 && comparisonOfficeIds.length === 0) {
+      setComparisonOfficeIds(availableOffices.map(o => o.officeId));
+    }
+  }, [availableOffices, comparisonOfficeIds.length]);
 
   if (isLoadingYours || isLoadingAll) {
     return <BenchmarkComparisonSkeleton />;
@@ -292,6 +324,13 @@ export function BenchmarkComparisonCard({
   }
 
   const benchmarks = calculateBenchmarks(yourOffices, allOffices);
+
+  // Prepare office options for MultiSelectOffice
+  const officeOptions = availableOffices?.map(office => ({
+    id: office.officeId,
+    name: office.officeName,
+    projectCount: office.totalProjects
+  })) || [];
 
   return (
     <Card className="w-full" aria-label="Benchmark comparison">
@@ -314,9 +353,74 @@ export function BenchmarkComparisonCard({
             </span>
           </div>
         </div>
-        <p className="text-sm text-gray-600">
-          Your performance vs company average and median • {yourOffices.length} office{yourOffices.length !== 1 ? 's' : ''} selected
-        </p>
+        <div className="flex items-center justify-between mt-2">
+          <p className="text-sm text-gray-600">
+            Your performance ({yourOffices.length} office{yourOffices.length !== 1 ? 's' : ''}) vs {comparisonOfficeIds.length} office{comparisonOfficeIds.length !== 1 ? 's' : ''}
+          </p>
+          <div className="flex items-center space-x-2">
+            <span className="text-xs text-gray-500">Compare against:</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className="w-[200px] justify-between text-xs"
+                >
+                  {comparisonOfficeIds.length === officeOptions.length
+                    ? "All offices"
+                    : `${comparisonOfficeIds.length} office${comparisonOfficeIds.length !== 1 ? 's' : ''}`}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[200px] p-2">
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2 pb-2 border-b">
+                    <Checkbox
+                      id="select-all"
+                      checked={comparisonOfficeIds.length === officeOptions.length}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setComparisonOfficeIds(officeOptions.map(o => o.id));
+                        } else {
+                          setComparisonOfficeIds([]);
+                        }
+                      }}
+                    />
+                    <label
+                      htmlFor="select-all"
+                      className="text-xs font-medium cursor-pointer"
+                    >
+                      Select All
+                    </label>
+                  </div>
+                  <div className="max-h-[300px] overflow-y-auto">
+                    {officeOptions.map((office) => (
+                      <div key={office.id} className="flex items-center space-x-2 py-1">
+                        <Checkbox
+                          id={`office-${office.id}`}
+                          checked={comparisonOfficeIds.includes(office.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setComparisonOfficeIds([...comparisonOfficeIds, office.id]);
+                            } else {
+                              setComparisonOfficeIds(comparisonOfficeIds.filter(id => id !== office.id));
+                            }
+                          }}
+                        />
+                        <label
+                          htmlFor={`office-${office.id}`}
+                          className="text-xs cursor-pointer flex-1"
+                        >
+                          {office.name}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
