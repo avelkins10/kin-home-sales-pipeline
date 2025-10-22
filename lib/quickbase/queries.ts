@@ -3793,6 +3793,29 @@ export async function getProjectTasks(projectId: number): Promise<Task[]> {
   try {
     console.log('[getProjectTasks] Fetching tasks for project:', projectId);
 
+    // Step 1: Get task groups for this project
+    const taskGroupsResponse = await qbClient.queryRecords({
+      from: QB_TABLE_TASK_GROUPS,
+      select: [TASK_GROUP_FIELDS.RECORD_ID],
+      where: `{${TASK_GROUP_FIELDS.RELATED_PROJECT}.EX.${projectId}}`
+    });
+
+    // Extract task group IDs
+    const taskGroupIds = taskGroupsResponse.data
+      .map((record: any) => record[TASK_GROUP_FIELDS.RECORD_ID]?.value)
+      .filter((id: any) => id);
+
+    if (taskGroupIds.length === 0) {
+      console.log('[getProjectTasks] No task groups found for project', projectId);
+      return [];
+    }
+
+    console.log('[getProjectTasks] Found', taskGroupIds.length, 'task groups:', taskGroupIds);
+
+    // Step 2: Get tasks for these task groups
+    // Build OR clause: {6.EX.123}OR{6.EX.456}OR{6.EX.789}
+    const whereClause = taskGroupIds.map((id: number) => `{${TASK_FIELDS.TASK_GROUP}.EX.${id}}`).join('OR');
+
     const response = await qbClient.queryRecords({
       from: QB_TABLE_TASKS,
       select: [
@@ -3803,7 +3826,7 @@ export async function getProjectTasks(projectId: number): Promise<Task[]> {
         TASK_FIELDS.CATEGORY,
         TASK_FIELDS.MAX_SUBMISSION_STATUS
       ],
-      where: `{6.EX.${projectId}}` // Filter by task group (field 6) = project ID
+      where: whereClause
     });
 
     const tasks: Task[] = response.data.map((record: any) => ({
