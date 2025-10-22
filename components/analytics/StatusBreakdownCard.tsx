@@ -151,13 +151,33 @@ export function StatusBreakdownCard({
 
   // Aggregate status counts across all offices
   const statusCounts = data.reduce((acc, office) => {
-    acc.active += office.activeProjects;
-    acc.cancelled += office.cancelledProjects;
-    acc.onHold += office.onHoldProjects;
+    acc.active += office.activeProjects || 0;
+    acc.rejected += office.projectsRejected || 0;
+    acc.pendingKca += office.pendingKcaProjects || 0;
+    acc.pendingCancel += office.pendingCancelProjects || 0;
+    acc.cancelled += office.cancelledProjects || 0;
+    acc.generalHold += office.onHoldProjects || 0;
+    acc.financeHold += office.financeHoldProjects || 0;
+    acc.roofHold += office.roofHoldProjects || 0;
     return acc;
-  }, { active: 0, cancelled: 0, onHold: 0 });
+  }, {
+    active: 0,
+    rejected: 0,
+    pendingKca: 0,
+    pendingCancel: 0,
+    cancelled: 0,
+    generalHold: 0,
+    financeHold: 0,
+    roofHold: 0
+  });
 
-  const totalProjects = statusCounts.active + statusCounts.cancelled + statusCounts.onHold;
+  // Calculate category totals matching OfficeOverviewCard structure
+  const activeTotal = statusCounts.active;
+  const needsAttentionTotal = statusCounts.rejected + statusCounts.pendingKca + statusCounts.pendingCancel;
+  const onHoldTotal = statusCounts.generalHold + statusCounts.financeHold + statusCounts.roofHold;
+  const cancelledTotal = statusCounts.cancelled;
+
+  const totalProjects = activeTotal + needsAttentionTotal + onHoldTotal + cancelledTotal;
 
   if (totalProjects === 0) {
     return (
@@ -171,25 +191,31 @@ export function StatusBreakdownCard({
     );
   }
 
-  // Prepare chart data
+  // Prepare chart data with main categories
   const chartData: ChartData[] = [
     {
       name: 'Active',
-      value: statusCounts.active,
-      percentage: statusCounts.active / totalProjects,
-      color: '#10b981'
+      value: activeTotal,
+      percentage: activeTotal / totalProjects,
+      color: '#10b981' // green
     },
     {
-      name: 'Cancelled',
-      value: statusCounts.cancelled,
-      percentage: statusCounts.cancelled / totalProjects,
-      color: '#ef4444'
+      name: 'Needs Attention',
+      value: needsAttentionTotal,
+      percentage: needsAttentionTotal / totalProjects,
+      color: '#f59e0b' // yellow/orange
     },
     {
       name: 'On Hold',
-      value: statusCounts.onHold,
-      percentage: statusCounts.onHold / totalProjects,
-      color: '#f59e0b'
+      value: onHoldTotal,
+      percentage: onHoldTotal / totalProjects,
+      color: '#3b82f6' // blue
+    },
+    {
+      name: 'Cancelled',
+      value: cancelledTotal,
+      percentage: cancelledTotal / totalProjects,
+      color: '#ef4444' // red
     }
   ].filter(item => item.value > 0); // Only show statuses with projects
 
@@ -236,27 +262,98 @@ export function StatusBreakdownCard({
           </div>
 
           {/* Summary Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {chartData.map((status) => (
-              <div 
-                key={status.name}
-                className={`p-3 rounded-lg border-l-4 ${
-                  status.name === 'Active' ? 'border-green-500 bg-green-50' :
-                  status.name === 'Cancelled' ? 'border-red-500 bg-red-50' :
-                  'border-orange-500 bg-orange-50'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{status.name}</p>
-                    <p className="text-2xl font-bold text-gray-900">{status.value.toLocaleString()}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-gray-600">{formatPercentage(status.percentage)}</p>
-                  </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Active */}
+            {activeTotal > 0 && (
+              <div className="bg-white rounded-lg p-4 border-l-4 border-green-500 shadow-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-600">Active</span>
+                  <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded">
+                    {formatPercentage(activeTotal / totalProjects)}
+                  </span>
+                </div>
+                <div className="text-3xl font-bold text-green-700">{activeTotal}</div>
+              </div>
+            )}
+
+            {/* Needs Attention */}
+            {needsAttentionTotal > 0 && (
+              <div className="bg-white rounded-lg p-4 border-l-4 border-yellow-500 shadow-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-600">Needs Attention</span>
+                  <span className="text-xs font-medium text-yellow-700 bg-yellow-100 px-2 py-1 rounded">
+                    {formatPercentage(needsAttentionTotal / totalProjects)}
+                  </span>
+                </div>
+                <div className="text-3xl font-bold text-yellow-700 mb-2">{needsAttentionTotal}</div>
+                <div className="text-xs space-y-1">
+                  {statusCounts.rejected > 0 && (
+                    <div className="flex justify-between text-gray-600">
+                      <span>Rejected</span>
+                      <span className="font-medium text-red-700">{statusCounts.rejected}</span>
+                    </div>
+                  )}
+                  {statusCounts.pendingKca > 0 && (
+                    <div className="flex justify-between text-gray-600">
+                      <span>Pending KCA</span>
+                      <span className="font-medium">{statusCounts.pendingKca}</span>
+                    </div>
+                  )}
+                  {statusCounts.pendingCancel > 0 && (
+                    <div className="flex justify-between text-gray-600">
+                      <span>Pending Cancel</span>
+                      <span className="font-medium">{statusCounts.pendingCancel}</span>
+                    </div>
+                  )}
                 </div>
               </div>
-            ))}
+            )}
+
+            {/* On Hold */}
+            {onHoldTotal > 0 && (
+              <div className="bg-white rounded-lg p-4 border-l-4 border-blue-500 shadow-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-600">On Hold</span>
+                  <span className="text-xs font-medium text-blue-700 bg-blue-100 px-2 py-1 rounded">
+                    {formatPercentage(onHoldTotal / totalProjects)}
+                  </span>
+                </div>
+                <div className="text-3xl font-bold text-blue-700 mb-2">{onHoldTotal}</div>
+                <div className="text-xs space-y-1">
+                  {statusCounts.generalHold > 0 && (
+                    <div className="flex justify-between text-gray-600">
+                      <span>General Hold</span>
+                      <span className="font-medium">{statusCounts.generalHold}</span>
+                    </div>
+                  )}
+                  {statusCounts.financeHold > 0 && (
+                    <div className="flex justify-between text-gray-600">
+                      <span>Finance Hold</span>
+                      <span className="font-medium">{statusCounts.financeHold}</span>
+                    </div>
+                  )}
+                  {statusCounts.roofHold > 0 && (
+                    <div className="flex justify-between text-gray-600">
+                      <span>Roof Hold</span>
+                      <span className="font-medium">{statusCounts.roofHold}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Cancelled */}
+            {cancelledTotal > 0 && (
+              <div className="bg-white rounded-lg p-4 border-l-4 border-red-500 shadow-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-600">Cancelled</span>
+                  <span className="text-xs font-medium text-red-700 bg-red-100 px-2 py-1 rounded">
+                    {formatPercentage(cancelledTotal / totalProjects)}
+                  </span>
+                </div>
+                <div className="text-3xl font-bold text-red-700">{cancelledTotal}</div>
+              </div>
+            )}
           </div>
         </div>
       </CardContent>
