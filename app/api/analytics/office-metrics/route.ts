@@ -1,164 +1,196 @@
-// app/api/analytics/office-metrics/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth/config';
-import { logAIRequest, logAIError } from '@/lib/analytics/aiMetrics';
+export const runtime = 'nodejs'
 
-export async function GET(req: NextRequest) {
+// app/api/analytics/office-metrics/route.ts
+import { NextResponse } from 'next/server';
+import { requireRole } from '@/lib/auth/guards';
+import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
+import { getOfficeMetrics } from '@/lib/quickbase/queries';
+import type { OfficeMetrics } from '@/lib/types/analytics';
+
+// Simple in-memory cache for office metrics with differentiated TTL
+const officeMetricsCache = new Map<string, { data: any; timestamp: number; ttl: number }>();
+
+// Determine TTL based on timeRange
+function getCacheTTL(timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | 'last_30' | 'last_90' | 'last_12_months'): number {
+  switch (timeRange) {
+    case 'lifetime':
+      return 120 * 1000; // 2 minutes for lifetime data (changes less frequently)
+    case 'ytd':
+      return 60 * 1000; // 1 minute for YTD data (changes daily)
+    case 'month':
+      return 60 * 1000; // 1 minute for monthly data
+    case 'week':
+      return 30 * 1000; // 30 seconds for weekly data (changes more frequently)
+    case 'last_30':
+      return 60 * 1000; // 1 minute for last 30 days
+    case 'last_90':
+      return 60 * 1000; // 1 minute for last 90 days
+    case 'last_12_months':
+      return 90 * 1000; // 90 seconds for last 12 months
+    case 'custom':
+      return 60 * 1000; // 1 minute for custom ranges
+    default:
+      return 30 * 1000; // Default 30 seconds
+  }
+}
+
+/**
+ * GET /api/analytics/office-metrics
+ * 
+ * Fetch office-level aggregated metrics for analytics dashboard.
+ * Only accessible by office_leader, regional, and super_admin roles.
+ * 
+ * Query Parameters:
+ * - timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' (default: 'ytd')
+ * - officeIds: comma-separated list of office IDs for filtering (optional)
+ * - startDate: YYYY-MM-DD format for custom time range (required if timeRange='custom')
+ * - endDate: YYYY-MM-DD format for custom time range (required if timeRange='custom')
+ * 
+ * Response:
+ * {
+ *   metrics: OfficeMetrics[],
+ *   metadata: {
+ *     timeRange: string,
+ *     startDate?: string,
+ *     endDate?: string,
+ *     officeCount: number,
+ *     cached: boolean
+ *   }
+ * }
+ */
+export async function GET(req: Request) {
+  const startedAt = Date.now();
+  const reqId = req.headers.get('x-request-id') || Math.random().toString(36).slice(2, 10);
+  logApiRequest('GET', '/api/analytics/office-metrics', undefined, reqId);
+
+  // Restrict access to managers only
+  const auth = await requireRole(['office_leader', 'regional', 'super_admin']);
+  if (!auth.authorized) return auth.response;
+
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.quickbaseUserId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { searchParams } = new URL(req.url);
+    if (searchParams.has('userId') || searchParams.has('role')) {
+      return NextResponse.json({ error: 'Do not supply userId/role in query params' }, { status: 400 });
     }
 
-    const { searchParams } = new URL(req.url);
-    const userId = searchParams.get('userId') || session.user.quickbaseUserId;
-    const role = searchParams.get('role') || session.user.role || 'closer';
+    // Extract time range parameter with validation
+    const timeRange = searchParams.get('timeRange') as 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | null;
+    const validTimeRanges = ['lifetime', 'ytd', 'month', 'week', 'custom', 'last_30', 'last_90', 'last_12_months'];
+    if (timeRange && !validTimeRanges.includes(timeRange)) {
+      return NextResponse.json({ error: 'Invalid timeRange parameter. Must be one of: lifetime, ytd, month, week, custom' }, { status: 400 });
+    }
+    const effectiveTimeRange = timeRange || 'ytd'; // Default to YTD for analytics
 
-    logAIRequest('getOfficeMetrics', userId, { role });
-
-    // Mock data - in real implementation, this would query your database
-    const officeMetrics = [
-      {
-        officeId: 'office-1',
-        officeName: 'San Francisco',
-        totalReps: 12,
-        activeReps: 11,
-        totalProjects: 45,
-        projectsOnHold: 8,
-        totalRevenue: 2250000,
-        revenueAtRisk: 400000,
-        averageHoldDuration: 12.5,
-        holdRate: 17.8,
-        completionRate: 82.2,
-        topPerformers: [
-          {
-            repId: 'rep-1',
-            repName: 'Sarah Johnson',
-            projectsCompleted: 8,
-            revenueGenerated: 450000,
-            holdRate: 12.5
-          },
-          {
-            repId: 'rep-2',
-            repName: 'Mike Chen',
-            projectsCompleted: 7,
-            revenueGenerated: 380000,
-            holdRate: 14.3
-          }
-        ],
-        topHoldCategories: [
-          {
-            category: 'HOA Hold',
-            count: 3,
-            avgDuration: 18.5,
-            totalValue: 150000
-          },
-          {
-            category: 'Finance Hold',
-            count: 2,
-            avgDuration: 8.2,
-            totalValue: 120000
-          },
-          {
-            category: 'Permit Hold',
-            count: 2,
-            avgDuration: 15.1,
-            totalValue: 100000
-          }
-        ],
-        trends: {
-          revenue: [
-            { date: '2023-10-01', value: 2000000 },
-            { date: '2023-10-02', value: 2100000 },
-            { date: '2023-10-03', value: 2200000 }
-          ],
-          holdRate: [
-            { date: '2023-10-01', value: 20.5 },
-            { date: '2023-10-02', value: 19.2 },
-            { date: '2023-10-03', value: 17.8 }
-          ],
-          completion: [
-            { date: '2023-10-01', value: 79.5 },
-            { date: '2023-10-02', value: 80.8 },
-            { date: '2023-10-03', value: 82.2 }
-          ]
+    // Extract office IDs parameter
+    const officeIdsParam = searchParams.get('officeIds');
+    let officeIds: number[] | undefined;
+    if (officeIdsParam) {
+      try {
+        officeIds = officeIdsParam.split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id));
+        if (officeIds.length === 0) {
+          return NextResponse.json({ error: 'Invalid officeIds parameter. Must be comma-separated numbers' }, { status: 400 });
         }
+      } catch (error) {
+        return NextResponse.json({ error: 'Invalid officeIds parameter. Must be comma-separated numbers' }, { status: 400 });
+      }
+    }
+
+    // Extract custom date range if provided
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
+
+    // Validate custom date range
+    if (effectiveTimeRange === 'custom') {
+      if (!startDate || !endDate) {
+        return NextResponse.json({ error: 'startDate and endDate are required for custom time range' }, { status: 400 });
+      }
+
+      // Validate date format (YYYY-MM-DD)
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
+        return NextResponse.json({ error: 'Invalid date format. Use YYYY-MM-DD' }, { status: 400 });
+      }
+
+      // Validate date range is logical
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      if (start > end) {
+        return NextResponse.json({ error: 'startDate must be before or equal to endDate' }, { status: 400 });
+      }
+    }
+
+    const { id, role, salesOffice, timezone } = auth.session.user as any;
+    const userId = id as string;
+    const userTimezone = timezone || 'America/New_York';
+
+    // Check cache first - include timeRange, officeIds, and custom dates in cache key
+    const officeKey = officeIds ? officeIds.sort().join(',') : (salesOffice ? salesOffice.sort().join(',') : '');
+    const customRangeKey = effectiveTimeRange === 'custom' ? `${startDate}:${endDate}` : '';
+    const cacheKey = `${userId}:${role}:${officeKey}:${effectiveTimeRange}:${customRangeKey}`;
+    const cached = officeMetricsCache.get(cacheKey);
+    const cacheTTL = getCacheTTL(effectiveTimeRange);
+    
+    if (cached && Date.now() - cached.timestamp < cacheTTL) {
+      logApiResponse('GET', '/api/analytics/office-metrics', Date.now() - startedAt, { cached: true, timeRange: effectiveTimeRange, officeCount: cached.data.metrics?.length || 0 }, reqId);
+      return NextResponse.json(cached.data, { status: 200 });
+    }
+
+    // Fetch office metrics with timezone awareness
+    const metrics = await getOfficeMetrics(
+      userId,
+      role,
+      effectiveTimeRange,
+      officeIds,
+      effectiveTimeRange === 'custom' ? { startDate: startDate!, endDate: endDate! } : undefined,
+      reqId,
+      userTimezone
+    );
+
+    const response = {
+      metrics,
+      metadata: {
+        timeRange: effectiveTimeRange,
+        ...(effectiveTimeRange === 'custom' && { startDate, endDate }),
+        officeCount: metrics.length,
+        cached: false,
       },
-      {
-        officeId: 'office-2',
-        officeName: 'Los Angeles',
-        totalReps: 15,
-        activeReps: 14,
-        totalProjects: 62,
-        projectsOnHold: 14,
-        totalRevenue: 3100000,
-        revenueAtRisk: 700000,
-        averageHoldDuration: 15.2,
-        holdRate: 22.6,
-        completionRate: 77.4,
-        topPerformers: [
-          {
-            repId: 'rep-3',
-            repName: 'Emily Rodriguez',
-            projectsCompleted: 10,
-            revenueGenerated: 520000,
-            holdRate: 10.0
-          },
-          {
-            repId: 'rep-4',
-            repName: 'David Kim',
-            projectsCompleted: 9,
-            revenueGenerated: 480000,
-            holdRate: 11.1
-          }
-        ],
-        topHoldCategories: [
-          {
-            category: 'Finance Hold',
-            count: 5,
-            avgDuration: 12.3,
-            totalValue: 250000
-          },
-          {
-            category: 'HOA Hold',
-            count: 4,
-            avgDuration: 20.1,
-            totalValue: 200000
-          },
-          {
-            category: 'Customer Hold',
-            count: 3,
-            avgDuration: 8.7,
-            totalValue: 150000
-          }
-        ],
-        trends: {
-          revenue: [
-            { date: '2023-10-01', value: 2800000 },
-            { date: '2023-10-02', value: 2950000 },
-            { date: '2023-10-03', value: 3100000 }
-          ],
-          holdRate: [
-            { date: '2023-10-01', value: 25.8 },
-            { date: '2023-10-02', value: 24.1 },
-            { date: '2023-10-03', value: 22.6 }
-          ],
-          completion: [
-            { date: '2023-10-01', value: 74.2 },
-            { date: '2023-10-02', value: 75.9 },
-            { date: '2023-10-03', value: 77.4 }
-          ]
+    };
+
+    // Cache the result with TTL
+    officeMetricsCache.set(cacheKey, { data: response, timestamp: Date.now(), ttl: cacheTTL });
+
+    // Clean up old cache entries with strict size cap
+    if (officeMetricsCache.size > 100) {
+      const now = Date.now();
+      const entries = Array.from(officeMetricsCache.entries());
+      
+      // First, remove expired entries using their individual TTL
+      for (const [key, value] of entries) {
+        if (now - value.timestamp > value.ttl) {
+          officeMetricsCache.delete(key);
         }
       }
-    ];
+      
+      // If still over 100 entries, evict oldest (FIFO) until size == 100
+      if (officeMetricsCache.size > 100) {
+        const remainingEntries = Array.from(officeMetricsCache.entries());
+        // Sort by timestamp (oldest first) and remove excess
+        remainingEntries
+          .sort((a, b) => a[1].timestamp - b[1].timestamp)
+          .slice(0, officeMetricsCache.size - 100)
+          .forEach(([key]) => officeMetricsCache.delete(key));
+      }
+    }
 
-    return NextResponse.json(officeMetrics);
-  } catch (error: any) {
-    console.error('[API] /api/analytics/office-metrics error:', error);
-    logAIError('getOfficeMetrics', 'unknown', error);
-    return NextResponse.json({ 
-      error: error.message || 'Internal server error' 
+    logApiResponse('GET', '/api/analytics/office-metrics', Date.now() - startedAt, { cached: false, timeRange: effectiveTimeRange, officeCount: metrics.length }, reqId);
+    return NextResponse.json(response, { status: 200 });
+  } catch (error) {
+    console.error('[/api/analytics/office-metrics] ERROR:', error);
+    logError('Failed to fetch office metrics', error as Error, {});
+    return NextResponse.json({
+      error: 'Internal Server Error',
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
     }, { status: 500 });
   }
 }

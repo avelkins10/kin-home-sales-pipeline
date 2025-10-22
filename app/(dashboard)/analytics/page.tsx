@@ -95,12 +95,12 @@ export default function AnalyticsPage() {
         if (officesResponse.ok) {
           const officesData = await officesResponse.json();
           console.log('[Analytics] Office metrics response:', officesData);
-          // Map from OfficeMetrics to Office format - API returns array directly
-          const offices = (Array.isArray(officesData) ? officesData : officesData.metrics || []).map((metric: any) => ({
-            id: typeof metric.officeId === 'string' ? parseInt(metric.officeId.replace(/\D/g, '')) || 1 : metric.officeId,
+          // Map from OfficeMetrics to Office format
+          const offices = officesData.metrics?.map((metric: any) => ({
+            id: metric.officeId,
             name: metric.officeName,
-            projectCount: metric.totalProjects || metric.projectCount || 0
-          }));
+            projectCount: metric.totalProjects
+          })) || [];
           console.log('[Analytics] Mapped offices:', offices);
           setAvailableOffices(offices);
         } else {
@@ -112,12 +112,12 @@ export default function AnalyticsPage() {
         const repsResponse = await fetch('/api/analytics/rep-performance');
         if (repsResponse.ok) {
           const repsData = await repsResponse.json();
-          // Map from RepPerformance to Rep format - API returns array directly
-          const reps = (Array.isArray(repsData) ? repsData : repsData.metrics || []).map((metric: any) => ({
-            email: metric.repEmail || metric.repId || `rep-${metric.repName}@example.com`,
+          // Map from RepPerformance to Rep format
+          const reps = repsData.metrics?.map((metric: any) => ({
+            email: metric.repEmail,
             name: metric.repName,
             role: metric.role
-          }));
+          })) || [];
           setAvailableReps(reps);
         } else {
           console.error('[Analytics] Failed to load reps:', repsResponse.status, repsResponse.statusText);
