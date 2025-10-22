@@ -29,7 +29,9 @@ export function TaskCard({ task, projectId, className, isLoading = false }: Task
   const queryClient = useQueryClient()
   const isMobile = useIsMobile()
   const [isFormExpanded, setIsFormExpanded] = useState(false)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [file1, setFile1] = useState<File | null>(null)
+  const [file2, setFile2] = useState<File | null>(null)
+  const [file3, setFile3] = useState<File | null>(null)
   const [notes, setNotes] = useState('')
   const [uploadProgress, setUploadProgress] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -53,13 +55,19 @@ export function TaskCard({ task, projectId, className, isLoading = false }: Task
   const submitTaskMutation = useMutation({
     mutationFn: async () => {
       // Validate file requirement
-      if (taskRequirements.requiresFile && !selectedFile) {
-        throw new Error('Please select a file to upload')
+      if (taskRequirements.requiresFile && !file1) {
+        throw new Error('Please select at least one file to upload')
       }
 
       const formData = new FormData()
-      if (selectedFile) {
-        formData.append('file', selectedFile)
+      if (file1) {
+        formData.append('file1', file1)
+      }
+      if (file2) {
+        formData.append('file2', file2)
+      }
+      if (file3) {
+        formData.append('file3', file3)
       }
       if (notes.trim()) {
         formData.append('notes', notes.trim())
@@ -100,8 +108,14 @@ export function TaskCard({ task, projectId, className, isLoading = false }: Task
         relatedTask: task.recordId,
         submissionStatus: 'Pending Approval',
         opsDisposition: null,
+        opsDispositionNote: null,
+        fileAttachment1: file1?.name || '',
+        fileAttachment2: file2?.name || '',
+        fileAttachment3: file3?.name || '',
+        submissionNote: notes.trim() || null,
+        // Backwards compatibility
         opsFeedback: null,
-        fileAttachments: selectedFile?.name || '',
+        fileAttachments: file1?.name || '',
       }
 
       // Create optimistic task update
@@ -129,12 +143,14 @@ export function TaskCard({ task, projectId, className, isLoading = false }: Task
       // Invalidate and refetch
       queryClient.invalidateQueries({ queryKey: tasksKey(projectId) })
       queryClient.invalidateQueries({ queryKey: projectKey(projectId) })
-      
+
       // Show success toast
       toast.success('Task submitted successfully! Awaiting approval.')
-      
+
       // Reset form state
-      setSelectedFile(null)
+      setFile1(null)
+      setFile2(null)
+      setFile3(null)
       setNotes('')
       setIsFormExpanded(false)
       setUploadProgress(0)
@@ -154,8 +170,8 @@ export function TaskCard({ task, projectId, className, isLoading = false }: Task
 
   // Submission handler
   const handleSubmit = () => {
-    if (taskRequirements.requiresFile && !selectedFile) {
-      toast.error('Please select a file to upload')
+    if (taskRequirements.requiresFile && !file1) {
+      toast.error('Please select at least one file to upload')
       return
     }
     setLastSubmissionError(null)
@@ -173,7 +189,9 @@ export function TaskCard({ task, projectId, className, isLoading = false }: Task
     setIsFormExpanded(!isFormExpanded)
     if (isFormExpanded) {
       // Reset form state when collapsing
-      setSelectedFile(null)
+      setFile1(null)
+      setFile2(null)
+      setFile3(null)
       setNotes('')
       setUploadProgress(0)
     }
@@ -246,9 +264,28 @@ export function TaskCard({ task, projectId, className, isLoading = false }: Task
                       </>
                     )}
                   </div>
-                  {submission.opsDisposition === 'Needs Revision' && submission.opsFeedback && (
+                  {submission.opsDisposition === 'Needs Revision' && (submission.opsDispositionNote || submission.opsFeedback) && (
                     <p className="text-xs text-orange-600 italic ml-4">
-                      {submission.opsFeedback}
+                      {submission.opsDispositionNote || submission.opsFeedback}
+                    </p>
+                  )}
+                  {/* File attachments indicator */}
+                  {(submission.fileAttachment1 || submission.fileAttachment2 || submission.fileAttachment3) && (
+                    <div className="text-xs text-gray-500 ml-4 mt-1 flex items-center gap-1">
+                      <FileText className="w-3 h-3" />
+                      <span>
+                        {[
+                          submission.fileAttachment1,
+                          submission.fileAttachment2,
+                          submission.fileAttachment3
+                        ].filter(Boolean).length} file(s) attached
+                      </span>
+                    </div>
+                  )}
+                  {/* Submission notes */}
+                  {submission.submissionNote && (
+                    <p className="text-xs text-gray-600 italic ml-4 mt-1">
+                      Note: {submission.submissionNote}
                     </p>
                   )}
                 </div>
@@ -271,9 +308,14 @@ export function TaskCard({ task, projectId, className, isLoading = false }: Task
             <AlertTriangle className="w-4 h-4 text-orange-600 flex-shrink-0 mt-0.5" />
             <div className="space-y-1">
               <h6 className="text-xs font-medium text-orange-800">Revision Requested</h6>
-              {needsRevisionSubmission.opsFeedback && (
+              {(needsRevisionSubmission.opsDispositionNote || needsRevisionSubmission.opsFeedback) && (
                 <p className="text-xs text-orange-700 italic">
-                  {needsRevisionSubmission.opsFeedback}
+                  {needsRevisionSubmission.opsDispositionNote || needsRevisionSubmission.opsFeedback}
+                </p>
+              )}
+              {needsRevisionSubmission.opsReviewCompletedBy && (
+                <p className="text-xs text-orange-600 mt-1">
+                  Reviewed by: {needsRevisionSubmission.opsReviewCompletedBy}
                 </p>
               )}
             </div>
@@ -336,25 +378,51 @@ export function TaskCard({ task, projectId, className, isLoading = false }: Task
             >
               {/* File Upload Section - conditionally shown */}
               {showFileUpload && (
-                <div className="space-y-2">
-                  <Label htmlFor={`file-upload-${task.recordId}`} className="text-sm font-medium">
-                    {fileUploadLabel}
-                    {taskRequirements.requiresFile && (
-                      <>
-                        {' '}<span className="text-red-500">*</span>
-                        <span className="sr-only">Required field</span>
-                      </>
-                    )}
-                  </Label>
-                  <FileUpload
-                    id={`file-upload-${task.recordId}`}
-                    onFileSelect={setSelectedFile}
-                    uploadProgress={uploadProgress}
-                    disabled={isSubmitting}
-                  />
-                  <p className="text-xs text-gray-500 italic">
-                    {taskRequirements.reason}
-                  </p>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor={`file-upload-1-${task.recordId}`} className="text-sm font-medium">
+                      {fileUploadLabel} (Primary)
+                      {taskRequirements.requiresFile && (
+                        <>
+                          {' '}<span className="text-red-500">*</span>
+                          <span className="sr-only">Required field</span>
+                        </>
+                      )}
+                    </Label>
+                    <FileUpload
+                      id={`file-upload-1-${task.recordId}`}
+                      onFileSelect={setFile1}
+                      uploadProgress={uploadProgress}
+                      disabled={isSubmitting}
+                    />
+                    <p className="text-xs text-gray-500 italic">
+                      {taskRequirements.reason}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor={`file-upload-2-${task.recordId}`} className="text-sm font-medium">
+                      Additional File 1 (Optional)
+                    </Label>
+                    <FileUpload
+                      id={`file-upload-2-${task.recordId}`}
+                      onFileSelect={setFile2}
+                      uploadProgress={uploadProgress}
+                      disabled={isSubmitting}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor={`file-upload-3-${task.recordId}`} className="text-sm font-medium">
+                      Additional File 2 (Optional)
+                    </Label>
+                    <FileUpload
+                      id={`file-upload-3-${task.recordId}`}
+                      onFileSelect={setFile3}
+                      uploadProgress={uploadProgress}
+                      disabled={isSubmitting}
+                    />
+                  </div>
                 </div>
               )}
 
@@ -389,7 +457,7 @@ export function TaskCard({ task, projectId, className, isLoading = false }: Task
                 </Button>
                 <Button
                   onClick={handleSubmit}
-                  disabled={(taskRequirements.requiresFile && !selectedFile) || isSubmitting}
+                  disabled={(taskRequirements.requiresFile && !file1) || isSubmitting}
                   className="flex-1"
                   aria-busy={isSubmitting}
                   aria-live="polite"

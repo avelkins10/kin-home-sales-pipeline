@@ -5,6 +5,7 @@ import { requireAuth, requireProjectAccessById } from '@/lib/auth/guards';
 import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
 import { createTaskSubmission, uploadFileToSubmission, updateTaskStatus, getTaskSubmissions, createTaskNotification, getTaskById } from '@/lib/quickbase/queries';
 import { getTaskRequirements } from '@/lib/utils/task-requirements';
+import { TASK_SUBMISSION_FIELDS } from '@/lib/constants/fieldIds';
 
 /**
  * POST /api/projects/[id]/tasks/[taskId]/submit
@@ -66,29 +67,33 @@ export async function POST(req: Request, { params }: { params: { id: string; tas
 
     // Parse multipart form-data
     const formData = await req.formData();
-    const file = formData.get('file') as File | null;
+    const file1 = formData.get('file1') as File | null;
+    const file2 = formData.get('file2') as File | null;
+    const file3 = formData.get('file3') as File | null;
     const notes = formData.get('notes') as string | null;
 
+    // Backwards compatibility - check for 'file' field
+    const primaryFile = file1 || (formData.get('file') as File | null);
+
     // Validate file requirement
-    if (taskRequirements.requiresFile && !file) {
+    if (taskRequirements.requiresFile && !primaryFile) {
       return NextResponse.json({
         error: 'File is required for this task',
         reason: taskRequirements.reason
       }, { status: 400 });
     }
 
-    // File validation (only if file provided)
-    let buffer: Buffer | null = null;
-    if (file) {
+    // Helper function to validate and convert file
+    const validateAndConvertFile = async (file: File): Promise<Buffer> => {
       // Size validation (10 MB max, but warn if > 3 MB due to Base64 encoding)
       if (file.size > 10 * 1024 * 1024) {
-        return NextResponse.json({ error: 'File too large (max 10 MB)' }, { status: 400 });
+        throw new Error(`File ${file.name} too large (max 10 MB)`);
       }
 
       // Base64-adjusted size limit check
       const base64AdjustedSize = file.size * 1.33;
       if (base64AdjustedSize > 10 * 1024 * 1024) {
-        return NextResponse.json({ error: 'File too large when Base64 encoded (max 10 MB)' }, { status: 400 });
+        throw new Error(`File ${file.name} too large when Base64 encoded (max 10 MB)`);
       }
 
       if (file.size > 3 * 1024 * 1024) {
@@ -108,20 +113,53 @@ export async function POST(req: Request, { params }: { params: { id: string; tas
       const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
 
       if (!allowedMimeTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
-        return NextResponse.json({
-          error: 'Invalid file type. Allowed: PDF, JPG, PNG, DOC, DOCX'
-        }, { status: 400 });
+        throw new Error(`Invalid file type for ${file.name}. Allowed: PDF, JPG, PNG, DOC, DOCX`);
       }
 
       // Convert File to Buffer
       const arrayBuffer = await file.arrayBuffer();
-      buffer = Buffer.from(arrayBuffer);
+      return Buffer.from(arrayBuffer);
+    };
+
+    // Validate and convert all provided files
+    const files: Array<{ file: File; buffer: Buffer; fieldId: number }> = [];
+
+    try {
+      if (primaryFile) {
+        files.push({
+          file: primaryFile,
+          buffer: await validateAndConvertFile(primaryFile),
+          fieldId: TASK_SUBMISSION_FIELDS.FILE_ATTACHMENT_1
+        });
+      }
+      if (file2) {
+        files.push({
+          file: file2,
+          buffer: await validateAndConvertFile(file2),
+          fieldId: TASK_SUBMISSION_FIELDS.FILE_ATTACHMENT_2
+        });
+      }
+      if (file3) {
+        files.push({
+          file: file3,
+          buffer: await validateAndConvertFile(file3),
+          fieldId: TASK_SUBMISSION_FIELDS.FILE_ATTACHMENT_3
+        });
+      }
+    } catch (validationError) {
+      return NextResponse.json({
+        error: (validationError as Error).message
+      }, { status: 400 });
     }
 
     // Transaction flow
     try {
-      // 1. Create submission record
-      const submissionId = await createTaskSubmission(numericTaskId, auth.session.user.email);
+      // 1. Create submission record with notes
+      const submissionId = await createTaskSubmission(
+        numericTaskId,
+        auth.session.user.email,
+        notes || undefined
+      );
       console.log('[API] Created submission:', submissionId);
 
       // Guard against missing submissionId
@@ -129,12 +167,15 @@ export async function POST(req: Request, { params }: { params: { id: string; tas
         throw new Error('Failed to create task submission - no valid submission ID returned');
       }
 
-      // 2. Upload file to submission (only if file provided)
-      if (file && buffer) {
-        await uploadFileToSubmission(submissionId, file.name, buffer);
-        console.log('[API] File uploaded successfully');
+      // 2. Upload all files to their respective fields
+      if (files.length > 0) {
+        for (const { file, buffer, fieldId } of files) {
+          await uploadFileToSubmission(submissionId, file.name, buffer, fieldId);
+          console.log(`[API] Uploaded ${file.name} to field ${fieldId}`);
+        }
+        console.log(`[API] Successfully uploaded ${files.length} file(s)`);
       } else {
-        console.log('[API] No file to upload (task does not require file)');
+        console.log('[API] No files to upload (task does not require file)');
       }
 
       // 3. Update task status to "In Progress"
@@ -167,9 +208,10 @@ export async function POST(req: Request, { params }: { params: { id: string; tas
       const duration = Date.now() - startedAt;
       logApiResponse('POST', '/api/projects/{id}/tasks/{taskId}/submit', duration, {
         submissionId,
-        fileName: file?.name || null,
-        fileSize: file?.size || null,
-        hadFile: !!file,
+        fileCount: files.length,
+        fileNames: files.map(f => f.file.name).join(', ') || null,
+        totalFileSize: files.reduce((sum, f) => sum + f.file.size, 0),
+        hadNotes: !!notes,
         requiresFile: taskRequirements.requiresFile
       }, reqId);
 

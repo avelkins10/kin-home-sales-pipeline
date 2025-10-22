@@ -3944,7 +3944,14 @@ export async function getTaskSubmissions(taskId: number): Promise<TaskSubmission
         TASK_SUBMISSION_FIELDS.RELATED_TASK,
         TASK_SUBMISSION_FIELDS.SUBMISSION_STATUS,
         TASK_SUBMISSION_FIELDS.OPS_DISPOSITION,
-        TASK_SUBMISSION_FIELDS.FILE_ATTACHMENTS
+        TASK_SUBMISSION_FIELDS.FILE_ATTACHMENT_1,
+        TASK_SUBMISSION_FIELDS.IS_MAX_SUBMISSION,
+        TASK_SUBMISSION_FIELDS.SUBMISSION_NOTE,
+        TASK_SUBMISSION_FIELDS.FILE_ATTACHMENT_2,
+        TASK_SUBMISSION_FIELDS.FILE_ATTACHMENT_3,
+        TASK_SUBMISSION_FIELDS.OPS_DISPOSITION_NOTE,
+        TASK_SUBMISSION_FIELDS.OPS_REVIEW_COMPLETED_BY,
+        TASK_SUBMISSION_FIELDS.OPS_REVIEW_COMPLETED_AT
       ],
       where: `{6.EX.${taskId}}` // Filter by related task (field 6) = task ID
     });
@@ -3955,7 +3962,17 @@ export async function getTaskSubmissions(taskId: number): Promise<TaskSubmission
       relatedTask: record[TASK_SUBMISSION_FIELDS.RELATED_TASK]?.value || 0,
       submissionStatus: record[TASK_SUBMISSION_FIELDS.SUBMISSION_STATUS]?.value || 'Pending Approval',
       opsDisposition: record[TASK_SUBMISSION_FIELDS.OPS_DISPOSITION]?.value || null,
-      fileAttachments: record[TASK_SUBMISSION_FIELDS.FILE_ATTACHMENTS]?.value || null
+      fileAttachment1: record[TASK_SUBMISSION_FIELDS.FILE_ATTACHMENT_1]?.value || null,
+      isMaxSubmission: record[TASK_SUBMISSION_FIELDS.IS_MAX_SUBMISSION]?.value || false,
+      submissionNote: record[TASK_SUBMISSION_FIELDS.SUBMISSION_NOTE]?.value || null,
+      fileAttachment2: record[TASK_SUBMISSION_FIELDS.FILE_ATTACHMENT_2]?.value || null,
+      fileAttachment3: record[TASK_SUBMISSION_FIELDS.FILE_ATTACHMENT_3]?.value || null,
+      opsDispositionNote: record[TASK_SUBMISSION_FIELDS.OPS_DISPOSITION_NOTE]?.value || null,
+      opsReviewCompletedBy: record[TASK_SUBMISSION_FIELDS.OPS_REVIEW_COMPLETED_BY]?.value || null,
+      opsReviewCompletedAt: record[TASK_SUBMISSION_FIELDS.OPS_REVIEW_COMPLETED_AT]?.value || null,
+      // Backwards compatibility aliases
+      fileAttachments: record[TASK_SUBMISSION_FIELDS.FILE_ATTACHMENT_1]?.value || null,
+      opsFeedback: record[TASK_SUBMISSION_FIELDS.OPS_DISPOSITION_NOTE]?.value || null
     }));
 
     console.log('[getTaskSubmissions] Found', submissions.length, 'submissions for task', taskId);
@@ -3966,20 +3983,24 @@ export async function getTaskSubmissions(taskId: number): Promise<TaskSubmission
   }
 }
 
-export async function createTaskSubmission(taskId: number, userId: string): Promise<number> {
+export async function createTaskSubmission(taskId: number, userId: string, submissionNote?: string): Promise<number> {
   try {
     console.log('[createTaskSubmission] Creating submission for task:', taskId);
 
+    const data: any = {
+      [TASK_SUBMISSION_FIELDS.RELATED_TASK]: { value: taskId },
+      [TASK_SUBMISSION_FIELDS.SUBMISSION_STATUS]: { value: 'Pending Approval' },
+      [TASK_SUBMISSION_FIELDS.OPS_DISPOSITION]: { value: '' } // Leave empty for ops to fill
+    };
+
+    // Add submission note if provided
+    if (submissionNote) {
+      data[TASK_SUBMISSION_FIELDS.SUBMISSION_NOTE] = { value: submissionNote };
+    }
+
     const response = await qbClient.updateRecord({
       to: QB_TABLE_TASK_SUBMISSIONS,
-      data: [
-        {
-          [TASK_SUBMISSION_FIELDS.RELATED_TASK]: { value: taskId },
-          [TASK_SUBMISSION_FIELDS.SUBMISSION_STATUS]: { value: 'Pending Approval' },
-          [TASK_SUBMISSION_FIELDS.OPS_DISPOSITION]: { value: '' }, // Leave empty for ops to fill
-          [TASK_SUBMISSION_FIELDS.FILE_ATTACHMENTS]: { value: '' } // Leave empty initially
-        }
-      ]
+      data: [data]
     });
 
     const submissionId = response.metadata?.createdRecordIds?.[0] || response.data?.[0]?.[3]?.value;
@@ -4012,21 +4033,26 @@ export async function updateTaskStatus(taskId: number, status: TaskStatus): Prom
   }
 }
 
-export async function uploadFileToSubmission(submissionId: number, fileName: string, fileBuffer: Buffer): Promise<void> {
+export async function uploadFileToSubmission(
+  submissionId: number,
+  fileName: string,
+  fileBuffer: Buffer,
+  fieldId: number = TASK_SUBMISSION_FIELDS.FILE_ATTACHMENT_1
+): Promise<void> {
   try {
-    console.log('[uploadFileToSubmission] Uploading file:', { submissionId, fileName, size: fileBuffer.length });
+    console.log('[uploadFileToSubmission] Uploading file:', { submissionId, fileName, fieldId, size: fileBuffer.length });
 
     await qbClient.uploadFileToRecord({
       tableId: QB_TABLE_TASK_SUBMISSIONS,
       recordId: submissionId,
-      fieldId: TASK_SUBMISSION_FIELDS.FILE_ATTACHMENTS,
+      fieldId: fieldId,
       fileName: fileName,
       fileData: fileBuffer
     });
 
-    console.log('[uploadFileToSubmission] File uploaded successfully, size:', fileBuffer.length);
+    console.log('[uploadFileToSubmission] File uploaded successfully to field', fieldId, ', size:', fileBuffer.length);
   } catch (error) {
-    logError('Failed to upload file to submission', error as Error, { submissionId, fileName, size: fileBuffer.length });
+    logError('Failed to upload file to submission', error as Error, { submissionId, fileName, fieldId, size: fileBuffer.length });
     throw error;
   }
 }

@@ -485,7 +485,14 @@ export const TASK_SUBMISSION_FIELDS = {
   RELATED_TASK: 6,
   SUBMISSION_STATUS: 7,
   OPS_DISPOSITION: 8,
-  FILE_ATTACHMENTS: 9
+  FILE_ATTACHMENT_1: 9,          // Primary file upload
+  IS_MAX_SUBMISSION: 13,         // Boolean - is this the latest submission?
+  SUBMISSION_NOTE: 24,           // Rep's notes/comments with submission
+  FILE_ATTACHMENT_2: 25,         // Additional file upload 1
+  FILE_ATTACHMENT_3: 26,         // Additional file upload 2
+  OPS_DISPOSITION_NOTE: 36,      // Ops feedback/notes
+  OPS_REVIEW_COMPLETED_BY: 37,   // Who reviewed (user field)
+  OPS_REVIEW_COMPLETED_AT: 38    // When reviewed (timestamp)
 } as const;
 
 // QuickBase table IDs

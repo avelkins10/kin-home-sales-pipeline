@@ -45,11 +45,20 @@ export interface TaskSubmission {
   relatedTask: number; // field 6
   submissionStatus: SubmissionStatus; // field 7
   opsDisposition: OpsDisposition | null; // field 8
-  fileAttachments: any; // field 9
-  opsFeedback?: string | null; // field for ops feedback
+  fileAttachment1: any; // field 9 - primary file
+  isMaxSubmission?: boolean; // field 13 - is this the latest submission?
+  submissionNote?: string | null; // field 24 - rep's notes
+  fileAttachment2?: any; // field 25 - additional file 1
+  fileAttachment3?: any; // field 26 - additional file 2
+  opsDispositionNote?: string | null; // field 36 - ops feedback/review notes
+  opsReviewCompletedBy?: string | null; // field 37 - who reviewed
+  opsReviewCompletedAt?: string | null; // field 38 - when reviewed
+  // Deprecated - keeping for backwards compatibility
+  fileAttachments?: any; // alias for fileAttachment1
+  opsFeedback?: string | null; // alias for opsDispositionNote
 }
 
 // Union types for status fields
-export type TaskStatus = 'Not Started' | 'In Progress' | 'Complete';
-export type SubmissionStatus = 'Pending Approval' | 'Reviewed';
+export type TaskStatus = 'Not Started' | 'In Progress' | 'Complete' | 'Approved' | 'Closed by Ops';
+export type SubmissionStatus = 'Pending Approval' | 'Reviewed' | 'Approved';
 export type OpsDisposition = 'Approved' | 'Needs Revision';
