@@ -13,10 +13,61 @@ import {
 } from '@/lib/constants/fieldIds';
 import { Task, TaskSubmission } from '@/lib/types/task';
 import { buildProjectAccessClause } from '@/lib/auth/projectAuthorization';
-import { getUserEmail, getManagedUserEmails, getAssignedOffices } from '@/lib/quickbase/queries';
-import { isManagerRole } from '@/lib/utils/role-helpers';
+import { sql } from '@/lib/db/client';
 
 export const runtime = 'nodejs';
+
+// Helper functions to avoid import issues
+async function getUserEmail(userId: string): Promise<string | null> {
+  try {
+    const result = await sql`
+      SELECT email
+      FROM users
+      WHERE id = ${userId}
+      AND email IS NOT NULL
+    `;
+    return result.rows.length > 0 ? result.rows[0].email : null;
+  } catch (error) {
+    logError('Failed to get user email', error as Error);
+    return null;
+  }
+}
+
+async function getManagedUserEmails(managerId: string): Promise<string[]> {
+  try {
+    const result = await sql`
+      SELECT u.email
+      FROM user_hierarchies uh
+      JOIN users u ON uh.user_id = u.id
+      WHERE uh.manager_id = ${managerId}
+      AND u.email IS NOT NULL
+    `;
+    return result.rows.map(row => row.email).filter(Boolean);
+  } catch (error) {
+    logError('Failed to get managed user emails', error as Error);
+    return [];
+  }
+}
+
+async function getAssignedOffices(userId: string): Promise<number[]> {
+  try {
+    const result = await sql`
+      SELECT o.quickbase_office_id
+      FROM office_assignments oa
+      JOIN offices o ON oa.office_name = o.name
+      WHERE oa.user_id = ${userId}
+        AND o.quickbase_office_id IS NOT NULL
+    `;
+    return result.rows.map(row => row.quickbase_office_id);
+  } catch (error) {
+    logError('Failed to get assigned offices', error as Error, { userId });
+    return [];
+  }
+}
+
+function isManagerRole(role: string): boolean {
+  return ['office_leader', 'area_director', 'divisional', 'regional', 'team_lead', 'super_admin'].includes(role);
+}
 
 interface TaskWithProject extends Task {
   projectId: number;
