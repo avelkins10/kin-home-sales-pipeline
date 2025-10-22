@@ -1,16 +1,17 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowUp, ArrowDown, ArrowUpDown, FileDown, Search, Users } from 'lucide-react';
+import { ArrowUp, ArrowDown, ArrowUpDown, FileDown, Search, Users, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatSystemSize, formatPPW, formatPercentage } from '@/lib/utils/formatters';
 import { exportAnalyticsToCSV } from '@/lib/utils/csv-export';
 import type { RepPerformance } from '@/lib/types/analytics';
@@ -90,6 +91,21 @@ export function RepPerformanceTable({
   const [filterRole, setFilterRole] = useState<'all' | 'closer' | 'setter'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isExporting, setIsExporting] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+
+  // Load collapse state from localStorage on mount
+  useEffect(() => {
+    const savedState = localStorage.getItem('rep-performance-table-open');
+    if (savedState !== null) {
+      setIsOpen(savedState === 'true');
+    }
+  }, []);
+
+  // Save collapse state to localStorage when it changes
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    localStorage.setItem('rep-performance-table-open', String(open));
+  };
 
   const { data, isLoading, error } = useQuery<RepPerformance[]>({
     queryKey: ['rep-performance', userId, role, timeRange, customDateRange, officeIds],
@@ -263,39 +279,48 @@ export function RepPerformanceTable({
   }));
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Users className="h-6 w-6 text-blue-600" />
-            <CardTitle>Rep Performance</CardTitle>
+    <Collapsible open={isOpen} onOpenChange={handleOpenChange}>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" className="flex items-center space-x-2 p-0 hover:bg-transparent">
+                <Users className="h-6 w-6 text-blue-600" />
+                <CardTitle className="cursor-pointer">Rep Performance</CardTitle>
+                {isOpen ? (
+                  <ChevronUp className="h-5 w-5 text-gray-500 ml-2" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-gray-500 ml-2" />
+                )}
+              </Button>
+            </CollapsibleTrigger>
+            {showExport && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExport}
+                disabled={isExporting}
+              >
+                {isExporting ? (
+                  <>
+                    <FileDown className="h-4 w-4 mr-2 animate-pulse" />
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <FileDown className="h-4 w-4 mr-2" />
+                    Export CSV
+                  </>
+                )}
+              </Button>
+            )}
           </div>
-          {showExport && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExport}
-              disabled={isExporting}
-            >
-              {isExporting ? (
-                <>
-                  <FileDown className="h-4 w-4 mr-2 animate-pulse" />
-                  Exporting...
-                </>
-              ) : (
-                <>
-                  <FileDown className="h-4 w-4 mr-2" />
-                  Export CSV
-                </>
-              )}
-            </Button>
-          )}
-        </div>
-        <p className="text-sm text-gray-600">
-          {rankedData.length} rep{rankedData.length !== 1 ? 's' : ''} • Sorted by {sortColumn} ({sortDirection})
-        </p>
-      </CardHeader>
-      <CardContent>
+          <p className="text-sm text-gray-600">
+            {rankedData.length} rep{rankedData.length !== 1 ? 's' : ''} • Click to {isOpen ? 'collapse' : 'expand'}
+          </p>
+        </CardHeader>
+        <CollapsibleContent>
+          <CardContent>
         {/* Filters */}
         <div className="flex flex-col md:flex-row gap-4 mb-4">
           <Select value={filterRole} onValueChange={(value: 'all' | 'closer' | 'setter') => setFilterRole(value)}>
@@ -515,7 +540,9 @@ export function RepPerformanceTable({
             <p className="text-sm text-slate-500 mt-1">Try adjusting your filters</p>
           </div>
         )}
-      </CardContent>
-    </Card>
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   );
 }

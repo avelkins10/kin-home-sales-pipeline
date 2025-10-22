@@ -7,6 +7,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AnalyticsHeader } from '@/components/analytics/AnalyticsHeader';
 import { AnalyticsFilters } from '@/components/analytics/AnalyticsFilters';
+import { AnalyticsTabs } from '@/components/analytics/AnalyticsTabs';
 import { OfficeOverviewCard } from '@/components/analytics/OfficeOverviewCard';
 import { StatusBreakdownCard } from '@/components/analytics/StatusBreakdownCard';
 import { MilestonePerformanceCard } from '@/components/analytics/MilestonePerformanceCard';
@@ -29,7 +30,8 @@ export default function AnalyticsPage() {
   const [customDateRange, setCustomDateRange] = useState<CustomDateRange | undefined>();
   const [selectedOfficeIds, setSelectedOfficeIds] = useState<number[]>([]);
   const [selectedRepEmail, setSelectedRepEmail] = useState<string | undefined>();
-  
+  const [activeTab, setActiveTab] = useState<string>('overview');
+
   // Loading and data states
   const [isExporting, setIsExporting] = useState(false);
   const [availableOffices, setAvailableOffices] = useState<Array<{ id: number; name: string; projectCount?: number }>>([]);
@@ -43,8 +45,9 @@ export default function AnalyticsPage() {
     const repEmailParam = searchParams.get('repEmail');
     const startDateParam = searchParams.get('startDate');
     const endDateParam = searchParams.get('endDate');
+    const tabParam = searchParams.get('tab');
 
-    if (timeRangeParam && ['ytd', 'last_30', 'last_90', 'last_12_months', 'custom', 'lifetime'].includes(timeRangeParam)) {
+    if (timeRangeParam && ['ytd', 'last_30', 'last_90', 'last_12_months', 'custom', 'lifetime', 'month', 'last_month'].includes(timeRangeParam)) {
       setTimeRange(timeRangeParam);
     }
 
@@ -62,6 +65,10 @@ export default function AnalyticsPage() {
         startDate: startDateParam,
         endDate: endDateParam
       });
+    }
+
+    if (tabParam && ['overview', 'performance', 'comparisons', 'analysis'].includes(tabParam)) {
+      setActiveTab(tabParam);
     }
   }, [searchParams]);
 
@@ -247,16 +254,24 @@ export default function AnalyticsPage() {
         selectedOfficeIds,
         selectedRepEmail
       });
-      
+
       // Simulate export delay
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
+
       // TODO: Trigger actual CSV download
     } catch (error) {
       console.error('Export failed:', error);
     } finally {
       setIsExporting(false);
     }
+  };
+
+  const handleTabChange = (value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('tab', value);
+    router.push(`/analytics?${params.toString()}`);
+    // Smooth scroll to top when switching tabs
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
@@ -289,82 +304,97 @@ export default function AnalyticsPage() {
           </div>
         </div>
       ) : (
-        <div className="space-y-6">
-          {/* Office Overview - Full Width */}
-          <OfficeOverviewCard 
-          userId={session.user.id} 
-          role={session.user.role} 
-          timeRange={timeRange} 
-          customDateRange={customDateRange} 
-          officeIds={selectedOfficeIds} 
+        <AnalyticsTabs
+          defaultTab={activeTab}
+          onTabChange={handleTabChange}
+          overviewContent={
+            <>
+              {/* Office Overview - Full Width */}
+              <OfficeOverviewCard
+                userId={session.user.id}
+                role={session.user.role}
+                timeRange={timeRange}
+                customDateRange={customDateRange}
+                officeIds={selectedOfficeIds}
+              />
+
+              {/* Status Breakdown and Pipeline Forecast - Side by Side */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <StatusBreakdownCard
+                  userId={session.user.id}
+                  role={session.user.role}
+                  timeRange={timeRange}
+                  customDateRange={customDateRange}
+                  officeIds={selectedOfficeIds}
+                />
+                <PipelineForecastCard
+                  userId={session.user.id}
+                  role={session.user.role}
+                  officeIds={selectedOfficeIds}
+                />
+              </div>
+            </>
+          }
+          performanceContent={
+            <>
+              {/* Rep Performance Table - Full Width */}
+              <RepPerformanceTable
+                userId={session.user.id}
+                role={session.user.role}
+                timeRange={timeRange}
+                customDateRange={customDateRange}
+                officeIds={selectedOfficeIds}
+                showExport={true}
+              />
+
+              {/* Milestone Performance - Full Width */}
+              <MilestonePerformanceCard
+                userId={session.user.id}
+                role={session.user.role}
+                timeRange={timeRange}
+                customDateRange={customDateRange}
+                officeIds={selectedOfficeIds}
+              />
+            </>
+          }
+          comparisonsContent={
+            <>
+              {/* Office Comparison Table - Full Width */}
+              <OfficeComparisonTable
+                userId={session.user.id}
+                role={session.user.role}
+                timeRange={timeRange}
+                customDateRange={customDateRange}
+                officeIds={selectedOfficeIds}
+                maxOffices={10}
+              />
+            </>
+          }
+          analysisContent={
+            <>
+              {/* Cancellation and Hold Analysis - Side by Side */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <CancellationAnalysisCard
+                  userId={session.user.id}
+                  role={session.user.role}
+                  timeRange={timeRange}
+                  customDateRange={customDateRange}
+                  officeIds={selectedOfficeIds}
+                  showComparison={true}
+                />
+
+                <HoldAnalysisCard
+                  userId={session.user.id}
+                  role={session.user.role}
+                  timeRange={timeRange}
+                  customDateRange={customDateRange}
+                  officeIds={selectedOfficeIds}
+                  showComparison={true}
+                />
+              </div>
+            </>
+          }
         />
-
-        {/* Status Breakdown and Pipeline Forecast - Side by Side on Desktop */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <StatusBreakdownCard 
-            userId={session.user.id} 
-            role={session.user.role} 
-            timeRange={timeRange} 
-            customDateRange={customDateRange} 
-            officeIds={selectedOfficeIds} 
-          />
-          <PipelineForecastCard 
-            userId={session.user.id} 
-            role={session.user.role} 
-            officeIds={selectedOfficeIds} 
-          />
-        </div>
-
-        {/* Milestone Performance - Full Width */}
-        <MilestonePerformanceCard 
-          userId={session.user.id} 
-          role={session.user.role} 
-          timeRange={timeRange} 
-          customDateRange={customDateRange} 
-          officeIds={selectedOfficeIds} 
-        />
-
-        {/* Rep Performance Table - Full Width */}
-        <RepPerformanceTable
-          userId={session.user.id}
-          role={session.user.role}
-          timeRange={timeRange}
-          customDateRange={customDateRange}
-          officeIds={selectedOfficeIds}
-          showExport={true}
-        />
-
-        {/* Cancellation and Hold Analysis - Side by Side */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <CancellationAnalysisCard
-            userId={session.user.id}
-            role={session.user.role}
-            timeRange={timeRange}
-            customDateRange={customDateRange}
-            officeIds={selectedOfficeIds}
-            showComparison={true}
-          />
-          
-          <HoldAnalysisCard
-            userId={session.user.id}
-            role={session.user.role}
-            timeRange={timeRange}
-            customDateRange={customDateRange}
-            officeIds={selectedOfficeIds}
-            showComparison={true}
-          />
-        </div>
-
-        {/* Office Comparison Table - Full Width */}
-        <OfficeComparisonTable
-          userId={session.user.id}
-          role={session.user.role}
-          timeRange={timeRange}
-          customDateRange={customDateRange}
-          officeIds={selectedOfficeIds}
-          maxOffices={5}
-        />
-        </div>
       )}
     </div>
   );

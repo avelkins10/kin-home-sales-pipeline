@@ -191,17 +191,21 @@ export function OfficeOverviewCard({
   };
 
   return (
-    <Card className="w-full" aria-label="Office overview metrics">
-      <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <Building2 className="h-6 w-6 text-blue-600" />
-          <span>Office Overview</span>
-        </CardTitle>
-        <p className="text-sm text-gray-600">
-          {getTimeRangeLabel()} • {aggregated.officeCount} office{aggregated.officeCount !== 1 ? 's' : ''}
-        </p>
+    <Card className="w-full shadow-sm hover:shadow-md transition-shadow duration-200" aria-label="Office overview metrics">
+      <CardHeader className="pb-4">
+        <div className="flex items-center space-x-3">
+          <div className="p-2.5 bg-blue-100 rounded-xl">
+            <Building2 className="h-6 w-6 text-blue-600" />
+          </div>
+          <div>
+            <CardTitle className="text-xl font-bold">Office Overview</CardTitle>
+            <p className="text-sm text-gray-600 mt-0.5">
+              {getTimeRangeLabel()} • {aggregated.officeCount} office{aggregated.officeCount !== 1 ? 's' : ''}
+            </p>
+          </div>
+        </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Total Projects */}
           <div className="flex items-center space-x-3 p-3 bg-blue-50 rounded-lg">
