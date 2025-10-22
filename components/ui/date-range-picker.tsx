@@ -43,34 +43,40 @@ export function DateRangePicker({
 
   const today = new Date()
 
+  // Use midnight dates to avoid timezone issues
+  const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const yearStart = new Date(today.getFullYear(), 0, 1);
+  const quarterStart = new Date(today.getFullYear(), Math.floor(today.getMonth() / 3) * 3, 1);
+
   const presets = [
     {
       label: "Today",
-      range: { from: today, to: today },
+      range: { from: todayMidnight, to: todayMidnight },
     },
     {
       label: "Yesterday",
-      range: { from: subDays(today, 1), to: subDays(today, 1) },
+      range: { from: subDays(todayMidnight, 1), to: subDays(todayMidnight, 1) },
     },
     {
       label: "Last 7 days",
-      range: { from: subDays(today, 6), to: today },
+      range: { from: subDays(todayMidnight, 6), to: todayMidnight },
     },
     {
       label: "Last 30 days",
-      range: { from: subDays(today, 29), to: today },
+      range: { from: subDays(todayMidnight, 29), to: todayMidnight },
     },
     {
       label: "This month",
-      range: { from: startOfMonth(today), to: today },
+      range: { from: monthStart, to: todayMidnight },
     },
     {
       label: "This quarter",
-      range: { from: startOfQuarter(today), to: today },
+      range: { from: quarterStart, to: todayMidnight },
     },
     {
       label: "This year",
-      range: { from: startOfYear(today), to: today },
+      range: { from: yearStart, to: todayMidnight },
     },
   ]
 
