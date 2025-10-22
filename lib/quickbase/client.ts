@@ -31,20 +31,6 @@ export class QuickbaseClient {
     };
   }
 
-  async uploadFileToRecord(payload: { 
-    tableId: string; 
-    recordId: number; 
-    fieldId: number; 
-    fileName: string; 
-    fileData: Buffer 
-  }): Promise<any> {
-    // Mock implementation - in real app, this would upload file to Quickbase
-    // Convert buffer to Base64 and make appropriate Quickbase API request
-    const base64Data = payload.fileData.toString('base64');
-    console.log(`[Mock] Uploading file ${payload.fileName} (${payload.fileData.length} bytes) to record ${payload.recordId} in table ${payload.tableId}, field ${payload.fieldId}`);
-    return { success: true };
-  }
-
   async uploadFileToRecord(payload: {
     tableId: string;
     recordId: number;
