@@ -16,6 +16,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { tasksKey, projectKey } from '@/lib/queryKeys'
 import { cn } from '@/lib/utils/cn'
 import { useIsMobile } from '@/lib/hooks/useMediaQuery'
+import { getTaskRequirements, shouldShowFileUpload, getFileUploadLabel } from '@/lib/utils/task-requirements'
 
 interface TaskCardProps {
   task: Task
@@ -34,6 +35,11 @@ export function TaskCard({ task, projectId, className, isLoading = false }: Task
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [lastSubmissionError, setLastSubmissionError] = useState<string | null>(null)
 
+  // Calculate task requirements based on name/category
+  const taskRequirements = getTaskRequirements(task.name, task.category)
+  const showFileUpload = shouldShowFileUpload(taskRequirements)
+  const fileUploadLabel = getFileUploadLabel(taskRequirements)
+
   // Helper logic
   const canSubmit = task.status !== 'Complete'
   const needsRevisionSubmission = task.submissions?.find(
@@ -46,12 +52,15 @@ export function TaskCard({ task, projectId, className, isLoading = false }: Task
   // Submission mutation
   const submitTaskMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedFile) {
+      // Validate file requirement
+      if (taskRequirements.requiresFile && !selectedFile) {
         throw new Error('Please select a file to upload')
       }
 
       const formData = new FormData()
-      formData.append('file', selectedFile)
+      if (selectedFile) {
+        formData.append('file', selectedFile)
+      }
       if (notes.trim()) {
         formData.append('notes', notes.trim())
       }
@@ -145,7 +154,7 @@ export function TaskCard({ task, projectId, className, isLoading = false }: Task
 
   // Submission handler
   const handleSubmit = () => {
-    if (!selectedFile) {
+    if (taskRequirements.requiresFile && !selectedFile) {
       toast.error('Please select a file to upload')
       return
     }
@@ -319,25 +328,35 @@ export function TaskCard({ task, projectId, className, isLoading = false }: Task
 
           {/* Collapsible Form */}
           {isFormExpanded && (
-            <div 
+            <div
               id={`submission-form-${task.recordId}`}
               role="region"
               aria-label="Task submission form"
               className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-4"
             >
-              {/* File Upload Section */}
-              <div className="space-y-2">
-                <Label htmlFor={`file-upload-${task.recordId}`} className="text-sm font-medium">
-                  Upload File <span className="text-red-500">*</span>
-                  <span className="sr-only">Required field</span>
-                </Label>
-                <FileUpload
-                  id={`file-upload-${task.recordId}`}
-                  onFileSelect={setSelectedFile}
-                  uploadProgress={uploadProgress}
-                  disabled={isSubmitting}
-                />
-              </div>
+              {/* File Upload Section - conditionally shown */}
+              {showFileUpload && (
+                <div className="space-y-2">
+                  <Label htmlFor={`file-upload-${task.recordId}`} className="text-sm font-medium">
+                    {fileUploadLabel}
+                    {taskRequirements.requiresFile && (
+                      <>
+                        {' '}<span className="text-red-500">*</span>
+                        <span className="sr-only">Required field</span>
+                      </>
+                    )}
+                  </Label>
+                  <FileUpload
+                    id={`file-upload-${task.recordId}`}
+                    onFileSelect={setSelectedFile}
+                    uploadProgress={uploadProgress}
+                    disabled={isSubmitting}
+                  />
+                  <p className="text-xs text-gray-500 italic">
+                    {taskRequirements.reason}
+                  </p>
+                </div>
+              )}
 
               {/* Notes Section */}
               <div className="space-y-2">
@@ -370,7 +389,7 @@ export function TaskCard({ task, projectId, className, isLoading = false }: Task
                 </Button>
                 <Button
                   onClick={handleSubmit}
-                  disabled={!selectedFile || isSubmitting}
+                  disabled={(taskRequirements.requiresFile && !selectedFile) || isSubmitting}
                   className="flex-1"
                   aria-busy={isSubmitting}
                   aria-live="polite"

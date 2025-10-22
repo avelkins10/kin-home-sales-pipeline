@@ -3,7 +3,8 @@ export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import { requireAuth, requireProjectAccessById } from '@/lib/auth/guards';
 import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
-import { createTaskSubmission, uploadFileToSubmission, updateTaskStatus, getTaskSubmissions, createTaskNotification } from '@/lib/quickbase/queries';
+import { createTaskSubmission, uploadFileToSubmission, updateTaskStatus, getTaskSubmissions, createTaskNotification, getTaskById } from '@/lib/quickbase/queries';
+import { getTaskRequirements } from '@/lib/utils/task-requirements';
 
 /**
  * POST /api/projects/[id]/tasks/[taskId]/submit
@@ -35,53 +36,74 @@ export async function POST(req: Request, { params }: { params: { id: string; tas
       return access.response;
     }
 
+    // Fetch task details to determine requirements
+    const task = await getTaskById(numericTaskId);
+    if (!task) {
+      return NextResponse.json({ error: 'Task not found' }, { status: 404 });
+    }
+
+    // Calculate task requirements
+    const taskRequirements = getTaskRequirements(task.name, task.category);
+    console.log('[API] Task requirements:', {
+      taskId: numericTaskId,
+      taskName: task.name,
+      requiresFile: taskRequirements.requiresFile,
+      reason: taskRequirements.reason
+    });
+
     // Parse multipart form-data
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
     const notes = formData.get('notes') as string | null;
 
-    // Validate file exists
-    if (!file) {
-      return NextResponse.json({ error: 'File is required' }, { status: 400 });
-    }
-
-    // File validation
-    // Size validation (10 MB max, but warn if > 3 MB due to Base64 encoding)
-    if (file.size > 10 * 1024 * 1024) {
-      return NextResponse.json({ error: 'File too large (max 10 MB)' }, { status: 400 });
-    }
-
-    // Base64-adjusted size limit check
-    const base64AdjustedSize = file.size * 1.33;
-    if (base64AdjustedSize > 10 * 1024 * 1024) {
-      return NextResponse.json({ error: 'File too large when Base64 encoded (max 10 MB)' }, { status: 400 });
-    }
-
-    if (file.size > 3 * 1024 * 1024) {
-      console.warn('[API] Large file upload:', { fileName: file.name, size: file.size, 'Base64 size will be ~': Math.round(base64AdjustedSize) });
-    }
-
-    // Type validation
-    const allowedMimeTypes = [
-      'application/pdf',
-      'image/jpeg',
-      'image/png',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    ];
-
-    const allowedExtensions = ['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx'];
-    const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
-
-    if (!allowedMimeTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
-      return NextResponse.json({ 
-        error: 'Invalid file type. Allowed: PDF, JPG, PNG, DOC, DOCX' 
+    // Validate file requirement
+    if (taskRequirements.requiresFile && !file) {
+      return NextResponse.json({
+        error: 'File is required for this task',
+        reason: taskRequirements.reason
       }, { status: 400 });
     }
 
-    // Convert File to Buffer
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    // File validation (only if file provided)
+    let buffer: Buffer | null = null;
+    if (file) {
+      // Size validation (10 MB max, but warn if > 3 MB due to Base64 encoding)
+      if (file.size > 10 * 1024 * 1024) {
+        return NextResponse.json({ error: 'File too large (max 10 MB)' }, { status: 400 });
+      }
+
+      // Base64-adjusted size limit check
+      const base64AdjustedSize = file.size * 1.33;
+      if (base64AdjustedSize > 10 * 1024 * 1024) {
+        return NextResponse.json({ error: 'File too large when Base64 encoded (max 10 MB)' }, { status: 400 });
+      }
+
+      if (file.size > 3 * 1024 * 1024) {
+        console.warn('[API] Large file upload:', { fileName: file.name, size: file.size, 'Base64 size will be ~': Math.round(base64AdjustedSize) });
+      }
+
+      // Type validation
+      const allowedMimeTypes = [
+        'application/pdf',
+        'image/jpeg',
+        'image/png',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      ];
+
+      const allowedExtensions = ['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx'];
+      const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+
+      if (!allowedMimeTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
+        return NextResponse.json({
+          error: 'Invalid file type. Allowed: PDF, JPG, PNG, DOC, DOCX'
+        }, { status: 400 });
+      }
+
+      // Convert File to Buffer
+      const arrayBuffer = await file.arrayBuffer();
+      buffer = Buffer.from(arrayBuffer);
+    }
 
     // Transaction flow
     try {
@@ -94,9 +116,13 @@ export async function POST(req: Request, { params }: { params: { id: string; tas
         throw new Error('Failed to create task submission - no valid submission ID returned');
       }
 
-      // 2. Upload file to submission
-      await uploadFileToSubmission(submissionId, file.name, buffer);
-      console.log('[API] File uploaded successfully');
+      // 2. Upload file to submission (only if file provided)
+      if (file && buffer) {
+        await uploadFileToSubmission(submissionId, file.name, buffer);
+        console.log('[API] File uploaded successfully');
+      } else {
+        console.log('[API] No file to upload (task does not require file)');
+      }
 
       // 3. Update task status to "In Progress"
       await updateTaskStatus(numericTaskId, 'In Progress');
@@ -107,30 +133,17 @@ export async function POST(req: Request, { params }: { params: { id: string; tas
 
       // 5. Create notification for task submission
       try {
-        // Fetch task details to get task name
-        const { getTaskById } = await import('@/lib/quickbase/queries');
-        const task = await getTaskById(numericTaskId);
-        
-        // Set task name and category
-        let taskName = 'Task';
-        let taskCategory: string | undefined;
-        
-        if (task) {
-          taskName = task.name;
-          taskCategory = task.category || undefined;
-        }
-        
-        // Create notification
+        // Create notification (task already fetched earlier)
         await createTaskNotification({
           userId: auth.session.user.email,
           projectId: numericProjectId,
           taskId: numericTaskId,
-          taskName,
-          taskCategory,
+          taskName: task.name,
+          taskCategory: task.category || undefined,
           type: 'task_submitted',
           submissionId,
         });
-        
+
         console.log('[API] Task submission notification created');
       } catch (notificationError) {
         // Log but don't fail the request if notification creation fails
@@ -139,10 +152,12 @@ export async function POST(req: Request, { params }: { params: { id: string; tas
 
       // Response
       const duration = Date.now() - startedAt;
-      logApiResponse('POST', '/api/projects/{id}/tasks/{taskId}/submit', duration, { 
-        submissionId, 
-        fileName: file.name, 
-        fileSize: file.size 
+      logApiResponse('POST', '/api/projects/{id}/tasks/{taskId}/submit', duration, {
+        submissionId,
+        fileName: file?.name || null,
+        fileSize: file?.size || null,
+        hadFile: !!file,
+        requiresFile: taskRequirements.requiresFile
       }, reqId);
 
       return NextResponse.json({
