@@ -3864,22 +3864,38 @@ export async function getProjectTasks(projectId: number): Promise<Task[]> {
       from: QB_TABLE_TASKS,
       select: [
         TASK_FIELDS.RECORD_ID,
+        TASK_FIELDS.DATE_CREATED,
+        TASK_FIELDS.DATE_MODIFIED,
         TASK_FIELDS.TASK_GROUP,
         TASK_FIELDS.STATUS,
         TASK_FIELDS.NAME,
-        TASK_FIELDS.CATEGORY,
-        TASK_FIELDS.MAX_SUBMISSION_STATUS
+        TASK_FIELDS.DESCRIPTION,
+        TASK_FIELDS.MAX_SUBMISSION_STATUS,
+        TASK_FIELDS.TASK_TEMPLATE,
+        TASK_FIELDS.TASK_CATEGORY,
+        TASK_FIELDS.TASK_MISSING_ITEM,
+        TASK_FIELDS.REVIEWED_BY_OPS,
+        TASK_FIELDS.REVIEWED_BY_OPS_USER,
+        TASK_FIELDS.OPS_REVIEW_NOTE
       ],
       where: whereClause
     });
 
     const tasks: Task[] = response.data.map((record: any) => ({
       recordId: record[TASK_FIELDS.RECORD_ID]?.value || 0,
+      dateCreated: record[TASK_FIELDS.DATE_CREATED]?.value || null,
+      dateModified: record[TASK_FIELDS.DATE_MODIFIED]?.value || null,
       taskGroup: record[TASK_FIELDS.TASK_GROUP]?.value || 0,
       status: record[TASK_FIELDS.STATUS]?.value || 'Not Started',
       name: record[TASK_FIELDS.NAME]?.value || '',
-      category: record[TASK_FIELDS.CATEGORY]?.value || null,
+      description: record[TASK_FIELDS.DESCRIPTION]?.value || null,
       maxSubmissionStatus: record[TASK_FIELDS.MAX_SUBMISSION_STATUS]?.value || null,
+      taskTemplate: record[TASK_FIELDS.TASK_TEMPLATE]?.value || null,
+      category: record[TASK_FIELDS.TASK_CATEGORY]?.value || null,
+      missingItem: record[TASK_FIELDS.TASK_MISSING_ITEM]?.value || null,
+      reviewedByOps: record[TASK_FIELDS.REVIEWED_BY_OPS]?.value || null,
+      reviewedByOpsUser: record[TASK_FIELDS.REVIEWED_BY_OPS_USER]?.value || null,
+      opsReviewNote: record[TASK_FIELDS.OPS_REVIEW_NOTE]?.value || null,
       submissions: [] // Will be populated separately if needed
     }));
 
@@ -3899,11 +3915,19 @@ export async function getTaskById(taskId: number): Promise<Task | null> {
       from: QB_TABLE_TASKS,
       select: [
         TASK_FIELDS.RECORD_ID,
+        TASK_FIELDS.DATE_CREATED,
+        TASK_FIELDS.DATE_MODIFIED,
         TASK_FIELDS.TASK_GROUP,
         TASK_FIELDS.STATUS,
         TASK_FIELDS.NAME,
-        TASK_FIELDS.CATEGORY,
-        TASK_FIELDS.MAX_SUBMISSION_STATUS
+        TASK_FIELDS.DESCRIPTION,
+        TASK_FIELDS.MAX_SUBMISSION_STATUS,
+        TASK_FIELDS.TASK_TEMPLATE,
+        TASK_FIELDS.TASK_CATEGORY,
+        TASK_FIELDS.TASK_MISSING_ITEM,
+        TASK_FIELDS.REVIEWED_BY_OPS,
+        TASK_FIELDS.REVIEWED_BY_OPS_USER,
+        TASK_FIELDS.OPS_REVIEW_NOTE
       ],
       where: `{3.EX.${taskId}}` // Filter by record ID (field 3) = task ID
     });
@@ -3916,11 +3940,19 @@ export async function getTaskById(taskId: number): Promise<Task | null> {
     const record = response.data[0];
     const task: Task = {
       recordId: record[TASK_FIELDS.RECORD_ID]?.value || 0,
+      dateCreated: record[TASK_FIELDS.DATE_CREATED]?.value || null,
+      dateModified: record[TASK_FIELDS.DATE_MODIFIED]?.value || null,
       taskGroup: record[TASK_FIELDS.TASK_GROUP]?.value || 0,
       status: record[TASK_FIELDS.STATUS]?.value || 'Not Started',
       name: record[TASK_FIELDS.NAME]?.value || '',
-      category: record[TASK_FIELDS.CATEGORY]?.value || null,
+      description: record[TASK_FIELDS.DESCRIPTION]?.value || null,
       maxSubmissionStatus: record[TASK_FIELDS.MAX_SUBMISSION_STATUS]?.value || null,
+      taskTemplate: record[TASK_FIELDS.TASK_TEMPLATE]?.value || null,
+      category: record[TASK_FIELDS.TASK_CATEGORY]?.value || null,
+      missingItem: record[TASK_FIELDS.TASK_MISSING_ITEM]?.value || null,
+      reviewedByOps: record[TASK_FIELDS.REVIEWED_BY_OPS]?.value || null,
+      reviewedByOpsUser: record[TASK_FIELDS.REVIEWED_BY_OPS_USER]?.value || null,
+      opsReviewNote: record[TASK_FIELDS.OPS_REVIEW_NOTE]?.value || null,
       submissions: [] // Will be populated separately if needed
     };
 

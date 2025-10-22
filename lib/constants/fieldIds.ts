@@ -472,11 +472,19 @@ export const TASK_GROUP_FIELDS = {
 
 export const TASK_FIELDS = {
   RECORD_ID: 3,
+  DATE_CREATED: 1,                   // When task was assigned
+  DATE_MODIFIED: 2,                  // Last update timestamp
   TASK_GROUP: 6,
   STATUS: 9,
   NAME: 10,
-  CATEGORY: 31,
-  MAX_SUBMISSION_STATUS: 13
+  DESCRIPTION: 11,                   // Detailed task instructions
+  MAX_SUBMISSION_STATUS: 13,
+  TASK_TEMPLATE: 16,                 // Links to task template
+  TASK_CATEGORY: 30,                 // Finance Approved, Utility Bill, etc.
+  TASK_MISSING_ITEM: 31,             // Title Verification, Income Verification, etc.
+  REVIEWED_BY_OPS: 40,               // Task-level review timestamp
+  REVIEWED_BY_OPS_USER: 41,          // Task-level reviewer
+  OPS_REVIEW_NOTE: 42                // Task-level ops note
 } as const;
 
 export const TASK_SUBMISSION_FIELDS = {
@@ -495,7 +503,16 @@ export const TASK_SUBMISSION_FIELDS = {
   OPS_REVIEW_COMPLETED_AT: 38    // When reviewed (timestamp)
 } as const;
 
+export const TASK_TEMPLATE_FIELDS = {
+  RECORD_ID: 3,
+  TASK_NAME: 6,
+  INTAKE_TASK_CATEGORY: 9,           // Finance Approved, Utility Bill, etc.
+  INTAKE_TASK_MISSING_ITEM: 10,      // Title Verification, Income Verification, etc.
+  TASK_DESCRIPTION: 18                // Detailed instructions for reps
+} as const;
+
 // QuickBase table IDs
 export const QB_TABLE_TASK_GROUPS = 'bu36gem4p';
 export const QB_TABLE_TASKS = 'bu36ggiht';
 export const QB_TABLE_TASK_SUBMISSIONS = 'bu36g8j99';
+export const QB_TABLE_TASK_TEMPLATES = 'bu36jyuf9';

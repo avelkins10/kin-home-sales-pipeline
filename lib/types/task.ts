@@ -25,12 +25,34 @@ export interface QuickbaseTask {
 // Typed interface for Tasks
 export interface Task {
   recordId: number; // field 3
+  dateCreated: string | null; // field 1 - when task was assigned
+  dateModified: string | null; // field 2 - last update
   taskGroup: number; // field 6
   status: TaskStatus; // field 9
   name: string; // field 10
-  category: string | null; // field 31
+  description: string | null; // field 11 - detailed instructions
   maxSubmissionStatus: string | null; // field 13
+  taskTemplate: number | null; // field 16 - links to template
+  category: string | null; // field 30 - Finance Approved, Utility Bill, etc.
+  missingItem: string | null; // field 31 - Title Verification, Income Verification, etc.
+  reviewedByOps: string | null; // field 40 - task-level review timestamp
+  reviewedByOpsUser: string | null; // field 41 - task-level reviewer
+  opsReviewNote: string | null; // field 42 - task-level ops feedback
   submissions: TaskSubmission[]; // populated from child query
+}
+
+// Raw QuickBase response format for Task Templates table (bu36jyuf9)
+export interface QuickbaseTaskTemplate {
+  [fieldId: number]: QuickbaseField<any>;
+}
+
+// Typed interface for Task Templates
+export interface TaskTemplate {
+  recordId: number; // field 3
+  taskName: string; // field 6
+  category: string | null; // field 9 - Intake Task: Category
+  missingItem: string | null; // field 10 - Intake Task: Missing Item
+  description: string | null; // field 18 - Detailed instructions
 }
 
 // Raw QuickBase response format for Task Submissions table (bu36g8j99)
