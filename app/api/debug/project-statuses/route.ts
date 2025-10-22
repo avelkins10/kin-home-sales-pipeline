@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
 
     const userId = session.user.quickbaseUserId;
     const role = session.user.role;
-    const userEmail = await getUserEmail(userId);
+    const userEmail = getUserEmail(session);
 
     // Build access clause
     const accessClause = buildProjectAccessClause(userEmail, role);
