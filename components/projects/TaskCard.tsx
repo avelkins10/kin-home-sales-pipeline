@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { CheckCircle, AlertTriangle, Clock, FileText, ChevronDown, ChevronUp, Upload, Loader2, Info } from 'lucide-react'
 import { Task, TaskSubmission } from '@/lib/types/task'
-import { formatDate } from '@/lib/utils/formatters'
+import { formatDate, formatDaysAgo } from '@/lib/utils/formatters'
 import { TaskStatusBadge } from './TaskStatusBadge'
 import { TaskCardSkeleton } from './TaskCardSkeleton'
 import { FileUpload } from '@/components/ui/FileUpload'
@@ -13,19 +13,22 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { UrgencyBadge } from '@/components/ui/UrgencyBadge'
 import { tasksKey, projectKey } from '@/lib/queryKeys'
 import { cn } from '@/lib/utils/cn'
 import { useIsMobile } from '@/lib/hooks/useMediaQuery'
 import { getTaskRequirements, shouldShowFileUpload, getFileUploadLabel } from '@/lib/utils/task-requirements'
+import { getTaskUrgency } from '@/lib/utils/task-urgency'
 
 interface TaskCardProps {
   task: Task
   projectId: string | number
+  projectStatus?: string
   className?: string
   isLoading?: boolean
 }
 
-export function TaskCard({ task, projectId, className, isLoading = false }: TaskCardProps) {
+export function TaskCard({ task, projectId, projectStatus, className, isLoading = false }: TaskCardProps) {
   const queryClient = useQueryClient()
   const isMobile = useIsMobile()
   const [isFormExpanded, setIsFormExpanded] = useState(false)
@@ -41,6 +44,9 @@ export function TaskCard({ task, projectId, className, isLoading = false }: Task
   const taskRequirements = getTaskRequirements(task.name, task.category, task.description)
   const showFileUpload = shouldShowFileUpload(taskRequirements)
   const fileUploadLabel = getFileUploadLabel(taskRequirements)
+
+  // Calculate urgency level
+  const urgency = getTaskUrgency(task, projectStatus)
 
   // Sort submissions: max submission first, then by date descending
   const sortedSubmissions = React.useMemo(() => {
@@ -228,17 +234,25 @@ export function TaskCard({ task, projectId, className, isLoading = false }: Task
         isMobile ? 'gap-2' : 'gap-3'
       )}>
         <div className="flex-1 min-w-0">
-          <h4 
-            id={`task-name-${task.recordId}`}
-            className={cn(
-              'font-medium text-gray-900',
-              isMobile ? 'text-xs' : 'text-sm'
-            )}
-          >
-            {task.name}
-          </h4>
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <h4
+              id={`task-name-${task.recordId}`}
+              className={cn(
+                'font-medium text-gray-900',
+                isMobile ? 'text-xs' : 'text-sm'
+              )}
+            >
+              {task.name}
+            </h4>
+            <UrgencyBadge
+              level={urgency.level}
+              daysWaiting={urgency.daysWaiting}
+              reason={urgency.reason}
+              size="small"
+            />
+          </div>
           {task.category && task.category !== task.name && (
-            <p className="text-xs text-gray-500 mt-1">{task.category}</p>
+            <p className="text-xs text-gray-500">{task.category}</p>
           )}
         </div>
         <TaskStatusBadge status={task.status} />
@@ -259,10 +273,21 @@ export function TaskCard({ task, projectId, className, isLoading = false }: Task
         </div>
       )}
 
-      {/* Task Creation Date */}
+      {/* Task Age Indicator */}
       {task.dateCreated && (
-        <div className="text-xs text-gray-500">
-          Assigned {formatDate(task.dateCreated)}
+        <div className="flex items-center gap-2 text-xs">
+          <Clock className="w-3.5 h-3.5 text-gray-400" />
+          <span className="text-gray-500">
+            Assigned {formatDate(task.dateCreated)}
+          </span>
+          <span className={cn(
+            "font-medium",
+            urgency.level === 'critical' && "text-red-600",
+            urgency.level === 'urgent' && "text-yellow-600",
+            urgency.level === 'normal' && "text-gray-600"
+          )}>
+            · {formatDaysAgo(task.dateCreated)}
+          </span>
         </div>
       )}
 
