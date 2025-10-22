@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Building2, TrendingUp, Zap, DollarSign, Clock, CheckCircle, BarChart3 } from 'lucide-react';
+import { Building2, TrendingUp, Zap, DollarSign, Clock, CheckCircle, BarChart3, AlertTriangle, XCircle } from 'lucide-react';
 import { formatSystemSize, formatPPW, formatPercentage } from '@/lib/utils/formatters';
 import type { OfficeMetrics } from '@/lib/types/analytics';
 import type { TimeRange, CustomDateRange } from '@/lib/types/dashboard';
@@ -285,24 +285,94 @@ export function OfficeOverviewCard({
             </div>
           </div>
 
-          {/* Status Summary */}
-          <div className="flex items-center space-x-3 p-3 bg-slate-50 rounded-lg">
-            <div className="p-2 bg-slate-100 rounded-lg">
-              <BarChart3 className="h-5 w-5 text-slate-600" />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm text-gray-600">Status Summary</p>
-              <div className="text-sm font-medium text-gray-900 space-y-1">
-                <div>Active: {(aggregated.activeProjects || 0).toLocaleString()}</div>
-                <div>Rejected: {(aggregated.projectsRejected || 0).toLocaleString()}</div>
-                <div>Cancelled: {(aggregated.cancelledProjects || 0).toLocaleString()}</div>
-                <div>Holds: {(aggregated.onHoldProjects || 0).toLocaleString()}</div>
-                <div>Pending KCA: {(aggregated.pendingKcaProjects || 0).toLocaleString()}</div>
-                <div>Finance Hold: {(aggregated.financeHoldProjects || 0).toLocaleString()}</div>
-                <div>Pending Cancel: {(aggregated.pendingCancelProjects || 0).toLocaleString()}</div>
-                <div>Roof Hold: {(aggregated.roofHoldProjects || 0).toLocaleString()}</div>
+          {/* Status Summary - Redesigned */}
+          <div className="col-span-1 md:col-span-2 bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 border border-slate-200">
+            <div className="flex items-center space-x-2 mb-4">
+              <div className="p-2 bg-slate-200 rounded-lg">
+                <BarChart3 className="h-5 w-5 text-slate-700" />
+              </div>
+              <div>
+                <p className="text-base font-semibold text-gray-900">Project Status Breakdown</p>
+                <p className="text-xs text-gray-600">All projects by current status</p>
               </div>
             </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* Healthy - Active Projects */}
+              <div className="bg-white rounded-lg p-3 border-l-4 border-green-500 shadow-sm">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-medium text-gray-600">Active</span>
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                </div>
+                <div className="text-2xl font-bold text-green-700">{(aggregated.activeProjects || 0).toLocaleString()}</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {((aggregated.activeProjects || 0) / (aggregated.totalProjects || 1) * 100).toFixed(1)}% of total
+                </div>
+              </div>
+
+              {/* Needs Attention */}
+              <div className="bg-white rounded-lg p-3 border-l-4 border-yellow-500 shadow-sm">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-medium text-gray-600">Needs Attention</span>
+                  <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                </div>
+                <div className="text-2xl font-bold text-yellow-700">
+                  {((aggregated.projectsRejected || 0) + (aggregated.pendingKcaProjects || 0) + (aggregated.pendingCancelProjects || 0)).toLocaleString()}
+                </div>
+                <div className="text-xs space-y-0.5 mt-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Rejected (Awaiting Fix)</span>
+                    <span className="font-medium text-red-700">{(aggregated.projectsRejected || 0).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Pending KCA</span>
+                    <span className="font-medium text-yellow-700">{(aggregated.pendingKcaProjects || 0).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Pending Cancel</span>
+                    <span className="font-medium text-orange-700">{(aggregated.pendingCancelProjects || 0).toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* On Hold */}
+              <div className="bg-white rounded-lg p-3 border-l-4 border-blue-500 shadow-sm">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-medium text-gray-600">On Hold</span>
+                  <Clock className="h-4 w-4 text-blue-600" />
+                </div>
+                <div className="text-2xl font-bold text-blue-700">
+                  {((aggregated.onHoldProjects || 0) + (aggregated.financeHoldProjects || 0) + (aggregated.roofHoldProjects || 0)).toLocaleString()}
+                </div>
+                <div className="text-xs space-y-0.5 mt-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">General Hold</span>
+                    <span className="font-medium text-blue-700">{(aggregated.onHoldProjects || 0).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Finance Hold</span>
+                    <span className="font-medium text-blue-700">{(aggregated.financeHoldProjects || 0).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Roof Hold</span>
+                    <span className="font-medium text-blue-700">{(aggregated.roofHoldProjects || 0).toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Cancelled Projects - Only show if > 0 */}
+            {(aggregated.cancelledProjects || 0) > 0 && (
+              <div className="mt-3 bg-white rounded-lg p-3 border-l-4 border-red-500 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <XCircle className="h-4 w-4 text-red-600" />
+                    <span className="text-xs font-medium text-gray-600">Cancelled</span>
+                  </div>
+                  <div className="text-lg font-bold text-red-700">{(aggregated.cancelledProjects || 0).toLocaleString()}</div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </CardContent>
