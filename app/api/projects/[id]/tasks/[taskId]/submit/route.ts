@@ -57,7 +57,7 @@ export async function POST(req: Request, { params }: { params: { id: string; tas
     }
 
     // Calculate task requirements
-    const taskRequirements = getTaskRequirements(task.name, task.category);
+    const taskRequirements = getTaskRequirements(task.name, task.category, task.description);
     console.log('[API] Task requirements:', {
       taskId: numericTaskId,
       taskName: task.name,

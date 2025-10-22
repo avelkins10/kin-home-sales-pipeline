@@ -19,9 +19,11 @@ import {
   TASK_FIELDS,
   TASK_GROUP_FIELDS,
   TASK_SUBMISSION_FIELDS,
+  TASK_TEMPLATE_FIELDS,
   QB_TABLE_TASKS,
   QB_TABLE_TASK_GROUPS,
-  QB_TABLE_TASK_SUBMISSIONS
+  QB_TABLE_TASK_SUBMISSIONS,
+  QB_TABLE_TASK_TEMPLATES
 } from '@/lib/constants/fieldIds';
 import { ADDER_FIELDS } from '@/lib/constants/adderFieldIds';
 import { sql } from '@/lib/db/client';
@@ -31,7 +33,7 @@ import { isManagerRole } from '@/lib/utils/role-helpers';
 import type { MetricsScope, TeamMemberCommission, TeamMemberBuckets } from '@/lib/types/dashboard';
 import { parseQuickbaseDate } from '@/lib/utils/date-helpers';
 import type { OfficeMetrics, RepPerformance, PipelineForecast, MilestoneTimings } from '@/lib/types/analytics';
-import type { Task, TaskSubmission, TaskStatus } from '@/lib/types/task';
+import type { Task, TaskSubmission, TaskStatus, TaskTemplate } from '@/lib/types/task';
 
 /**
  * Helper function to normalize QuickBase boolean values
@@ -3961,6 +3963,107 @@ export async function getTaskById(taskId: number): Promise<Task | null> {
   } catch (error) {
     logError('Failed to fetch task by ID', error as Error, { taskId });
     throw error;
+  }
+}
+
+// In-memory cache for task templates (38 templates, rarely change)
+let templateCache: Map<number, TaskTemplate> | null = null;
+let templateCacheTimestamp: number = 0;
+const TEMPLATE_CACHE_TTL = 1000 * 60 * 60; // 1 hour
+
+/**
+ * Get a single task template by ID
+ */
+export async function getTaskTemplate(templateId: number): Promise<TaskTemplate | null> {
+  try {
+    console.log('[getTaskTemplate] Fetching template:', templateId);
+
+    // Check cache first
+    if (templateCache && templateCache.has(templateId)) {
+      const cachedTemplate = templateCache.get(templateId);
+      if (cachedTemplate && (Date.now() - templateCacheTimestamp) < TEMPLATE_CACHE_TTL) {
+        console.log('[getTaskTemplate] Returning cached template');
+        return cachedTemplate;
+      }
+    }
+
+    const response = await qbClient.queryRecords({
+      from: QB_TABLE_TASK_TEMPLATES,
+      select: [
+        TASK_TEMPLATE_FIELDS.RECORD_ID,
+        TASK_TEMPLATE_FIELDS.TASK_NAME,
+        TASK_TEMPLATE_FIELDS.INTAKE_TASK_CATEGORY,
+        TASK_TEMPLATE_FIELDS.INTAKE_TASK_MISSING_ITEM,
+        TASK_TEMPLATE_FIELDS.TASK_DESCRIPTION
+      ],
+      where: `{3.EX.${templateId}}`
+    });
+
+    if (response.data.length === 0) {
+      console.log('[getTaskTemplate] Template not found:', templateId);
+      return null;
+    }
+
+    const record = response.data[0];
+    const template: TaskTemplate = {
+      recordId: record[TASK_TEMPLATE_FIELDS.RECORD_ID]?.value || 0,
+      taskName: record[TASK_TEMPLATE_FIELDS.TASK_NAME]?.value || '',
+      category: record[TASK_TEMPLATE_FIELDS.INTAKE_TASK_CATEGORY]?.value || null,
+      missingItem: record[TASK_TEMPLATE_FIELDS.INTAKE_TASK_MISSING_ITEM]?.value || null,
+      description: record[TASK_TEMPLATE_FIELDS.TASK_DESCRIPTION]?.value || null
+    };
+
+    // Update cache
+    if (!templateCache) {
+      templateCache = new Map();
+      templateCacheTimestamp = Date.now();
+    }
+    templateCache.set(templateId, template);
+
+    console.log('[getTaskTemplate] Found template:', template.taskName);
+    return template;
+  } catch (error) {
+    logError('Failed to fetch task template', error as Error, { templateId });
+    return null;
+  }
+}
+
+/**
+ * Get all task templates (for caching and lookup)
+ * Call this on app initialization to populate the cache
+ */
+export async function getAllTaskTemplates(): Promise<TaskTemplate[]> {
+  try {
+    console.log('[getAllTaskTemplates] Fetching all templates');
+
+    const response = await qbClient.queryRecords({
+      from: QB_TABLE_TASK_TEMPLATES,
+      select: [
+        TASK_TEMPLATE_FIELDS.RECORD_ID,
+        TASK_TEMPLATE_FIELDS.TASK_NAME,
+        TASK_TEMPLATE_FIELDS.INTAKE_TASK_CATEGORY,
+        TASK_TEMPLATE_FIELDS.INTAKE_TASK_MISSING_ITEM,
+        TASK_TEMPLATE_FIELDS.TASK_DESCRIPTION
+      ]
+    });
+
+    const templates: TaskTemplate[] = response.data.map((record: any) => ({
+      recordId: record[TASK_TEMPLATE_FIELDS.RECORD_ID]?.value || 0,
+      taskName: record[TASK_TEMPLATE_FIELDS.TASK_NAME]?.value || '',
+      category: record[TASK_TEMPLATE_FIELDS.INTAKE_TASK_CATEGORY]?.value || null,
+      missingItem: record[TASK_TEMPLATE_FIELDS.INTAKE_TASK_MISSING_ITEM]?.value || null,
+      description: record[TASK_TEMPLATE_FIELDS.TASK_DESCRIPTION]?.value || null
+    }));
+
+    // Populate cache
+    templateCache = new Map(templates.map(t => [t.recordId, t]));
+    templateCacheTimestamp = Date.now();
+
+    console.log('[getAllTaskTemplates] Cached', templates.length, 'templates');
+    return templates;
+  } catch (error) {
+    logError('Failed to fetch all task templates', error as Error);
+    return [];
   }
 }
 

@@ -55,16 +55,18 @@ const NO_FILE_KEYWORDS = [
 ];
 
 /**
- * Determines if a task requires file upload based on its name and category
+ * Determines if a task requires file upload based on its name, category, and template description
  *
  * @param taskName - The name of the task (field 10)
- * @param taskCategory - The category of the task (field 31), optional
- * @param explicitRequirement - Optional explicit requirement from QuickBase field (future enhancement)
+ * @param taskCategory - The category of the task (field 30), optional
+ * @param taskDescription - The description from task or template (field 11 or 18), optional
+ * @param explicitRequirement - Optional explicit requirement from QuickBase field
  * @returns TaskRequirements object with requirement details
  */
 export function getTaskRequirements(
   taskName: string,
   taskCategory?: string | null,
+  taskDescription?: string | null,
   explicitRequirement?: 'file_required' | 'file_optional' | 'text_only' | null
 ): TaskRequirements {
   // Priority 1: Use explicit requirement if provided (future QuickBase field)
@@ -91,7 +93,44 @@ export function getTaskRequirements(
     }
   }
 
-  // Priority 2: Infer from task name and category
+  // Priority 2: Use template/task description if available (more accurate)
+  if (taskDescription) {
+    const descriptionLower = taskDescription.toLowerCase();
+
+    // Check description for file-related keywords
+    const hasFileKeyword = FILE_REQUIRED_KEYWORDS.some(keyword =>
+      descriptionLower.includes(keyword)
+    );
+
+    if (hasFileKeyword) {
+      // Extract first sentence or 100 chars of description as reason
+      const firstSentence = taskDescription.split(/[.!?]/)[0].trim();
+      const reason = firstSentence.length > 100
+        ? firstSentence.substring(0, 100) + '...'
+        : firstSentence;
+
+      return {
+        requiresFile: true,
+        requirementType: 'required',
+        reason: reason || 'File upload required per task instructions'
+      };
+    }
+
+    // Check for confirmation-only tasks
+    const hasNoFileKeyword = NO_FILE_KEYWORDS.some(keyword =>
+      descriptionLower.includes(keyword)
+    );
+
+    if (hasNoFileKeyword) {
+      return {
+        requiresFile: false,
+        requirementType: 'none',
+        reason: 'Confirmation/acknowledgment task (no file needed)'
+      };
+    }
+  }
+
+  // Priority 3: Fallback to name and category pattern matching
   const searchText = `${taskName} ${taskCategory || ''}`.toLowerCase();
 
   // Check for file required keywords

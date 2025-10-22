@@ -37,8 +37,8 @@ export function TaskCard({ task, projectId, className, isLoading = false }: Task
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [lastSubmissionError, setLastSubmissionError] = useState<string | null>(null)
 
-  // Calculate task requirements based on name/category
-  const taskRequirements = getTaskRequirements(task.name, task.category)
+  // Calculate task requirements based on name/category/description
+  const taskRequirements = getTaskRequirements(task.name, task.category, task.description)
   const showFileUpload = shouldShowFileUpload(taskRequirements)
   const fileUploadLabel = getFileUploadLabel(taskRequirements)
 
