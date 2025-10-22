@@ -66,6 +66,13 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Team projects filter is only available for managers' }, { status: 403 });
     }
 
+    // For super_admin with withTasks, override ownership to 'all' to see all teams' tasks
+    let effectiveOwnership = ownership;
+    if (role === 'super_admin' && withTasks) {
+      effectiveOwnership = 'all';
+      logInfo('[OWNERSHIP_FILTER] Super admin with tasks filter - showing all teams tasks', { userId, role, withTasks, reqId });
+    }
+
     // Check cache first
     const cacheKey = `${userId}:${role}:${view || 'all'}:${search || ''}:${sort || 'default'}:${memberEmail || ''}:${ownership}:${office || ''}:${setter || ''}:${closer || ''}:${withTasks}`;
     const cached = getCachedProjects(cacheKey);
@@ -91,7 +98,7 @@ export async function GET(req: Request) {
     // from the office_assignments table, ensuring immediate visibility
     // of newly assigned offices without requiring logout/login.
     logInfo('[OFFICE_RESOLUTION] Fetching offices from database for user', { userId, role, reqId });
-    const projects = await getProjectsForUserList(userId, role, view, search, sort, undefined, memberEmail, ownership, office, setter, closer, reqId, withTasks);
+    const projects = await getProjectsForUserList(userId, role, view, search, sort, undefined, memberEmail, effectiveOwnership, office, setter, closer, reqId, withTasks);
 
     // Cache the result
     setCachedProjects(cacheKey, projects);

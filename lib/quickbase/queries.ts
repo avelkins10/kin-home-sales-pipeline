@@ -362,11 +362,42 @@ export async function getProjectsForUserList(userId: string, role: string, view?
     console.log('[getProjectsForUserList] Applying ownership filter:', ownership);
   }
 
-  // Build tasks filter - only show projects with unapproved tasks
+  // Build tasks filter - query Task Groups table to find projects with unapproved tasks
   let tasksFilter: string | undefined;
   if (withTasks) {
-    tasksFilter = `{${PROJECT_FIELDS.UNAPPROVED_TASKS}.GT.0}`;
-    console.log('[getProjectsForUserList] Applying tasks filter: only projects with unapproved tasks');
+    console.log('[getProjectsForUserList] Fetching projects with unapproved tasks from Task Groups table');
+    try {
+      // Query Task Groups for projects with unapproved tasks
+      const taskGroupsResponse = await qbClient.queryRecords({
+        from: QB_TABLE_TASK_GROUPS,
+        select: [TASK_GROUP_FIELDS.RELATED_PROJECT, TASK_GROUP_FIELDS.UNAPPROVED_TASKS],
+        where: `{${TASK_GROUP_FIELDS.UNAPPROVED_TASKS}.GT.0}`
+      });
+
+      // Extract unique project IDs
+      const projectIdsWithTasks = new Set<number>();
+      taskGroupsResponse.data?.forEach((record: any) => {
+        const projectId = parseInt(record[TASK_GROUP_FIELDS.RELATED_PROJECT]?.value || '0');
+        if (projectId > 0) {
+          projectIdsWithTasks.add(projectId);
+        }
+      });
+
+      if (projectIdsWithTasks.size === 0) {
+        console.log('[getProjectsForUserList] No projects with unapproved tasks found');
+        // Return empty early - no projects have tasks
+        return [];
+      }
+
+      // Build filter for these project IDs
+      const projectIds = Array.from(projectIdsWithTasks);
+      tasksFilter = projectIds.map(id => `{${PROJECT_FIELDS.RECORD_ID}.EX.${id}}`).join(' OR ');
+      console.log('[getProjectsForUserList] Found', projectIds.length, 'projects with unapproved tasks');
+    } catch (error) {
+      logError('Failed to fetch projects with tasks', error as Error, { userId, role });
+      // On error, continue without task filter
+      tasksFilter = undefined;
+    }
   }
 
   // Combine all filters with proper parentheses for precedence
