@@ -61,7 +61,7 @@ export async function GET(req: Request) {
     }
 
     // Validate team-projects access for non-managers
-    if (ownership === 'team-projects' && !['office_leader', 'regional', 'area_director', 'divisional', 'team_lead'].includes(role)) {
+    if (ownership === 'team-projects' && !['office_leader', 'regional', 'area_director', 'divisional', 'team_lead', 'super_admin'].includes(role)) {
       logInfo('[OWNERSHIP_FILTER] Non-manager attempted to access team-projects filter', { userId, role, ownership, reqId });
       return NextResponse.json({ error: 'Team projects filter is only available for managers' }, { status: 403 });
     }
