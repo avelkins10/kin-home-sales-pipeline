@@ -270,8 +270,8 @@ export function buildRoleClause(
  * Lean selector for list view - only essential fields for performance
  * @param officeIds - Office IDs to filter by (QuickBase Record IDs from Field 810). If not provided, will be fetched from office_assignments table for office-based roles.
  */
-export async function getProjectsForUserList(userId: string, role: string, view?: string, search?: string, sort?: string, officeIds?: number[], memberEmail?: string, ownership?: string, officeFilter?: string, setterFilter?: string, closerFilter?: string, reqId?: string) {
-  console.log('[getProjectsForUserList] START - userId:', userId, 'role:', role, 'view:', view, 'search:', search, 'sort:', sort, 'ownership:', ownership, 'officeFilter:', officeFilter, 'setterFilter:', setterFilter, 'closerFilter:', closerFilter, 'officeIds:', officeIds, 'reqId:', reqId);
+export async function getProjectsForUserList(userId: string, role: string, view?: string, search?: string, sort?: string, officeIds?: number[], memberEmail?: string, ownership?: string, officeFilter?: string, setterFilter?: string, closerFilter?: string, reqId?: string, withTasks?: boolean) {
+  console.log('[getProjectsForUserList] START - userId:', userId, 'role:', role, 'view:', view, 'search:', search, 'sort:', sort, 'ownership:', ownership, 'officeFilter:', officeFilter, 'setterFilter:', setterFilter, 'closerFilter:', closerFilter, 'officeIds:', officeIds, 'withTasks:', withTasks, 'reqId:', reqId);
 
   // Get user email for email-based filtering (needed for ownership filter)
   let userEmail: string | null = null;
@@ -362,6 +362,13 @@ export async function getProjectsForUserList(userId: string, role: string, view?
     console.log('[getProjectsForUserList] Applying ownership filter:', ownership);
   }
 
+  // Build tasks filter - only show projects with unapproved tasks
+  let tasksFilter: string | undefined;
+  if (withTasks) {
+    tasksFilter = `{${PROJECT_FIELDS.UNAPPROVED_TASKS}.GT.0}`;
+    console.log('[getProjectsForUserList] Applying tasks filter: only projects with unapproved tasks');
+  }
+
   // Combine all filters with proper parentheses for precedence
   let whereClause = roleClause;
   if (ownershipFilter) {
@@ -384,6 +391,9 @@ export async function getProjectsForUserList(userId: string, role: string, view?
   }
   if (searchFilter) {
     whereClause = `(${whereClause}) AND (${searchFilter})`;
+  }
+  if (tasksFilter) {
+    whereClause = `(${whereClause}) AND (${tasksFilter})`;
   }
 
   console.log('[getProjectsForUserList] Final WHERE clause:', whereClause);
@@ -465,6 +475,9 @@ export async function getProjectsForUserList(userId: string, role: string, view?
         PROJECT_FIELDS.PTO_STATUS, // Field 556 - Primary status indicator for PTO
         PROJECT_FIELDS.PTO_SUBMITTED,
         PROJECT_FIELDS.PTO_APPROVED,
+        // Task fields for filtering
+        PROJECT_FIELDS.TOTAL_TASKS,
+        PROJECT_FIELDS.UNAPPROVED_TASKS,
       ],
       where: whereClause,
       sortBy,
