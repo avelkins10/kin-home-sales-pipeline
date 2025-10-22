@@ -3189,6 +3189,14 @@ export async function getRepPerformance(
       const installs = completedProjects.length;
       const holds = onHoldProjects;
 
+      // Calculate cancellation and hold rates as percentages
+      const cancellationRate = totalProjects > 0
+        ? (cancelledProjects / totalProjects) * 100
+        : 0;
+      const holdRate = totalProjects > 0
+        ? (onHoldProjects / totalProjects) * 100
+        : 0;
+
       return {
         repName,
         repEmail,
@@ -3215,6 +3223,8 @@ export async function getRepPerformance(
         projectsRejected,
         installs,
         holds,
+        cancellationRate: Math.round(cancellationRate * 100) / 100,
+        holdRate: Math.round(holdRate * 100) / 100,
       };
     });
 
