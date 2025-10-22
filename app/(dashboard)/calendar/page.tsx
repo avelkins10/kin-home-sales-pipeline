@@ -6,7 +6,7 @@ import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { parseQuickbaseDate } from '@/lib/utils/date-helpers'
-import { CalendarWrapper } from '@/components/calendar/CalendarWrapper'
+// import { CalendarWrapper } from '@/components/calendar/CalendarWrapper'
 import { CalendarFilters } from '@/components/calendar/CalendarFilters'
 import { CalendarSkeleton } from '@/components/calendar/CalendarSkeleton'
 import { CalendarEventContent } from '@/components/calendar/CalendarEventContent'
@@ -212,12 +212,15 @@ export default function CalendarPage({ searchParams }: CalendarPageProps) {
             </AlertDescription>
           </Alert>
         ) : (
-          <CalendarWrapper
-            events={transformedEvents}
-            onSelectEvent={handleEventClick}
-            eventPropGetter={eventPropGetter}
-            components={{ event: CalendarEventContent }}
-          />
+          <div className="p-8 text-center text-gray-500">
+            <p>Calendar view temporarily unavailable</p>
+          </div>
+          // <CalendarWrapper
+          //   events={transformedEvents}
+          //   onSelectEvent={handleEventClick}
+          //   eventPropGetter={eventPropGetter}
+          //   components={{ event: CalendarEventContent }}
+          // />
         )}
       </div>
     </div>
