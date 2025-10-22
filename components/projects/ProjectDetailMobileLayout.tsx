@@ -81,6 +81,19 @@ export function ProjectDetailMobileLayout({
 
   // Build accordion sections with smart defaults
   const sections: AccordionSection[] = [
+    // 0. Action Items (Tasks) - Highest priority if they exist
+    ...(hasTasks ? [{
+      id: 'tasks',
+      title: 'Action Items',
+      defaultOpen: true, // Auto-expand tasks
+      badge: (
+        <Badge variant="default" className="text-xs bg-orange-600">
+          Tasks
+        </Badge>
+      ),
+      children: <TaskSection projectId={projectId} />
+    }] : []),
+
     // 1. Timeline - Always visible (highest priority)
     {
       id: 'timeline',

@@ -1,4 +1,7 @@
-import { QuickbaseField } from './project';
+// QuickbaseField type inline definition
+type QuickbaseField<T = any> = {
+  value: T | null;
+};
 
 // Raw QuickBase response format for Task Groups table (bu36gem4p)
 export interface QuickbaseTaskGroup {
