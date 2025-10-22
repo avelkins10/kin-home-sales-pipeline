@@ -37,9 +37,22 @@ export async function POST(req: Request, { params }: { params: { id: string; tas
     }
 
     // Fetch task details to determine requirements
-    const task = await getTaskById(numericTaskId);
-    if (!task) {
-      return NextResponse.json({ error: 'Task not found' }, { status: 404 });
+    let task;
+    try {
+      task = await getTaskById(numericTaskId);
+      if (!task) {
+        return NextResponse.json({ error: 'Task not found' }, { status: 404 });
+      }
+    } catch (taskFetchError) {
+      console.error('[API] Failed to fetch task details:', taskFetchError);
+      logError('Failed to fetch task for submission', taskFetchError as Error, {
+        taskId: numericTaskId,
+        projectId: numericProjectId
+      });
+      return NextResponse.json({
+        error: 'Failed to load task details',
+        details: (taskFetchError as Error).message
+      }, { status: 500 });
     }
 
     // Calculate task requirements
