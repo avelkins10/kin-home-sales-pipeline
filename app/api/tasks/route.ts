@@ -314,7 +314,23 @@ export async function GET(req: Request) {
     return NextResponse.json(tasksWithProject, { status: 200 });
 
   } catch (error) {
-    logError('Failed to fetch tasks', error as Error);
+    // Log detailed error information for debugging
+    const errorDetails: any = {
+      message: (error as Error).message,
+      stack: (error as Error).stack,
+      reqId
+    };
+
+    // If error has additional properties (like from QuickBase API), include them
+    if (error && typeof error === 'object') {
+      Object.keys(error).forEach(key => {
+        if (key !== 'stack' && key !== 'message') {
+          errorDetails[key] = (error as any)[key];
+        }
+      });
+    }
+
+    logError('Failed to fetch tasks', error as Error, errorDetails);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
