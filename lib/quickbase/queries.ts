@@ -2482,100 +2482,56 @@ export async function getOfficeMetrics(
     if (timeRange === 'custom' && customDateRange) {
       timeFilter = `AND {${PROJECT_FIELDS.SALES_DATE}.OAF.'${customDateRange.startDate}'} AND {${PROJECT_FIELDS.SALES_DATE}.OBF.'${customDateRange.endDate}'}`;
     } else if (timeRange !== 'lifetime') {
-      const now = new Date();
-      const currentYear = now.getFullYear();
-      const currentMonth = now.getMonth();
-      
+      // Get current date/time in the target timezone (not UTC)
+      const nowInTimezone = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));
+      const currentYear = nowInTimezone.getFullYear();
+      const currentMonth = nowInTimezone.getMonth();
+      const currentDay = nowInTimezone.getDate();
+
+      console.log('[getOfficeMetrics] Server current time:', {
+        utc: new Date().toISOString(),
+        timezone: timezone,
+        dateInTimezone: nowInTimezone.toISOString(),
+        year: currentYear,
+        month: currentMonth + 1,
+        day: currentDay
+      });
+
       let startDate: string;
       let endDate: string;
-      
+
       switch (timeRange) {
         case 'ytd':
           startDate = `${currentYear}-01-01`;
-          endDate = new Intl.DateTimeFormat('en-CA', {
-            timeZone: timezone,
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-          }).format(now);
+          endDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`;
           break;
         case 'month':
-          const monthStart = new Date(currentYear, currentMonth, 1);
-          endDate = new Intl.DateTimeFormat('en-CA', {
-            timeZone: timezone,
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-          }).format(now);
-          startDate = new Intl.DateTimeFormat('en-CA', {
-            timeZone: timezone,
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-          }).format(monthStart);
+          startDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
+          endDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`;
           break;
         case 'week':
-          const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          startDate = new Intl.DateTimeFormat('en-CA', {
-            timeZone: timezone,
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-          }).format(oneWeekAgo);
-          endDate = new Intl.DateTimeFormat('en-CA', {
-            timeZone: timezone,
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-          }).format(now);
+          const weekAgo = new Date(nowInTimezone);
+          weekAgo.setDate(weekAgo.getDate() - 7);
+          startDate = `${weekAgo.getFullYear()}-${String(weekAgo.getMonth() + 1).padStart(2, '0')}-${String(weekAgo.getDate()).padStart(2, '0')}`;
+          endDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`;
           break;
         case 'last_30':
-          const last30Start = new Date(now);
-          last30Start.setDate(last30Start.getDate() - 30);
-          startDate = new Intl.DateTimeFormat('en-CA', {
-            timeZone: timezone,
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-          }).format(last30Start);
-          endDate = new Intl.DateTimeFormat('en-CA', {
-            timeZone: timezone,
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-          }).format(now);
+          const last30 = new Date(nowInTimezone);
+          last30.setDate(last30.getDate() - 30);
+          startDate = `${last30.getFullYear()}-${String(last30.getMonth() + 1).padStart(2, '0')}-${String(last30.getDate()).padStart(2, '0')}`;
+          endDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`;
           break;
         case 'last_90':
-          const last90Start = new Date(now);
-          last90Start.setDate(last90Start.getDate() - 90);
-          startDate = new Intl.DateTimeFormat('en-CA', {
-            timeZone: timezone,
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-          }).format(last90Start);
-          endDate = new Intl.DateTimeFormat('en-CA', {
-            timeZone: timezone,
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-          }).format(now);
+          const last90 = new Date(nowInTimezone);
+          last90.setDate(last90.getDate() - 90);
+          startDate = `${last90.getFullYear()}-${String(last90.getMonth() + 1).padStart(2, '0')}-${String(last90.getDate()).padStart(2, '0')}`;
+          endDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`;
           break;
         case 'last_12_months':
-          const last12Start = new Date(now);
-          last12Start.setDate(last12Start.getDate() - 365);
-          startDate = new Intl.DateTimeFormat('en-CA', {
-            timeZone: timezone,
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-          }).format(last12Start);
-          endDate = new Intl.DateTimeFormat('en-CA', {
-            timeZone: timezone,
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-          }).format(now);
+          const last12 = new Date(nowInTimezone);
+          last12.setDate(last12.getDate() - 365);
+          startDate = `${last12.getFullYear()}-${String(last12.getMonth() + 1).padStart(2, '0')}-${String(last12.getDate()).padStart(2, '0')}`;
+          endDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`;
           break;
         default:
           startDate = '';
@@ -2584,6 +2540,13 @@ export async function getOfficeMetrics(
       
       if (startDate && endDate) {
         timeFilter = `AND {${PROJECT_FIELDS.SALES_DATE}.OAF.'${startDate}'} AND {${PROJECT_FIELDS.SALES_DATE}.OBF.'${endDate}'}`;
+        console.log('[getOfficeMetrics] Date filter:', {
+          timeRange,
+          timezone,
+          startDate,
+          endDate,
+          timeFilter
+        });
       }
     }
 
@@ -2624,6 +2587,33 @@ export async function getOfficeMetrics(
 
     const projects = response.data || [];
     console.log('[getOfficeMetrics] Fetched projects:', projects.length);
+
+    // Debug: Check date range of fetched projects
+    if (projects.length > 0 && timeRange === 'month') {
+      const salesDates = projects
+        .map((p: Record<string, any>) => p[PROJECT_FIELDS.SALES_DATE]?.value)
+        .filter(Boolean)
+        .sort();
+      console.log('[getOfficeMetrics] Project date range:', {
+        earliest: salesDates[0],
+        latest: salesDates[salesDates.length - 1],
+        totalWithDates: salesDates.length
+      });
+
+      // Check Stevens office specifically
+      const stevensProjects = projects.filter((p: Record<string, any>) =>
+        p[PROJECT_FIELDS.SALES_OFFICE]?.value?.includes('Stevens')
+      );
+      const stevensDates = stevensProjects
+        .map((p: Record<string, any>) => p[PROJECT_FIELDS.SALES_DATE]?.value)
+        .filter(Boolean)
+        .sort();
+      console.log('[getOfficeMetrics] Stevens office projects:', {
+        total: stevensProjects.length,
+        earliest: stevensDates[0],
+        latest: stevensDates[stevensDates.length - 1]
+      });
+    }
 
     // Group projects by office
     const officeGroups = new Map<number, any[]>();
