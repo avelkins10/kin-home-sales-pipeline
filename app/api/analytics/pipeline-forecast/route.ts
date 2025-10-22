@@ -17,33 +17,36 @@ function getCacheTTL(): number {
 
 /**
  * GET /api/analytics/pipeline-forecast
- * 
- * Forecast installs for next 30/60/90 days based on scheduled and estimated dates.
+ *
+ * Install Tracker: Shows current 3-week window of install activity
+ * Independent of page date filters - always displays last week, this week, next week
  * Only accessible by office_leader, regional, and super_admin roles.
- * 
- * Uses priority: scheduled > estimated > tentative
- * - scheduled: INSTALL_SCHEDULED_DATE_CAPTURE (Field 710) - highest reliability (54.4%)
- * - estimated: ESTIMATED_INSTALL_DATE (Field 1124) - medium reliability (27.5%)
- * - tentative: INTAKE_INSTALL_DATE_TENTATIVE (Field 902) - tentative (100% but tentative)
- * 
+ *
+ * Uses actual scheduled/completed dates (not estimates):
+ * - Last Week: INSTALL_COMPLETED_DATE (Field 534) - actual completions
+ * - This/Next Week: INSTALL_SCHEDULED_START_DATE (Field 178) or INSTALL_SCHEDULED_DATE_CAPTURE (Field 710)
+ *
  * Query Parameters:
  * - officeIds: comma-separated list of office IDs for filtering (optional)
  * - includeDetails: boolean to control whether to return detailed project list (default: false)
- * 
+ *
  * Response:
  * {
  *   forecast: {
- *     next30Days: number,
- *     next60Days: number,
- *     next90Days: number,
+ *     lastWeek: number,
+ *     thisWeek: number,
+ *     nextWeek: number,
  *     projects?: Array<{
  *       recordId: number,
  *       projectId: string,
  *       customerName: string,
  *       systemSize: number,
- *       estimatedInstallDate: string,
- *       scheduledInstallDate: string | null,
- *       forecastSource: 'scheduled' | 'estimated' | 'tentative'
+ *       forecastDate: string,
+ *       scheduledStartDate: string | null,
+ *       scheduledCaptureDate: string | null,
+ *       completedDate: string | null,
+ *       dateSource: 'completed' | 'scheduled-primary' | 'scheduled-capture',
+ *       weekBucket: 'lastWeek' | 'thisWeek' | 'nextWeek'
  *     }>
  *   },
  *   metadata: {
@@ -101,11 +104,10 @@ export async function GET(req: Request) {
       return NextResponse.json(cached.data, { status: 200 });
     }
 
-    // Fetch pipeline forecast
+    // Fetch pipeline forecast - always shows current 3-week window
     const forecastData = await getPipelineForecast(
       userId,
       role,
-      'ytd', // Not used for forecasting, but required by function signature
       officeIds,
       includeDetails,
       reqId

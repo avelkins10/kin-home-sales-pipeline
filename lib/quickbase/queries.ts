@@ -3232,13 +3232,13 @@ export async function getRepPerformance(
 }
 
 /**
- * Forecast installs for next 30/60/90 days based on scheduled and estimated dates
- * Uses priority: scheduled > estimated > tentative
+ * Get install tracker data for current 3-week window (last week, this week, next week)
+ * Independent of page date filters - always shows current install activity
+ * Respects office and role-based access controls
  */
 export async function getPipelineForecast(
   userId: string,
   role: string,
-  timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | 'last_30' | 'last_90' | 'last_12_months' = 'ytd',
   officeIds?: number[],
   includeDetails: boolean = true,
   reqId?: string
@@ -3260,8 +3260,8 @@ export async function getPipelineForecast(
     const accessClause = buildProjectAccessClause(userEmail, role, effectiveOfficeIds);
     console.log('[getPipelineForecast] Access clause:', accessClause);
 
-    // Only query active projects for forecasting
-    const whereClause = `${accessClause} AND {${PROJECT_FIELDS.PROJECT_STATUS}} = 'Active'`.trim();
+    // Query all projects with access - status doesn't matter, only install dates
+    const whereClause = accessClause.trim();
 
     // Query projects with actual install date fields (not estimates)
     const response = await qbClient.queryRecords({
