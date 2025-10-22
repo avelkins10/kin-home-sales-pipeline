@@ -2767,7 +2767,6 @@ export async function getOfficeMetrics(
       }, {} as Record<string, number>);
 
       const activeProjects = statusCounts['Active'] || 0;
-      const cancelledProjects = statusCounts['Cancelled'] || 0;
       const projectsSubmitted = statusCounts['Submitted'] || 0;
       const projectsApproved = statusCounts['Approved'] || 0;
       // Count projects currently rejected and awaiting resubmit (not yet fixed/approved)
@@ -2777,14 +2776,20 @@ export async function getOfficeMetrics(
       ).length;
       const installs = completedProjects.length;
 
-      // All hold types from PROJECT_STATUS field
+      // All hold types from PROJECT_STATUS field (detailed breakdown)
       const pendingKcaProjects = statusCounts['Pending KCA'] || 0;
       const financeHoldProjects = statusCounts['Finance Hold'] || 0;
       const pendingCancelProjects = statusCounts['Pending Cancel'] || 0;
       const roofHoldProjects = statusCounts['Roof Hold'] || 0;
-      // General "On Hold" status - this was previously using the boolean field, but should use PROJECT_STATUS
-      const onHoldProjects = statusCounts['On Hold'] || 0;
+      const generalOnHoldProjects = statusCounts['On Hold'] || 0;
+      const customerHoldProjects = statusCounts['Customer Hold'] || 0;
+
+      // Total holds: sum of all hold types
+      const onHoldProjects = generalOnHoldProjects + financeHoldProjects + roofHoldProjects + customerHoldProjects;
       const holds = onHoldProjects;
+
+      // Total cancellations: includes both 'Cancelled' and 'Pending Cancel'
+      const cancelledProjects = (statusCounts['Cancelled'] || 0) + pendingCancelProjects;
 
       // Calculate monthly install data for sparklines (last 6 months)
       const monthlyInstalls = calculateMonthlyInstalls(completedProjects);
@@ -3177,8 +3182,16 @@ export async function getRepPerformance(
       }, {} as Record<string, number>);
 
       const activeProjects = statusCounts['Active'] || 0;
-      const cancelledProjects = statusCounts['Cancelled'] || 0;
-      const onHoldProjects = repProjects.filter(p => isTrueQB(p[PROJECT_FIELDS.ON_HOLD]?.value)).length;
+
+      // Cancellations: Include both 'Cancelled' and 'Pending Cancel' statuses
+      const cancelledProjects = (statusCounts['Cancelled'] || 0) + (statusCounts['Pending Cancel'] || 0);
+
+      // Holds: Include all hold types from PROJECT_STATUS field
+      const onHoldProjects = (statusCounts['On Hold'] || 0)
+        + (statusCounts['Finance Hold'] || 0)
+        + (statusCounts['Roof Hold'] || 0)
+        + (statusCounts['Customer Hold'] || 0);
+
       const projectsSubmitted = statusCounts['Submitted'] || 0;
       const projectsApproved = statusCounts['Approved'] || 0;
       // Count projects currently rejected and awaiting resubmit (not yet fixed/approved)
