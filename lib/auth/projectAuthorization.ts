@@ -175,9 +175,21 @@ export function buildProjectAccessClause(
   let clause: string;
   switch (role) {
     case 'super_admin':
-      // Super admin always sees all projects
-      clause = '{3.GT.0}'; // Record ID > 0 (matches all records)
-      logInfo('[PROJECT_AUTHORIZATION] Super admin role detected, granting all-projects access', { role });
+      // Super admin WITH office filter sees those specific offices
+      // Super admin WITHOUT office filter sees all projects
+      if (officeIds && officeIds.length > 0) {
+        clause = buildOfficeClause(officeIds);
+        logInfo('[PROJECT_AUTHORIZATION] Super admin with office filter', {
+          role,
+          officeIds: officeIds,
+          officeCount: officeIds.length,
+          reqId
+        });
+      } else {
+        // No office filter = see all projects
+        clause = '{3.GT.0}'; // Record ID > 0 (matches all records)
+        logInfo('[PROJECT_AUTHORIZATION] Super admin with no office filter, granting all-projects access', { role, reqId });
+      }
       break;
     case 'regional':
       // Regional managers WITH office assignments see those specific offices
