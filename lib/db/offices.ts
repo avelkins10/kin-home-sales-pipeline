@@ -108,7 +108,7 @@ export async function syncOfficesFromQuickBase(): Promise<{
 
     while (true) {
       const response = await qbClient.queryRecords({
-        from: process.env.QUICKBASE_TABLE_PROJECTS || 'br9kwm8na',
+        from: (process.env.QUICKBASE_TABLE_PROJECTS || 'br9kwm8na').trim(),
         select: [PROJECT_FIELDS.SALES_OFFICE, PROJECT_FIELDS.OFFICE_RECORD_ID],
         where: `{${PROJECT_FIELDS.OFFICE_RECORD_ID}.XEX.''}`, // Office ID not empty
         options: { top, skip }

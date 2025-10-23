@@ -97,8 +97,8 @@ class InProcessCache {
 const commissionCache = new InProcessCache();
 
 // Quickbase table IDs
-const QB_TABLE_PROJECTS = process.env.QUICKBASE_TABLE_PROJECTS || 'br9kwm8na';
-const QB_TABLE_ADDERS = process.env.QUICKBASE_TABLE_ADDERS || 'bsaycczmf';
+const QB_TABLE_PROJECTS = (process.env.QUICKBASE_TABLE_PROJECTS || 'br9kwm8na').trim();
+const QB_TABLE_ADDERS = (process.env.QUICKBASE_TABLE_ADDERS || 'bsaycczmf').trim();
 
 // Helper function to get managed user IDs for team leads
 async function getManagedUserIds(managerId: string): Promise<string[]> {
@@ -2444,7 +2444,7 @@ export async function getAddersForProject(projectRecordId: string | number) {
  */
 export async function getNotesForProject(projectRecordId: string | number) {
   const { NOTE_FIELDS } = await import('@/lib/constants/noteFieldIds');
-  const QB_TABLE_NOTES = process.env.QUICKBASE_TABLE_NOTES || 'bsb6bqt3b';
+  const QB_TABLE_NOTES = (process.env.QUICKBASE_TABLE_NOTES || 'bsb6bqt3b').trim();
 
   console.log('[getNotesForProject] Fetching notes for project:', projectRecordId);
 
@@ -2489,7 +2489,7 @@ export async function getNotesForProject(projectRecordId: string | number) {
  */
 export async function createNoteForProject(projectRecordId: string | number, noteContent: string, createdBy: string) {
   const { NOTE_FIELDS, NOTE_CATEGORIES, REP_VISIBLE_FLAG } = await import('@/lib/constants/noteFieldIds');
-  const QB_TABLE_NOTES = process.env.QUICKBASE_TABLE_NOTES || 'bsb6bqt3b';
+  const QB_TABLE_NOTES = (process.env.QUICKBASE_TABLE_NOTES || 'bsb6bqt3b').trim();
 
   console.log('[createNoteForProject] Creating note for project:', projectRecordId);
 

@@ -9,7 +9,7 @@ import { PROJECT_FIELDS } from '@/lib/constants/fieldIds';
 import { QuickBaseUserData } from '@/lib/types/user';
 
 // Quickbase table IDs
-const QB_TABLE_PROJECTS = process.env.QUICKBASE_TABLE_PROJECTS || 'br9kwm8na';
+const QB_TABLE_PROJECTS = (process.env.QUICKBASE_TABLE_PROJECTS || 'br9kwm8na').trim();
 
 /**
  * Get active users from QuickBase based on recent project activity

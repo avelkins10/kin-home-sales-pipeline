@@ -37,7 +37,7 @@ export async function getNotificationRecipientsForProject(
 
   try {
     // 1. Fetch project details from QuickBase
-    const QB_TABLE_PROJECTS = process.env.QUICKBASE_TABLE_PROJECTS || 'br9kwm8na';
+    const QB_TABLE_PROJECTS = (process.env.QUICKBASE_TABLE_PROJECTS || 'br9kwm8na').trim();
 
     console.log('[notificationRecipients] Fetching project team for project:', projectId);
 
