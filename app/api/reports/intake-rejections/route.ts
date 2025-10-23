@@ -35,7 +35,11 @@ interface IntakeRejectionsReport {
     totalOffices: number;
     totalSubmitted: number;
     totalRejected: number;
+    totalStillRejected: number;
+    totalResolved: number;
     overallRejectionRate: number;
+    avgResolvedDays: number | null;
+    avgStillRejectedDays: number | null;
     topRejectionReasons: Array<{ reason: string; count: number; percentage: number }>;
   };
   metadata: {
@@ -120,42 +124,54 @@ export async function GET(request: NextRequest) {
     const officeStats: OfficeRejectionStats[] = [];
     let totalSubmittedAll = 0;
     let totalRejectedAll = 0;
+    let totalStillRejectedAll = 0;
+    let totalResubmittedAll = 0;
     const globalReasonCounts: Record<string, number> = {};
+    const allResolvedTimes: number[] = [];
+    const allStillRejectedAges: number[] = [];
 
     for (const [officeName, officeProjects] of projectsByOffice) {
       const officeId = officeProjects[0][PROJECT_FIELDS.OFFICE_RECORD_ID]?.value || null;
       const totalSubmitted = officeProjects.length;
       totalSubmittedAll += totalSubmitted;
 
-      // Projects with first pass result
+      // Helper function to check if project is rejected
+      const isRejected = (p: QuickbaseProject): boolean => {
+        const intakeStatus = (p[PROJECT_FIELDS.INTAKE_STATUS]?.value || '').toString().toLowerCase();
+        const projectStatus = (p[PROJECT_FIELDS.PROJECT_STATUS]?.value || '').toString().toLowerCase();
+        return intakeStatus.includes('rejected') || projectStatus.includes('rejected');
+      };
+
+      // Projects that have been reviewed (have intake status or were rejected)
       const projectsWithFirstPass = officeProjects.filter(p =>
-        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value
+        p[PROJECT_FIELDS.INTAKE_STATUS]?.value || isRejected(p)
       );
 
       const totalReviewed = projectsWithFirstPass.length;
 
-      // First-time approved = field 1831 = "Approve"
-      const firstTimeApproved = projectsWithFirstPass.filter(p =>
-        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value === 'Approve'
-      ).length;
-
-      // First-time rejected = field 1831 = "Reject"
-      const firstTimeRejected = projectsWithFirstPass.filter(p =>
-        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value === 'Reject'
-      ).length;
+      // Rejected projects (either INTAKE_STATUS or PROJECT_STATUS contains "rejected")
+      const rejectedProjects = officeProjects.filter(isRejected);
+      const firstTimeRejected = rejectedProjects.length;
       totalRejectedAll += firstTimeRejected;
+
+      // First-time approved = reviewed but NOT rejected
+      const firstTimeApproved = totalReviewed - firstTimeRejected;
 
       // Still rejected = rejected but not yet resolved/resubmitted (no completion date)
       const stillRejected = officeProjects.filter(p =>
-        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value === 'Reject' &&
+        isRejected(p) &&
         !p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value
       ).length;
 
       // Resubmitted and approved = initially rejected but now has completion date
       const resubmittedAndApproved = officeProjects.filter(p =>
-        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value === 'Reject' &&
+        isRejected(p) &&
         p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value
       ).length;
+
+      // Track global totals
+      totalStillRejectedAll += stillRejected;
+      totalResubmittedAll += resubmittedAndApproved;
 
       // Calculate rates
       const firstTimePassRate = totalReviewed > 0
@@ -187,10 +203,7 @@ export async function GET(request: NextRequest) {
           percentage: firstTimeRejected > 0 ? (count / firstTimeRejected) * 100 : 0
         }));
 
-      // Average resolution time
-      const rejectedProjects = officeProjects.filter(p =>
-        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value === 'Reject'
-      );
+      // Average resolution time (using already calculated rejectedProjects)
 
       const resolutionTimes = rejectedProjects
         .map(p => {
@@ -208,6 +221,25 @@ export async function GET(request: NextRequest) {
         ? Math.round((resolutionTimes.reduce((sum, time) => sum + time, 0) / resolutionTimes.length) * 10) / 10
         : null;
 
+      // Add to global resolved times
+      allResolvedTimes.push(...resolutionTimes);
+
+      // Calculate ages for still rejected projects (how long they've been sitting)
+      const stillRejectedProjects = rejectedProjects.filter(p => !p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value);
+      const stillRejectedAges = stillRejectedProjects
+        .map(p => {
+          const firstReview = p[PROJECT_FIELDS.INTAKE_FIRST_PASS_COMPLETE]?.value;
+          if (!firstReview) return null;
+
+          const today = new Date();
+          const days = (today.getTime() - new Date(firstReview).getTime()) / (1000 * 60 * 60 * 24);
+          return Math.round(days * 10) / 10;
+        })
+        .filter(age => age !== null && age > 0) as number[];
+
+      // Add to global still rejected ages
+      allStillRejectedAges.push(...stillRejectedAges);
+
       // Closer breakdown for this office
       const closerStats = new Map<string, { name: string; submitted: number; rejected: number }>();
       officeProjects.forEach(p => {
@@ -220,7 +252,7 @@ export async function GET(request: NextRequest) {
         }
         const stats = closerStats.get(closerEmail)!;
         stats.submitted += 1;
-        if (p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value === 'Reject') {
+        if (isRejected(p)) {
           stats.rejected += 1;
         }
       });
@@ -265,15 +297,28 @@ export async function GET(request: NextRequest) {
         percentage: totalRejectedAll > 0 ? (count / totalRejectedAll) * 100 : 0
       }));
 
+    // Calculate global averages
+    const avgResolvedDays = allResolvedTimes.length > 0
+      ? Math.round((allResolvedTimes.reduce((sum, time) => sum + time, 0) / allResolvedTimes.length) * 10) / 10
+      : null;
+
+    const avgStillRejectedDays = allStillRejectedAges.length > 0
+      ? Math.round((allStillRejectedAges.reduce((sum, age) => sum + age, 0) / allStillRejectedAges.length) * 10) / 10
+      : null;
+
     const report: IntakeRejectionsReport = {
       offices: officeStats,
       summary: {
         totalOffices: officeStats.length,
         totalSubmitted: totalSubmittedAll,
         totalRejected: totalRejectedAll,
+        totalStillRejected: totalStillRejectedAll,
+        totalResolved: totalResubmittedAll,
         overallRejectionRate: totalSubmittedAll > 0
           ? Math.round((totalRejectedAll / totalSubmittedAll) * 1000) / 10
           : 0,
+        avgResolvedDays,
+        avgStillRejectedDays,
         topRejectionReasons: topGlobalReasons
       },
       metadata: {

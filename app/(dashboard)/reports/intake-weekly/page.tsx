@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Calendar, TrendingUp, TrendingDown, AlertCircle, Award } from 'lucide-react';
+import { Calendar, TrendingUp, TrendingDown, AlertCircle, Award, RefreshCw } from 'lucide-react';
 import { WeeklyIntakeTable } from '@/components/reports/WeeklyIntakeTable';
 import { formatPercentage } from '@/lib/utils/formatters';
 import { getBaseUrl } from '@/lib/utils/baseUrl';
@@ -29,6 +29,7 @@ function getLastWeekDates() {
 
 export default function WeeklyIntakeReportPage() {
   const { data: session } = useSession();
+  const queryClient = useQueryClient();
   const lastWeek = getLastWeekDates();
 
   const [startDate, setStartDate] = useState(lastWeek.start);
@@ -45,11 +46,19 @@ export default function WeeklyIntakeReportPage() {
       return response.json();
     },
     enabled: !!session?.user?.quickbaseUserId,
+    staleTime: 30000, // Data is considered stale after 30 seconds
+    cacheTime: 60000, // Cache is garbage collected after 1 minute
+    refetchOnMount: true, // Always refetch when component mounts
+    refetchOnWindowFocus: true, // Refetch when user returns to the tab
   });
 
   const handleApplyDates = () => {
     setAppliedStartDate(startDate);
     setAppliedEndDate(endDate);
+  };
+
+  const handleRefresh = () => {
+    refetch();
   };
 
   const handleQuickRange = (days: number) => {
@@ -112,6 +121,16 @@ export default function WeeklyIntakeReportPage() {
             Track first-time pass rates and rejection reasons by closer
           </p>
         </div>
+        <Button
+          onClick={handleRefresh}
+          variant="outline"
+          size="sm"
+          disabled={isLoading}
+          className="flex items-center gap-2"
+        >
+          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </div>
 
       {/* Date Range Selector */}

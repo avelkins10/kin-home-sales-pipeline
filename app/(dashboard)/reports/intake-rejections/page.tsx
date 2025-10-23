@@ -2,14 +2,14 @@
 
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertCircle, TrendingDown, TrendingUp, Calendar, Building2, Users, FileX, Clock } from 'lucide-react';
+import { AlertCircle, TrendingDown, TrendingUp, Calendar, Building2, Users, FileX, Clock, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import { formatPercentage } from '@/lib/utils/formatters';
 import { getBaseUrl } from '@/lib/utils/baseUrl';
 
@@ -41,7 +41,11 @@ interface IntakeRejectionsReport {
     totalOffices: number;
     totalSubmitted: number;
     totalRejected: number;
+    totalStillRejected: number;
+    totalResolved: number;
     overallRejectionRate: number;
+    avgResolvedDays: number | null;
+    avgStillRejectedDays: number | null;
     topRejectionReasons: Array<{ reason: string; count: number; percentage: number }>;
   };
   metadata: {
@@ -65,6 +69,7 @@ function getLast30Days() {
 
 export default function IntakeRejectionsReportPage() {
   const { data: session } = useSession();
+  const queryClient = useQueryClient();
   const last30 = getLast30Days();
 
   const [startDate, setStartDate] = useState(last30.start);
@@ -73,7 +78,7 @@ export default function IntakeRejectionsReportPage() {
   const [appliedEndDate, setAppliedEndDate] = useState(last30.end);
   const [expandedOffices, setExpandedOffices] = useState<Set<string>>(new Set());
 
-  const { data, isLoading, error } = useQuery<IntakeRejectionsReport>({
+  const { data, isLoading, error, refetch } = useQuery<IntakeRejectionsReport>({
     queryKey: ['intake-rejections-report', appliedStartDate, appliedEndDate],
     queryFn: async () => {
       const url = `${getBaseUrl()}/api/reports/intake-rejections?startDate=${appliedStartDate}&endDate=${appliedEndDate}`;
@@ -82,11 +87,19 @@ export default function IntakeRejectionsReportPage() {
       return response.json();
     },
     enabled: !!session?.user?.quickbaseUserId,
+    staleTime: 30000, // Data is considered stale after 30 seconds
+    cacheTime: 60000, // Cache is garbage collected after 1 minute
+    refetchOnMount: true, // Always refetch when component mounts
+    refetchOnWindowFocus: true, // Refetch when user returns to the tab
   });
 
   const handleApplyDates = () => {
     setAppliedStartDate(startDate);
     setAppliedEndDate(endDate);
+  };
+
+  const handleRefresh = () => {
+    refetch();
   };
 
   const handleQuickRange = (days: number) => {
@@ -173,8 +186,8 @@ export default function IntakeRejectionsReportPage() {
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">Intake Rejections Report</h1>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(8)].map((_, i) => (
             <Card key={i}>
               <CardContent className="p-6">
                 <Skeleton className="h-20 w-full" />
@@ -215,6 +228,16 @@ export default function IntakeRejectionsReportPage() {
             Office-by-office analysis of intake rejections and common issues
           </p>
         </div>
+        <Button
+          onClick={handleRefresh}
+          variant="outline"
+          size="sm"
+          disabled={isLoading}
+          className="flex items-center gap-2"
+        >
+          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </div>
 
       {/* Date Range Filters */}
@@ -307,7 +330,7 @@ export default function IntakeRejectionsReportPage() {
       </Card>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -354,6 +377,62 @@ export default function IntakeRejectionsReportPage() {
                 </p>
               </div>
               <TrendingDown className="h-8 w-8 text-orange-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Still Rejected</p>
+                <p className="text-2xl font-bold mt-1 text-red-600">{data.summary.totalStillRejected}</p>
+              </div>
+              <AlertTriangle className="h-8 w-8 text-red-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Resolved</p>
+                <p className="text-2xl font-bold mt-1 text-green-600">{data.summary.totalResolved}</p>
+              </div>
+              <CheckCircle className="h-8 w-8 text-green-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Avg Resolution Time</p>
+                <p className="text-2xl font-bold mt-1">
+                  {data.summary.avgResolvedDays !== null
+                    ? `${data.summary.avgResolvedDays}d`
+                    : 'N/A'}
+                </p>
+              </div>
+              <Clock className="h-8 w-8 text-blue-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Avg Age Still Rejected</p>
+                <p className="text-2xl font-bold mt-1 text-red-600">
+                  {data.summary.avgStillRejectedDays !== null
+                    ? `${data.summary.avgStillRejectedDays}d`
+                    : 'N/A'}
+                </p>
+              </div>
+              <AlertCircle className="h-8 w-8 text-red-500" />
             </div>
           </CardContent>
         </Card>

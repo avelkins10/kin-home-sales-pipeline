@@ -89,9 +89,10 @@ export function ProjectFilterChips({ isFetching = false }: ProjectFilterChipsPro
         // PROJECT_STATUS = "Cancelled" (not pending)
         return status === 'Cancelled' || (status.includes('Cancel') && !status.includes('Pending'));
       case 'rejected':
-        // Check INTAKE_STATUS field for "Rejected" (KCA Intake rejection)
-        const intakeStatus = project[PROJECT_FIELDS.INTAKE_STATUS]?.value || '';
-        return intakeStatus.toLowerCase().includes('rejected');
+        // Check BOTH INTAKE_STATUS and PROJECT_STATUS for "Rejected" (KCA Intake rejection)
+        const intakeStatus = (project[PROJECT_FIELDS.INTAKE_STATUS]?.value || '').toString().toLowerCase();
+        const projectStatus = (project[PROJECT_FIELDS.PROJECT_STATUS]?.value || '').toString().toLowerCase();
+        return intakeStatus.includes('rejected') || projectStatus.includes('rejected');
       case 'needs-attention':
         // Projects >90 days old OR on hold >7 days
         const projectAge = parseInt(project[PROJECT_FIELDS.PROJECT_AGE]?.value || '0');

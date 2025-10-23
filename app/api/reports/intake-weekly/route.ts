@@ -72,29 +72,33 @@ export async function GET(request: NextRequest) {
       // Total submitted = all projects sold in date range
       const totalSubmitted = closerProjects.length;
 
-      // Projects with first pass result
+      // Helper function to check if project is rejected
+      const isRejected = (p: QuickbaseProject): boolean => {
+        const intakeStatus = (p[PROJECT_FIELDS.INTAKE_STATUS]?.value || '').toString().toLowerCase();
+        const projectStatus = (p[PROJECT_FIELDS.PROJECT_STATUS]?.value || '').toString().toLowerCase();
+        return intakeStatus.includes('rejected') || projectStatus.includes('rejected');
+      };
+
+      // Projects that have been reviewed (have intake status or were rejected)
       const projectsWithFirstPass = closerProjects.filter(p =>
-        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value
+        p[PROJECT_FIELDS.INTAKE_STATUS]?.value || isRejected(p)
       );
 
-      // First-time approved = field 1831 = "Approve"
-      const firstTimeApproved = projectsWithFirstPass.filter(p =>
-        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value === 'Approve'
-      ).length;
+      // Rejected projects (either INTAKE_STATUS or PROJECT_STATUS contains "rejected")
+      const rejectedProjects = closerProjects.filter(isRejected);
+      const firstTimeRejected = rejectedProjects.length;
 
-      // First-time rejected = field 1831 = "Reject"
-      const firstTimeRejected = projectsWithFirstPass.filter(p =>
-        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value === 'Reject'
-      ).length;
+      // First-time approved = reviewed but NOT rejected
+      const firstTimeApproved = projectsWithFirstPass.length - firstTimeRejected;
 
-      // Pending review = no first pass result yet
+      // Pending review = no intake status and not rejected
       const pendingReview = closerProjects.filter(p =>
-        !p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value
+        !p[PROJECT_FIELDS.INTAKE_STATUS]?.value && !isRejected(p)
       ).length;
 
-      // Resubmitted and approved = field 1831 = "Reject" BUT field 461 exists
+      // Resubmitted and approved = rejected BUT has completion date
       const resubmittedAndApproved = closerProjects.filter(p =>
-        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value === 'Reject' &&
+        isRejected(p) &&
         p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value
       ).length;
 
@@ -123,10 +127,7 @@ export async function GET(request: NextRequest) {
         .slice(0, 3)
         .map(([reason, count]) => ({ reason, count }));
 
-      // Average resolution time
-      const rejectedProjects = closerProjects.filter(p =>
-        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value === 'Reject'
-      );
+      // Average resolution time (using already calculated rejectedProjects)
 
       const resolutionTimes = rejectedProjects
         .map(p => {
@@ -165,19 +166,31 @@ export async function GET(request: NextRequest) {
 
     // Calculate overall metrics
     const totalProjects = projects.length;
-    const allFirstTimeApproved = projects.filter(p =>
-      p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value === 'Approve'
-    ).length;
-    const projectsWithFirstPass = projects.filter(p =>
-      p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value
-    ).length;
 
-    const overallPassRate = projectsWithFirstPass > 0
-      ? (allFirstTimeApproved / projectsWithFirstPass) * 100
+    // Helper function to check if project is rejected (at global level)
+    const isRejectedGlobal = (p: QuickbaseProject): boolean => {
+      const intakeStatus = (p[PROJECT_FIELDS.INTAKE_STATUS]?.value || '').toString().toLowerCase();
+      const projectStatus = (p[PROJECT_FIELDS.PROJECT_STATUS]?.value || '').toString().toLowerCase();
+      return intakeStatus.includes('rejected') || projectStatus.includes('rejected');
+    };
+
+    // Projects that have been reviewed (have intake status or were rejected)
+    const projectsWithFirstPass = projects.filter(p =>
+      p[PROJECT_FIELDS.INTAKE_STATUS]?.value || isRejectedGlobal(p)
+    );
+
+    // Rejected projects
+    const allRejectedProjects = projects.filter(isRejectedGlobal);
+
+    // Approved = reviewed but NOT rejected
+    const allFirstTimeApproved = projectsWithFirstPass.length - allRejectedProjects.length;
+
+    const overallPassRate = projectsWithFirstPass.length > 0
+      ? (allFirstTimeApproved / projectsWithFirstPass.length) * 100
       : 0;
 
-    const overallRejectionRate = projectsWithFirstPass > 0
-      ? 100 - overallPassRate
+    const overallRejectionRate = projectsWithFirstPass.length > 0
+      ? (allRejectedProjects.length / projectsWithFirstPass.length) * 100
       : 0;
 
     // Find most common rejection reason across all closers
