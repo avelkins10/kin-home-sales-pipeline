@@ -127,6 +127,14 @@ export async function GET(req: Request) {
       reqId
     });
 
+    logInfo('[TASKS_API] Using table IDs', {
+      QB_TABLE_PROJECTS,
+      QB_TABLE_TASK_GROUPS,
+      QB_TABLE_TASKS,
+      QB_TABLE_TASK_SUBMISSIONS,
+      reqId
+    });
+
     // TEMPORARY DEBUG: Just try the first query
     let projectsResponse;
     try {
