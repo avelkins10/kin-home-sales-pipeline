@@ -20,7 +20,7 @@ interface OfficeRejectionStats {
   totalReviewed: number;
   firstTimeApproved: number;
   firstTimeRejected: number;
-  pendingReview: number;
+  stillRejected: number;
   resubmittedAndApproved: number;
   firstTimePassRate: number;
   rejectionRate: number;
@@ -428,8 +428,8 @@ export default function IntakeRejectionsReportPage() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Awaiting Review</p>
-                    <p className="text-lg font-semibold">{office.pendingReview}</p>
+                    <p className="text-sm text-muted-foreground">Still Rejected</p>
+                    <p className="text-lg font-semibold text-red-600">{office.stillRejected}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Resubmitted & Approved</p>

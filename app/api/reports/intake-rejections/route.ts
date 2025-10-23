@@ -14,7 +14,7 @@ interface OfficeRejectionStats {
   totalReviewed: number;
   firstTimeApproved: number;
   firstTimeRejected: number;
-  pendingReview: number;
+  stillRejected: number;
   resubmittedAndApproved: number;
   firstTimePassRate: number;
   rejectionRate: number;
@@ -145,9 +145,10 @@ export async function GET(request: NextRequest) {
       ).length;
       totalRejectedAll += firstTimeRejected;
 
-      // Pending review = no first pass result yet
-      const pendingReview = officeProjects.filter(p =>
-        !p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value
+      // Still rejected = rejected but not yet resolved/resubmitted (no completion date)
+      const stillRejected = officeProjects.filter(p =>
+        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value === 'Reject' &&
+        !p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value
       ).length;
 
       // Resubmitted and approved = initially rejected but now has completion date
@@ -241,7 +242,7 @@ export async function GET(request: NextRequest) {
         totalReviewed,
         firstTimeApproved,
         firstTimeRejected,
-        pendingReview,
+        stillRejected,
         resubmittedAndApproved,
         firstTimePassRate: Math.round(firstTimePassRate * 10) / 10,
         rejectionRate: Math.round(rejectionRate * 10) / 10,
