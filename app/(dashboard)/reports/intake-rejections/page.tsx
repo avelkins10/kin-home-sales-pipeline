@@ -103,6 +103,58 @@ export default function IntakeRejectionsReportPage() {
     setAppliedEndDate(newEnd);
   };
 
+  const handlePredefinedRange = (rangeType: string) => {
+    const today = new Date();
+    let newStart: string;
+    let newEnd: string;
+
+    switch (rangeType) {
+      case 'this_week': {
+        const day = today.getDay();
+        const diff = today.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+        const monday = new Date(today.setDate(diff));
+        newStart = monday.toISOString().split('T')[0];
+        newEnd = new Date().toISOString().split('T')[0];
+        break;
+      }
+      case 'last_week': {
+        const day = today.getDay();
+        const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+        const lastMonday = new Date(today.setDate(diff - 7));
+        const lastSunday = new Date(today.setDate(diff - 1));
+        newStart = lastMonday.toISOString().split('T')[0];
+        newEnd = lastSunday.toISOString().split('T')[0];
+        break;
+      }
+      case 'this_month': {
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        newStart = firstDay.toISOString().split('T')[0];
+        newEnd = new Date().toISOString().split('T')[0];
+        break;
+      }
+      case 'last_month': {
+        const firstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        const lastDay = new Date(today.getFullYear(), today.getMonth(), 0);
+        newStart = firstDay.toISOString().split('T')[0];
+        newEnd = lastDay.toISOString().split('T')[0];
+        break;
+      }
+      case 'ytd': {
+        const firstDay = new Date(today.getFullYear(), 0, 1);
+        newStart = firstDay.toISOString().split('T')[0];
+        newEnd = new Date().toISOString().split('T')[0];
+        break;
+      }
+      default:
+        return;
+    }
+
+    setStartDate(newStart);
+    setEndDate(newEnd);
+    setAppliedStartDate(newStart);
+    setAppliedEndDate(newEnd);
+  };
+
   const toggleOfficeExpansion = (officeName: string) => {
     setExpandedOffices(prev => {
       const next = new Set(prev);
@@ -178,9 +230,37 @@ export default function IntakeRejectionsReportPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handleQuickRange(7)}
+              onClick={() => handlePredefinedRange('this_week')}
             >
-              Last 7 Days
+              This Week
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePredefinedRange('last_week')}
+            >
+              Last Week
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePredefinedRange('this_month')}
+            >
+              This Month
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePredefinedRange('last_month')}
+            >
+              Last Month
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePredefinedRange('ytd')}
+            >
+              Year to Date
             </Button>
             <Button
               variant="outline"
