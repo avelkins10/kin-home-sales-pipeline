@@ -739,8 +739,8 @@ function buildViewFilter(view?: string): string {
       return `({${PROJECT_FIELDS.PROJECT_STATUS}.EX.'Cancelled'} OR ({${PROJECT_FIELDS.PROJECT_STATUS}.CT.'Cancel'} AND {${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Pending'}))`;
 
     case 'rejected':
-      // INTAKE_STATUS contains "Rejected" (KCA Intake rejection)
-      return `{${PROJECT_FIELDS.INTAKE_STATUS}.CT.'Rejected'}`;
+      // Check BOTH INTAKE_STATUS and PROJECT_STATUS for "Rejected" (KCA Intake rejection)
+      return `({${PROJECT_FIELDS.INTAKE_STATUS}.CT.'Rejected'} OR {${PROJECT_FIELDS.PROJECT_STATUS}.CT.'Rejected'})`;
 
     case 'needs-attention':
       // Projects >90 days old OR on hold >7 days
