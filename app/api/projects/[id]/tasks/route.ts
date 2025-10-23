@@ -34,8 +34,8 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     }
 
     // Table IDs with correct fallbacks
-    const QB_TABLE_TASK_GROUPS = process.env.QUICKBASE_TABLE_TASK_GROUPS || 'bu36gem4p';
-    const QB_TABLE_TASKS = process.env.QUICKBASE_TABLE_TASKS || 'bu36ggiht';
+    const QB_TABLE_TASK_GROUPS = (process.env.QUICKBASE_TABLE_TASK_GROUPS || 'bu36gem4p').trim();
+    const QB_TABLE_TASKS = (process.env.QUICKBASE_TABLE_TASKS || 'bu36ggiht').trim();
 
     // Step 1: Get task groups for this project with all fields
     const taskGroupsResponse = await qbClient.queryRecords({
