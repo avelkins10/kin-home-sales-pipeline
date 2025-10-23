@@ -348,7 +348,7 @@ export default function IntakeRejectionsReportPage() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Pending Review</p>
+                    <p className="text-sm text-muted-foreground">Awaiting Review</p>
                     <p className="text-lg font-semibold">{office.pendingReview}</p>
                   </div>
                   <div>
