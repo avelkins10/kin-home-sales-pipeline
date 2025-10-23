@@ -17,11 +17,11 @@ interface OfficeRejectionStats {
   officeName: string;
   officeId: number | null;
   totalSubmitted: number;
-  totalReviewed: number;
-  firstTimeApproved: number;
-  firstTimeRejected: number;
+  neverRejected: number;
+  totalRejections: number;
+  totalFixed: number;
   stillRejected: number;
-  resubmittedAndApproved: number;
+  activeApproved: number;
   firstTimePassRate: number;
   rejectionRate: number;
   avgResolutionDays: number | null;
@@ -31,6 +31,7 @@ interface OfficeRejectionStats {
     closerEmail: string;
     submitted: number;
     rejected: number;
+    stillRejected: number;
     rejectionRate: number;
   }>;
 }
@@ -88,7 +89,7 @@ export default function IntakeRejectionsReportPage() {
     },
     enabled: !!session?.user?.quickbaseUserId,
     staleTime: 30000, // Data is considered stale after 30 seconds
-    cacheTime: 60000, // Cache is garbage collected after 1 minute
+    gcTime: 60000, // Cache is garbage collected after 1 minute
     refetchOnMount: true, // Always refetch when component mounts
     refetchOnWindowFocus: true, // Refetch when user returns to the tab
   });
@@ -483,7 +484,7 @@ export default function IntakeRejectionsReportPage() {
                     {office.officeName}
                   </CardTitle>
                   <CardDescription className="mt-2">
-                    {office.totalSubmitted} submitted • {office.firstTimeRejected} rejected • {formatPercentage(office.rejectionRate)} rejection rate
+                    {office.totalSubmitted} submitted • {office.totalRejections} rejected • {formatPercentage(office.rejectionRate)} rejection rate
                   </CardDescription>
                 </div>
                 <Button
@@ -511,8 +512,8 @@ export default function IntakeRejectionsReportPage() {
                     <p className="text-lg font-semibold text-red-600">{office.stillRejected}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Resubmitted & Approved</p>
-                    <p className="text-lg font-semibold text-blue-600">{office.resubmittedAndApproved}</p>
+                    <p className="text-sm text-muted-foreground">Total Fixed</p>
+                    <p className="text-lg font-semibold text-blue-600">{office.totalFixed}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Avg Resolution Time</p>
@@ -548,6 +549,7 @@ export default function IntakeRejectionsReportPage() {
                           <th className="text-left p-2">Closer</th>
                           <th className="text-right p-2">Submitted</th>
                           <th className="text-right p-2">Rejected</th>
+                          <th className="text-right p-2">Still Rejected</th>
                           <th className="text-right p-2">Rejection Rate</th>
                         </tr>
                       </thead>
@@ -557,6 +559,11 @@ export default function IntakeRejectionsReportPage() {
                             <td className="p-2">{closer.closerName}</td>
                             <td className="text-right p-2">{closer.submitted}</td>
                             <td className="text-right p-2">{closer.rejected}</td>
+                            <td className="text-right p-2">
+                              <span className={closer.stillRejected > 0 ? 'text-red-600 font-semibold' : ''}>
+                                {closer.stillRejected}
+                              </span>
+                            </td>
                             <td className="text-right p-2">
                               <Badge
                                 variant={closer.rejectionRate > 30 ? 'destructive' : closer.rejectionRate > 15 ? 'secondary' : 'outline'}

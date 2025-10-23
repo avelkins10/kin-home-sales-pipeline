@@ -16,25 +16,27 @@ export interface WeeklyIntakeCloserReport {
   officeName: string | null;
   /** Total projects submitted (sales) in date range */
   totalSubmitted: number;
-  /** Projects approved on first intake attempt */
-  firstTimeApproved: number;
-  /** Projects rejected on first intake attempt */
-  firstTimeRejected: number;
-  /** Projects pending first review (intake not yet completed) */
-  pendingReview: number;
-  /** Projects that were rejected then resubmitted and approved */
-  resubmittedAndApproved: number;
-  /** First-time pass rate as percentage */
+  /** Projects approved on first pass (never rejected) */
+  neverRejected: number;
+  /** Total projects rejected (currently or ever) */
+  totalRejections: number;
+  /** Rejected projects that were resubmitted and approved */
+  totalFixed: number;
+  /** Rejected projects not yet fixed (still rejected) */
+  stillRejected: number;
+  /** Projects that passed intake (have INTAKE_COMPLETED_DATE) */
+  activeApproved: number;
+  /** First-time pass rate as percentage (never rejected / total submitted) */
   firstTimePassRate: number;
-  /** Rejection rate as percentage */
+  /** Rejection rate as percentage (total rejections / total submitted) */
   rejectionRate: number;
   /** Top rejection reasons for this closer in date range */
   topRejectionReasons: Array<{
     reason: string;
     count: number;
   }>;
-  /** Average days to resolve rejections */
-  avgResolutionTime: number | null;
+  /** Average days to resolve rejections (from task creation to approval) */
+  avgResolutionDays: number | null;
 }
 
 /**

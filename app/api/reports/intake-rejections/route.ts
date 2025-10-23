@@ -11,11 +11,11 @@ interface OfficeRejectionStats {
   officeName: string;
   officeId: number | null;
   totalSubmitted: number;
-  totalReviewed: number;
-  firstTimeApproved: number;
-  firstTimeRejected: number;
+  neverRejected: number;
+  totalRejections: number;
+  totalFixed: number;
   stillRejected: number;
-  resubmittedAndApproved: number;
+  activeApproved: number;
   firstTimePassRate: number;
   rejectionRate: number;
   avgResolutionDays: number | null;
@@ -25,6 +25,7 @@ interface OfficeRejectionStats {
     closerEmail: string;
     submitted: number;
     rejected: number;
+    stillRejected: number;
     rejectionRate: number;
   }>;
 }
@@ -135,51 +136,58 @@ export async function GET(request: NextRequest) {
       const totalSubmitted = officeProjects.length;
       totalSubmittedAll += totalSubmitted;
 
-      // Helper function to check if project is rejected
-      const isRejected = (p: QuickbaseProject): boolean => {
+      // Helper function to check if project was ever rejected (using binary field)
+      const wasEverRejected = (p: QuickbaseProject): boolean => {
+        const priorStatusRejected = p[PROJECT_FIELDS.PRIOR_STATUS_WAS_REJECTED_BINARY]?.value;
+        return priorStatusRejected === 1 || priorStatusRejected === '1' || priorStatusRejected === true;
+      };
+
+      // Helper function to check if project is currently rejected
+      const isCurrentlyRejected = (p: QuickbaseProject): boolean => {
         const intakeStatus = (p[PROJECT_FIELDS.INTAKE_STATUS]?.value || '').toString().toLowerCase();
         const projectStatus = (p[PROJECT_FIELDS.PROJECT_STATUS]?.value || '').toString().toLowerCase();
         return intakeStatus.includes('rejected') || projectStatus.includes('rejected');
       };
 
-      // Projects that have been reviewed (have intake status or were rejected)
-      const projectsWithFirstPass = officeProjects.filter(p =>
-        p[PROJECT_FIELDS.INTAKE_STATUS]?.value || isRejected(p)
-      );
+      // Never Rejected (first pass approved) - has completion date AND never rejected
+      const neverRejected = officeProjects.filter(p =>
+        p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value &&
+        !wasEverRejected(p)
+      ).length;
 
-      const totalReviewed = projectsWithFirstPass.length;
+      // Total Rejections (ever rejected - using binary field)
+      const rejectedProjects = officeProjects.filter(wasEverRejected);
+      const totalRejections = rejectedProjects.length;
+      totalRejectedAll += totalRejections;
 
-      // Rejected projects (either INTAKE_STATUS or PROJECT_STATUS contains "rejected")
-      const rejectedProjects = officeProjects.filter(isRejected);
-      const firstTimeRejected = rejectedProjects.length;
-      totalRejectedAll += firstTimeRejected;
+      // Total Fixed (was rejected, now has completion date)
+      const totalFixed = officeProjects.filter(p =>
+        wasEverRejected(p) &&
+        p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value
+      ).length;
 
-      // First-time approved = reviewed but NOT rejected
-      const firstTimeApproved = totalReviewed - firstTimeRejected;
-
-      // Still rejected = rejected but not yet resolved/resubmitted (no completion date)
+      // Still Rejected (currently rejected, no completion date)
       const stillRejected = officeProjects.filter(p =>
-        isRejected(p) &&
+        isCurrentlyRejected(p) &&
         !p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value
       ).length;
 
-      // Resubmitted and approved = initially rejected but now has completion date
-      const resubmittedAndApproved = officeProjects.filter(p =>
-        isRejected(p) &&
+      // Active/Approved (has completion date - passed intake)
+      const activeApproved = officeProjects.filter(p =>
         p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value
       ).length;
 
       // Track global totals
       totalStillRejectedAll += stillRejected;
-      totalResubmittedAll += resubmittedAndApproved;
+      totalResubmittedAll += totalFixed;
 
-      // Calculate rates
-      const firstTimePassRate = totalReviewed > 0
-        ? (firstTimeApproved / totalReviewed) * 100
+      // Calculate rates based on total submitted
+      const firstTimePassRate = totalSubmitted > 0
+        ? (neverRejected / totalSubmitted) * 100
         : 0;
 
-      const rejectionRate = totalReviewed > 0
-        ? (firstTimeRejected / totalReviewed) * 100
+      const rejectionRate = totalSubmitted > 0
+        ? (totalRejections / totalSubmitted) * 100
         : 0;
 
       // Top rejection reasons for this office
@@ -200,22 +208,27 @@ export async function GET(request: NextRequest) {
         .map(([reason, count]) => ({
           reason,
           count,
-          percentage: firstTimeRejected > 0 ? (count / firstTimeRejected) * 100 : 0
+          percentage: totalRejections > 0 ? (count / totalRejections) * 100 : 0
         }));
 
-      // Average resolution time (using already calculated rejectedProjects)
+      // Average resolution time using task-based calculation
+      // Calculate for rejected projects that were fixed (have completion date)
+      const fixedProjects = officeProjects.filter(p =>
+        wasEverRejected(p) &&
+        p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value
+      );
 
-      const resolutionTimes = rejectedProjects
-        .map(p => {
-          const firstReview = p[PROJECT_FIELDS.INTAKE_FIRST_PASS_COMPLETE]?.value;
-          const finalApproval = p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value;
-          if (!firstReview || !finalApproval) return null;
-
-          const days = (new Date(finalApproval).getTime() - new Date(firstReview).getTime())
-            / (1000 * 60 * 60 * 24);
-          return Math.round(days * 10) / 10; // Round to 1 decimal
-        })
-        .filter(time => time !== null && time > 0) as number[];
+      const resolutionTimes: number[] = [];
+      for (const project of fixedProjects) {
+        const projectId = project[PROJECT_FIELDS.RECORD_ID]?.value;
+        if (projectId) {
+          const { calculateTaskBasedResolutionTime } = await import('@/lib/quickbase/queries');
+          const resolutionTime = await calculateTaskBasedResolutionTime(projectId);
+          if (resolutionTime !== null && resolutionTime > 0) {
+            resolutionTimes.push(resolutionTime);
+          }
+        }
+      }
 
       const avgResolutionDays = resolutionTimes.length > 0
         ? Math.round((resolutionTimes.reduce((sum, time) => sum + time, 0) / resolutionTimes.length) * 10) / 10
@@ -241,19 +254,24 @@ export async function GET(request: NextRequest) {
       allStillRejectedAges.push(...stillRejectedAges);
 
       // Closer breakdown for this office
-      const closerStats = new Map<string, { name: string; submitted: number; rejected: number }>();
+      const closerStats = new Map<string, { name: string; submitted: number; rejected: number; stillRejected: number }>();
       officeProjects.forEach(p => {
         const closerEmail = p[PROJECT_FIELDS.CLOSER_EMAIL]?.value;
         const closerName = p[PROJECT_FIELDS.CLOSER_NAME]?.value || closerEmail || 'Unknown';
         if (!closerEmail) return;
 
         if (!closerStats.has(closerEmail)) {
-          closerStats.set(closerEmail, { name: closerName, submitted: 0, rejected: 0 });
+          closerStats.set(closerEmail, { name: closerName, submitted: 0, rejected: 0, stillRejected: 0 });
         }
         const stats = closerStats.get(closerEmail)!;
         stats.submitted += 1;
-        if (isRejected(p)) {
+        // Track total rejections (ever rejected)
+        if (wasEverRejected(p)) {
           stats.rejected += 1;
+        }
+        // Track still rejected (currently rejected, no completion date)
+        if (isCurrentlyRejected(p) && !p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value) {
+          stats.stillRejected += 1;
         }
       });
 
@@ -263,6 +281,7 @@ export async function GET(request: NextRequest) {
           closerEmail: email,
           submitted: stats.submitted,
           rejected: stats.rejected,
+          stillRejected: stats.stillRejected,
           rejectionRate: stats.submitted > 0 ? (stats.rejected / stats.submitted) * 100 : 0
         }))
         .sort((a, b) => b.rejected - a.rejected);
@@ -271,11 +290,11 @@ export async function GET(request: NextRequest) {
         officeName,
         officeId,
         totalSubmitted,
-        totalReviewed,
-        firstTimeApproved,
-        firstTimeRejected,
+        neverRejected,
+        totalRejections,
+        totalFixed,
         stillRejected,
-        resubmittedAndApproved,
+        activeApproved,
         firstTimePassRate: Math.round(firstTimePassRate * 10) / 10,
         rejectionRate: Math.round(rejectionRate * 10) / 10,
         avgResolutionDays,
@@ -285,7 +304,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Sort offices by rejection count (highest first)
-    officeStats.sort((a, b) => b.firstTimeRejected - a.firstTimeRejected);
+    officeStats.sort((a, b) => b.totalRejections - a.totalRejections);
 
     // Global top rejection reasons
     const topGlobalReasons = Object.entries(globalReasonCounts)

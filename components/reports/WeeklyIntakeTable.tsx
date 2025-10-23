@@ -39,13 +39,14 @@ export function WeeklyIntakeTable({ closers, startDate, endDate }: WeeklyIntakeT
         closerName: closer.closerName,
         office: closer.officeName || 'N/A',
         totalSubmitted: closer.totalSubmitted,
-        firstTimeApproved: closer.firstTimeApproved,
-        firstTimeRejected: closer.firstTimeRejected,
-        pendingReview: closer.pendingReview,
-        resubmittedAndApproved: closer.resubmittedAndApproved,
+        neverRejected: closer.neverRejected,
+        totalRejections: closer.totalRejections,
+        totalFixed: closer.totalFixed,
+        stillRejected: closer.stillRejected,
+        activeApproved: closer.activeApproved,
         firstTimePassRate: closer.firstTimePassRate,
         rejectionRate: closer.rejectionRate,
-        avgResolutionTime: closer.avgResolutionTime || 'N/A',
+        avgResolutionDays: closer.avgResolutionDays || 'N/A',
         topRejectionReasons: closer.topRejectionReasons.map(r => r.reason).join('; '),
       }));
 
@@ -54,13 +55,14 @@ export function WeeklyIntakeTable({ closers, startDate, endDate }: WeeklyIntakeT
         closerName: 'Closer',
         office: 'Office',
         totalSubmitted: 'Total Submitted',
-        firstTimeApproved: '1st Time Approved',
-        firstTimeRejected: '1st Time Rejected',
-        pendingReview: 'Pending Review',
-        resubmittedAndApproved: 'Resubmitted & Approved',
+        neverRejected: 'Never Rejected (1st Pass)',
+        totalRejections: 'Total Rejections',
+        totalFixed: 'Fixed & Approved',
+        stillRejected: 'Still Rejected',
+        activeApproved: 'Active/Approved',
         firstTimePassRate: 'First-Time Pass Rate (%)',
         rejectionRate: 'Rejection Rate (%)',
-        avgResolutionTime: 'Avg Resolution (days)',
+        avgResolutionDays: 'Avg Resolution (days)',
         topRejectionReasons: 'Top Rejection Reasons',
       };
 
@@ -124,9 +126,9 @@ export function WeeklyIntakeTable({ closers, startDate, endDate }: WeeklyIntakeT
                 <TableHead className="w-12">#</TableHead>
                 <TableHead className="min-w-40">Closer</TableHead>
                 <TableHead className="text-right">Submitted</TableHead>
-                <TableHead className="text-right">Approved</TableHead>
-                <TableHead className="text-right">Rejected</TableHead>
-                <TableHead className="text-right">Pending</TableHead>
+                <TableHead className="text-right">Never Rejected</TableHead>
+                <TableHead className="text-right">Total Rejected</TableHead>
+                <TableHead className="text-right">Fixed</TableHead>
                 <TableHead className="text-right">Pass %</TableHead>
                 <TableHead className="text-right">Avg Fix Time</TableHead>
                 <TableHead className="w-12"></TableHead>
@@ -166,13 +168,13 @@ export function WeeklyIntakeTable({ closers, startDate, endDate }: WeeklyIntakeT
                         {closer.totalSubmitted}
                       </TableCell>
                       <TableCell className="text-right text-green-600">
-                        {closer.firstTimeApproved}
+                        {closer.neverRejected}
                       </TableCell>
                       <TableCell className="text-right text-red-600">
-                        {closer.firstTimeRejected}
+                        {closer.totalRejections}
                       </TableCell>
-                      <TableCell className="text-right text-gray-500">
-                        {closer.pendingReview}
+                      <TableCell className="text-right text-blue-600">
+                        {closer.totalFixed}
                       </TableCell>
                       <TableCell className="text-right">
                         <span className={`font-semibold ${
@@ -184,7 +186,7 @@ export function WeeklyIntakeTable({ closers, startDate, endDate }: WeeklyIntakeT
                         </span>
                       </TableCell>
                       <TableCell className="text-right text-sm">
-                        {closer.avgResolutionTime ? `${closer.avgResolutionTime}d` : 'N/A'}
+                        {closer.avgResolutionDays ? `${closer.avgResolutionDays}d` : 'N/A'}
                       </TableCell>
                       <TableCell>
                         {closer.topRejectionReasons.length > 0 && (
@@ -216,9 +218,14 @@ export function WeeklyIntakeTable({ closers, startDate, endDate }: WeeklyIntakeT
                                 </div>
                               ))}
                             </div>
-                            {closer.resubmittedAndApproved > 0 && (
+                            {closer.totalFixed > 0 && (
                               <p className="text-xs text-gray-500 mt-2">
-                                {closer.resubmittedAndApproved} rejected {closer.resubmittedAndApproved === 1 ? 'project was' : 'projects were'} fixed and resubmitted successfully
+                                {closer.totalFixed} rejected {closer.totalFixed === 1 ? 'project was' : 'projects were'} fixed and resubmitted successfully
+                              </p>
+                            )}
+                            {closer.stillRejected > 0 && (
+                              <p className="text-xs text-red-500 mt-1">
+                                {closer.stillRejected} {closer.stillRejected === 1 ? 'project is' : 'projects are'} still rejected and need attention
                               </p>
                             )}
                           </div>

@@ -79,36 +79,40 @@ export async function GET(request: NextRequest) {
         return intakeStatus.includes('rejected') || projectStatus.includes('rejected');
       };
 
-      // Projects that have been reviewed (have intake status or were rejected)
-      const projectsWithFirstPass = closerProjects.filter(p =>
-        p[PROJECT_FIELDS.INTAKE_STATUS]?.value || isRejected(p)
-      );
-
-      // Rejected projects (either INTAKE_STATUS or PROJECT_STATUS contains "rejected")
-      const rejectedProjects = closerProjects.filter(isRejected);
-      const firstTimeRejected = rejectedProjects.length;
-
-      // First-time approved = reviewed but NOT rejected
-      const firstTimeApproved = projectsWithFirstPass.length - firstTimeRejected;
-
-      // Pending review = no intake status and not rejected
-      const pendingReview = closerProjects.filter(p =>
-        !p[PROJECT_FIELDS.INTAKE_STATUS]?.value && !isRejected(p)
+      // Never Rejected (first pass approved) - has completion date AND never rejected
+      const neverRejected = closerProjects.filter(p =>
+        p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value &&
+        !isRejected(p)
       ).length;
 
-      // Resubmitted and approved = rejected BUT has completion date
-      const resubmittedAndApproved = closerProjects.filter(p =>
+      // Total Rejections (currently or ever rejected)
+      const rejectedProjects = closerProjects.filter(isRejected);
+      const totalRejections = rejectedProjects.length;
+
+      // Total Fixed (was rejected, now has completion date)
+      const totalFixed = closerProjects.filter(p =>
         isRejected(p) &&
         p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value
       ).length;
 
-      // Calculate rates
-      const firstTimePassRate = projectsWithFirstPass.length > 0
-        ? (firstTimeApproved / projectsWithFirstPass.length) * 100
+      // Still Rejected (rejected, no completion date)
+      const stillRejected = closerProjects.filter(p =>
+        isRejected(p) &&
+        !p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value
+      ).length;
+
+      // Active/Approved (has completion date - passed intake)
+      const activeApproved = closerProjects.filter(p =>
+        p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value
+      ).length;
+
+      // Calculate rates based on total submitted
+      const firstTimePassRate = totalSubmitted > 0
+        ? (neverRejected / totalSubmitted) * 100
         : 0;
 
-      const rejectionRate = projectsWithFirstPass.length > 0
-        ? (firstTimeRejected / projectsWithFirstPass.length) * 100
+      const rejectionRate = totalSubmitted > 0
+        ? (totalRejections / totalSubmitted) * 100
         : 0;
 
       // Top rejection reasons for this closer
@@ -127,22 +131,27 @@ export async function GET(request: NextRequest) {
         .slice(0, 3)
         .map(([reason, count]) => ({ reason, count }));
 
-      // Average resolution time (using already calculated rejectedProjects)
+      // Average resolution time using task-based calculation
+      // Calculate for rejected projects that were fixed (have completion date)
+      const fixedProjects = closerProjects.filter(p =>
+        isRejected(p) &&
+        p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value
+      );
 
-      const resolutionTimes = rejectedProjects
-        .map(p => {
-          const firstReview = p[PROJECT_FIELDS.INTAKE_FIRST_PASS_COMPLETE]?.value;
-          const finalApproval = p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value;
-          if (!firstReview || !finalApproval) return null;
+      const resolutionTimes: number[] = [];
+      for (const project of fixedProjects) {
+        const projectId = project[PROJECT_FIELDS.RECORD_ID]?.value;
+        if (projectId) {
+          const { calculateTaskBasedResolutionTime } = await import('@/lib/quickbase/queries');
+          const resolutionTime = await calculateTaskBasedResolutionTime(projectId);
+          if (resolutionTime !== null && resolutionTime > 0) {
+            resolutionTimes.push(resolutionTime);
+          }
+        }
+      }
 
-          const days = (new Date(finalApproval).getTime() - new Date(firstReview).getTime())
-            / (1000 * 60 * 60 * 24);
-          return Math.round(days);
-        })
-        .filter(time => time !== null && time > 0) as number[];
-
-      const avgResolutionTime = resolutionTimes.length > 0
-        ? resolutionTimes.reduce((sum, time) => sum + time, 0) / resolutionTimes.length
+      const avgResolutionDays = resolutionTimes.length > 0
+        ? Math.round((resolutionTimes.reduce((sum, time) => sum + time, 0) / resolutionTimes.length) * 10) / 10
         : null;
 
       closerReports.push({
@@ -150,14 +159,15 @@ export async function GET(request: NextRequest) {
         closerEmail,
         officeName,
         totalSubmitted,
-        firstTimeApproved,
-        firstTimeRejected,
-        pendingReview,
-        resubmittedAndApproved,
+        neverRejected,
+        totalRejections,
+        totalFixed,
+        stillRejected,
+        activeApproved,
         firstTimePassRate: Math.round(firstTimePassRate * 100) / 100,
         rejectionRate: Math.round(rejectionRate * 100) / 100,
         topRejectionReasons,
-        avgResolutionTime: avgResolutionTime ? Math.round(avgResolutionTime) : null,
+        avgResolutionDays,
       });
     }
 
@@ -174,23 +184,23 @@ export async function GET(request: NextRequest) {
       return intakeStatus.includes('rejected') || projectStatus.includes('rejected');
     };
 
-    // Projects that have been reviewed (have intake status or were rejected)
-    const projectsWithFirstPass = projects.filter(p =>
-      p[PROJECT_FIELDS.INTAKE_STATUS]?.value || isRejectedGlobal(p)
-    );
+    // Never Rejected globally (completed and not rejected)
+    const allNeverRejected = projects.filter(p =>
+      p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value &&
+      !isRejectedGlobal(p)
+    ).length;
 
-    // Rejected projects
+    // Total Rejections globally
     const allRejectedProjects = projects.filter(isRejectedGlobal);
+    const totalRejectedAll = allRejectedProjects.length;
 
-    // Approved = reviewed but NOT rejected
-    const allFirstTimeApproved = projectsWithFirstPass.length - allRejectedProjects.length;
-
-    const overallPassRate = projectsWithFirstPass.length > 0
-      ? (allFirstTimeApproved / projectsWithFirstPass.length) * 100
+    // Calculate rates based on total submitted
+    const overallPassRate = totalProjects > 0
+      ? (allNeverRejected / totalProjects) * 100
       : 0;
 
-    const overallRejectionRate = projectsWithFirstPass.length > 0
-      ? (allRejectedProjects.length / projectsWithFirstPass.length) * 100
+    const overallRejectionRate = totalProjects > 0
+      ? (totalRejectedAll / totalProjects) * 100
       : 0;
 
     // Find most common rejection reason across all closers

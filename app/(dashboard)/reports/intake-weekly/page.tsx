@@ -47,7 +47,7 @@ export default function WeeklyIntakeReportPage() {
     },
     enabled: !!session?.user?.quickbaseUserId,
     staleTime: 30000, // Data is considered stale after 30 seconds
-    cacheTime: 60000, // Cache is garbage collected after 1 minute
+    gcTime: 60000, // Cache is garbage collected after 1 minute
     refetchOnMount: true, // Always refetch when component mounts
     refetchOnWindowFocus: true, // Refetch when user returns to the tab
   });

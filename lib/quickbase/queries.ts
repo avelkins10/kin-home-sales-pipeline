@@ -4521,3 +4521,91 @@ export async function markProjectTasksComplete(projectId: number): Promise<void>
     throw error;
   }
 }
+
+/**
+ * Calculate resolution time for a rejected project using task data
+ * Resolution time = time from earliest task creation to latest task approval
+ *
+ * @param projectId Project record ID
+ * @returns Resolution time in days, or null if cannot be calculated
+ */
+export async function calculateTaskBasedResolutionTime(projectId: number): Promise<number | null> {
+  try {
+    console.log('[calculateTaskBasedResolutionTime] Calculating resolution time for project:', projectId);
+
+    // Step 1: Query all tasks for this project
+    const tasksResponse = await qbClient.queryRecords({
+      from: QB_TABLE_TASKS,
+      where: `{6}.EX.${projectId}`, // Field 6 = TASK_GROUP (which links to project)
+      select: [
+        TASK_FIELDS.RECORD_ID,
+        TASK_FIELDS.DATE_CREATED,
+      ]
+    });
+
+    if (!tasksResponse.data || tasksResponse.data.length === 0) {
+      console.log('[calculateTaskBasedResolutionTime] No tasks found for project');
+      return null;
+    }
+
+    // Step 2: Find earliest task creation date (when project was rejected)
+    const taskDates = tasksResponse.data
+      .map(task => task[TASK_FIELDS.DATE_CREATED]?.value)
+      .filter(Boolean)
+      .map(dateStr => new Date(dateStr));
+
+    if (taskDates.length === 0) {
+      console.log('[calculateTaskBasedResolutionTime] No task creation dates found');
+      return null;
+    }
+
+    const earliestTaskDate = new Date(Math.min(...taskDates.map(d => d.getTime())));
+
+    // Step 3: Query all submissions for these tasks
+    const taskIds = tasksResponse.data.map(task => task[TASK_FIELDS.RECORD_ID]?.value).filter(Boolean);
+
+    if (taskIds.length === 0) {
+      console.log('[calculateTaskBasedResolutionTime] No valid task IDs found');
+      return null;
+    }
+
+    const submissionsWhere = taskIds.map(id => `{${TASK_SUBMISSION_FIELDS.RELATED_TASK}.EX.${id}}`).join(' OR ');
+
+    const submissionsResponse = await qbClient.queryRecords({
+      from: QB_TABLE_TASK_SUBMISSIONS,
+      where: submissionsWhere,
+      select: [
+        TASK_SUBMISSION_FIELDS.OPS_REVIEW_COMPLETED_AT,
+      ]
+    });
+
+    // Step 4: Find latest ops review completion date (when last item was approved)
+    if (!submissionsResponse.data || submissionsResponse.data.length === 0) {
+      console.log('[calculateTaskBasedResolutionTime] No submissions found for tasks');
+      return null;
+    }
+
+    const reviewDates = submissionsResponse.data
+      .map(sub => sub[TASK_SUBMISSION_FIELDS.OPS_REVIEW_COMPLETED_AT]?.value)
+      .filter(Boolean)
+      .map(dateStr => new Date(dateStr));
+
+    if (reviewDates.length === 0) {
+      console.log('[calculateTaskBasedResolutionTime] No review completion dates found');
+      return null;
+    }
+
+    const latestReviewDate = new Date(Math.max(...reviewDates.map(d => d.getTime())));
+
+    // Step 5: Calculate difference in days
+    const resolutionDays = (latestReviewDate.getTime() - earliestTaskDate.getTime()) / (1000 * 60 * 60 * 24);
+    const roundedDays = Math.round(resolutionDays * 10) / 10; // Round to 1 decimal
+
+    console.log('[calculateTaskBasedResolutionTime] Resolution time:', roundedDays, 'days');
+    return roundedDays > 0 ? roundedDays : null;
+
+  } catch (error) {
+    logError('Failed to calculate task-based resolution time', error as Error, { projectId });
+    return null;
+  }
+}
