@@ -114,9 +114,9 @@ export async function GET(req: Request) {
 
     // Step 1: Get accessible projects for this user
     const QB_TABLE_PROJECTS = process.env.QUICKBASE_TABLE_PROJECTS || 'br9kwm8na';
-    const QB_TABLE_TASK_GROUPS = process.env.QUICKBASE_TABLE_TASK_GROUPS || 'br9kwm8ng';
-    const QB_TABLE_TASKS = process.env.QUICKBASE_TABLE_TASKS || 'br9kwm8q9';
-    const QB_TABLE_TASK_SUBMISSIONS = process.env.QUICKBASE_TABLE_TASK_SUBMISSIONS || 'br9kwm8qc';
+    const QB_TABLE_TASK_GROUPS = process.env.QUICKBASE_TABLE_TASK_GROUPS || 'bu36gem4p';
+    const QB_TABLE_TASKS = process.env.QUICKBASE_TABLE_TASKS || 'bu36ggiht';
+    const QB_TABLE_TASK_SUBMISSIONS = process.env.QUICKBASE_TABLE_TASK_SUBMISSIONS || 'bu36g8j99';
     const projectAccessClause = buildProjectAccessClause(userEmail, userRole, effectiveOfficeIds, managedEmails, reqId);
 
     logInfo('[TASKS_API] Generated WHERE clause', {

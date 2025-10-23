@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuth, requireProjectAccessById } from '@/lib/auth/guards';
 import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
 import { qbClient } from '@/lib/quickbase/client';
-import { TASK_GROUP_FIELDS, TASK_FIELDS, QB_TABLE_TASK_GROUPS, QB_TABLE_TASKS } from '@/lib/constants/fieldIds';
+import { TASK_GROUP_FIELDS, TASK_FIELDS } from '@/lib/constants/fieldIds';
 import { TaskGroup, Task } from '@/lib/types/task';
 
 export const runtime = 'nodejs';
@@ -32,6 +32,10 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     if (!access.authorized) {
       return access.response;
     }
+
+    // Table IDs with correct fallbacks
+    const QB_TABLE_TASK_GROUPS = process.env.QUICKBASE_TABLE_TASK_GROUPS || 'bu36gem4p';
+    const QB_TABLE_TASKS = process.env.QUICKBASE_TABLE_TASKS || 'bu36ggiht';
 
     // Step 1: Get task groups for this project with all fields
     const taskGroupsResponse = await qbClient.queryRecords({
