@@ -184,7 +184,7 @@ export async function GET(request: NextRequest) {
         .map(([reason, count]) => ({
           reason,
           count,
-          percentage: totalReviewed > 0 ? (count / totalReviewed) * 100 : 0
+          percentage: firstTimeRejected > 0 ? (count / firstTimeRejected) * 100 : 0
         }));
 
       // Average resolution time
@@ -262,7 +262,7 @@ export async function GET(request: NextRequest) {
       .map(([reason, count]) => ({
         reason,
         count,
-        percentage: totalSubmittedAll > 0 ? (count / totalSubmittedAll) * 100 : 0
+        percentage: totalRejectedAll > 0 ? (count / totalRejectedAll) * 100 : 0
       }));
 
     const report: IntakeRejectionsReport = {
