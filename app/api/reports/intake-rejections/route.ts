@@ -100,11 +100,11 @@ export async function GET(request: NextRequest) {
     const projectsByOffice = new Map<string, QuickbaseProject[]>();
 
     projects.forEach(project => {
-      const officeName = project[PROJECT_FIELDS.OFFICE_NAME]?.value || 'Unknown Office';
+      const officeName = project[PROJECT_FIELDS.SALES_OFFICE]?.value || 'Unknown Office';
 
       // Filter by office IDs if specified
       if (officeIdsFilter) {
-        const officeId = project[PROJECT_FIELDS.SALES_OFFICE]?.value;
+        const officeId = project[PROJECT_FIELDS.OFFICE_RECORD_ID]?.value;
         if (!officeId || !officeIdsFilter.includes(officeId)) {
           return;
         }
@@ -123,7 +123,7 @@ export async function GET(request: NextRequest) {
     const globalReasonCounts: Record<string, number> = {};
 
     for (const [officeName, officeProjects] of projectsByOffice) {
-      const officeId = officeProjects[0][PROJECT_FIELDS.SALES_OFFICE]?.value || null;
+      const officeId = officeProjects[0][PROJECT_FIELDS.OFFICE_RECORD_ID]?.value || null;
       const totalSubmitted = officeProjects.length;
       totalSubmittedAll += totalSubmitted;
 

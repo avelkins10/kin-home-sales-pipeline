@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
     for (const [closerEmail, closerProjects] of projectsByCloser) {
       // Get closer name from first project
       const closerName = closerProjects[0][PROJECT_FIELDS.CLOSER_NAME]?.value || closerEmail;
-      const officeName = closerProjects[0][PROJECT_FIELDS.OFFICE_NAME]?.value || null;
+      const officeName = closerProjects[0][PROJECT_FIELDS.SALES_OFFICE]?.value || null;
 
       // Total submitted = all projects sold in date range
       const totalSubmitted = closerProjects.length;
