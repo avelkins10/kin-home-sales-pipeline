@@ -353,14 +353,12 @@ export async function GET(req: Request) {
 
     logError('Failed to fetch tasks', error as Error, errorDetails);
 
-    // Return detailed error in development/preview for debugging
-    const isDev = process.env.NODE_ENV !== 'production';
+    // TEMPORARY: Always return error details for debugging
     return NextResponse.json({
       error: 'Internal Server Error',
-      ...(isDev && {
-        details: (error as Error).message,
-        stack: (error as Error).stack?.split('\n').slice(0, 5)
-      })
+      details: (error as Error).message,
+      errorName: (error as Error).name,
+      stack: (error as Error).stack?.split('\n').slice(0, 10)
     }, { status: 500 });
   }
 }
