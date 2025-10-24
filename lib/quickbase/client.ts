@@ -158,35 +158,49 @@ export class QuickbaseClient {
           statusText: response.statusText
         };
 
+        // Try to parse error response as JSON
+        let error: any;
         try {
-          const error = await response.json();
+          error = await response.json();
           errorDetails.error = error;
+        } catch (jsonError) {
+          // Response isn't JSON - try to get text
+          let errorText = response.statusText;
+          try {
+            errorText = await response.text();
+          } catch (textError) {
+            // Can't even get text
+          }
 
-          // Log the full request and error for debugging
-          console.error('[QuickbaseClient] Query failed - Full Details:', JSON.stringify({
+          console.error('[QuickbaseClient] Query failed - Non-JSON Response:', {
             status: response.status,
-            qbError: error,
+            statusText: response.statusText,
+            responseText: errorText,
             requestFrom: params.from,
             requestWhere: params.where,
             requestSelect: params.select
-          }, null, 2));
+          });
 
-          logQuickbaseError('POST', '/v1/records/query', new Error(JSON.stringify(error)));
-
-          // Include full QB error in message for debugging
-          const errorMessage = error.message || error.description || response.statusText;
-          const fullErrorMessage = `QB API Error [${response.status}]: ${errorMessage} | Full QB Response: ${JSON.stringify(error)} | WHERE: ${params.where}`;
-
+          const fullErrorMessage = `QB API Error [${response.status}]: ${errorText} | Request: FROM=${params.from} WHERE=${params.where}`;
           throw new Error(fullErrorMessage);
-        } catch (parseError) {
-          // If parseError is the error we just threw, re-throw it
-          if (parseError instanceof Error && (parseError.message.startsWith('QB API Error') || parseError.message.startsWith('Quickbase API error:'))) {
-            throw parseError;
-          }
-          // Otherwise it's a JSON parse error
-          logQuickbaseError('POST', '/v1/records/query', new Error(response.statusText));
-          throw new Error(`Quickbase API error: ${response.statusText}`);
         }
+
+        // Log the full request and error for debugging
+        console.error('[QuickbaseClient] Query failed - Full Details:', JSON.stringify({
+          status: response.status,
+          qbError: error,
+          requestFrom: params.from,
+          requestWhere: params.where,
+          requestSelect: params.select
+        }, null, 2));
+
+        logQuickbaseError('POST', '/v1/records/query', new Error(JSON.stringify(error)));
+
+        // Include full QB error in message for debugging
+        const errorMessage = error.message || error.description || response.statusText;
+        const fullErrorMessage = `QB API Error [${response.status}]: ${errorMessage} | Full QB Response: ${JSON.stringify(error)} | WHERE: ${params.where}`;
+
+        throw new Error(fullErrorMessage);
       }
 
       const json = await response.json();
