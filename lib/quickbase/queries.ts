@@ -2689,6 +2689,7 @@ export async function getOfficeMetrics(
         PROJECT_FIELDS.INSTALL_COMPLETED_DATE,
         PROJECT_FIELDS.OFFICE_RECORD_ID,
         PROJECT_FIELDS.SALES_OFFICE,
+        PROJECT_FIELDS.CLOSER_ID,                                // Field 516 - RepCard user ID
         // Intake quality tracking fields (for closer scorecards)
         PROJECT_FIELDS.INTAKE_COMPLETED_DATE,                    // Field 461
         PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED,       // Field 1831 - "Approve" or "Reject"
@@ -3138,6 +3139,7 @@ export async function getRepPerformance(
         PROJECT_FIELDS.INSTALL_COMPLETED_DATE,
         PROJECT_FIELDS.OFFICE_RECORD_ID,
         PROJECT_FIELDS.SALES_OFFICE,
+        PROJECT_FIELDS.CLOSER_ID,                                // Field 516 - RepCard user ID
         PROJECT_FIELDS.CLOSER_NAME,
         PROJECT_FIELDS.CLOSER_EMAIL,
         PROJECT_FIELDS.SETTER_NAME,
