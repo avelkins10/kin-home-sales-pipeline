@@ -199,9 +199,9 @@ export async function GET(request: NextRequest) {
         ? (totalRejections / totalSubmitted) * 100
         : 0;
 
-      // Top rejection reasons for this office
+      // Top rejection reasons for this office (only from rejected projects)
       const officeReasonCounts: Record<string, number> = {};
-      officeProjects.forEach(p => {
+      rejectedProjects.forEach(p => {
         const reasons = p[PROJECT_FIELDS.INTAKE_MISSING_ITEMS_COMBINED]?.value;
         if (Array.isArray(reasons)) {
           reasons.forEach(reason => {
