@@ -160,10 +160,23 @@ export class QuickbaseClient {
         try {
           const error = await response.json();
           errorDetails.error = error;
-          const errorMessage = error.message || response.statusText;
+          const errorMessage = error.message || error.description || response.statusText;
+
+          // Log the full request and error for debugging
+          console.error('[QuickbaseClient] Query failed:', {
+            status: response.status,
+            error: error,
+            requestParams: params
+          });
+
           logQuickbaseError('POST', '/v1/records/query', new Error(errorMessage));
           throw new Error(`Quickbase API error: ${errorMessage} - ${JSON.stringify(error)}`);
         } catch (parseError) {
+          // If parseError is the error we just threw, re-throw it
+          if (parseError instanceof Error && parseError.message.startsWith('Quickbase API error:')) {
+            throw parseError;
+          }
+          // Otherwise it's a JSON parse error
           logQuickbaseError('POST', '/v1/records/query', new Error(response.statusText));
           throw new Error(`Quickbase API error: ${response.statusText}`);
         }
@@ -197,9 +210,16 @@ export class QuickbaseClient {
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({ message: response.statusText }));
-        const errorMessage = error.message || response.statusText;
+        const errorMessage = error.message || error.description || response.statusText;
+
+        console.error('[QuickbaseClient] Update failed:', {
+          status: response.status,
+          error: error,
+          requestParams: params
+        });
+
         logQuickbaseError('POST', '/v1/records', new Error(errorMessage));
-        throw new Error(`Quickbase API error: ${errorMessage}`);
+        throw new Error(`Quickbase API error: ${errorMessage} - ${JSON.stringify(error)}`);
       }
 
       const json = await response.json();
@@ -256,9 +276,17 @@ export class QuickbaseClient {
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({ message: response.statusText }));
-        const errorMessage = error.message || response.statusText;
+        const errorMessage = error.message || error.description || response.statusText;
+
+        console.error('[QuickbaseClient] File upload failed:', {
+          status: response.status,
+          error: error,
+          fileName: payload.fileName,
+          fileSize: payload.fileData.length
+        });
+
         logQuickbaseError('POST', '/v1/files', new Error(errorMessage));
-        throw new Error(`Quickbase file upload error: ${errorMessage}`);
+        throw new Error(`Quickbase file upload error: ${errorMessage} - ${JSON.stringify(error)}`);
       }
 
       const json = await response.json();
