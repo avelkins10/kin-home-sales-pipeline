@@ -176,28 +176,11 @@ export async function GET(request: NextRequest) {
         .slice(0, 3)
         .map(([reason, count]) => ({ reason, count }));
 
-      // Average resolution time using task-based calculation
-      // Calculate for rejected projects that were fixed (no longer rejected)
-      const fixedProjects = closerProjects.filter((p: QuickbaseProject) =>
-        wasEverRejected(p) &&
-        !isCurrentlyRejected(p)
-      );
-
-      const resolutionTimes: number[] = [];
-      for (const project of fixedProjects) {
-        const projectId = project[PROJECT_FIELDS.RECORD_ID]?.value;
-        if (projectId) {
-          const { calculateTaskBasedResolutionTime } = await import('@/lib/quickbase/queries');
-          const resolutionTime = await calculateTaskBasedResolutionTime(projectId);
-          if (resolutionTime !== null && resolutionTime > 0) {
-            resolutionTimes.push(resolutionTime);
-          }
-        }
-      }
-
-      const avgResolutionDays = resolutionTimes.length > 0
-        ? Math.round((resolutionTimes.reduce((sum, time) => sum + time, 0) / resolutionTimes.length) * 10) / 10
-        : null;
+      // Average resolution time - disabled for performance
+      // TODO: Optimize with batched task queries or add pre-calculated field in QuickBase
+      // This was causing timeouts for regional users with access to many projects
+      // because it made a separate DB query for each fixed project
+      const avgResolutionDays = null;
 
       closerReports.push({
         closerName,
