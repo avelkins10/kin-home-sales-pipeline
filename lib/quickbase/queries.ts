@@ -2694,6 +2694,7 @@ export async function getOfficeMetrics(
         PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED,       // Field 1831 - "Approve" or "Reject"
         PROJECT_FIELDS.INTAKE_FIRST_PASS_COMPLETE,               // Field 1951 - First review timestamp
         PROJECT_FIELDS.INTAKE_MISSING_ITEMS_COMBINED,            // Field 1871 - Rejection reasons
+        PROJECT_FIELDS.PRIOR_STATUS_WAS_REJECTED_BINARY,         // Field 1930 - Ever rejected flag (hybrid detection)
       ],
       options: {
         top: 5000, // Handle large datasets
@@ -2811,33 +2812,52 @@ export async function getOfficeMetrics(
       ).length;
       const intakeApprovalRate = totalProjects > 0 ? (approvedIntakes / totalProjects) * 100 : 0;
 
-      // Calculate intake quality metrics for closer scorecard
-      const projectsWithFirstPass = officeProjects.filter(p =>
-        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value
-      );
+      // Calculate intake quality metrics using hybrid detection (more accurate)
+      // Helper function to check if project was ever rejected
+      // Uses BOTH status strings (real-time) AND binary field (historical) for accuracy
+      const wasEverRejected = (p: Record<string, any>): boolean => {
+        // Check current status (real-time - catches newly rejected projects)
+        const intakeStatus = (p[PROJECT_FIELDS.INTAKE_STATUS]?.value || '').toString().toLowerCase();
+        const projectStatus = (p[PROJECT_FIELDS.PROJECT_STATUS]?.value || '').toString().toLowerCase();
+        const currentlyRejected = intakeStatus.includes('rejected') || projectStatus.includes('rejected');
+
+        // Check binary field (historical - catches projects that were rejected then fixed)
+        const priorStatusRejected = p[PROJECT_FIELDS.PRIOR_STATUS_WAS_REJECTED_BINARY]?.value;
+        const historicallyRejected = priorStatusRejected === 1 || priorStatusRejected === '1' || priorStatusRejected === true;
+
+        // Return true if either indicates rejection
+        return currentlyRejected || historicallyRejected;
+      };
+
+      // Helper function to check if project is currently rejected
+      const isCurrentlyRejected = (p: Record<string, any>): boolean => {
+        const intakeStatus = (p[PROJECT_FIELDS.INTAKE_STATUS]?.value || '').toString().toLowerCase();
+        const projectStatus = (p[PROJECT_FIELDS.PROJECT_STATUS]?.value || '').toString().toLowerCase();
+        return intakeStatus.includes('rejected') || projectStatus.includes('rejected');
+      };
+
+      // Never Rejected (first pass approved) - has completion date AND never rejected
+      const neverRejected = officeProjects.filter(p =>
+        p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value &&
+        !wasEverRejected(p)
+      ).length;
 
       // First-time pass rate (KEY METRIC - clean deals approved on first attempt)
-      const firstTimePass = projectsWithFirstPass.filter(p =>
-        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value === 'Approve'
-      ).length;
-      const firstTimePassRate = projectsWithFirstPass.length > 0
-        ? (firstTimePass / projectsWithFirstPass.length) * 100
+      const firstTimePassRate = totalProjects > 0
+        ? (neverRejected / totalProjects) * 100
         : 0;
 
-      // Rejection rate (projects rejected on first attempt)
-      const rejections = projectsWithFirstPass.filter(p =>
-        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value === 'Reject'
-      ).length;
-      const rejectionRate = projectsWithFirstPass.length > 0
-        ? (rejections / projectsWithFirstPass.length) * 100
+      // Total Rejections (ever rejected - using hybrid detection)
+      const rejectedProjects = officeProjects.filter(wasEverRejected);
+      const rejections = rejectedProjects.length;
+      const rejectionRate = totalProjects > 0
+        ? (rejections / totalProjects) * 100
         : 0;
 
       // Resubmit success rate (of rejected projects, how many eventually got approved)
-      const rejectedProjects = officeProjects.filter(p =>
-        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value === 'Reject'
-      );
       const eventuallyApproved = rejectedProjects.filter(p =>
-        p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value
+        p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value &&
+        !isCurrentlyRejected(p)
       ).length;
       const resubmitSuccessRate = rejectedProjects.length > 0
         ? (eventuallyApproved / rejectedProjects.length) * 100
@@ -2860,9 +2880,9 @@ export async function getOfficeMetrics(
         ? resolutionTimes.reduce((sum, time) => sum + time, 0) / resolutionTimes.length
         : null;
 
-      // Top rejection reasons (most common issues across all projects)
+      // Top rejection reasons (only from rejected projects)
       const reasonCounts: Record<string, number> = {};
-      officeProjects.forEach(p => {
+      rejectedProjects.forEach(p => {
         const reasons = p[PROJECT_FIELDS.INTAKE_MISSING_ITEMS_COMBINED]?.value;
         if (Array.isArray(reasons)) {
           reasons.forEach(reason => {
@@ -2888,8 +2908,7 @@ export async function getOfficeMetrics(
       const projectsApproved = statusCounts['Approved'] || 0;
       // Count projects currently rejected and awaiting resubmit (not yet fixed/approved)
       const projectsRejected = officeProjects.filter(p =>
-        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value === 'Reject' &&
-        !p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value
+        isCurrentlyRejected(p)
       ).length;
       const installs = completedProjects.length;
 
@@ -3128,6 +3147,7 @@ export async function getRepPerformance(
         PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED,       // Field 1831 - "Approve" or "Reject"
         PROJECT_FIELDS.INTAKE_FIRST_PASS_COMPLETE,               // Field 1951 - First review timestamp
         PROJECT_FIELDS.INTAKE_MISSING_ITEMS_COMBINED,            // Field 1871 - Rejection reasons
+        PROJECT_FIELDS.PRIOR_STATUS_WAS_REJECTED_BINARY,         // Field 1930 - Ever rejected flag (hybrid detection)
       ],
       options: {
         top: 5000, // Handle large datasets
@@ -3259,33 +3279,52 @@ export async function getRepPerformance(
       ).length;
       const intakeApprovalRate = totalProjects > 0 ? (approvedIntakes / totalProjects) * 100 : 0;
 
-      // Calculate intake quality metrics for closer scorecard
-      const projectsWithFirstPass = repProjects.filter(p =>
-        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value
-      );
+      // Calculate intake quality metrics using hybrid detection (more accurate)
+      // Helper function to check if project was ever rejected
+      // Uses BOTH status strings (real-time) AND binary field (historical) for accuracy
+      const wasEverRejected = (p: Record<string, any>): boolean => {
+        // Check current status (real-time - catches newly rejected projects)
+        const intakeStatus = (p[PROJECT_FIELDS.INTAKE_STATUS]?.value || '').toString().toLowerCase();
+        const projectStatus = (p[PROJECT_FIELDS.PROJECT_STATUS]?.value || '').toString().toLowerCase();
+        const currentlyRejected = intakeStatus.includes('rejected') || projectStatus.includes('rejected');
+
+        // Check binary field (historical - catches projects that were rejected then fixed)
+        const priorStatusRejected = p[PROJECT_FIELDS.PRIOR_STATUS_WAS_REJECTED_BINARY]?.value;
+        const historicallyRejected = priorStatusRejected === 1 || priorStatusRejected === '1' || priorStatusRejected === true;
+
+        // Return true if either indicates rejection
+        return currentlyRejected || historicallyRejected;
+      };
+
+      // Helper function to check if project is currently rejected
+      const isCurrentlyRejected = (p: Record<string, any>): boolean => {
+        const intakeStatus = (p[PROJECT_FIELDS.INTAKE_STATUS]?.value || '').toString().toLowerCase();
+        const projectStatus = (p[PROJECT_FIELDS.PROJECT_STATUS]?.value || '').toString().toLowerCase();
+        return intakeStatus.includes('rejected') || projectStatus.includes('rejected');
+      };
+
+      // Never Rejected (first pass approved) - has completion date AND never rejected
+      const neverRejected = repProjects.filter(p =>
+        p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value &&
+        !wasEverRejected(p)
+      ).length;
 
       // First-time pass rate (KEY METRIC - clean deals approved on first attempt)
-      const firstTimePass = projectsWithFirstPass.filter(p =>
-        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value === 'Approve'
-      ).length;
-      const firstTimePassRate = projectsWithFirstPass.length > 0
-        ? (firstTimePass / projectsWithFirstPass.length) * 100
+      const firstTimePassRate = totalProjects > 0
+        ? (neverRejected / totalProjects) * 100
         : 0;
 
-      // Rejection rate (projects rejected on first attempt)
-      const rejections = projectsWithFirstPass.filter(p =>
-        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value === 'Reject'
-      ).length;
-      const rejectionRate = projectsWithFirstPass.length > 0
-        ? (rejections / projectsWithFirstPass.length) * 100
+      // Total Rejections (ever rejected - using hybrid detection)
+      const rejectedProjects = repProjects.filter(wasEverRejected);
+      const rejections = rejectedProjects.length;
+      const rejectionRate = totalProjects > 0
+        ? (rejections / totalProjects) * 100
         : 0;
 
       // Resubmit success rate (of rejected projects, how many eventually got approved)
-      const rejectedProjects = repProjects.filter(p =>
-        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value === 'Reject'
-      );
       const eventuallyApproved = rejectedProjects.filter(p =>
-        p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value
+        p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value &&
+        !isCurrentlyRejected(p)
       ).length;
       const resubmitSuccessRate = rejectedProjects.length > 0
         ? (eventuallyApproved / rejectedProjects.length) * 100
@@ -3308,9 +3347,9 @@ export async function getRepPerformance(
         ? resolutionTimes.reduce((sum, time) => sum + time, 0) / resolutionTimes.length
         : null;
 
-      // Top rejection reasons (most common issues for this rep)
+      // Top rejection reasons (only from rejected projects)
       const reasonCounts: Record<string, number> = {};
-      repProjects.forEach(p => {
+      rejectedProjects.forEach(p => {
         const reasons = p[PROJECT_FIELDS.INTAKE_MISSING_ITEMS_COMBINED]?.value;
         if (Array.isArray(reasons)) {
           reasons.forEach(reason => {
@@ -3346,8 +3385,7 @@ export async function getRepPerformance(
       const projectsApproved = statusCounts['Approved'] || 0;
       // Count projects currently rejected and awaiting resubmit (not yet fixed/approved)
       const projectsRejected = repProjects.filter(p =>
-        p[PROJECT_FIELDS.INTAKE_FIRST_PASS_FINANCE_APPROVED]?.value === 'Reject' &&
-        !p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value
+        isCurrentlyRejected(p)
       ).length;
       const installs = completedProjects.length;
       const holds = onHoldProjects;
