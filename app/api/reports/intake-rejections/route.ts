@@ -135,10 +135,20 @@ export async function GET(request: NextRequest) {
       const totalSubmitted = officeProjects.length;
       totalSubmittedAll += totalSubmitted;
 
-      // Helper function to check if project was ever rejected (using binary field)
+      // Helper function to check if project was ever rejected
+      // Uses BOTH status strings (real-time) AND binary field (historical) for accuracy
       const wasEverRejected = (p: QuickbaseProject): boolean => {
+        // Check current status (real-time - catches newly rejected projects)
+        const intakeStatus = (p[PROJECT_FIELDS.INTAKE_STATUS]?.value || '').toString().toLowerCase();
+        const projectStatus = (p[PROJECT_FIELDS.PROJECT_STATUS]?.value || '').toString().toLowerCase();
+        const currentlyRejected = intakeStatus.includes('rejected') || projectStatus.includes('rejected');
+
+        // Check binary field (historical - catches projects that were rejected then fixed)
         const priorStatusRejected = p[PROJECT_FIELDS.PRIOR_STATUS_WAS_REJECTED_BINARY]?.value;
-        return priorStatusRejected === 1 || priorStatusRejected === '1' || priorStatusRejected === true;
+        const historicallyRejected = priorStatusRejected === 1 || priorStatusRejected === '1' || priorStatusRejected === true;
+
+        // Return true if either indicates rejection
+        return currentlyRejected || historicallyRejected;
       };
 
       // Helper function to check if project is currently rejected
