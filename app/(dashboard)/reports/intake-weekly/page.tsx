@@ -45,7 +45,7 @@ export default function WeeklyIntakeReportPage() {
       if (!response.ok) throw new Error('Failed to fetch report');
       return response.json();
     },
-    enabled: !!session?.user?.quickbaseUserId,
+    enabled: !!session?.user, // Allow all authenticated users with proper role
     staleTime: 30000, // Data is considered stale after 30 seconds
     gcTime: 60000, // Cache is garbage collected after 1 minute
     refetchOnMount: true, // Always refetch when component mounts
