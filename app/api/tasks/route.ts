@@ -381,20 +381,23 @@ export async function GET(req: Request) {
     logError('Failed to fetch tasks', error as Error, errorDetails);
 
     // TEMPORARY: Always return error details for debugging
-    return NextResponse.json({
+    const errorResponse: Record<string, any> = {
       error: 'Internal Server Error',
       details: (error as Error).message,
       errorName: (error as Error).name,
-      stack: (error as Error).stack?.split('\n').slice(0, 10),
-      // Include any additional error properties
-      ...(error && typeof error === 'object' && {
-        originalError: (error as any).originalError,
-        whereClause: (error as any).whereClause,
-        tableId: (error as any).tableId,
-        quickbaseError: (error as any).quickbaseError,
-        requestParams: (error as any).requestParams,
-        statusCode: (error as any).statusCode
-      })
-    }, { status: 500 });
+      stack: (error as Error).stack?.split('\n').slice(0, 10)
+    };
+
+    // Include any additional error properties
+    if (error && typeof error === 'object') {
+      errorResponse.originalError = (error as any).originalError;
+      errorResponse.whereClause = (error as any).whereClause;
+      errorResponse.tableId = (error as any).tableId;
+      errorResponse.quickbaseError = (error as any).quickbaseError;
+      errorResponse.requestParams = (error as any).requestParams;
+      errorResponse.statusCode = (error as any).statusCode;
+    }
+
+    return NextResponse.json(errorResponse, { status: 500 });
   }
 }

@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     const monthsBack = parseInt(searchParams.get('monthsBack') || '12') // Activity timeframe
 
     // Parse role parameter - can be comma-separated for multiple roles
-    const allowedRoles = ['closer', 'setter', 'team_lead', 'office_leader', 'area_director', 'divisional', 'regional', 'super_admin', 'all']
+    const allowedRoles = ['closer', 'setter', 'coordinator', 'team_lead', 'office_leader', 'area_director', 'divisional', 'regional', 'super_admin', 'operations_coordinator', 'operations_manager', 'all']
     let roles: string[] = []
     if (roleParam && roleParam !== 'all') {
       roles = roleParam.split(',').map(r => r.trim())

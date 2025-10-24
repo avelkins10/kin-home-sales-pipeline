@@ -143,10 +143,10 @@ export function getUrgencyLabel(level: UrgencyLevel): string {
  * Sort tasks by urgency (critical first, then urgent, then normal)
  * Within same urgency level, sort by age (oldest first)
  */
-export function sortTasksByUrgency(
-  tasks: Task[],
+export function sortTasksByUrgency<T extends Task>(
+  tasks: T[],
   projectStatuses?: Map<number, string>
-): Task[] {
+): T[] {
   return [...tasks].sort((a, b) => {
     const urgencyA = getTaskUrgency(a, projectStatuses?.get(a.recordId));
     const urgencyB = getTaskUrgency(b, projectStatuses?.get(b.recordId));

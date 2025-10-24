@@ -15,6 +15,36 @@ Before running these migrations, ensure:
 
 ## Migration Execution Results
 
+### Migration 010 - Operations Roles
+
+**Command:**
+```bash
+npm run migrate:operations-roles
+```
+
+**Purpose:** Adds operations-specific roles to the users table constraint to support the new Operations app.
+
+**Preflight Check:**
+Before running this migration, the script will list existing constraints on the users.role column to help identify the current constraint name:
+
+```sql
+SELECT 
+  conname as constraint_name,
+  pg_get_constraintdef(oid) as constraint_definition
+FROM pg_constraint 
+WHERE conrelid = 'users'::regclass 
+  AND contype = 'c' 
+  AND conname LIKE '%role%';
+```
+
+**What it does:**
+- Lists existing role constraints for verification
+- Drops existing role constraint (if exists)
+- Adds new constraint with operations roles (operations_coordinator, operations_manager)
+- Adds documentation comments
+
+**Required for:** Operations app role-based access control
+
 ### Migration 003 - Offices Schema
 
 **Command:**

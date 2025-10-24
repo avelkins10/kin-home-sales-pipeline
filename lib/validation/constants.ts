@@ -8,7 +8,9 @@ export const roleEnum = z.enum([
   'area_director', 
   'divisional', 
   'regional', 
-  'super_admin'
+  'super_admin',
+  'operations_coordinator',
+  'operations_manager'
 ])
 
 export const regionEnum = z.enum(['southwest', 'southeast', 'midwest', 'northeast', 'west'])

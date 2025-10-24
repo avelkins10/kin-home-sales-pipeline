@@ -68,7 +68,7 @@ export function TaskList({ tasks, groupBy = 'none' }: TaskListProps) {
     const sortedTasks = sortTasksByUrgency(tasks)
     const critical = sortedTasks.filter(t => {
       const daysWaiting = t.dateCreated ? Math.ceil((Date.now() - new Date(t.dateCreated).getTime()) / (1000 * 60 * 60 * 24)) : 0
-      const isRejected = ('projectStatus' in t) ? t.projectStatus?.toLowerCase().includes('reject') : false
+      const isRejected = typeof t.projectStatus === 'string' && t.projectStatus.toLowerCase().includes('reject')
       return daysWaiting > 7 || isRejected
     })
     const urgent = sortedTasks.filter(t => {
@@ -131,7 +131,7 @@ export function TaskList({ tasks, groupBy = 'none' }: TaskListProps) {
   return (
     <div className="space-y-3">
       {sortedTasks.map((task) => (
-        <TaskListItem key={task.recordId} task={task} />
+        <TaskListItem key={task.recordId} task={task as any} />
       ))}
     </div>
   )

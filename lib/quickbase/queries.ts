@@ -4588,7 +4588,7 @@ export async function calculateTaskBasedResolutionTime(projectId: number): Promi
 
     // Step 2: Find earliest task creation date (when project was rejected)
     const taskDates = tasksResponse.data
-      .map(task => task[TASK_FIELDS.DATE_CREATED]?.value)
+      .map((task: any) => task[TASK_FIELDS.DATE_CREATED]?.value)
       .filter(Boolean)
       .map(dateStr => new Date(dateStr));
 
@@ -4600,7 +4600,7 @@ export async function calculateTaskBasedResolutionTime(projectId: number): Promi
     const earliestTaskDate = new Date(Math.min(...taskDates.map(d => d.getTime())));
 
     // Step 3: Query all submissions for these tasks
-    const taskIds = tasksResponse.data.map(task => task[TASK_FIELDS.RECORD_ID]?.value).filter(Boolean);
+    const taskIds = tasksResponse.data.map((task: any) => task[TASK_FIELDS.RECORD_ID]?.value).filter(Boolean);
 
     if (taskIds.length === 0) {
       console.log('[calculateTaskBasedResolutionTime] No valid task IDs found');

@@ -14,7 +14,9 @@ export function getRoleDisplayName(role: string): string {
     'area_director': 'Area Director',
     'divisional': 'Divisional Manager',
     'regional': 'Regional Manager',
-    'super_admin': 'Super Admin'
+    'super_admin': 'Super Admin',
+    'operations_coordinator': 'Operations Coordinator',
+    'operations_manager': 'Operations Manager'
   };
   
   return roleMap[role] || role;
@@ -57,6 +59,12 @@ export function getRoleDescription(role: string, offices?: string[]): string {
     case 'super_admin':
       return 'You have full access to all projects and administrative features.';
     
+    case 'operations_coordinator':
+      return 'You will see operations work orders and tasks assigned to you.';
+    
+    case 'operations_manager':
+      return 'You will see team-wide operations metrics and can manage operations workflows.';
+    
     default:
       return 'You will have access to projects based on your assigned role.';
   }
@@ -74,7 +82,9 @@ export function getRoleBadgeColor(role: string): string {
     'area_director': 'bg-emerald-100 text-emerald-800',
     'divisional': 'bg-teal-100 text-teal-800',
     'regional': 'bg-indigo-100 text-indigo-800',
-    'super_admin': 'bg-red-100 text-red-800'
+    'super_admin': 'bg-red-100 text-red-800',
+    'operations_coordinator': 'bg-orange-100 text-orange-800',
+    'operations_manager': 'bg-amber-100 text-amber-800'
   };
   
   return colorMap[role] || 'bg-gray-100 text-gray-800';
@@ -96,6 +106,6 @@ export function isOfficeBasedRole(role: string): boolean {
  * @returns True if role is a manager role
  */
 export function isManagerRole(role: string): boolean {
-  const managerRoles = ['team_lead', 'office_leader', 'area_director', 'divisional', 'regional', 'super_admin'];
+  const managerRoles = ['team_lead', 'office_leader', 'area_director', 'divisional', 'regional', 'super_admin', 'operations_manager'];
   return managerRoles.includes(role);
 }

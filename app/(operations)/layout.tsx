@@ -5,9 +5,26 @@ import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { WebVitalsCollector } from '@/components/ui/WebVitalsCollector';
 import { FrontChatProvider } from '@/components/providers/FrontChatProvider';
 import { TopNavbar } from '@/components/layout/TopNavbar';
+import { Metadata } from 'next';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
-export default async function DashboardLayout({
+export const metadata: Metadata = {
+  title: 'KINETIC Operations - Workflow Management',
+  description: 'Manage operations workflows, work orders, inventory, and crew scheduling. Optimize installation processes and quality control.',
+  openGraph: {
+    title: 'KINETIC Operations - Workflow Management',
+    description: 'Manage operations workflows, work orders, inventory, and crew scheduling. Optimize installation processes and quality control.',
+    type: 'website',
+    siteName: 'KINETIC Platform',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'KINETIC Operations - Workflow Management',
+    description: 'Manage operations workflows, work orders, inventory, and crew scheduling.',
+  },
+};
+
+export default async function OperationsLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -20,7 +37,7 @@ export default async function DashboardLayout({
 
   return (
     <FrontChatProvider>
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-slate-50" data-app-context="operations">
         {/* Web Vitals Collection */}
         <WebVitalsCollector />
 

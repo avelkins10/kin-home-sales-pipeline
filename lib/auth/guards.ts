@@ -28,7 +28,9 @@ export type UserRole =
   | 'area_director'
   | 'divisional'
   | 'regional'
-  | 'super_admin';
+  | 'super_admin'
+  | 'operations_coordinator'
+  | 'operations_manager';
 
 export type AuthGuardResult = 
   | { authorized: true; session: Session }

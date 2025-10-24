@@ -1,4 +1,4 @@
-# Kin Home Sales Pipeline Dashboard
+# KINETIC Platform — Sales & Operations
 
 ## Phase Status Summary
 
@@ -60,6 +60,33 @@ Refer to `docs/IMPLEMENTATION-STATUS.md` for the authoritative status. CI/CD pip
 - Audit Logs (super admin): Compliance tracking, filters, pagination, CSV export, JSON diffs
 
 Modern, iPad-first PWA for solar sales reps to track their projects through the 9-milestone installation process. Replaces clunky Quickbase interface with real-time visibility and offline support.
+
+## Multi-App Architecture
+
+The platform now supports both **Sales** and **Operations** apps within a single codebase:
+
+- **Sales App** (`(sales)` route group): Existing sales features including projects, analytics, calendar, reports, and settings
+- **Operations App** (`(operations)` route group): New operations features including work orders, inventory, scheduling, and quality control
+- **App Switcher**: Top-left navbar component allows users with appropriate roles to toggle between apps
+- **Shared Infrastructure**: Common auth, database, UI components, and offline support
+- **Role-Based Access**: Users see different navigation and features based on their role and app context
+
+### Route Group Structure
+```
+app/
+├── (sales)/           # Sales app - existing dashboard features
+│   ├── layout.tsx    # Sales app layout with data-app-context="sales"
+│   ├── page.tsx      # Sales dashboard
+│   ├── projects/     # Project management
+│   ├── analytics/    # Sales analytics
+│   └── settings/     # Sales settings
+└── (operations)/     # Operations app - new operations features
+    ├── layout.tsx    # Operations app layout with data-app-context="operations"
+    ├── page.tsx      # Operations dashboard
+    ├── work-orders/  # Work order management
+    ├── inventory/    # Inventory management
+    └── scheduling/   # Crew scheduling
+```
 
 ## Tech Stack
 
@@ -124,7 +151,8 @@ npm run dev
 ```
 ├── app/                    # Next.js App Router pages and API routes
 │   ├── (auth)/            # Authentication pages
-│   ├── (dashboard)/       # Dashboard pages
+│   ├── (sales)/           # Sales app pages
+│   ├── (operations)/       # Operations app pages
 │   ├── api/               # API routes
 │   └── globals.css        # Global styles
 ├── components/            # Reusable UI components
@@ -185,11 +213,24 @@ If email is not configured, admins can still create invites and share the invite
 10. **PTO** - Permission to Operate (final milestone)
 
 ### Role-Based Access Control
+
+**Sales Roles:**
 - **Closers**: Projects where they are the closer
 - **Setters**: Projects where they are the setter
 - **Office Leaders**: Their projects + configurable office access
 - **Regional**: Multiple offices (configurable)
 - **Super Admin**: All projects + SLA configuration
+
+**Operations Roles:**
+- **Operations Coordinator**: Operations work orders and tasks assigned to them
+- **Operations Manager**: Team-wide operations metrics and workflow management
+
+**Cross-App Access:**
+- **Office Leaders, Regional, Super Admin, Operations Manager**: Can access both Sales and Operations apps via app switcher
+- **Sales-only roles** (closer, setter, team_lead): Access only Sales app
+- **Operations-only roles** (operations_coordinator): Access only Operations app
+
+**Note:** Operations features are under development and will be expanded based on user requirements. The current implementation provides the foundational structure and placeholder components.
 
 ### Real-Time Data
 - Quickbase API integration with 10 req/sec rate limiting

@@ -6,6 +6,8 @@ import { Toaster } from 'sonner';
 import { useState, useEffect } from 'react';
 import { initDB } from '@/lib/offline/storage';
 import { syncPendingMutations } from '@/lib/offline/syncQueue';
+import { AppContextProvider } from '@/lib/contexts/AppContext';
+import { QUERY_KEYS } from '@/lib/constants/apps';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
@@ -40,8 +42,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
       console.log('Online');
       syncPendingMutations();
       // Invalidate queries to refresh data when back online
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] });
+      // Use centralized query keys for both apps
+      [...QUERY_KEYS.sales, ...QUERY_KEYS.operations].forEach(key => {
+        queryClient.invalidateQueries({ queryKey: [key] });
+      });
     };
 
     const handleOffline = () => {
@@ -60,8 +64,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <SessionProvider>
-        <Toaster position="top-right" />
-        {children}
+        <AppContextProvider>
+          <Toaster position="top-right" />
+          {children}
+        </AppContextProvider>
       </SessionProvider>
     </QueryClientProvider>
   );

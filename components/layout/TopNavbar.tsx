@@ -7,6 +7,8 @@ import { useSession, signOut } from 'next-auth/react';
 import { cn } from '@/lib/utils/cn';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { NotificationErrorBoundary } from '@/components/errors/NotificationErrorBoundary';
+import { AppSwitcher } from './AppSwitcher';
+import { useAppContext } from '@/lib/contexts/AppContext';
 import {
   Home,
   FolderKanban,
@@ -20,28 +22,46 @@ import {
   X,
   LogOut,
   User,
-  CheckSquare
+  CheckSquare,
+  Wrench,
+  Package,
+  Users,
+  Shield
 } from 'lucide-react';
 import { Logo } from './Logo';
 
 export function TopNavbar() {
   const { data: session } = useSession();
   const pathname = usePathname();
+  const { currentApp } = useAppContext();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
-  // Navigation items
-  const navigationItems = [
-    { name: 'Dashboard', href: '/', icon: Home, roles: ['closer', 'setter', 'coordinator', 'office_leader', 'regional', 'super_admin'] },
-    { name: 'Projects', href: '/projects', icon: FolderKanban, roles: ['closer', 'setter', 'coordinator', 'office_leader', 'regional', 'super_admin'] },
-    { name: 'Tasks', href: '/tasks', icon: CheckSquare, roles: ['closer', 'setter', 'coordinator', 'office_leader', 'regional', 'super_admin'] },
-    // { name: 'Holds', href: '/holds', icon: Clock, roles: ['closer', 'setter', 'coordinator', 'office_leader', 'regional', 'super_admin'] }, // TODO: Implement holds page
-    { name: 'Calendar', href: '/calendar', icon: Calendar, roles: ['closer', 'setter', 'coordinator', 'office_leader', 'regional', 'super_admin'] },
-    { name: 'Analytics', href: '/analytics', icon: BarChart3, roles: ['office_leader', 'regional', 'super_admin'] },
-    { name: 'Reports', href: '/reports', icon: FileText, roles: ['office_leader', 'regional', 'super_admin'] },
-    { name: 'Settings', href: '/settings', icon: Settings, roles: ['closer', 'setter', 'coordinator', 'office_leader', 'regional', 'super_admin'] },
-    { name: 'KIN Sales Hub', href: 'https://sites.google.com/kinhome.com/kinhomesalesnetwork/home', icon: ExternalLink, roles: ['closer', 'setter', 'coordinator', 'office_leader', 'regional', 'super_admin'], external: true },
+  // Sales navigation items
+  const salesNavigationItems = [
+    { name: 'Dashboard', href: '/', icon: Home, roles: ['closer', 'setter', 'coordinator', 'team_lead', 'area_director', 'divisional', 'office_leader', 'regional', 'super_admin'] },
+    { name: 'Projects', href: '/projects', icon: FolderKanban, roles: ['closer', 'setter', 'coordinator', 'team_lead', 'area_director', 'divisional', 'office_leader', 'regional', 'super_admin'] },
+    { name: 'Tasks', href: '/tasks', icon: CheckSquare, roles: ['closer', 'setter', 'coordinator', 'team_lead', 'area_director', 'divisional', 'office_leader', 'regional', 'super_admin'] },
+    // { name: 'Holds', href: '/holds', icon: Clock, roles: ['closer', 'setter', 'coordinator', 'team_lead', 'area_director', 'divisional', 'office_leader', 'regional', 'super_admin'] }, // TODO: Implement holds page
+    { name: 'Calendar', href: '/calendar', icon: Calendar, roles: ['closer', 'setter', 'coordinator', 'team_lead', 'area_director', 'divisional', 'office_leader', 'regional', 'super_admin'] },
+    { name: 'Analytics', href: '/analytics', icon: BarChart3, roles: ['team_lead', 'area_director', 'divisional', 'office_leader', 'regional', 'super_admin'] },
+    { name: 'Reports', href: '/reports', icon: FileText, roles: ['team_lead', 'area_director', 'divisional', 'office_leader', 'regional', 'super_admin'] },
+    { name: 'Settings', href: '/settings', icon: Settings, roles: ['closer', 'setter', 'coordinator', 'team_lead', 'area_director', 'divisional', 'office_leader', 'regional', 'super_admin'] },
+    { name: 'KIN Sales Hub', href: 'https://sites.google.com/kinhome.com/kinhomesalesnetwork/home', icon: ExternalLink, roles: ['closer', 'setter', 'coordinator', 'team_lead', 'area_director', 'divisional', 'office_leader', 'regional', 'super_admin'], external: true },
   ];
+
+  // Operations navigation items
+  const operationsNavigationItems = [
+    { name: 'Dashboard', href: '/operations', icon: Home, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
+    { name: 'Work Orders', href: '/operations/work-orders', icon: Wrench, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
+    { name: 'Inventory', href: '/operations/inventory', icon: Package, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
+    { name: 'Scheduling', href: '/operations/scheduling', icon: Calendar, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
+    { name: 'Quality Control', href: '/operations/quality', icon: Shield, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
+    { name: 'Settings', href: '/operations/settings', icon: Settings, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
+  ];
+
+  // Get navigation items based on current app
+  const navigationItems = currentApp === 'operations' ? operationsNavigationItems : salesNavigationItems;
 
   // Filter navigation items based on user role
   const visibleNavItems = navigationItems.filter(item =>
@@ -56,8 +76,11 @@ export function TopNavbar() {
     <header className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
       <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Left: Logo + Navigation */}
+          {/* Left: App Switcher + Logo + Navigation */}
           <div className="flex items-center gap-8">
+            {/* App Switcher */}
+            <AppSwitcher />
+            
             {/* Logo */}
             <Logo />
 
@@ -82,8 +105,10 @@ export function TopNavbar() {
                   );
                 }
 
+                // Handle active state detection
                 const isActive = pathname === item.href ||
-                  (item.href !== '/' && pathname.startsWith(item.href));
+                  (item.href !== '/' && item.href !== '/operations' && pathname.startsWith(item.href)) ||
+                  (item.href === '/operations' && pathname === '/operations');
 
                 return (
                   <Link
@@ -149,7 +174,7 @@ export function TopNavbar() {
                       </p>
                     </div>
                     <Link
-                      href="/settings"
+                      href={currentApp === 'operations' ? '/operations/settings' : '/settings'}
                       className="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
                       onClick={() => setUserMenuOpen(false)}
                     >

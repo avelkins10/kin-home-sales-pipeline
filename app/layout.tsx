@@ -7,8 +7,8 @@ import { SpeedInsights } from '@vercel/speed-insights/next';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'KINETIC - Sales Pipeline',
-  description: 'Solar installation project tracking and management platform',
+  title: 'KINETIC Platform',
+  description: 'Solar installation project tracking and operations management platform',
 };
 
 export default function RootLayout({
