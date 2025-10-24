@@ -136,6 +136,17 @@ export async function GET(req: Request) {
     });
 
     // TEMPORARY DEBUG: Just try the first query
+    console.log('[TASKS_API] About to query QuickBase with:', {
+      table: QB_TABLE_PROJECTS,
+      whereClause: projectAccessClause,
+      selectFields: [
+        PROJECT_FIELDS.RECORD_ID,
+        PROJECT_FIELDS.PROJECT_ID,
+        PROJECT_FIELDS.CUSTOMER_NAME,
+        PROJECT_FIELDS.PROJECT_STATUS
+      ]
+    });
+
     let projectsResponse;
     try {
       projectsResponse = await qbClient.queryRecords({
@@ -148,7 +159,16 @@ export async function GET(req: Request) {
         ],
         where: projectAccessClause
       });
+
+      console.log('[TASKS_API] QuickBase query succeeded, got', projectsResponse.data?.length, 'projects');
     } catch (queryError: any) {
+      console.error('[TASKS_API] QuickBase query FAILED:', {
+        errorMessage: queryError?.message,
+        errorStack: queryError?.stack,
+        whereClause: projectAccessClause,
+        tableId: QB_TABLE_PROJECTS
+      });
+
       logError('Projects query failed', queryError as Error, {
         whereClause: projectAccessClause,
         tableId: QB_TABLE_PROJECTS,
@@ -157,15 +177,13 @@ export async function GET(req: Request) {
         reqId
       });
 
-      // Re-throw with more context
-      const enhancedError = new Error(`QB Query Failed: ${queryError?.message || 'Unknown error'}`);
-      (enhancedError as any).originalError = queryError?.message;
-      (enhancedError as any).whereClause = projectAccessClause;
-      (enhancedError as any).tableId = QB_TABLE_PROJECTS;
-      (enhancedError as any).quickbaseError = queryError?.quickbaseError;
-      (enhancedError as any).requestParams = queryError?.requestParams;
-      (enhancedError as any).statusCode = queryError?.statusCode;
-      throw enhancedError;
+      // Return a simple error response for now
+      return NextResponse.json({
+        error: 'QuickBase Query Failed',
+        message: queryError?.message || 'Unknown error',
+        whereClause: projectAccessClause,
+        table: QB_TABLE_PROJECTS
+      }, { status: 500 });
     }
 
     if (projectsResponse.data.length === 0) {
