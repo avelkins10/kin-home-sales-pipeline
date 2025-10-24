@@ -160,26 +160,26 @@ export class QuickbaseClient {
         try {
           const error = await response.json();
           errorDetails.error = error;
-          const errorMessage = error.message || error.description || response.statusText;
 
           // Log the full request and error for debugging
-          console.error('[QuickbaseClient] Query failed:', {
+          console.error('[QuickbaseClient] Query failed - Full Details:', JSON.stringify({
             status: response.status,
-            error: error,
-            requestParams: params
-          });
+            qbError: error,
+            requestFrom: params.from,
+            requestWhere: params.where,
+            requestSelect: params.select
+          }, null, 2));
 
-          logQuickbaseError('POST', '/v1/records/query', new Error(errorMessage));
+          logQuickbaseError('POST', '/v1/records/query', new Error(JSON.stringify(error)));
 
-          // Create error with full QuickBase error details
-          const enrichedError = new Error(`Quickbase API error: ${errorMessage}`);
-          (enrichedError as any).quickbaseError = error;
-          (enrichedError as any).requestParams = params;
-          (enrichedError as any).statusCode = response.status;
-          throw enrichedError;
+          // Include full QB error in message for debugging
+          const errorMessage = error.message || error.description || response.statusText;
+          const fullErrorMessage = `QB API Error [${response.status}]: ${errorMessage} | Full QB Response: ${JSON.stringify(error)} | WHERE: ${params.where}`;
+
+          throw new Error(fullErrorMessage);
         } catch (parseError) {
           // If parseError is the error we just threw, re-throw it
-          if (parseError instanceof Error && parseError.message.startsWith('Quickbase API error:')) {
+          if (parseError instanceof Error && (parseError.message.startsWith('QB API Error') || parseError.message.startsWith('Quickbase API error:'))) {
             throw parseError;
           }
           // Otherwise it's a JSON parse error
