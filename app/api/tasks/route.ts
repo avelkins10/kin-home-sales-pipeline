@@ -156,7 +156,16 @@ export async function GET(req: Request) {
         errorDetails: queryError?.response?.data || queryError?.response || 'no response data',
         reqId
       });
-      throw queryError;
+
+      // Re-throw with more context
+      const enhancedError = new Error(`QB Query Failed: ${queryError?.message || 'Unknown error'}`);
+      (enhancedError as any).originalError = queryError?.message;
+      (enhancedError as any).whereClause = projectAccessClause;
+      (enhancedError as any).tableId = QB_TABLE_PROJECTS;
+      (enhancedError as any).quickbaseError = queryError?.quickbaseError;
+      (enhancedError as any).requestParams = queryError?.requestParams;
+      (enhancedError as any).statusCode = queryError?.statusCode;
+      throw enhancedError;
     }
 
     if (projectsResponse.data.length === 0) {
@@ -358,7 +367,16 @@ export async function GET(req: Request) {
       error: 'Internal Server Error',
       details: (error as Error).message,
       errorName: (error as Error).name,
-      stack: (error as Error).stack?.split('\n').slice(0, 10)
+      stack: (error as Error).stack?.split('\n').slice(0, 10),
+      // Include any additional error properties
+      ...(error && typeof error === 'object' && {
+        originalError: (error as any).originalError,
+        whereClause: (error as any).whereClause,
+        tableId: (error as any).tableId,
+        quickbaseError: (error as any).quickbaseError,
+        requestParams: (error as any).requestParams,
+        statusCode: (error as any).statusCode
+      })
     }, { status: 500 });
   }
 }

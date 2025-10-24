@@ -170,7 +170,13 @@ export class QuickbaseClient {
           });
 
           logQuickbaseError('POST', '/v1/records/query', new Error(errorMessage));
-          throw new Error(`Quickbase API error: ${errorMessage} - ${JSON.stringify(error)}`);
+
+          // Create error with full QuickBase error details
+          const enrichedError = new Error(`Quickbase API error: ${errorMessage}`);
+          (enrichedError as any).quickbaseError = error;
+          (enrichedError as any).requestParams = params;
+          (enrichedError as any).statusCode = response.status;
+          throw enrichedError;
         } catch (parseError) {
           // If parseError is the error we just threw, re-throw it
           if (parseError instanceof Error && parseError.message.startsWith('Quickbase API error:')) {
