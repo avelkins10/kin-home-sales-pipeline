@@ -41,6 +41,7 @@ export class QuickbaseClient {
   private readonly REQUEST_WINDOW_MS = 1000;
   private readonly MAX_RETRIES = 3;
   private readonly RETRY_DELAY_MS = 1000;
+  private readonly CLIENT_VERSION = '2.0.0'; // Force rebuild
 
   constructor(realm: string, token: string, appId: string) {
     this.realm = realm;
