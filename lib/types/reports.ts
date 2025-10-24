@@ -67,4 +67,19 @@ export interface WeeklyIntakeReport {
     name: string;
     rate: number;
   } | null;
+  /** Report metadata with office breakdown and filters applied */
+  metadata?: {
+    generatedAt: string;
+    dateRangeUsed: { startDate: string; endDate: string };
+    defaultedToDates: boolean;
+    totalClosers: number;
+    sortedBy: string;
+    filteredByOffices: number[] | null;
+    officeBreakdown: Array<{
+      officeName: string;
+      submitted: number;
+      rejected: number;
+      rejectionRate: number;
+    }>;
+  };
 }

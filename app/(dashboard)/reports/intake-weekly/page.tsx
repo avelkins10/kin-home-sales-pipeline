@@ -9,20 +9,26 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Calendar, TrendingUp, TrendingDown, AlertCircle, Award, RefreshCw } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Calendar, TrendingUp, TrendingDown, AlertCircle, Award, RefreshCw, ArrowUpDown, X, Building2 } from 'lucide-react';
 import { WeeklyIntakeTable } from '@/components/reports/WeeklyIntakeTable';
 import { formatPercentage } from '@/lib/utils/formatters';
 import { getBaseUrl } from '@/lib/utils/baseUrl';
 import type { WeeklyIntakeReport } from '@/lib/types/reports';
 
-// Helper to get date 7 days ago
-function getLastWeekDates() {
+// Helper to get month-to-date range
+function getMonthToDateDates() {
   const today = new Date();
-  const sevenDaysAgo = new Date(today);
-  sevenDaysAgo.setDate(today.getDate() - 7);
+  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
   return {
-    start: sevenDaysAgo.toISOString().split('T')[0],
+    start: firstOfMonth.toISOString().split('T')[0],
     end: today.toISOString().split('T')[0],
   };
 }
@@ -30,17 +36,23 @@ function getLastWeekDates() {
 export default function WeeklyIntakeReportPage() {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
-  const lastWeek = getLastWeekDates();
+  const monthToDate = getMonthToDateDates();
 
-  const [startDate, setStartDate] = useState(lastWeek.start);
-  const [endDate, setEndDate] = useState(lastWeek.end);
-  const [appliedStartDate, setAppliedStartDate] = useState(lastWeek.start);
-  const [appliedEndDate, setAppliedEndDate] = useState(lastWeek.end);
+  const [startDate, setStartDate] = useState(monthToDate.start);
+  const [endDate, setEndDate] = useState(monthToDate.end);
+  const [appliedStartDate, setAppliedStartDate] = useState(monthToDate.start);
+  const [appliedEndDate, setAppliedEndDate] = useState(monthToDate.end);
+  const [sortBy, setSortBy] = useState<'totalSubmitted' | 'firstTimePassRate' | 'rejectionRate' | 'stillRejected'>('totalSubmitted');
+  const [selectedOfficeNames, setSelectedOfficeNames] = useState<string[]>([]);
 
   const { data, isLoading, error, refetch } = useQuery<WeeklyIntakeReport>({
-    queryKey: ['weekly-intake-report', appliedStartDate, appliedEndDate],
+    queryKey: ['weekly-intake-report', appliedStartDate, appliedEndDate, sortBy, selectedOfficeNames],
     queryFn: async () => {
-      const url = `${getBaseUrl()}/api/reports/intake-weekly?startDate=${appliedStartDate}&endDate=${appliedEndDate}`;
+      let url = `${getBaseUrl()}/api/reports/intake-weekly?startDate=${appliedStartDate}&endDate=${appliedEndDate}&sortBy=${sortBy}`;
+
+      // Add office filter if selected (note: we'll need to map office names to IDs)
+      // For now, we'll filter client-side since the API expects office IDs not names
+
       const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch report');
       return response.json();
@@ -61,13 +73,29 @@ export default function WeeklyIntakeReportPage() {
     refetch();
   };
 
-  const handleQuickRange = (days: number) => {
+  const handleQuickRange = (range: 'mtd' | 'last_month' | 30 | 90) => {
     const today = new Date();
-    const startDay = new Date(today);
-    startDay.setDate(today.getDate() - days);
+    let newStart: string;
+    let newEnd: string;
 
-    const newStart = startDay.toISOString().split('T')[0];
-    const newEnd = today.toISOString().split('T')[0];
+    if (range === 'mtd') {
+      // Month to date
+      const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      newStart = firstOfMonth.toISOString().split('T')[0];
+      newEnd = today.toISOString().split('T')[0];
+    } else if (range === 'last_month') {
+      // Full previous month
+      const firstOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      const lastOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+      newStart = firstOfLastMonth.toISOString().split('T')[0];
+      newEnd = lastOfLastMonth.toISOString().split('T')[0];
+    } else {
+      // Days-based range
+      const startDay = new Date(today);
+      startDay.setDate(today.getDate() - range);
+      newStart = startDay.toISOString().split('T')[0];
+      newEnd = today.toISOString().split('T')[0];
+    }
 
     setStartDate(newStart);
     setEndDate(newEnd);
@@ -75,11 +103,22 @@ export default function WeeklyIntakeReportPage() {
     setAppliedEndDate(newEnd);
   };
 
+  // Filter closers by selected offices (client-side)
+  const filteredData = data ? {
+    ...data,
+    closers: selectedOfficeNames.length > 0
+      ? data.closers.filter(c => c.officeName && selectedOfficeNames.includes(c.officeName))
+      : data.closers
+  } : undefined;
+
+  // Get available offices from metadata
+  const availableOffices = data?.metadata?.officeBreakdown?.map(o => o.officeName) || [];
+
   if (isLoading) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Weekly Intake Report</h1>
+          <h1 className="text-3xl font-bold">Intake Quality Report</h1>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (
@@ -98,7 +137,7 @@ export default function WeeklyIntakeReportPage() {
   if (error) {
     return (
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold">Weekly Intake Report</h1>
+        <h1 className="text-3xl font-bold">Intake Quality Report</h1>
         <Card>
           <CardContent className="p-6">
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -116,10 +155,19 @@ export default function WeeklyIntakeReportPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Weekly Intake Report</h1>
+          <h1 className="text-3xl font-bold">Intake Quality Report</h1>
           <p className="text-gray-600 mt-1">
             Track first-time pass rates and rejection reasons by closer
           </p>
+          {filteredData && (
+            <p className="text-sm text-gray-500 mt-1">
+              Showing {filteredData.closers.length} closers
+              {selectedOfficeNames.length > 0 && ` from ${selectedOfficeNames.length} office${selectedOfficeNames.length > 1 ? 's' : ''}`}
+              {' • '}Sorted by: {sortBy === 'totalSubmitted' ? 'Most Active' :
+                sortBy === 'firstTimePassRate' ? 'Best Quality' :
+                sortBy === 'rejectionRate' ? 'Most Rejections' : 'Needs Fixing'}
+            </p>
+          )}
         </div>
         <Button
           onClick={handleRefresh}
@@ -133,24 +181,84 @@ export default function WeeklyIntakeReportPage() {
         </Button>
       </div>
 
-      {/* Date Range Selector */}
+      {/* Filters Card */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
-            Date Range
+            Filters & Date Range
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {/* Sort & Office Filter Row */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            {/* Sort By */}
+            <div className="flex-1">
+              <Label className="text-sm mb-2 flex items-center gap-2">
+                <ArrowUpDown className="h-4 w-4" />
+                Sort By
+              </Label>
+              <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="totalSubmitted">Most Active (Total Projects)</SelectItem>
+                  <SelectItem value="firstTimePassRate">Best Quality (Pass Rate)</SelectItem>
+                  <SelectItem value="rejectionRate">Most Rejections</SelectItem>
+                  <SelectItem value="stillRejected">Needs Fixing (Still Rejected)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Office Filter */}
+            <div className="flex-1">
+              <Label className="text-sm mb-2 flex items-center gap-2">
+                <Building2 className="h-4 w-4" />
+                Filter by Office
+              </Label>
+              <Select
+                value={selectedOfficeNames.length === 0 ? 'all' : selectedOfficeNames[0]}
+                onValueChange={(value) => {
+                  if (value === 'all') {
+                    setSelectedOfficeNames([]);
+                  } else {
+                    setSelectedOfficeNames([value]);
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue>
+                    {selectedOfficeNames.length === 0 ? 'All Offices' : selectedOfficeNames[0]}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Offices</SelectItem>
+                  {availableOffices.map(office => (
+                    <SelectItem key={office} value={office}>{office}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Date Range Controls */}
           <div className="flex flex-col md:flex-row gap-4">
             {/* Quick Range Buttons */}
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => handleQuickRange(7)}
+                onClick={() => handleQuickRange('mtd')}
               >
-                Last 7 Days
+                Month to Date
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleQuickRange('last_month')}
+              >
+                Last Month
               </Button>
               <Button
                 variant="outline"
@@ -198,8 +306,51 @@ export default function WeeklyIntakeReportPage() {
         </CardContent>
       </Card>
 
+      {/* Active Filters */}
+      {(selectedOfficeNames.length > 0 || sortBy !== 'totalSubmitted') && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm text-gray-600 font-medium">Active Filters:</span>
+          {selectedOfficeNames.length > 0 && (
+            <Badge variant="secondary" className="flex items-center gap-1">
+              <Building2 className="h-3 w-3" />
+              {selectedOfficeNames[0]}
+              <button
+                onClick={() => setSelectedOfficeNames([])}
+                className="ml-1 hover:bg-gray-300 rounded-full p-0.5"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {sortBy !== 'totalSubmitted' && (
+            <Badge variant="secondary" className="flex items-center gap-1">
+              <ArrowUpDown className="h-3 w-3" />
+              {sortBy === 'firstTimePassRate' ? 'Best Quality' :
+               sortBy === 'rejectionRate' ? 'Most Rejections' : 'Needs Fixing'}
+              <button
+                onClick={() => setSortBy('totalSubmitted')}
+                className="ml-1 hover:bg-gray-300 rounded-full p-0.5"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setSortBy('totalSubmitted');
+              setSelectedOfficeNames([]);
+            }}
+            className="text-xs h-7"
+          >
+            Clear All
+          </Button>
+        </div>
+      )}
+
       {/* Summary Cards */}
-      {data && (
+      {filteredData && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {/* Total Projects */}
           <Card>
@@ -207,7 +358,7 @@ export default function WeeklyIntakeReportPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600">Total Projects</p>
-                  <p className="text-3xl font-bold text-gray-900">{data.totalProjects}</p>
+                  <p className="text-3xl font-bold text-gray-900">{filteredData.totalProjects}</p>
                 </div>
                 <div className="p-3 bg-blue-100 rounded-lg">
                   <Calendar className="h-6 w-6 text-blue-600" />
@@ -223,11 +374,11 @@ export default function WeeklyIntakeReportPage() {
                 <div>
                   <p className="text-sm text-gray-600">Overall Pass Rate</p>
                   <p className={`text-3xl font-bold ${
-                    data.overallPassRate >= 80 ? 'text-green-600' :
-                    data.overallPassRate >= 60 ? 'text-yellow-600' :
+                    filteredData.overallPassRate >= 80 ? 'text-green-600' :
+                    filteredData.overallPassRate >= 60 ? 'text-yellow-600' :
                     'text-red-600'
                   }`}>
-                    {formatPercentage(data.overallPassRate)}
+                    {formatPercentage(filteredData.overallPassRate)}
                   </p>
                 </div>
                 <div className="p-3 bg-emerald-100 rounded-lg">
@@ -238,17 +389,17 @@ export default function WeeklyIntakeReportPage() {
           </Card>
 
           {/* Top Performer */}
-          {data.topPerformer && (
+          {filteredData.topPerformer && (
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-gray-600">Top Performer</p>
                     <p className="text-lg font-bold text-gray-900 truncate">
-                      {data.topPerformer.name}
+                      {filteredData.topPerformer.name}
                     </p>
                     <p className="text-sm text-green-600 font-semibold">
-                      {formatPercentage(data.topPerformer.rate)}
+                      {formatPercentage(filteredData.topPerformer.rate)}
                     </p>
                   </div>
                   <div className="p-3 bg-green-100 rounded-lg">
@@ -260,17 +411,17 @@ export default function WeeklyIntakeReportPage() {
           )}
 
           {/* Needs Attention */}
-          {data.needsAttention && (
+          {filteredData.needsAttention && (
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-gray-600">Needs Attention</p>
                     <p className="text-lg font-bold text-gray-900 truncate">
-                      {data.needsAttention.name}
+                      {filteredData.needsAttention.name}
                     </p>
                     <p className="text-sm text-red-600 font-semibold">
-                      {formatPercentage(data.needsAttention.rate)}
+                      {formatPercentage(filteredData.needsAttention.rate)}
                     </p>
                   </div>
                   <div className="p-3 bg-red-100 rounded-lg">
@@ -284,7 +435,7 @@ export default function WeeklyIntakeReportPage() {
       )}
 
       {/* Top Rejection Reason */}
-      {data?.topRejectionReason && (
+      {filteredData?.topRejectionReason && (
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -293,7 +444,7 @@ export default function WeeklyIntakeReportPage() {
               </div>
               <div>
                 <p className="text-sm text-gray-600">Most Common Rejection Reason</p>
-                <p className="font-semibold text-gray-900">{data.topRejectionReason}</p>
+                <p className="font-semibold text-gray-900">{filteredData.topRejectionReason}</p>
               </div>
             </div>
           </CardContent>
@@ -301,9 +452,9 @@ export default function WeeklyIntakeReportPage() {
       )}
 
       {/* Closer Breakdown Table */}
-      {data && (
+      {filteredData && (
         <WeeklyIntakeTable
-          closers={data.closers}
+          closers={filteredData.closers}
           startDate={appliedStartDate}
           endDate={appliedEndDate}
         />
