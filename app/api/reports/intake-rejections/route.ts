@@ -128,7 +128,6 @@ export async function GET(request: NextRequest) {
     let totalStillRejectedAll = 0;
     let totalResubmittedAll = 0;
     const globalReasonCounts: Record<string, number> = {};
-    const allResolvedTimes: number[] = [];
     const allStillRejectedAges: number[] = [];
 
     for (const [officeName, officeProjects] of projectsByOffice) {
@@ -211,31 +210,9 @@ export async function GET(request: NextRequest) {
           percentage: totalRejections > 0 ? (count / totalRejections) * 100 : 0
         }));
 
-      // Average resolution time using task-based calculation
-      // Calculate for rejected projects that were fixed (have completion date)
-      const fixedProjects = officeProjects.filter(p =>
-        wasEverRejected(p) &&
-        p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value
-      );
-
-      const resolutionTimes: number[] = [];
-      for (const project of fixedProjects) {
-        const projectId = project[PROJECT_FIELDS.RECORD_ID]?.value;
-        if (projectId) {
-          const { calculateTaskBasedResolutionTime } = await import('@/lib/quickbase/queries');
-          const resolutionTime = await calculateTaskBasedResolutionTime(projectId);
-          if (resolutionTime !== null && resolutionTime > 0) {
-            resolutionTimes.push(resolutionTime);
-          }
-        }
-      }
-
-      const avgResolutionDays = resolutionTimes.length > 0
-        ? Math.round((resolutionTimes.reduce((sum, time) => sum + time, 0) / resolutionTimes.length) * 10) / 10
-        : null;
-
-      // Add to global resolved times
-      allResolvedTimes.push(...resolutionTimes);
+      // Average resolution time - set to null for now to avoid timeout issues
+      // TODO: Optimize task-based resolution time calculation for better performance
+      const avgResolutionDays = null;
 
       // Calculate ages for still rejected projects (how long they've been sitting)
       const stillRejectedProjects = rejectedProjects.filter(p => !p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value);
@@ -317,10 +294,7 @@ export async function GET(request: NextRequest) {
       }));
 
     // Calculate global averages
-    const avgResolvedDays = allResolvedTimes.length > 0
-      ? Math.round((allResolvedTimes.reduce((sum, time) => sum + time, 0) / allResolvedTimes.length) * 10) / 10
-      : null;
-
+    const avgResolvedDays = null; // Temporarily disabled to avoid timeouts
     const avgStillRejectedDays = allStillRejectedAges.length > 0
       ? Math.round((allStillRejectedAges.reduce((sum, age) => sum + age, 0) / allStillRejectedAges.length) * 10) / 10
       : null;
