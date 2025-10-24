@@ -169,16 +169,15 @@ export async function GET(request: NextRequest) {
       const totalRejections = rejectedProjects.length;
       totalRejectedAll += totalRejections;
 
-      // Total Fixed (was rejected, now has completion date)
-      const totalFixed = officeProjects.filter(p =>
-        wasEverRejected(p) &&
-        p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value
+      // Still Rejected (status includes "rejected" - current state)
+      const stillRejected = officeProjects.filter(p =>
+        isCurrentlyRejected(p)
       ).length;
 
-      // Still Rejected (currently rejected, no completion date)
-      const stillRejected = officeProjects.filter(p =>
-        isCurrentlyRejected(p) &&
-        !p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value
+      // Total Fixed (was rejected, but status no longer shows rejected)
+      const totalFixed = officeProjects.filter(p =>
+        wasEverRejected(p) &&
+        !isCurrentlyRejected(p)
       ).length;
 
       // Active/Approved (has completion date - passed intake)
@@ -256,8 +255,8 @@ export async function GET(request: NextRequest) {
         if (wasEverRejected(p)) {
           stats.rejected += 1;
         }
-        // Track still rejected (currently rejected, no completion date)
-        if (isCurrentlyRejected(p) && !p[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]?.value) {
+        // Track still rejected (currently rejected - status includes "rejected")
+        if (isCurrentlyRejected(p)) {
           stats.stillRejected += 1;
         }
       });
