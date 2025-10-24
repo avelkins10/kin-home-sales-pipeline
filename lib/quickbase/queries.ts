@@ -114,8 +114,7 @@ class InProcessCache {
 
 const commissionCache = new InProcessCache();
 
-// Quickbase table IDs
-const QB_TABLE_PROJECTS = (process.env.QUICKBASE_TABLE_PROJECTS || 'br9kwm8na').trim();
+// Quickbase table IDs (QB_TABLE_PROJECTS is imported from fieldIds.ts)
 const QB_TABLE_ADDERS = (process.env.QUICKBASE_TABLE_ADDERS || 'bsaycczmf').trim();
 
 // Helper function to get managed user IDs for team leads
@@ -5995,4 +5994,461 @@ function transformProjectToOutreachRecord(record: any, source: 'followups' | 'we
     daysInStage,
     isUnresponsive
   };
+}
+
+// =============================================================================
+// COMMUNICATION HUB QUERY FUNCTIONS
+// =============================================================================
+
+/**
+ * Get PC inbound sales rep queue (Sales Aid Requests)
+ */
+export async function getPCInboundRepQueue(
+  pcEmail: string,
+  pcName: string,
+  reqId: string
+): Promise<PCSalesAidRequest[]> {
+  const startTime = Date.now();
+  
+  try {
+    logQuickbaseRequest('getPCInboundRepQueue', { pcEmail, pcName }, reqId);
+
+    const sanitizedName = sanitizeQuickbaseValue(pcName);
+    
+    // Query Sales Aid Requests table
+    const salesAidQuery = {
+      from: QB_TABLE_SALES_AID_REQUESTS,
+      select: [
+        SALES_AID_FIELDS.RECORD_ID,
+        SALES_AID_FIELDS.DATE_CREATED,
+        SALES_AID_FIELDS.RELATED_PROJECT,
+        SALES_AID_FIELDS.SALES_AID_STATUS,
+        SALES_AID_FIELDS.SALES_AID_REASON,
+        SALES_AID_FIELDS.ESCALATE_TO_SALES_AID,
+        SALES_AID_FIELDS.ESCALATED_DATETIME,
+        SALES_AID_FIELDS.ASSIGNED_ESCALATION_REP,
+        SALES_AID_FIELDS.REP_72_HOUR_DEADLINE,
+        SALES_AID_FIELDS.COMPLETED_DATE
+      ],
+      where: `{${SALES_AID_FIELDS.SALES_AID_STATUS}.EX.'Waiting for Rep'} OR {${SALES_AID_FIELDS.SALES_AID_STATUS}.EX.'Working With Rep'}`,
+      sortBy: [{ field: SALES_AID_FIELDS.DATE_CREATED, order: 'DESC' }]
+    };
+
+    const salesAidResponse = await qbClient.query(salesAidQuery);
+    
+    if (!salesAidResponse.data || salesAidResponse.data.length === 0) {
+      logQuickbaseResponse('getPCInboundRepQueue', { count: 0 }, reqId, Date.now() - startTime);
+      return [];
+    }
+
+    // Get project IDs for filtering
+    const projectIds = salesAidResponse.data
+      .map((record: any) => record[SALES_AID_FIELDS.RELATED_PROJECT])
+      .filter((id: any) => id);
+
+    if (projectIds.length === 0) {
+      logQuickbaseResponse('getPCInboundRepQueue', { count: 0 }, reqId, Date.now() - startTime);
+      return [];
+    }
+
+    // Query Projects table to get PC's projects and customer data
+    const projectsQuery = {
+      from: QB_TABLE_PROJECTS,
+      select: [
+        PROJECT_FIELDS.RECORD_ID,
+        PROJECT_FIELDS.PROJECT_ID,
+        PROJECT_FIELDS.CUSTOMER_NAME,
+        PROJECT_FIELDS.CLOSER_NAME,
+        PROJECT_FIELDS.CLOSER_EMAIL,
+        PROJECT_FIELDS.PROJECT_COORDINATOR
+      ],
+      where: `{${PROJECT_FIELDS.RECORD_ID}.IN.${projectIds.join(',')}} AND {${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'}`
+    };
+
+    const projectsResponse = await qbClient.query(projectsQuery);
+    
+    if (!projectsResponse.data || projectsResponse.data.length === 0) {
+      logQuickbaseResponse('getPCInboundRepQueue', { count: 0 }, reqId, Date.now() - startTime);
+      return [];
+    }
+
+    // Create project lookup map
+    const projectMap = new Map();
+    projectsResponse.data.forEach((project: any) => {
+      projectMap.set(project[PROJECT_FIELDS.RECORD_ID], {
+        projectId: project[PROJECT_FIELDS.PROJECT_ID],
+        customerName: project[PROJECT_FIELDS.CUSTOMER_NAME],
+        salesRepName: project[PROJECT_FIELDS.CLOSER_NAME],
+        salesRepEmail: project[PROJECT_FIELDS.CLOSER_EMAIL]
+      });
+    });
+
+    // Transform sales aid requests
+    const requests: PCSalesAidRequest[] = salesAidResponse.data
+      .map((record: any) => {
+        const projectData = projectMap.get(record[SALES_AID_FIELDS.RELATED_PROJECT]);
+        if (!projectData) return null;
+
+        const dateCreated = record[SALES_AID_FIELDS.DATE_CREATED];
+        const deadline = record[SALES_AID_FIELDS.REP_72_HOUR_DEADLINE];
+        
+        // Calculate urgency and time waiting
+        const urgency = calculateSalesAidUrgency(deadline, dateCreated);
+        const timeWaiting = Math.floor((Date.now() - new Date(dateCreated).getTime()) / (1000 * 60 * 60 * 24));
+        const messagePreview = record[SALES_AID_FIELDS.SALES_AID_REASON]?.substring(0, 100) || '';
+
+        return {
+          recordId: record[SALES_AID_FIELDS.RECORD_ID],
+          dateCreated,
+          relatedProject: record[SALES_AID_FIELDS.RELATED_PROJECT],
+          projectId: projectData.projectId,
+          customerName: projectData.customerName,
+          salesRepName: projectData.salesRepName,
+          salesRepEmail: projectData.salesRepEmail,
+          salesAidStatus: record[SALES_AID_FIELDS.SALES_AID_STATUS],
+          salesAidReason: record[SALES_AID_FIELDS.SALES_AID_REASON] || '',
+          escalateToSalesAid: record[SALES_AID_FIELDS.ESCALATE_TO_SALES_AID] || false,
+          escalatedDateTime: record[SALES_AID_FIELDS.ESCALATED_DATETIME],
+          assignedEscalationRep: record[SALES_AID_FIELDS.ASSIGNED_ESCALATION_REP] || '',
+          rep72HourDeadline: deadline,
+          completedDate: record[SALES_AID_FIELDS.COMPLETED_DATE],
+          urgency,
+          timeWaiting,
+          messagePreview
+        };
+      })
+      .filter((request: any) => request !== null)
+      .sort((a: PCSalesAidRequest, b: PCSalesAidRequest) => {
+        // Sort by urgency (critical > high > normal), then by time waiting
+        const urgencyOrder = { critical: 0, high: 1, normal: 2 };
+        const urgencyDiff = urgencyOrder[a.urgency] - urgencyOrder[b.urgency];
+        if (urgencyDiff !== 0) return urgencyDiff;
+        return b.timeWaiting - a.timeWaiting;
+      });
+
+    logQuickbaseResponse('getPCInboundRepQueue', { count: requests.length }, reqId, Date.now() - startTime);
+    return requests;
+
+  } catch (error) {
+    logQuickbaseError('getPCInboundRepQueue', error, reqId);
+    throw error;
+  }
+}
+
+/**
+ * Get PC conversation history (Install Communications)
+ */
+export async function getPCConversationHistory(
+  pcEmail: string,
+  pcName: string,
+  filters: PCConversationFilters,
+  reqId: string
+): Promise<PCConversationItem[]> {
+  const startTime = Date.now();
+  
+  try {
+    logQuickbaseRequest('getPCConversationHistory', { pcEmail, pcName, filters }, reqId);
+
+    const sanitizedName = sanitizeQuickbaseValue(pcName);
+    
+    // Build date range filter
+    let dateFilter = '';
+    const now = new Date();
+    switch (filters.dateRange) {
+      case '7days':
+        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        dateFilter = `{${INSTALL_COMMUNICATION_FIELDS.DATE}.GTE.'${sevenDaysAgo.toISOString()}'}`;
+        break;
+      case '30days':
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        dateFilter = `{${INSTALL_COMMUNICATION_FIELDS.DATE}.GTE.'${thirtyDaysAgo.toISOString()}'}`;
+        break;
+      case '90days':
+        const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        dateFilter = `{${INSTALL_COMMUNICATION_FIELDS.DATE}.GTE.'${ninetyDaysAgo.toISOString()}'}`;
+        break;
+    }
+
+    // Build tab filter
+    let tabFilter = '';
+    switch (filters.tab) {
+      case 'needs_response':
+        tabFilter = `{${INSTALL_COMMUNICATION_FIELDS.NEM_BLOCKER_OUTREACH}.EX.'Yes'}`;
+        break;
+      case 'scheduled':
+        tabFilter = `{${INSTALL_COMMUNICATION_FIELDS.DATE}.GT.'${now.toISOString()}'}`;
+        break;
+    }
+
+    // Build search filter
+    let searchFilter = '';
+    if (filters.search) {
+      const searchTerm = sanitizeQuickbaseValue(filters.search);
+      searchFilter = `{${INSTALL_COMMUNICATION_FIELDS.COMMUNICATION_NOTE}.CT.'${searchTerm}'}`;
+    }
+
+    // Combine filters
+    const whereConditions = [
+      `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'}`,
+      dateFilter,
+      tabFilter,
+      searchFilter
+    ].filter(Boolean);
+
+    // Query Install Communications with Projects join
+    const communicationsQuery = {
+      from: QB_TABLE_INSTALL_COMMUNICATIONS,
+      select: [
+        INSTALL_COMMUNICATION_FIELDS.RECORD_ID,
+        INSTALL_COMMUNICATION_FIELDS.DATE,
+        INSTALL_COMMUNICATION_FIELDS.NOTE_BY,
+        INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT,
+        INSTALL_COMMUNICATION_FIELDS.COMMUNICATION_NOTE,
+        INSTALL_COMMUNICATION_FIELDS.NEM_BLOCKER_OUTREACH
+      ],
+      where: whereConditions.join(' AND '),
+      sortBy: [{ field: INSTALL_COMMUNICATION_FIELDS.DATE, order: 'DESC' }]
+    };
+
+    const communicationsResponse = await qbClient.query(communicationsQuery);
+    
+    if (!communicationsResponse.data || communicationsResponse.data.length === 0) {
+      logQuickbaseResponse('getPCConversationHistory', { count: 0 }, reqId, Date.now() - startTime);
+      return [];
+    }
+
+    // Get project data for customer names
+    const projectIds = communicationsResponse.data
+      .map((record: any) => record[INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT])
+      .filter((id: any) => id);
+
+    const projectsQuery = {
+      from: QB_TABLE_PROJECTS,
+      select: [
+        PROJECT_FIELDS.RECORD_ID,
+        PROJECT_FIELDS.PROJECT_ID,
+        PROJECT_FIELDS.CUSTOMER_NAME
+      ],
+      where: `{${PROJECT_FIELDS.RECORD_ID}.IN.${projectIds.join(',')}}`
+    };
+
+    const projectsResponse = await qbClient.query(projectsQuery);
+    const projectMap = new Map();
+    projectsResponse.data?.forEach((project: any) => {
+      projectMap.set(project[PROJECT_FIELDS.RECORD_ID], {
+        projectId: project[PROJECT_FIELDS.PROJECT_ID],
+        customerName: project[PROJECT_FIELDS.CUSTOMER_NAME]
+      });
+    });
+
+    // Transform communications
+    const conversations: PCConversationItem[] = communicationsResponse.data
+      .map((record: any) => {
+        const projectData = projectMap.get(record[INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT]);
+        if (!projectData) return null;
+
+        const content = record[INSTALL_COMMUNICATION_FIELDS.COMMUNICATION_NOTE] || '';
+        const communicationType = detectCommunicationType(content);
+        const twilioSid = extractTwilioSidFromNote(content);
+        const isNemBlocker = record[INSTALL_COMMUNICATION_FIELDS.NEM_BLOCKER_OUTREACH] === 'Yes';
+
+        return {
+          recordId: record[INSTALL_COMMUNICATION_FIELDS.RECORD_ID],
+          date: record[INSTALL_COMMUNICATION_FIELDS.DATE],
+          noteBy: record[INSTALL_COMMUNICATION_FIELDS.NOTE_BY],
+          projectId: projectData.projectId,
+          customerName: projectData.customerName,
+          communicationType,
+          direction: 'outbound', // Most communications are outbound
+          content,
+          twilioSid,
+          duration: null, // Will be populated from Twilio webhooks
+          status: null, // Will be populated from Twilio webhooks
+          isNemBlocker,
+          needsResponse: isNemBlocker
+        };
+      })
+      .filter((conversation: any) => conversation !== null);
+
+    logQuickbaseResponse('getPCConversationHistory', { count: conversations.length }, reqId, Date.now() - startTime);
+    return conversations;
+
+  } catch (error) {
+    logQuickbaseError('getPCConversationHistory', error, reqId);
+    throw error;
+  }
+}
+
+/**
+ * Get PC bulk messaging recipients
+ */
+export async function getPCBulkMessagingRecipients(
+  pcEmail: string,
+  pcName: string,
+  filters: { projectStage?: string; lender?: string; salesRep?: string },
+  reqId: string
+): Promise<PCBulMessagingRecipient[]> {
+  const startTime = Date.now();
+  
+  try {
+    logQuickbaseRequest('getPCBulkMessagingRecipients', { pcEmail, pcName, filters }, reqId);
+
+    const sanitizedName = sanitizeQuickbaseValue(pcName);
+    
+    // Build filter conditions
+    const whereConditions = [
+      `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'}`,
+      `{${PROJECT_FIELDS.PROJECT_STATUS}.EX.'Active'}`
+    ];
+
+    if (filters.projectStage && filters.projectStage !== 'all') {
+      whereConditions.push(`{${PROJECT_FIELDS.PROJECT_STAGE}.EX.'${sanitizeQuickbaseValue(filters.projectStage)}'}`);
+    }
+    if (filters.lender && filters.lender !== 'all') {
+      whereConditions.push(`{${PROJECT_FIELDS.LENDER_NAME}.EX.'${sanitizeQuickbaseValue(filters.lender)}'}`);
+    }
+    if (filters.salesRep && filters.salesRep !== 'all') {
+      whereConditions.push(`{${PROJECT_FIELDS.CLOSER_NAME}.EX.'${sanitizeQuickbaseValue(filters.salesRep)}'}`);
+    }
+
+    // Query Projects table
+    const projectsQuery = {
+      from: QB_TABLE_PROJECTS,
+      select: [
+        PROJECT_FIELDS.RECORD_ID,
+        PROJECT_FIELDS.PROJECT_ID,
+        PROJECT_FIELDS.CUSTOMER_NAME,
+        PROJECT_FIELDS.CUSTOMER_PHONE,
+        PROJECT_FIELDS.PROJECT_STAGE,
+        PROJECT_FIELDS.LENDER_NAME,
+        PROJECT_FIELDS.CLOSER_NAME,
+        PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL
+      ],
+      where: whereConditions.join(' AND ')
+    };
+
+    const projectsResponse = await qbClient.query(projectsQuery);
+    
+    if (!projectsResponse.data || projectsResponse.data.length === 0) {
+      logQuickbaseResponse('getPCBulkMessagingRecipients', { count: 0 }, reqId, Date.now() - startTime);
+      return [];
+    }
+
+    // Transform to recipients, filtering out invalid phone numbers
+    const recipients: PCBulMessagingRecipient[] = projectsResponse.data
+      .map((record: any) => {
+        const phone = record[PROJECT_FIELDS.CUSTOMER_PHONE];
+        if (!phone || phone.length < 10) return null; // Filter out invalid phones
+
+        return {
+          projectId: record[PROJECT_FIELDS.PROJECT_ID],
+          recordId: record[PROJECT_FIELDS.RECORD_ID],
+          customerName: record[PROJECT_FIELDS.CUSTOMER_NAME],
+          customerPhone: phone,
+          projectStage: record[PROJECT_FIELDS.PROJECT_STAGE],
+          lenderName: record[PROJECT_FIELDS.LENDER_NAME],
+          salesRepName: record[PROJECT_FIELDS.CLOSER_NAME],
+          coordinatorEmail: record[PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL]
+        };
+      })
+      .filter((recipient: any) => recipient !== null);
+
+    logQuickbaseResponse('getPCBulkMessagingRecipients', { count: recipients.length }, reqId, Date.now() - startTime);
+    return recipients;
+
+  } catch (error) {
+    logQuickbaseError('getPCBulkMessagingRecipients', error, reqId);
+    throw error;
+  }
+}
+
+/**
+ * Update Sales Aid Request
+ */
+export async function updateSalesAidRequest(
+  recordId: number,
+  updates: {
+    status?: PCSalesAidStatus;
+    escalateToSalesAid?: boolean;
+    assignedRep?: string;
+    completedDate?: string;
+  },
+  reqId: string
+): Promise<boolean> {
+  const startTime = Date.now();
+  
+  try {
+    logQuickbaseRequest('updateSalesAidRequest', { recordId, updates }, reqId);
+
+    const updatePayload: any = {};
+
+    if (updates.status) {
+      updatePayload[SALES_AID_FIELDS.SALES_AID_STATUS] = updates.status;
+    }
+    if (updates.escalateToSalesAid !== undefined) {
+      updatePayload[SALES_AID_FIELDS.ESCALATE_TO_SALES_AID] = updates.escalateToSalesAid;
+    }
+    if (updates.assignedRep) {
+      updatePayload[SALES_AID_FIELDS.ASSIGNED_ESCALATION_REP] = updates.assignedRep;
+    }
+    if (updates.completedDate) {
+      updatePayload[SALES_AID_FIELDS.COMPLETED_DATE] = updates.completedDate;
+    }
+
+    // If status changes to 'Resolved by Rep', set completed date
+    if (updates.status === 'Resolved by Rep' && !updates.completedDate) {
+      updatePayload[SALES_AID_FIELDS.COMPLETED_DATE] = new Date().toISOString();
+    }
+
+    const response = await qbClient.updateRecord(QB_TABLE_SALES_AID_REQUESTS, recordId, updatePayload);
+    
+    logQuickbaseResponse('updateSalesAidRequest', { success: true }, reqId, Date.now() - startTime);
+    return true;
+
+  } catch (error) {
+    logQuickbaseError('updateSalesAidRequest', error, reqId);
+    throw error;
+  }
+}
+
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
+/**
+ * Calculate Sales Aid urgency based on deadline
+ */
+function calculateSalesAidUrgency(deadline: string, dateCreated: string): 'critical' | 'high' | 'normal' {
+  if (!deadline) return 'normal';
+  
+  const deadlineDate = new Date(deadline);
+  const createdDate = new Date(dateCreated);
+  const now = new Date();
+  
+  const hoursUntilDeadline = (deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+  
+  if (hoursUntilDeadline < 0) return 'critical'; // Past deadline
+  if (hoursUntilDeadline < 24) return 'high'; // Within 24 hours
+  return 'normal';
+}
+
+/**
+ * Extract Twilio SID from note content
+ */
+function extractTwilioSidFromNote(note: string): string | null {
+  const sidMatch = note.match(/SID: ([A-Z]{2}[a-z0-9]{32})/);
+  return sidMatch ? sidMatch[1] : null;
+}
+
+/**
+ * Detect communication type from note content
+ */
+function detectCommunicationType(note: string): 'sms' | 'call' | 'email' | 'note' {
+  const lowerNote = note.toLowerCase();
+  
+  if (lowerNote.includes('sms sent') || lowerNote.includes('text message')) return 'sms';
+  if (lowerNote.includes('call initiated') || lowerNote.includes('phone call')) return 'call';
+  if (lowerNote.includes('email sent') || lowerNote.includes('email sent')) return 'email';
+  
+  return 'note';
 }
