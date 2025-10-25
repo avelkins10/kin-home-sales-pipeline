@@ -42,6 +42,7 @@ import { buildProjectAccessClause } from '@/lib/auth/projectAuthorization';
 import { enrichUsersFromProjects } from '@/lib/users/enrich-users-from-projects';
 import type { TeamActivityItem, TeamActivityType } from '@/lib/types/dashboard';
 import { isManagerRole } from '@/lib/utils/role-helpers';
+import { calculateSalesAidUrgency } from '@/lib/utils/escalation-helpers';
 import type { MetricsScope, TeamMemberCommission, TeamMemberBuckets } from '@/lib/types/dashboard';
 import { parseQuickbaseDate } from '@/lib/utils/date-helpers';
 import type { OfficeMetrics, RepPerformance, PipelineForecast, MilestoneTimings } from '@/lib/types/analytics';
