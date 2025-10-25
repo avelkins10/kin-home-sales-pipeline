@@ -369,3 +369,41 @@ export async function ensureUserExists(
     throw error;
   }
 }
+
+/**
+ * Get user role by email for message role determination
+ * Returns 'pc' for operations roles, 'rep' for sales roles
+ * 
+ * @param email - User email to lookup
+ * @returns 'pc' | 'rep' | null if user not found
+ */
+export async function getUserRoleByEmail(email: string): Promise<'pc' | 'rep' | null> {
+  try {
+    const result = await sql`
+      SELECT role FROM users 
+      WHERE LOWER(email) = ${email.toLowerCase()}
+      LIMIT 1
+    `;
+
+    if (result.rows.length === 0) {
+      return null;
+    }
+
+    const role = result.rows[0].role;
+    
+    // Map roles to PC/Rep classification
+    if (['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'].includes(role)) {
+      return 'pc';
+    } else if (['closer', 'setter'].includes(role)) {
+      return 'rep';
+    }
+    
+    // Default fallback - log for remediation
+    console.warn(`[getUserRoleByEmail] Unknown role '${role}' for user ${email}, defaulting to 'rep'`);
+    return 'rep';
+    
+  } catch (error) {
+    console.error(`[getUserRoleByEmail] Error looking up role for ${email}:`, error);
+    return null;
+  }
+}

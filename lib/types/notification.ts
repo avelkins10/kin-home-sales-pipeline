@@ -9,7 +9,12 @@ export type NotificationType =
   | 'task_submitted'
   | 'task_approved'
   | 'task_revision_needed'
-  | 'all_tasks_complete';
+  | 'all_tasks_complete'
+  | 'milestone_survey_late'
+  | 'milestone_install_late'
+  | 'milestone_nem_overdue'
+  | 'milestone_pto_overdue'
+  | 'milestone_unresponsive_escalation';
 export type NotificationSource = 'quickbase' | 'internal' | 'system';
 
 export interface Notification {
@@ -94,6 +99,17 @@ export interface TaskNotificationMetadata {
   ops_feedback?: string;
   total_tasks?: number;
   approved_tasks?: number;
+}
+
+export interface PCMilestoneNotificationMetadata {
+  milestone_type: 'survey' | 'install' | 'nem' | 'pto' | 'unresponsive';
+  scheduled_date: string; // ISO date
+  days_overdue: number;
+  days_in_phase: number;
+  days_since_contact: number;
+  contact_attempts: number;
+  current_stage: string;
+  recommended_action: string;
 }
 
 // Unread count responses

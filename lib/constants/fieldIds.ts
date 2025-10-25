@@ -457,6 +457,40 @@ export const PROJECT_FIELDS = {
   TOTAL_TASKS: 9999,               // ⚠️ VIRTUAL - Total tasks count
   UNAPPROVED_TASKS: 9998,          // ⚠️ VIRTUAL - Unapproved tasks count
 
+  // ============================================================
+  // PC (PROJECT COORDINATOR) SPECIFIC FIELDS
+  // ============================================================
+
+  // PC Outreach Fields (4 fields)
+  PC_OUTREACH_DUE: 2268,           // ✅ PRIMARY - # of Due Milestone Outreach records
+  PC_OUTREACH_PREFERRED_METHOD: 2404, // ✅ PRIMARY - PC Outreach: Preferred Outreach Method (Text/Email/Call)
+  PC_OUTREACH_CREATE_CHECKIN: 2287, // ✅ PRIMARY - PC Outreach: Create Check-In? (checkbox)
+  PC_OUTREACH_RECORDS_COUNT: 2267,  // ✅ PRIMARY - # of Outreach records
+  PC_MAX_OUTREACH_COMPLETED: 2264,  // ✅ PRIMARY - Maximum PC Outreach Completed Date
+
+  // PC Escalation Fields (2 fields)
+  PC_ESCALATIONS: 2422,            // ✅ PRIMARY - # of Escalated Sales Aid Records
+  PC_UNRESPONSIVE_COUNT: 1908,     // ✅ PRIMARY - # of Active Unresponsive Sales Aid Records
+
+  // PC Contact Tracking Fields (8 fields)
+  PC_DAYS_SINCE_CONTACT_INTAKE: 1735,    // ✅ PRIMARY - Days Since Last Contact Attempt - Intake
+  PC_DAYS_SINCE_CONTACT_NEM: 1736,       // ✅ PRIMARY - Days Since Last Contact Attempt - NEM
+  PC_DAYS_SINCE_CONTACT_PTO: 1737,       // ✅ PRIMARY - Days Since Last Contact Attempt - PTO
+  PC_DAYS_SINCE_CONTACT_INSTALL: 1738,   // ✅ PRIMARY - Days Since Last Contact Attempt - Install
+  PC_CONTACT_ATTEMPTS_INTAKE: 1708,     // ✅ PRIMARY - # of Contact Attempts - Intake
+  PC_CONTACT_ATTEMPTS_NEM: 1709,        // ✅ PRIMARY - # of Contact Attempts - NEM
+  PC_CONTACT_ATTEMPTS_PTO: 1710,        // ✅ PRIMARY - # of Contact Attempts - PTO
+  PC_CONTACT_ATTEMPTS_INSTALL: 1711,    // ✅ PRIMARY - # of Contact Attempts - Install
+
+  // PC Unresponsive Field (1 field)
+  PC_IS_UNRESPONSIVE: 1909,        // ✅ PRIMARY - Is Unresponsive? (text field with "Yes" value)
+
+  // PC Related Fields (1 field)
+  PC_RELATED_CLOSER_REPCARD_ID: 2277, // ✅ PRIMARY - Related Closer - repcard_id
+
+  // Project Stage (1 field)
+  PROJECT_STAGE: 55,                   // ✅ PRIMARY - Project stage lookup field
+
 } as const;
 
 // Type helper
@@ -484,7 +518,9 @@ export const TASK_FIELDS = {
   TASK_MISSING_ITEM: 31,             // Title Verification, Income Verification, etc.
   REVIEWED_BY_OPS: 40,               // Task-level review timestamp
   REVIEWED_BY_OPS_USER: 41,          // Task-level reviewer
-  OPS_REVIEW_NOTE: 42                // Task-level ops note
+  OPS_REVIEW_NOTE: 42,               // Task-level ops note
+  ASSIGNED_TO: 43,                    // Email of person assigned to task
+  ASSIGNED_BY: 44                     // Email of person who assigned the task
 } as const;
 
 export const TASK_SUBMISSION_FIELDS = {
@@ -512,7 +548,67 @@ export const TASK_TEMPLATE_FIELDS = {
 } as const;
 
 // QuickBase table IDs
+export const QB_TABLE_PROJECTS = 'bqj8x8k8n'; // Projects table ID
 export const QB_TABLE_TASK_GROUPS = 'bu36gem4p';
 export const QB_TABLE_TASKS = 'bu36ggiht';
 export const QB_TABLE_TASK_SUBMISSIONS = 'bu36g8j99';
 export const QB_TABLE_TASK_TEMPLATES = 'bu36jyuf9';
+
+// PC Operations table IDs
+export const QB_TABLE_OUTREACH_RECORDS = 'btvik5kwi';
+export const QB_TABLE_SALES_AID_REQUESTS = 'bt3m39fgr';
+export const QB_TABLE_INSTALL_COMMUNICATIONS = 'bsb6bqt3b';
+export const QB_TABLE_NOTIFICATION_AUDIT = 'btvik5kwi'; // TODO: Replace with actual audit table ID
+
+// Outreach Records table fields
+export const OUTREACH_RECORD_FIELDS = {
+  RECORD_ID: 3,                    // QuickBase record ID
+  DATE_CREATED: 1,                 // When record was created
+  RELATED_PROJECT: 10,             // Links to Projects table
+  PROJECT_COORDINATOR: 17,         // Project coordinator name
+  OUTREACH_COMPLETED_DATE: 18,     // When outreach was completed
+  OUTREACH_STATUS: 43,             // Status of outreach attempt
+  NUM_ATTEMPTS: 44,                // Number of contact attempts
+  REPORTING_DUE_DATE: 54,          // When reporting is due
+  NEXT_OUTREACH_DUE_DATE: 86,      // Next scheduled outreach
+  NOTE: 8,                         // General notes
+  ATTEMPT_NOTE: 37,                // Notes about specific attempt
+  PROJECT_STAGE_LOOKUP: 55,        // Project Stage lookup field
+  PROJECT_STATUS_LOOKUP: 56        // Project Status lookup field
+} as const;
+
+// Sales Aid Requests table fields
+export const SALES_AID_FIELDS = {
+  RECORD_ID: 3,                    // QuickBase record ID
+  DATE_CREATED: 1,                 // When record was created
+  SALES_AID_STATUS: 103,           // Status of sales aid request
+  SALES_AID_REASON: 84,            // Reason for sales aid request
+  ESCALATE_TO_SALES_AID: 93,       // Escalation flag
+  ESCALATED_DATETIME: 108,         // When escalated
+  ASSIGNED_ESCALATION_REP: 109,    // Assigned escalation rep
+  RELATED_PROJECT: 85,              // Links to Projects table
+  REP_72_HOUR_DEADLINE: 91,        // 72-hour deadline
+  COMPLETED_DATE: 119              // When completed
+} as const;
+
+// Install Communications table fields
+export const INSTALL_COMMUNICATION_FIELDS = {
+  RECORD_ID: 3,                    // QuickBase record ID
+  DATE: 8,                         // Communication date
+  NOTE_BY: 9,                      // Who wrote the note
+  RELATED_PROJECT: 13,             // Links to Projects table
+  COMMUNICATION_NOTE: 15,          // The actual note content
+  NEM_BLOCKER_OUTREACH: 135        // NEM blocker outreach flag
+} as const;
+
+// Notification Audit table fields
+export const NOTIFICATION_AUDIT_FIELDS = {
+  RECORD_ID: 3,                    // QuickBase record ID
+  NOTIFICATION_ID: 6,              // Notification ID from our system
+  NOTIFICATION_TYPE: 7,            // Type of notification
+  PROJECT_ID: 8,                   // Related project ID
+  USER_ID: 9,                      // User who received notification
+  TIMESTAMP: 10,                    // When notification was sent
+  METADATA: 11,                    // JSON metadata
+  STATUS: 12                        // Notification status (sent, failed, etc.)
+} as const;

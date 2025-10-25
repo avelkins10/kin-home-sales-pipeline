@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "sync:contacts": "tsx scripts/sync-users-from-contacts.ts",
+    "sync:contacts:dry-run": "tsx scripts/sync-users-from-contacts.ts --dry-run",
+    "sync:contacts:verbose": "tsx scripts/sync-users-from-contacts.ts --verbose",
+    "migrate:sync-runs": "node scripts/run-user-sync-runs-migration.js"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -38,7 +42,9 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.0.0",
     "date-fns": "^4.1.0",
+    "html2canvas": "^1.4.1",
     "idb": "^8.0.0",
+    "jspdf": "^2.5.2",
     "lucide-react": "^0.294.0",
     "moment": "^2.30.1",
     "next": "14.0.0",
@@ -54,6 +60,7 @@
     "sonner": "^1.2.0",
     "tailwind-merge": "^2.0.0",
     "tailwindcss": "^3.3.0",
+    "twilio": "^5.3.7",
     "typescript": "^5.0.0",
     "use-debounce": "^10.0.6",
     "uuid": "^13.0.0",
@@ -62,10 +69,12 @@
     "zustand": "^4.4.0"
   },
   "devDependencies": {
+    "@types/html2canvas": "^1.0.0",
     "@types/node": "^20.0.0",
     "@types/react": "^18.0.0",
     "@types/react-big-calendar": "^1.16.3",
     "@types/react-dom": "^18.0.0",
+    "dotenv": "^16.0.0",
     "eslint": "^8.57.1",
     "eslint-config-next": "14.0.0"
   }

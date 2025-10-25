@@ -14,6 +14,8 @@ export const __isServerOnly = true as const
 // This module must not be imported by client components
 import { qbClient } from './client';
 import { logError, logInfo, logWarn, logQuickbaseRequest, logQuickbaseResponse, logQuickbaseError } from '@/lib/logging/logger';
+import { markMessagesAsRead, getMessagesReadStatus } from '@/lib/db/messageReadReceipts';
+import { getUserRoleByEmail } from '@/lib/users/enrich-user';
 import {
   PROJECT_FIELDS,
   TASK_FIELDS,
@@ -23,13 +25,16 @@ import {
   TASK_TEMPLATE_FIELDS,
   NOTIFICATION_AUDIT_FIELDS,
   OUTREACH_RECORD_FIELDS,
+  SALES_AID_FIELDS,
   QB_TABLE_PROJECTS,
   QB_TABLE_TASKS,
   QB_TABLE_TASK_GROUPS,
   QB_TABLE_TASK_SUBMISSIONS,
   QB_TABLE_TASK_TEMPLATES,
   QB_TABLE_NOTIFICATION_AUDIT,
-  QB_TABLE_OUTREACH_RECORDS
+  QB_TABLE_OUTREACH_RECORDS,
+  QB_TABLE_INSTALL_COMMUNICATIONS,
+  QB_TABLE_SALES_AID_REQUESTS
 } from '@/lib/constants/fieldIds';
 import { ADDER_FIELDS } from '@/lib/constants/adderFieldIds';
 import { sql } from '@/lib/db/client';
@@ -41,16 +46,26 @@ import type { MetricsScope, TeamMemberCommission, TeamMemberBuckets } from '@/li
 import { parseQuickbaseDate } from '@/lib/utils/date-helpers';
 import type { OfficeMetrics, RepPerformance, PipelineForecast, MilestoneTimings } from '@/lib/types/analytics';
 import type { Task, TaskSubmission, TaskStatus, TaskTemplate } from '@/lib/types/task';
-import type { 
-  PCDashboardMetrics, 
-  PCPriorityQueueItem, 
-  PCProjectPipelineStage, 
+import type {
+  PCDashboardMetrics,
+  PCPriorityQueueItem,
+  PCProjectPipelineStage,
   PCActivityFeedItem,
   PCOutreachRecord,
   PCOutreachTabData,
   PCOutreachBulkAction,
   PCOutreachBulkActionResult,
-  PCOutreachStatus
+  PCOutreachStatus,
+  PCBulkMessagingRecipient,
+  PCConversationItem,
+  PCProjectDocument,
+  PCTeamMember,
+  PCTask,
+  PCTaskSubmission,
+  PCMessage,
+  PCTaskAssignmentPayload,
+  PCTaskType,
+  PCSalesAidRequest
 } from '@/lib/types/operations';
 
 /**
@@ -6093,7 +6108,7 @@ export async function getPCInboundRepQueue(
         const deadline = record[SALES_AID_FIELDS.REP_72_HOUR_DEADLINE];
         
         // Calculate urgency and time waiting
-        const urgency = calculateSalesAidUrgency(deadline, dateCreated);
+        const urgency = calculateSalesAidUrgency(deadline);
         const timeWaiting = Math.floor((Date.now() - new Date(dateCreated).getTime()) / (1000 * 60 * 60 * 24));
         const messagePreview = record[SALES_AID_FIELDS.SALES_AID_REASON]?.substring(0, 100) || '';
 
@@ -6227,7 +6242,9 @@ export async function getPCConversationHistory(
       select: [
         PROJECT_FIELDS.RECORD_ID,
         PROJECT_FIELDS.PROJECT_ID,
-        PROJECT_FIELDS.CUSTOMER_NAME
+        PROJECT_FIELDS.CUSTOMER_NAME,
+        PROJECT_FIELDS.CUSTOMER_PHONE,
+        PROJECT_FIELDS.PROJECT_STAGE
       ],
       where: `{${PROJECT_FIELDS.RECORD_ID}.IN.${projectIds.join(',')}}`
     };
@@ -6237,7 +6254,9 @@ export async function getPCConversationHistory(
     projectsResponse.data?.forEach((project: any) => {
       projectMap.set(project[PROJECT_FIELDS.RECORD_ID], {
         projectId: project[PROJECT_FIELDS.PROJECT_ID],
-        customerName: project[PROJECT_FIELDS.CUSTOMER_NAME]
+        customerName: project[PROJECT_FIELDS.CUSTOMER_NAME],
+        customerPhone: project[PROJECT_FIELDS.CUSTOMER_PHONE],
+        projectStage: project[PROJECT_FIELDS.PROJECT_STAGE]
       });
     });
 
@@ -6258,6 +6277,7 @@ export async function getPCConversationHistory(
           noteBy: record[INSTALL_COMMUNICATION_FIELDS.NOTE_BY],
           projectId: projectData.projectId,
           customerName: projectData.customerName,
+          customerPhone: projectData.customerPhone,
           communicationType,
           direction: 'outbound', // Most communications are outbound
           content,
@@ -6265,13 +6285,31 @@ export async function getPCConversationHistory(
           duration: null, // Will be populated from Twilio webhooks
           status: null, // Will be populated from Twilio webhooks
           isNemBlocker,
-          needsResponse: isNemBlocker
+          needsResponse: isNemBlocker,
+          projectStage: projectData.projectStage
         };
       })
       .filter((conversation: any) => conversation !== null);
 
-    logQuickbaseResponse('getPCConversationHistory', { count: conversations.length }, reqId, Date.now() - startTime);
-    return conversations;
+    // Apply server-side filtering
+    let filteredConversations = conversations;
+
+    // Filter by communicationType
+    if (filters.communicationType && filters.communicationType !== 'all') {
+      filteredConversations = filteredConversations.filter(
+        conversation => conversation.communicationType === filters.communicationType
+      );
+    }
+
+    // Filter by projectStage
+    if (filters.projectStage && filters.projectStage !== 'all') {
+      filteredConversations = filteredConversations.filter(
+        conversation => conversation.projectStage === filters.projectStage
+      );
+    }
+
+    logQuickbaseResponse('getPCConversationHistory', { count: filteredConversations.length }, reqId, Date.now() - startTime);
+    return filteredConversations;
 
   } catch (error) {
     logQuickbaseError('getPCConversationHistory', error, reqId);
@@ -6287,7 +6325,7 @@ export async function getPCBulkMessagingRecipients(
   pcName: string,
   filters: { projectStage?: string; lender?: string; salesRep?: string },
   reqId: string
-): Promise<PCBulMessagingRecipient[]> {
+): Promise<PCBulkMessagingRecipient[]> {
   const startTime = Date.now();
   
   try {
@@ -6335,7 +6373,7 @@ export async function getPCBulkMessagingRecipients(
     }
 
     // Transform to recipients, filtering out invalid phone numbers
-    const recipients: PCBulMessagingRecipient[] = projectsResponse.data
+    const recipients: PCBulkMessagingRecipient[] = projectsResponse.data
       .map((record: any) => {
         const phone = record[PROJECT_FIELDS.CUSTOMER_PHONE];
         if (!phone || phone.length < 10) return null; // Filter out invalid phones
@@ -6372,6 +6410,7 @@ export async function updateSalesAidRequest(
     escalateToSalesAid?: boolean;
     assignedRep?: string;
     completedDate?: string;
+    escalatedDateTime?: string;
   },
   reqId: string
 ): Promise<boolean> {
@@ -6393,6 +6432,9 @@ export async function updateSalesAidRequest(
     }
     if (updates.completedDate) {
       updatePayload[SALES_AID_FIELDS.COMPLETED_DATE] = updates.completedDate;
+    }
+    if (updates.escalatedDateTime) {
+      updatePayload[SALES_AID_FIELDS.ESCALATED_DATETIME] = updates.escalatedDateTime;
     }
 
     // If status changes to 'Resolved by Rep', set completed date
@@ -6418,11 +6460,10 @@ export async function updateSalesAidRequest(
 /**
  * Calculate Sales Aid urgency based on deadline
  */
-function calculateSalesAidUrgency(deadline: string, dateCreated: string): 'critical' | 'high' | 'normal' {
+export function calculateSalesAidUrgency(deadline: string): 'critical' | 'high' | 'normal' {
   if (!deadline) return 'normal';
   
   const deadlineDate = new Date(deadline);
-  const createdDate = new Date(dateCreated);
   const now = new Date();
   
   const hoursUntilDeadline = (deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60);
@@ -6451,4 +6492,2141 @@ function detectCommunicationType(note: string): 'sms' | 'call' | 'email' | 'note
   if (lowerNote.includes('email sent') || lowerNote.includes('email sent')) return 'email';
   
   return 'note';
+}
+
+// =============================================================================
+// PROJECT DETAIL MODAL QUERIES
+// =============================================================================
+
+/**
+ * Get PC project communications from Install Communications table
+ */
+export async function getPCProjectCommunications(
+  projectId: string,
+  recordId: number,
+  reqId: string
+): Promise<PCConversationItem[]> {
+  const startTime = Date.now();
+  
+  try {
+    logQuickbaseRequest('getPCProjectCommunications', { projectId, recordId }, reqId);
+
+    const whereClause = {
+      or: [
+        { [INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT]: { EX: projectId } },
+        { [INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT]: { EX: recordId } }
+      ]
+    };
+
+    const selectFields = [
+      INSTALL_COMMUNICATION_FIELDS.RECORD_ID,
+      INSTALL_COMMUNICATION_FIELDS.DATE,
+      INSTALL_COMMUNICATION_FIELDS.NOTE_BY,
+      INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT,
+      INSTALL_COMMUNICATION_FIELDS.COMMUNICATION_NOTE,
+      INSTALL_COMMUNICATION_FIELDS.NEM_BLOCKER_OUTREACH
+    ];
+
+    const response = await qbClient.queryRecords(QB_TABLE_INSTALL_COMMUNICATIONS, {
+      where: whereClause,
+      select: selectFields,
+      sortBy: [{ field: INSTALL_COMMUNICATION_FIELDS.DATE, desc: true }]
+    });
+
+    const communications: PCConversationItem[] = response.data.map((record: any) => ({
+      recordId: record[INSTALL_COMMUNICATION_FIELDS.RECORD_ID],
+      date: record[INSTALL_COMMUNICATION_FIELDS.DATE],
+      noteBy: record[INSTALL_COMMUNICATION_FIELDS.NOTE_BY],
+      projectId: projectId,
+      customerName: '', // Will be populated from project data
+      customerPhone: '', // Will be populated from project data
+      communicationType: detectCommunicationType(record[INSTALL_COMMUNICATION_FIELDS.COMMUNICATION_NOTE] || ''),
+      direction: 'outbound', // Default for PC communications
+      content: record[INSTALL_COMMUNICATION_FIELDS.COMMUNICATION_NOTE] || '',
+      twilioSid: extractTwilioSidFromNote(record[INSTALL_COMMUNICATION_FIELDS.COMMUNICATION_NOTE] || ''),
+      duration: null,
+      status: null,
+      isNemBlocker: isTrueQB(record[INSTALL_COMMUNICATION_FIELDS.NEM_BLOCKER_OUTREACH]),
+      needsResponse: false,
+      projectStage: '' // Will be populated from project data
+    }));
+
+    logQuickbaseResponse('getPCProjectCommunications', { count: communications.length }, reqId, Date.now() - startTime);
+    return communications;
+
+  } catch (error) {
+    logQuickbaseError('getPCProjectCommunications', error, reqId);
+    throw error;
+  }
+}
+
+/**
+ * Get PC project documents (placeholder implementation)
+ * TODO: Identify document fields in Projects table or separate Documents table
+ */
+export async function getPCProjectDocuments(
+  projectId: string,
+  recordId: number,
+  reqId: string
+): Promise<PCProjectDocument[]> {
+  const startTime = Date.now();
+  
+  try {
+    logQuickbaseRequest('getPCProjectDocuments', { projectId, recordId }, reqId);
+
+    // TODO: Implement document query once document fields are identified
+    // For now, return empty array
+    const documents: PCProjectDocument[] = [];
+
+    logQuickbaseResponse('getPCProjectDocuments', { count: documents.length }, reqId, Date.now() - startTime);
+    return documents;
+
+  } catch (error) {
+    logQuickbaseError('getPCProjectDocuments', error, reqId);
+    throw error;
+  }
+}
+
+/**
+ * Create a project note in Install Communications table
+ */
+export async function createProjectNote(
+  projectId: string,
+  recordId: number,
+  noteContent: string,
+  authorEmail: string,
+  reqId: string
+): Promise<boolean> {
+  const startTime = Date.now();
+  
+  try {
+    logQuickbaseRequest('createProjectNote', { projectId, recordId, noteContent, authorEmail }, reqId);
+
+    const noteData = {
+      [INSTALL_COMMUNICATION_FIELDS.DATE]: new Date().toISOString(),
+      [INSTALL_COMMUNICATION_FIELDS.NOTE_BY]: authorEmail,
+      [INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT]: recordId,
+      [INSTALL_COMMUNICATION_FIELDS.COMMUNICATION_NOTE]: noteContent,
+      [INSTALL_COMMUNICATION_FIELDS.NEM_BLOCKER_OUTREACH]: false
+    };
+
+    const response = await qbClient.createRecord(QB_TABLE_INSTALL_COMMUNICATIONS, noteData);
+    
+    logQuickbaseResponse('createProjectNote', { success: true, recordId: response.data }, reqId, Date.now() - startTime);
+    return true;
+
+  } catch (error) {
+    logQuickbaseError('createProjectNote', error, reqId);
+    throw error;
+  }
+}
+
+/**
+ * Transform project data to team members array
+ */
+export function transformProjectToTeamMembers(project: any): PCTeamMember[] {
+  const teamMembers: PCTeamMember[] = [];
+
+  // Extract closer information
+  if (project[PROJECT_FIELDS.CLOSER_NAME] && project[PROJECT_FIELDS.CLOSER_EMAIL]) {
+    teamMembers.push({
+      role: 'closer',
+      name: project[PROJECT_FIELDS.CLOSER_NAME],
+      email: project[PROJECT_FIELDS.CLOSER_EMAIL],
+      phone: project[PROJECT_FIELDS.CLOSER_PHONE] || '',
+      userId: project[PROJECT_FIELDS.CLOSER_ID] || ''
+    });
+  }
+
+  // Extract setter information
+  if (project[PROJECT_FIELDS.SETTER_NAME] && project[PROJECT_FIELDS.SETTER_EMAIL]) {
+    teamMembers.push({
+      role: 'setter',
+      name: project[PROJECT_FIELDS.SETTER_NAME],
+      email: project[PROJECT_FIELDS.SETTER_EMAIL],
+      phone: project[PROJECT_FIELDS.SETTER_PHONE] || '',
+      userId: project[PROJECT_FIELDS.SETTER_ID] || ''
+    });
+  }
+
+  // Extract project coordinator information
+  if (project[PROJECT_FIELDS.PROJECT_COORDINATOR_NAME] && project[PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL]) {
+    teamMembers.push({
+      role: 'coordinator',
+      name: project[PROJECT_FIELDS.PROJECT_COORDINATOR_NAME],
+      email: project[PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL],
+      phone: project[PROJECT_FIELDS.PROJECT_COORDINATOR_PHONE] || '',
+      userId: project[PROJECT_FIELDS.PROJECT_COORDINATOR_ID] || ''
+    });
+  }
+
+  // Filter out members without names
+  return teamMembers.filter(member => member.name && member.name.trim() !== '');
+}
+
+// =============================================================================
+// PC ↔ REP COLLABORATION QUERIES
+// =============================================================================
+
+/**
+ * Get PC tasks for a specific project
+ */
+export async function getPCTasksForProject(
+  projectId: string,
+  recordId: number,
+  reqId: string
+): Promise<PCTask[]> {
+  const startTime = Date.now();
+  
+  try {
+    logQuickbaseRequest('getPCTasksForProject', { projectId, recordId }, reqId);
+
+    // First, get task groups for this project
+    const taskGroupsResponse = await qbClient.queryRecords(QB_TABLE_TASK_GROUPS, {
+      where: { [TASK_GROUP_FIELDS.RELATED_PROJECT]: { EX: recordId } },
+      select: [TASK_GROUP_FIELDS.RECORD_ID]
+    });
+
+    if (taskGroupsResponse.data.length === 0) {
+      logQuickbaseResponse('getPCTasksForProject', { count: 0 }, reqId, Date.now() - startTime);
+      return [];
+    }
+
+    const taskGroupIds = taskGroupsResponse.data.map((group: any) => group[TASK_GROUP_FIELDS.RECORD_ID]);
+
+    // Query tasks in these groups that are PC-assigned (TASK_CATEGORY starts with 'PC:')
+    const tasksResponse = await qbClient.queryRecords(QB_TABLE_TASKS, {
+      where: {
+        and: [
+          { [TASK_FIELDS.TASK_GROUP]: { IN: taskGroupIds } },
+          { [TASK_FIELDS.TASK_CATEGORY]: { BEGINS: 'PC:' } }
+        ]
+      },
+      select: [
+        TASK_FIELDS.RECORD_ID,
+        TASK_FIELDS.DATE_CREATED,
+        TASK_FIELDS.DATE_MODIFIED,
+        TASK_FIELDS.TASK_GROUP,
+        TASK_FIELDS.STATUS,
+        TASK_FIELDS.NAME,
+        TASK_FIELDS.DESCRIPTION,
+        TASK_FIELDS.TASK_CATEGORY,
+        TASK_FIELDS.ASSIGNED_TO,
+        TASK_FIELDS.ASSIGNED_BY
+      ]
+    });
+
+    // Collect all task IDs for batch submission query
+    const taskIds = tasksResponse.data.map((task: any) => task[TASK_FIELDS.RECORD_ID]);
+    
+    // Batch query all submissions for all tasks
+    let allSubmissions: any[] = [];
+    if (taskIds.length > 0) {
+      const submissionsResponse = await qbClient.queryRecords(QB_TABLE_TASK_SUBMISSIONS, {
+        where: { [TASK_SUBMISSION_FIELDS.RELATED_TASK]: { IN: taskIds } },
+        select: [
+          TASK_SUBMISSION_FIELDS.RECORD_ID,
+          TASK_SUBMISSION_FIELDS.DATE_CREATED,
+          TASK_SUBMISSION_FIELDS.RELATED_TASK,
+          TASK_SUBMISSION_FIELDS.SUBMISSION_STATUS,
+          TASK_SUBMISSION_FIELDS.SUBMISSION_NOTE,
+          TASK_SUBMISSION_FIELDS.FILE_ATTACHMENT_1,
+          TASK_SUBMISSION_FIELDS.FILE_ATTACHMENT_2,
+          TASK_SUBMISSION_FIELDS.FILE_ATTACHMENT_3,
+          TASK_SUBMISSION_FIELDS.SUBMITTED_BY
+        ]
+      });
+      allSubmissions = submissionsResponse.data;
+    }
+
+    // Group submissions by task ID
+    const submissionsByTask: Record<number, any[]> = {};
+    allSubmissions.forEach((sub: any) => {
+      const taskId = sub[TASK_SUBMISSION_FIELDS.RELATED_TASK];
+      if (!submissionsByTask[taskId]) {
+        submissionsByTask[taskId] = [];
+      }
+      submissionsByTask[taskId].push(sub);
+    });
+
+    const tasks: PCTask[] = [];
+
+    // Process each task
+    for (const taskRecord of tasksResponse.data) {
+      const taskType = parsePCTaskType(taskRecord[TASK_FIELDS.TASK_CATEGORY]);
+      if (!taskType) continue; // Skip if not a valid PC task type
+
+      // Get submissions for this task from the grouped data
+      const taskSubmissions = submissionsByTask[taskRecord[TASK_FIELDS.RECORD_ID]] || [];
+      const submissions: PCTaskSubmission[] = taskSubmissions.map((sub: any) => ({
+        recordId: sub[TASK_SUBMISSION_FIELDS.RECORD_ID],
+        dateCreated: sub[TASK_SUBMISSION_FIELDS.DATE_CREATED],
+        relatedTask: sub[TASK_SUBMISSION_FIELDS.RELATED_TASK],
+        submissionStatus: sub[TASK_SUBMISSION_FIELDS.SUBMISSION_STATUS] || '',
+        submissionNote: sub[TASK_SUBMISSION_FIELDS.SUBMISSION_NOTE] || '',
+        fileAttachments: [
+          sub[TASK_SUBMISSION_FIELDS.FILE_ATTACHMENT_1],
+          sub[TASK_SUBMISSION_FIELDS.FILE_ATTACHMENT_2],
+          sub[TASK_SUBMISSION_FIELDS.FILE_ATTACHMENT_3]
+        ].filter(Boolean),
+        submittedBy: sub[TASK_SUBMISSION_FIELDS.SUBMITTED_BY] || ''
+      }));
+
+      // Use direct fields instead of parsing description
+      const description = taskRecord[TASK_FIELDS.DESCRIPTION] || '';
+      const assignedTo = taskRecord[TASK_FIELDS.ASSIGNED_TO] || '';
+      const assignedBy = taskRecord[TASK_FIELDS.ASSIGNED_BY] || '';
+      
+      // Parse other details from description (dueDate, priority) as these aren't in separate fields yet
+      const dueDateMatch = description.match(/Due date: ([^\n]+)/);
+      const priorityMatch = description.match(/Priority: ([^\n]+)/);
+
+      tasks.push({
+        recordId: taskRecord[TASK_FIELDS.RECORD_ID],
+        dateCreated: taskRecord[TASK_FIELDS.DATE_CREATED],
+        dateModified: taskRecord[TASK_FIELDS.DATE_MODIFIED],
+        taskGroup: taskRecord[TASK_FIELDS.TASK_GROUP],
+        status: taskRecord[TASK_FIELDS.STATUS] as 'Not Started' | 'In Progress' | 'Completed' | 'Blocked',
+        name: taskRecord[TASK_FIELDS.NAME],
+        description: description,
+        taskType: taskType,
+        assignedTo: assignedTo,
+        assignedBy: assignedBy,
+        projectId: projectId,
+        customerName: '', // Will be populated from project data
+        dueDate: dueDateMatch ? dueDateMatch[1] : null,
+        priority: (priorityMatch ? priorityMatch[1] : 'normal') as 'high' | 'normal' | 'low',
+        submissions: submissions
+      });
+    }
+
+    // Sort by priority (high > normal > low), then by dateCreated descending
+    tasks.sort((a, b) => {
+      const priorityOrder = { high: 3, normal: 2, low: 1 };
+      const aPriority = priorityOrder[a.priority] || 2;
+      const bPriority = priorityOrder[b.priority] || 2;
+      
+      if (aPriority !== bPriority) return bPriority - aPriority;
+      return new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime();
+    });
+
+    logQuickbaseResponse('getPCTasksForProject', { count: tasks.length }, reqId, Date.now() - startTime);
+    return tasks;
+
+  } catch (error) {
+    logQuickbaseError('getPCTasksForProject', error, reqId);
+    throw error;
+  }
+}
+
+/**
+ * Create a new PC task
+ */
+export async function createPCTask(
+  payload: PCTaskAssignmentPayload,
+  coordinatorEmail: string,
+  reqId: string
+): Promise<number> {
+  const startTime = Date.now();
+  
+  try {
+    logQuickbaseRequest('createPCTask', { payload, coordinatorEmail }, reqId);
+
+    // Validate recordId is a finite number
+    if (!Number.isFinite(payload.recordId) || payload.recordId <= 0) {
+      throw new Error(`Invalid recordId: ${payload.recordId}. Must be a positive number.`);
+    }
+
+    // Get or create task group for the project
+    const taskGroupId = await getOrCreateTaskGroup(payload.projectId, payload.recordId, reqId);
+
+    // Create task name and description
+    const taskName = `PC: ${formatPCTaskName(payload.taskType)}`;
+    const taskDescription = `${payload.description}\n\nAssigned to: ${payload.assignedTo}\nAssigned by: ${coordinatorEmail}\nDue date: ${payload.dueDate || 'Not specified'}\nPriority: ${payload.priority}`;
+
+    // Create the task
+    const taskData = {
+      [TASK_FIELDS.TASK_GROUP]: taskGroupId,
+      [TASK_FIELDS.STATUS]: 'Not Started',
+      [TASK_FIELDS.NAME]: taskName,
+      [TASK_FIELDS.DESCRIPTION]: taskDescription,
+      [TASK_FIELDS.TASK_CATEGORY]: `PC: ${payload.taskType}`,
+      [TASK_FIELDS.ASSIGNED_TO]: payload.assignedTo,
+      [TASK_FIELDS.ASSIGNED_BY]: coordinatorEmail,
+      [TASK_FIELDS.DATE_CREATED]: new Date().toISOString()
+    };
+
+    const taskResponse = await qbClient.createRecord(QB_TABLE_TASKS, taskData);
+    const taskId = taskResponse.data;
+
+    // Create initial Install Communication to notify rep
+    const notificationContent = `New task assigned: ${taskName}\n\n${payload.description}`;
+    await qbClient.createRecord(QB_TABLE_INSTALL_COMMUNICATIONS, {
+      [INSTALL_COMMUNICATION_FIELDS.DATE]: new Date().toISOString(),
+      [INSTALL_COMMUNICATION_FIELDS.NOTE_BY]: coordinatorEmail,
+      [INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT]: payload.recordId,
+      [INSTALL_COMMUNICATION_FIELDS.COMMUNICATION_NOTE]: notificationContent
+    });
+
+    logQuickbaseResponse('createPCTask', { taskId }, reqId, Date.now() - startTime);
+    return taskId;
+
+  } catch (error) {
+    logQuickbaseError('createPCTask', error, reqId);
+    throw error;
+  }
+}
+
+/**
+ * Update PC task status
+ */
+export async function updatePCTaskStatus(
+  taskId: number,
+  status: string,
+  updatedBy: string,
+  reqId: string
+): Promise<boolean> {
+  const startTime = Date.now();
+  
+  try {
+    logQuickbaseRequest('updatePCTaskStatus', { taskId, status, updatedBy }, reqId);
+
+    // First, fetch the task to get its TASK_GROUP
+    const taskResponse = await qbClient.queryRecords(QB_TABLE_TASKS, {
+      where: { [TASK_FIELDS.RECORD_ID]: { EX: taskId } },
+      select: [TASK_FIELDS.TASK_GROUP]
+    });
+
+    if (taskResponse.data.length === 0) {
+      logQuickbaseError('updatePCTaskStatus', new Error('Task not found'), reqId);
+      return false;
+    }
+
+    const taskGroupId = taskResponse.data[0][TASK_FIELDS.TASK_GROUP];
+
+    // Then fetch the Task Group to get the RELATED_PROJECT
+    const taskGroupResponse = await qbClient.queryRecords(QB_TABLE_TASK_GROUPS, {
+      where: { [TASK_GROUP_FIELDS.RECORD_ID]: { EX: taskGroupId } },
+      select: [TASK_GROUP_FIELDS.RELATED_PROJECT]
+    });
+
+    if (taskGroupResponse.data.length === 0) {
+      logQuickbaseError('updatePCTaskStatus', new Error('Task group not found'), reqId);
+      return false;
+    }
+
+    const relatedProjectId = taskGroupResponse.data[0][TASK_GROUP_FIELDS.RELATED_PROJECT];
+
+    // Update the task status
+    await qbClient.updateRecord({
+      to: QB_TABLE_TASKS,
+      data: [
+        { 
+          [3]: { value: taskId }, 
+          [TASK_FIELDS.STATUS]: { value: status },
+          [TASK_FIELDS.DATE_MODIFIED]: { value: new Date().toISOString() }
+        }
+      ]
+    });
+
+    // Create Install Communication to log status change
+    const statusContent = `Task status updated to: ${status}`;
+    await qbClient.createRecord(QB_TABLE_INSTALL_COMMUNICATIONS, {
+      [INSTALL_COMMUNICATION_FIELDS.DATE]: new Date().toISOString(),
+      [INSTALL_COMMUNICATION_FIELDS.NOTE_BY]: updatedBy,
+      [INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT]: relatedProjectId,
+      [INSTALL_COMMUNICATION_FIELDS.COMMUNICATION_NOTE]: statusContent
+    });
+
+    logQuickbaseResponse('updatePCTaskStatus', { success: true }, reqId, Date.now() - startTime);
+    return true;
+
+  } catch (error) {
+    logQuickbaseError('updatePCTaskStatus', error, reqId);
+    throw error;
+  }
+}
+
+/**
+ * Get PC messages for a project (optionally filtered by task)
+ */
+export async function getPCMessagesForProject(
+  projectId: string,
+  recordId: number,
+  taskId: number | null,
+  userEmail: string,
+  reqId: string
+): Promise<PCMessage[]> {
+  const startTime = Date.now();
+  
+  try {
+    logQuickbaseRequest('getPCMessagesForProject', { projectId, recordId, taskId }, reqId);
+
+    const whereClause: any = {
+      [INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT]: { EX: recordId }
+    };
+
+    // If taskId is provided, we'll filter by content metadata
+    // This is a simple implementation - in production, you might want to store taskId in a separate field
+    const response = await qbClient.queryRecords(QB_TABLE_INSTALL_COMMUNICATIONS, {
+      where: whereClause,
+      select: [
+        INSTALL_COMMUNICATION_FIELDS.RECORD_ID,
+        INSTALL_COMMUNICATION_FIELDS.DATE,
+        INSTALL_COMMUNICATION_FIELDS.NOTE_BY,
+        INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT,
+        INSTALL_COMMUNICATION_FIELDS.COMMUNICATION_NOTE
+      ],
+      sortBy: [{ field: INSTALL_COMMUNICATION_FIELDS.DATE, desc: true }]
+    });
+
+    // Get all message IDs for read status lookup
+    const messageIds = response.data.map((record: any) => record[INSTALL_COMMUNICATION_FIELDS.RECORD_ID]);
+    
+    // Get read status for all messages
+    const readStatus = await getMessagesReadStatus(messageIds, userEmail);
+
+    const messagesPromises = response.data.map(async (record: any) => {
+      const content = record[INSTALL_COMMUNICATION_FIELDS.COMMUNICATION_NOTE] || '';
+
+      // Extract mentions from content
+      const mentions = extractMentions(content);
+
+      // Determine role using authoritative user lookup
+      const sentByEmail = record[INSTALL_COMMUNICATION_FIELDS.NOTE_BY];
+      let sentByRole: 'pc' | 'rep' = 'rep'; // Default to rep
+
+      if (sentByEmail) {
+        try {
+          const userRole = await getUserRoleByEmail(sentByEmail);
+          if (userRole) {
+            sentByRole = userRole;
+          } else {
+            // User not found in database - log for remediation
+            console.warn(`[getPCMessagesForProject] User not found in database: ${sentByEmail}, defaulting to 'rep'`);
+          }
+        } catch (error) {
+          // Role lookup failed - log error and use default
+          console.error(`[getPCMessagesForProject] Error looking up role for ${sentByEmail}:`, error);
+        }
+      }
+
+      // Extract task ID from content if present
+      const taskIdMatch = content.match(/taskId: (\d+)/);
+      const relatedTaskId = taskIdMatch ? parseInt(taskIdMatch[1]) : null;
+
+      // If filtering by taskId, only include messages related to that task
+      if (taskId && relatedTaskId !== taskId) return null;
+
+      const messageId = record[INSTALL_COMMUNICATION_FIELDS.RECORD_ID];
+      const isRead = readStatus[messageId] || false;
+
+      return {
+        recordId: messageId,
+        date: record[INSTALL_COMMUNICATION_FIELDS.DATE],
+        sentBy: record[INSTALL_COMMUNICATION_FIELDS.NOTE_BY],
+        sentByRole: sentByRole,
+        projectId: projectId,
+        content: content,
+        relatedTaskId: relatedTaskId,
+        mentions: mentions,
+        isRead: isRead,
+        parentMessageId: null // TODO: Implement threading
+      };
+    });
+
+    const messages: PCMessage[] = (await Promise.all(messagesPromises)).filter(Boolean) as PCMessage[];
+
+    logQuickbaseResponse('getPCMessagesForProject', { count: messages.length }, reqId, Date.now() - startTime);
+    return messages;
+
+  } catch (error) {
+    logQuickbaseError('getPCMessagesForProject', error, reqId);
+    throw error;
+  }
+}
+
+/**
+ * Create a PC message
+ */
+export async function createPCMessage(
+  projectId: string,
+  recordId: number,
+  content: string,
+  sentBy: string,
+  taskId: number | null,
+  mentions: string[],
+  reqId: string
+): Promise<number> {
+  const startTime = Date.now();
+  
+  try {
+    logQuickbaseRequest('createPCMessage', { projectId, recordId, content, sentBy, taskId, mentions }, reqId);
+
+    // Build message content with metadata
+    let messageContent = content;
+    if (taskId) {
+      messageContent += `\n\ntaskId: ${taskId}`;
+    }
+    if (mentions.length > 0) {
+      messageContent += `\n\nmentions: ${mentions.join(',')}`;
+    }
+
+    // Create the message
+    const messageData = {
+      [INSTALL_COMMUNICATION_FIELDS.DATE]: new Date().toISOString(),
+      [INSTALL_COMMUNICATION_FIELDS.NOTE_BY]: sentBy,
+      [INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT]: recordId,
+      [INSTALL_COMMUNICATION_FIELDS.COMMUNICATION_NOTE]: messageContent
+    };
+
+    const response = await qbClient.createRecord(QB_TABLE_INSTALL_COMMUNICATIONS, messageData);
+    const messageId = response.data;
+
+    logQuickbaseResponse('createPCMessage', { messageId }, reqId, Date.now() - startTime);
+    return messageId;
+
+  } catch (error) {
+    logQuickbaseError('createPCMessage', error, reqId);
+    throw error;
+  }
+}
+
+/**
+ * Mark PC messages as read for a specific user
+ */
+export async function markPCMessagesRead(
+  messageIds: number[],
+  userEmail: string,
+  reqId: string
+): Promise<void> {
+  const startTime = Date.now();
+  
+  try {
+    logQuickbaseRequest('markPCMessagesRead', { messageIds, userEmail }, reqId);
+    
+    await markMessagesAsRead(messageIds, userEmail);
+    
+    logQuickbaseResponse('markPCMessagesRead', { messageIds: messageIds.length }, reqId, Date.now() - startTime);
+    
+  } catch (error) {
+    logQuickbaseError('markPCMessagesRead', error, reqId);
+    throw error;
+  }
+}
+
+/**
+ * Get or create task group for a project
+ */
+async function getOrCreateTaskGroup(
+  projectId: string,
+  recordId: number,
+  reqId: string
+): Promise<number> {
+  try {
+    // First, try to find existing task group
+    const existingResponse = await qbClient.queryRecords(QB_TABLE_TASK_GROUPS, {
+      where: { [TASK_GROUP_FIELDS.RELATED_PROJECT]: { EX: recordId } },
+      select: [TASK_GROUP_FIELDS.RECORD_ID]
+    });
+
+    if (existingResponse.data.length > 0) {
+      return existingResponse.data[0][TASK_GROUP_FIELDS.RECORD_ID];
+    }
+
+    // Create new task group
+    const taskGroupData = {
+      [TASK_GROUP_FIELDS.RELATED_PROJECT]: recordId
+    };
+
+    const response = await qbClient.createRecord(QB_TABLE_TASK_GROUPS, taskGroupData);
+    return response.data;
+
+  } catch (error) {
+    logQuickbaseError('getOrCreateTaskGroup', error, reqId);
+    throw error;
+  }
+}
+
+/**
+ * Parse PC task type from TASK_CATEGORY field
+ */
+function parsePCTaskType(taskCategory: string): PCTaskType | null {
+  if (!taskCategory || !taskCategory.startsWith('PC: ')) return null;
+  
+  const taskType = taskCategory.replace('PC: ', '') as PCTaskType;
+  const validTypes: PCTaskType[] = [
+    'callback_customer',
+    'collect_documents',
+    'clarify_pricing',
+    'handle_objection',
+    'schedule_site_visit',
+    'resolve_hoa_issue'
+  ];
+  
+  return validTypes.includes(taskType) ? taskType : null;
+}
+
+/**
+ * Format PC task type to display name
+ */
+function formatPCTaskName(taskType: PCTaskType): string {
+  const displayNames: Record<PCTaskType, string> = {
+    callback_customer: 'Callback Customer',
+    collect_documents: 'Collect Documents',
+    clarify_pricing: 'Clarify Pricing',
+    handle_objection: 'Handle Objection',
+    schedule_site_visit: 'Schedule Site Visit',
+    resolve_hoa_issue: 'Resolve HOA Issue'
+  };
+  
+  return displayNames[taskType];
+}
+
+/**
+ * Extract @mentions from message content
+ */
+function extractMentions(content: string): string[] {
+  const mentionRegex = /@(\w+)/g;
+  const mentions: string[] = [];
+  let match;
+  
+  while ((match = mentionRegex.exec(content)) !== null) {
+    mentions.push(match[1]);
+  }
+  
+  return [...new Set(mentions)]; // Remove duplicates
+}
+
+// =============================================================================
+// ESCALATION MANAGEMENT QUERIES
+// =============================================================================
+
+/**
+ * Get PC escalations from Sales Aid Requests table
+ */
+export async function getPCEscalations(
+  pcEmail: string,
+  pcName: string,
+  filters: PCEscalationFilters,
+  reqId: string
+): Promise<PCEscalation[]> {
+  try {
+    logQuickbaseRequest('getPCEscalations', { pcEmail, pcName, filters }, reqId);
+
+    const sanitizedName = sanitizeQuickbaseValue(pcName);
+    
+    // Build WHERE clause for escalation status
+    const whereClause = `{${SALES_AID_FIELDS.SALES_AID_STATUS}.EX.'Escalated to Sales Aid'}OR{${SALES_AID_FIELDS.ESCALATE_TO_SALES_AID}.EX.true}AND{${SALES_AID_FIELDS.SALES_AID_STATUS}.NE.'Resolved by Rep'}AND{${SALES_AID_FIELDS.SALES_AID_STATUS}.NE.'Task Completed'}`;
+    
+    // Join with Projects table to filter by PC's projects
+    const projectFilter = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'}`;
+    
+    const query = {
+      from: QB_TABLE_SALES_AID_REQUESTS,
+      where: `${whereClause}AND${projectFilter}`,
+      select: [
+        SALES_AID_FIELDS.RECORD_ID,
+        SALES_AID_FIELDS.DATE_CREATED,
+        SALES_AID_FIELDS.RELATED_PROJECT,
+        SALES_AID_FIELDS.SALES_AID_REASON,
+        SALES_AID_FIELDS.SALES_AID_STATUS,
+        SALES_AID_FIELDS.ESCALATE_TO_SALES_AID,
+        SALES_AID_FIELDS.ESCALATED_DATETIME,
+        SALES_AID_FIELDS.REP_72_HOUR_DEADLINE,
+        SALES_AID_FIELDS.ASSIGNED_ESCALATION_REP,
+        SALES_AID_FIELDS.COMPLETED_DATE,
+        SALES_AID_FIELDS.TIME_WAITING,
+        SALES_AID_FIELDS.URGENCY_LEVEL,
+        SALES_AID_FIELDS.ESCALATION_NOTES
+      ],
+      sortBy: [
+        { field: SALES_AID_FIELDS.URGENCY_LEVEL, order: 'DESC' },
+        { field: SALES_AID_FIELDS.TIME_WAITING, order: 'DESC' }
+      ]
+    };
+
+    const response = await qbClient.query(query);
+    
+    if (!response.data) {
+      logQuickbaseResponse('getPCEscalations', { data: [] }, reqId);
+      return [];
+    }
+
+    // Collect unique project IDs for lookup
+    const projectIds = [...new Set(response.data.map((record: any) => record[SALES_AID_FIELDS.RELATED_PROJECT]))];
+    
+    // Fetch project details if we have project IDs
+    let projectDetails: Map<number, any> = new Map();
+    if (projectIds.length > 0) {
+      try {
+        const projectQuery = {
+          from: QB_TABLE_PROJECTS,
+          where: `{${PROJECT_FIELDS.RECORD_ID}.IN.${projectIds.join(',')}}`,
+          select: [
+            PROJECT_FIELDS.RECORD_ID,
+            PROJECT_FIELDS.PROJECT_ID,
+            PROJECT_FIELDS.CUSTOMER_NAME,
+            PROJECT_FIELDS.CLOSER_NAME,
+            PROJECT_FIELDS.CLOSER_EMAIL,
+            PROJECT_FIELDS.SETTER_NAME,
+            PROJECT_FIELDS.SETTER_EMAIL
+          ]
+        };
+        
+        const projectResponse = await qbClient.query(projectQuery);
+        if (projectResponse.data) {
+          projectResponse.data.forEach((project: any) => {
+            projectDetails.set(project[PROJECT_FIELDS.RECORD_ID], project);
+          });
+        }
+      } catch (projectError) {
+        logQuickbaseError('getPCEscalations - project lookup', projectError, reqId);
+        // Continue without project details rather than failing completely
+      }
+    }
+
+    // Transform to PCEscalation format
+    const escalations: PCEscalation[] = response.data.map((record: any) => {
+      const category = categorizeEscalationReason(record[SALES_AID_FIELDS.SALES_AID_REASON]);
+      const urgency = calculateSalesAidUrgency(record[SALES_AID_FIELDS.REP_72_HOUR_DEADLINE]);
+      
+      // Get project details
+      const projectDetail = projectDetails.get(record[SALES_AID_FIELDS.RELATED_PROJECT]);
+      const projectId = projectDetail?.[PROJECT_FIELDS.PROJECT_ID] || '';
+      const customerName = projectDetail?.[PROJECT_FIELDS.CUSTOMER_NAME] || '';
+      const salesRepName = projectDetail?.[PROJECT_FIELDS.CLOSER_NAME] || projectDetail?.[PROJECT_FIELDS.SETTER_NAME] || '';
+      const salesRepEmail = projectDetail?.[PROJECT_FIELDS.CLOSER_EMAIL] || projectDetail?.[PROJECT_FIELDS.SETTER_EMAIL] || '';
+      
+      return {
+        recordId: record[SALES_AID_FIELDS.RECORD_ID],
+        dateCreated: record[SALES_AID_FIELDS.DATE_CREATED],
+        relatedProject: record[SALES_AID_FIELDS.RELATED_PROJECT],
+        projectId,
+        customerName,
+        salesRepName,
+        salesRepEmail,
+        salesAidStatus: record[SALES_AID_FIELDS.SALES_AID_STATUS],
+        salesAidReason: record[SALES_AID_FIELDS.SALES_AID_REASON],
+        escalateToSalesAid: record[SALES_AID_FIELDS.ESCALATE_TO_SALES_AID],
+        escalatedDateTime: record[SALES_AID_FIELDS.ESCALATED_DATETIME],
+        assignedEscalationRep: record[SALES_AID_FIELDS.ASSIGNED_ESCALATION_REP],
+        rep72HourDeadline: record[SALES_AID_FIELDS.REP_72_HOUR_DEADLINE],
+        completedDate: record[SALES_AID_FIELDS.COMPLETED_DATE],
+        urgency,
+        timeWaiting: record[SALES_AID_FIELDS.TIME_WAITING],
+        messagePreview: record[SALES_AID_FIELDS.SALES_AID_REASON]?.substring(0, 100) || '',
+        category,
+        gracePeriodEnd: record[SALES_AID_FIELDS.REP_72_HOUR_DEADLINE],
+        gracePeriodExtended: false, // TODO: Calculate from history
+        resolutionNote: null, // TODO: Get from Install Communications
+        history: [] // TODO: Get from Install Communications
+      };
+    });
+
+    // Apply filters
+    let filteredEscalations = escalations;
+
+    if (filters.category !== 'all') {
+      filteredEscalations = filteredEscalations.filter(e => e.category === filters.category);
+    }
+
+    if (filters.status !== 'all') {
+      filteredEscalations = filteredEscalations.filter(e => e.salesAidStatus === filters.status);
+    }
+
+    if (filters.urgency !== 'all') {
+      filteredEscalations = filteredEscalations.filter(e => {
+        const urgency = calculateSalesAidUrgency(e.rep72HourDeadline);
+        return urgency === filters.urgency;
+      });
+    }
+
+    if (filters.assignedTo !== 'all') {
+      if (filters.assignedTo === 'unassigned') {
+        filteredEscalations = filteredEscalations.filter(e => !e.assignedEscalationRep);
+      } else {
+        filteredEscalations = filteredEscalations.filter(e => e.assignedEscalationRep === filters.assignedTo);
+      }
+    }
+
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      filteredEscalations = filteredEscalations.filter(e => 
+        e.salesAidReason?.toLowerCase().includes(searchLower) ||
+        e.relatedProject?.toString().includes(searchLower)
+      );
+    }
+
+    logQuickbaseResponse('getPCEscalations', { count: filteredEscalations.length }, reqId);
+    return filteredEscalations;
+
+  } catch (error) {
+    logQuickbaseError('getPCEscalations', error, reqId);
+    throw error;
+  }
+}
+
+/**
+ * Create new escalation
+ */
+export async function createEscalation(
+  payload: PCCreateEscalationPayload,
+  coordinatorEmail: string,
+  reqId: string
+): Promise<number> {
+  try {
+    logQuickbaseRequest('createEscalation', { payload, coordinatorEmail }, reqId);
+
+    // Calculate deadline (72 hours for normal, 48 hours for high priority)
+    const deadlineHours = payload.priority === 'high' ? 48 : 72;
+    const deadline = new Date(Date.now() + deadlineHours * 60 * 60 * 1000).toISOString();
+
+    const data = [
+      { field: SALES_AID_FIELDS.RELATED_PROJECT, value: payload.recordId },
+      { field: SALES_AID_FIELDS.SALES_AID_REASON, value: payload.reason },
+      { field: SALES_AID_FIELDS.SALES_AID_STATUS, value: 'Escalated to Sales Aid' },
+      { field: SALES_AID_FIELDS.ESCALATE_TO_SALES_AID, value: true },
+      { field: SALES_AID_FIELDS.ESCALATED_DATETIME, value: new Date().toISOString() },
+      { field: SALES_AID_FIELDS.REP_72_HOUR_DEADLINE, value: deadline },
+      { field: SALES_AID_FIELDS.ESCALATION_NOTES, value: payload.description }
+    ];
+
+    const response = await qbClient.updateRecord({
+      to: QB_TABLE_SALES_AID_REQUESTS,
+      data: data.map(item => ({ [item.field]: { value: item.value } }))
+    });
+
+    const escalationId = response.recordId;
+
+    // Create Install Communication record to log escalation creation
+    await createInstallCommunication({
+      relatedProject: payload.recordId,
+      communicationType: 'escalation_created',
+      communicationNote: `Escalation created: ${payload.reason} - ${payload.description}`,
+      performedBy: coordinatorEmail,
+      relatedSalesAidRequest: escalationId
+    }, reqId);
+
+    // Create notification for assigned rep (if specified)
+    if (payload.assignedTo) {
+      await createNotification({
+        userId: payload.assignedTo,
+        type: 'escalation_assigned',
+        title: 'New Escalation Assigned',
+        message: `You have been assigned a new escalation: ${payload.reason}`,
+        data: { escalationId, projectId: payload.projectId }
+      }, reqId);
+    }
+
+    logQuickbaseResponse('createEscalation', { escalationId }, reqId);
+    return escalationId;
+
+  } catch (error) {
+    logQuickbaseError('createEscalation', error, reqId);
+    throw error;
+  }
+}
+
+/**
+ * Update escalation status
+ */
+export async function updateEscalationStatus(
+  escalationId: number,
+  status: PCSalesAidStatus,
+  updatedBy: string,
+  note: string | null,
+  reqId: string
+): Promise<boolean> {
+  try {
+    logQuickbaseRequest('updateEscalationStatus', { escalationId, status, updatedBy, note }, reqId);
+
+    // Update Sales Aid Request status
+    await updateSalesAidRequest(escalationId, status, updatedBy, reqId);
+
+    // Set completion date if resolved
+    if (status === 'Resolved by Rep' || status === 'Task Completed') {
+      await qbClient.updateRecord({
+        to: QB_TABLE_SALES_AID_REQUESTS,
+        data: [
+          { [3]: { value: escalationId }, [SALES_AID_FIELDS.COMPLETED_DATE]: { value: new Date().toISOString() } }
+        ]
+      });
+    }
+
+    // Create Install Communication record to log status change
+    await createInstallCommunication({
+      relatedSalesAidRequest: escalationId,
+      communicationType: 'escalation_status_changed',
+      communicationNote: `Status changed to: ${status}${note ? ` - ${note}` : ''}`,
+      performedBy: updatedBy
+    }, reqId);
+
+    // Create notification for PC about status change
+    await createNotification({
+      userId: updatedBy,
+      type: 'escalation_status_updated',
+      title: 'Escalation Status Updated',
+      message: `Escalation status changed to: ${status}`,
+      data: { escalationId, status }
+    }, reqId);
+
+    logQuickbaseResponse('updateEscalationStatus', { success: true }, reqId);
+    return true;
+
+  } catch (error) {
+    logQuickbaseError('updateEscalationStatus', error, reqId);
+    throw error;
+  }
+}
+
+/**
+ * Extend escalation grace period
+ */
+export async function extendEscalationGracePeriod(
+  escalationId: number,
+  newDeadline: string,
+  reason: string,
+  extendedBy: string,
+  reqId: string
+): Promise<boolean> {
+  try {
+    logQuickbaseRequest('extendEscalationGracePeriod', { escalationId, newDeadline, reason, extendedBy }, reqId);
+
+    // Update deadline
+    await qbClient.updateRecord({
+      to: QB_TABLE_SALES_AID_REQUESTS,
+      data: [
+        { [3]: { value: escalationId }, [SALES_AID_FIELDS.REP_72_HOUR_DEADLINE]: { value: newDeadline } }
+      ]
+    });
+
+    // Create Install Communication record to log extension
+    await createInstallCommunication({
+      relatedSalesAidRequest: escalationId,
+      communicationType: 'escalation_grace_extended',
+      communicationNote: `Grace period extended to ${newDeadline}. Reason: ${reason}`,
+      performedBy: extendedBy
+    }, reqId);
+
+    // Create notification for assigned rep about extension
+    await createNotification({
+      userId: extendedBy,
+      type: 'escalation_grace_extended',
+      title: 'Escalation Grace Period Extended',
+      message: `Grace period extended to ${new Date(newDeadline).toLocaleDateString()}`,
+      data: { escalationId, newDeadline }
+    }, reqId);
+
+    logQuickbaseResponse('extendEscalationGracePeriod', { success: true }, reqId);
+    return true;
+
+  } catch (error) {
+    logQuickbaseError('extendEscalationGracePeriod', error, reqId);
+    throw error;
+  }
+}
+
+/**
+ * Assign escalation to sales aid rep
+ */
+export async function assignEscalationToRep(
+  escalationId: number,
+  repEmail: string,
+  assignedBy: string,
+  reqId: string
+): Promise<boolean> {
+  try {
+    logQuickbaseRequest('assignEscalationToRep', { escalationId, repEmail, assignedBy }, reqId);
+
+    // Update assignment
+    await qbClient.updateRecord({
+      to: QB_TABLE_SALES_AID_REQUESTS,
+      data: [
+        { 
+          [3]: { value: escalationId }, 
+          [SALES_AID_FIELDS.ASSIGNED_ESCALATION_REP]: { value: repEmail },
+          [SALES_AID_FIELDS.SALES_AID_STATUS]: { value: 'Escalated to Sales Aid' }
+        }
+      ]
+    });
+
+    // Create Install Communication record to log assignment
+    await createInstallCommunication({
+      relatedSalesAidRequest: escalationId,
+      communicationType: 'escalation_assigned',
+      communicationNote: `Escalation assigned to: ${repEmail}`,
+      performedBy: assignedBy
+    }, reqId);
+
+    // Create notification for assigned rep
+    await createNotification({
+      userId: repEmail,
+      type: 'escalation_assigned',
+      title: 'Escalation Assigned to You',
+      message: 'You have been assigned a new escalation to resolve',
+      data: { escalationId }
+    }, reqId);
+
+    logQuickbaseResponse('assignEscalationToRep', { success: true }, reqId);
+    return true;
+
+  } catch (error) {
+    logQuickbaseError('assignEscalationToRep', error, reqId);
+    throw error;
+  }
+}
+
+/**
+ * Get escalation history
+ */
+export async function getEscalationHistory(
+  escalationId: number,
+  reqId: string
+): Promise<PCEscalationHistoryItem[]> {
+  try {
+    logQuickbaseRequest('getEscalationHistory', { escalationId }, reqId);
+
+    const query = {
+      from: QB_TABLE_INSTALL_COMMUNICATIONS,
+      where: `{${COMMUNICATION_FIELDS.RELATED_SALES_AID_REQUEST}.EX.${escalationId}}`,
+      select: [
+        COMMUNICATION_FIELDS.DATE,
+        COMMUNICATION_FIELDS.COMMUNICATION_TYPE,
+        COMMUNICATION_FIELDS.COMMUNICATION_NOTE,
+        COMMUNICATION_FIELDS.PERFORMED_BY
+      ],
+      sortBy: [{ field: COMMUNICATION_FIELDS.DATE, order: 'DESC' }]
+    };
+
+    const response = await qbClient.query(query);
+    
+    if (!response.data) {
+      logQuickbaseResponse('getEscalationHistory', { data: [] }, reqId);
+      return [];
+    }
+
+    const history: PCEscalationHistoryItem[] = response.data.map((record: any) => ({
+      timestamp: record[COMMUNICATION_FIELDS.DATE],
+      action: mapCommunicationTypeToAction(record[COMMUNICATION_FIELDS.COMMUNICATION_TYPE]),
+      performedBy: record[COMMUNICATION_FIELDS.PERFORMED_BY],
+      details: record[COMMUNICATION_FIELDS.COMMUNICATION_NOTE],
+      oldValue: null,
+      newValue: null
+    }));
+
+    logQuickbaseResponse('getEscalationHistory', { count: history.length }, reqId);
+    return history;
+
+  } catch (error) {
+    logQuickbaseError('getEscalationHistory', error, reqId);
+    throw error;
+  }
+}
+
+/**
+ * Categorize escalation reason
+ */
+export function categorizeEscalationReason(reason: string): PCEscalationCategory {
+  if (!reason) return 'customer_complaints';
+  
+  const lowerReason = reason.toLowerCase();
+  
+  if (lowerReason.includes('mpu required')) return 'mmu_required';
+  if (lowerReason.includes("can't reach the customer") || 
+      lowerReason.includes('system change') || 
+      lowerReason.includes('needs new loan docs signed')) return 'rep_promises';
+  if (lowerReason.includes('hoa')) return 'hoa_issues';
+  if (lowerReason.includes('credit concerns') || 
+      lowerReason.includes('needs new loan docs signed')) return 'financing_issues';
+  if (lowerReason.includes('customer requested hold') || 
+      lowerReason.includes('customer complaint')) return 'customer_complaints';
+  
+  return 'customer_complaints';
+}
+
+/**
+ * Get category display name
+ */
+export function getCategoryDisplayName(category: PCEscalationCategory): string {
+  const displayNames: Record<PCEscalationCategory, string> = {
+    mmu_required: 'MMU Required',
+    rep_promises: 'Rep Promises',
+    hoa_issues: 'HOA Issues',
+    financing_issues: 'Financing Issues',
+    customer_complaints: 'Customer Complaints'
+  };
+  
+  return displayNames[category];
+}
+
+/**
+ * Map communication type to escalation action
+ */
+function mapCommunicationTypeToAction(communicationType: string): PCEscalationHistoryItem['action'] {
+  switch (communicationType) {
+    case 'escalation_created': return 'created';
+    case 'escalation_assigned': return 'assigned';
+    case 'escalation_grace_extended': return 'grace_extended';
+    case 'escalation_status_changed': return 'status_changed';
+    case 'escalation_resolved': return 'resolved';
+    default: return 'status_changed';
+  }
+}
+
+// =============================================================================
+// PC ANALYTICS QUERIES
+// =============================================================================
+
+/**
+ * Calculate date range based on timeRange parameter
+ */
+function calculateDateRange(timeRange: '7days' | '30days' | '90days' | 'all'): { startDate: string; endDate: string } {
+  const now = new Date();
+  const endDate = now.toISOString().split('T')[0];
+  
+  let startDate: string;
+  switch (timeRange) {
+    case '7days':
+      startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      break;
+    case '30days':
+      startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      break;
+    case '90days':
+      startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      break;
+    case 'all':
+      startDate = '2020-01-01'; // Far back enough to capture all data
+      break;
+  }
+  
+  return { startDate, endDate };
+}
+
+/**
+ * Calculate SLA compliance percentage
+ */
+function calculateSLACompliance(projects: any[]): number {
+  if (projects.length === 0) return 0;
+  
+  let compliantCount = 0;
+  
+  for (const project of projects) {
+    let isCompliant = true;
+    
+    // Check each milestone against SLA deadlines
+    // Survey SLA: 7 days from sale
+    const salesDate = project[PROJECT_FIELDS.SALES_DATE];
+    const surveySubmitted = project[PROJECT_FIELDS.SURVEY_SUBMITTED];
+    if (salesDate && surveySubmitted) {
+      const salesDateObj = new Date(salesDate);
+      const surveyDateObj = new Date(surveySubmitted);
+      const daysToSurvey = (surveyDateObj.getTime() - salesDateObj.getTime()) / (1000 * 60 * 60 * 24);
+      if (daysToSurvey > 7) isCompliant = false;
+    }
+    
+    // Design SLA: 14 days from survey approval
+    const surveyApproved = project[PROJECT_FIELDS.SURVEY_APPROVED];
+    const designCompleted = project[PROJECT_FIELDS.DESIGN_COMPLETED];
+    if (surveyApproved && designCompleted) {
+      const surveyApprovedObj = new Date(surveyApproved);
+      const designDateObj = new Date(designCompleted);
+      const daysToDesign = (designDateObj.getTime() - surveyApprovedObj.getTime()) / (1000 * 60 * 60 * 24);
+      if (daysToDesign > 14) isCompliant = false;
+    }
+    
+    // Install SLA: 30 days from design completion
+    const installCompleted = project[PROJECT_FIELDS.INSTALL_COMPLETED_DATE];
+    if (designCompleted && installCompleted) {
+      const designDateObj = new Date(designCompleted);
+      const installDateObj = new Date(installCompleted);
+      const daysToInstall = (installDateObj.getTime() - designDateObj.getTime()) / (1000 * 60 * 60 * 24);
+      if (daysToInstall > 30) isCompliant = false;
+    }
+    
+    // PTO SLA: 14 days from install completion
+    const ptoCompleted = project[PROJECT_FIELDS.PTO_COMPLETED];
+    if (installCompleted && ptoCompleted) {
+      const installDateObj = new Date(installCompleted);
+      const ptoDateObj = new Date(ptoCompleted);
+      const daysToPTO = (ptoDateObj.getTime() - installDateObj.getTime()) / (1000 * 60 * 60 * 24);
+      if (daysToPTO > 14) isCompliant = false;
+    }
+    
+    if (isCompliant) compliantCount++;
+  }
+  
+  return (compliantCount / projects.length) * 100;
+}
+
+/**
+ * Get PC personal metrics for analytics dashboard
+ */
+export async function getPCPersonalMetrics(
+  pcEmail: string,
+  pcName: string,
+  timeRange: '7days' | '30days' | '90days' | 'all',
+  reqId: string
+): Promise<PCPersonalMetrics> {
+  const startTime = Date.now();
+  
+  try {
+    logQuickbaseRequest('getPCPersonalMetrics', { pcEmail, pcName, timeRange }, reqId);
+
+    const { startDate, endDate } = calculateDateRange(timeRange);
+    
+    // Query Outreach Records for PC's outreach data
+    const outreachWhere = {
+      and: [
+        { [OUTREACH_RECORD_FIELDS.PC_EMAIL]: { EX: pcEmail } },
+        { [OUTREACH_RECORD_FIELDS.DATE_CREATED]: { GTE: startDate } },
+        { [OUTREACH_RECORD_FIELDS.DATE_CREATED]: { LTE: endDate } }
+      ]
+    };
+
+    const outreachResponse = await qbClient.queryRecords(QB_TABLE_OUTREACH_RECORDS, {
+      where: outreachWhere,
+      select: [
+        OUTREACH_RECORD_FIELDS.DATE_CREATED,
+        OUTREACH_RECORD_FIELDS.OUTREACH_STATUS,
+        OUTREACH_RECORD_FIELDS.RECORD_ID
+      ]
+    });
+
+    const outreachRecords = outreachResponse.data || [];
+    
+    // Calculate outreach metrics
+    const today = new Date().toISOString().split('T')[0];
+    const weekStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const monthStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    
+    const dailyOutreach = outreachRecords.filter(r => r[OUTREACH_RECORD_FIELDS.DATE_CREATED]?.startsWith(today)).length;
+    const weeklyOutreach = outreachRecords.filter(r => r[OUTREACH_RECORD_FIELDS.DATE_CREATED] >= weekStart).length;
+    const monthlyOutreach = outreachRecords.filter(r => r[OUTREACH_RECORD_FIELDS.DATE_CREATED] >= monthStart).length;
+    
+    const completedOutreach = outreachRecords.filter(r => r[OUTREACH_RECORD_FIELDS.OUTREACH_STATUS] === 'Complete').length;
+    const responseRate = outreachRecords.length > 0 ? (completedOutreach / outreachRecords.length) * 100 : 0;
+    
+    // Query Projects for PC's active projects
+    const projectsWhere = {
+      and: [
+        { [PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL]: { EX: pcEmail } },
+        { [PROJECT_FIELDS.PROJECT_STATUS]: { EX: 'Active' } }
+      ]
+    };
+
+    const projectsResponse = await qbClient.queryRecords(QB_TABLE_PROJECTS, {
+      where: projectsWhere,
+      select: [
+        PROJECT_FIELDS.RECORD_ID,
+        PROJECT_FIELDS.PC_DAYS_SINCE_CONTACT_1,
+        PROJECT_FIELDS.PC_DAYS_SINCE_CONTACT_2,
+        PROJECT_FIELDS.PC_DAYS_SINCE_CONTACT_3,
+        PROJECT_FIELDS.PC_DAYS_SINCE_CONTACT_4,
+        PROJECT_FIELDS.PROJECT_AGE,
+        PROJECT_FIELDS.ON_HOLD
+      ]
+    });
+
+    const projects = projectsResponse.data || [];
+    
+    // Calculate average time to contact
+    const contactDays = projects
+      .map(p => [
+        p[PROJECT_FIELDS.PC_DAYS_SINCE_CONTACT_1],
+        p[PROJECT_FIELDS.PC_DAYS_SINCE_CONTACT_2],
+        p[PROJECT_FIELDS.PC_DAYS_SINCE_CONTACT_3],
+        p[PROJECT_FIELDS.PC_DAYS_SINCE_CONTACT_4]
+      ])
+      .flat()
+      .filter(d => d && !isNaN(Number(d)))
+      .map(d => Number(d));
+    
+    const avgTimeToContact = contactDays.length > 0 
+      ? contactDays.reduce((sum, days) => sum + days, 0) / contactDays.length 
+      : 0;
+
+    // Query Sales Aid Requests for escalations
+    const escalationsWhere = {
+      and: [
+        { [SALES_AID_REQUEST_FIELDS.REQUESTED_BY_EMAIL]: { EX: pcEmail } },
+        { [SALES_AID_REQUEST_FIELDS.DATE_CREATED]: { GTE: startDate } },
+        { [SALES_AID_REQUEST_FIELDS.DATE_CREATED]: { LTE: endDate } }
+      ]
+    };
+
+    const escalationsResponse = await qbClient.queryRecords(QB_TABLE_SALES_AID_REQUESTS, {
+      where: escalationsWhere,
+      select: [SALES_AID_REQUEST_FIELDS.RECORD_ID]
+    });
+
+    const escalations = escalationsResponse.data || [];
+    const escalationRate = projects.length > 0 ? (escalations.length / projects.length) * 100 : 0;
+
+    // Calculate SLA compliance
+    const slaCompliance = calculateSLACompliance(projects);
+
+    // Calculate additional metrics
+    const pendingOutreach = outreachRecords.filter(r => r[OUTREACH_RECORD_FIELDS.OUTREACH_STATUS] === 'Pending').length;
+    const unresponsiveCount = outreachRecords.filter(r => r[OUTREACH_RECORD_FIELDS.OUTREACH_STATUS] === 'No Answer Left Message').length;
+    const activeEscalations = escalations.length;
+
+    const metrics: PCPersonalMetrics = {
+      dailyOutreach,
+      weeklyOutreach,
+      monthlyOutreach,
+      responseRate,
+      avgTimeToContact,
+      escalationRate,
+      slaCompliance,
+      totalProjects: projects.length,
+      completedOutreach,
+      pendingOutreach,
+      unresponsiveCount,
+      activeEscalations
+    };
+
+    logQuickbaseResponse('getPCPersonalMetrics', metrics, Date.now() - startTime, reqId);
+    return metrics;
+
+  } catch (error) {
+    logQuickbaseError('getPCPersonalMetrics', error, reqId);
+    throw error;
+  }
+}
+
+/**
+ * Get PC outreach trend data for last N days
+ */
+export async function getPCOutreachTrend(
+  pcEmail: string,
+  pcName: string,
+  days: number = 30,
+  reqId: string
+): Promise<PCOutreachTrendData[]> {
+  const startTime = Date.now();
+  
+  try {
+    logQuickbaseRequest('getPCOutreachTrend', { pcEmail, pcName, days }, reqId);
+
+    const endDate = new Date().toISOString().split('T')[0];
+    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    
+    const outreachWhere = {
+      and: [
+        { [OUTREACH_RECORD_FIELDS.PC_EMAIL]: { EX: pcEmail } },
+        { [OUTREACH_RECORD_FIELDS.DATE_CREATED]: { GTE: startDate } },
+        { [OUTREACH_RECORD_FIELDS.DATE_CREATED]: { LTE: endDate } }
+      ]
+    };
+
+    const outreachResponse = await qbClient.queryRecords(QB_TABLE_OUTREACH_RECORDS, {
+      where: outreachWhere,
+      select: [
+        OUTREACH_RECORD_FIELDS.DATE_CREATED,
+        OUTREACH_RECORD_FIELDS.OUTREACH_STATUS
+      ]
+    });
+
+    const outreachRecords = outreachResponse.data || [];
+    
+    // Group by date
+    const dateGroups: Record<string, { total: number; successful: number }> = {};
+    
+    for (const record of outreachRecords) {
+      const date = record[OUTREACH_RECORD_FIELDS.DATE_CREATED]?.split('T')[0];
+      if (!date) continue;
+      
+      if (!dateGroups[date]) {
+        dateGroups[date] = { total: 0, successful: 0 };
+      }
+      
+      dateGroups[date].total++;
+      if (record[OUTREACH_RECORD_FIELDS.OUTREACH_STATUS] === 'Complete') {
+        dateGroups[date].successful++;
+      }
+    }
+    
+    // Fill missing dates with zero values
+    const trendData: PCOutreachTrendData[] = [];
+    for (let i = 0; i < days; i++) {
+      const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const dayData = dateGroups[date] || { total: 0, successful: 0 };
+      const responseRate = dayData.total > 0 ? (dayData.successful / dayData.total) * 100 : 0;
+      
+      trendData.unshift({
+        date,
+        outreachCount: dayData.total,
+        successfulCount: dayData.successful,
+        responseRate
+      });
+    }
+
+    logQuickbaseResponse('getPCOutreachTrend', { recordCount: trendData.length }, Date.now() - startTime, reqId);
+    return trendData;
+
+  } catch (error) {
+    logQuickbaseError('getPCOutreachTrend', error, reqId);
+    throw error;
+  }
+}
+
+/**
+ * Get PC stage distribution data
+ */
+export async function getPCStageDistribution(
+  pcEmail: string,
+  pcName: string,
+  reqId: string
+): Promise<PCStageDistribution[]> {
+  const startTime = Date.now();
+  
+  try {
+    logQuickbaseRequest('getPCStageDistribution', { pcEmail, pcName }, reqId);
+
+    const projectsWhere = {
+      and: [
+        { [PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL]: { EX: pcEmail } },
+        { [PROJECT_FIELDS.PROJECT_STATUS]: { EX: 'Active' } }
+      ]
+    };
+
+    const projectsResponse = await qbClient.queryRecords(QB_TABLE_PROJECTS, {
+      where: projectsWhere,
+      select: [
+        PROJECT_FIELDS.RECORD_ID,
+        PROJECT_FIELDS.PROJECT_AGE,
+        PROJECT_FIELDS.SURVEY_DATE,
+        PROJECT_FIELDS.DESIGN_DATE,
+        PROJECT_FIELDS.PERMIT_DATE,
+        PROJECT_FIELDS.NEM_DATE,
+        PROJECT_FIELDS.INSTALL_DATE,
+        PROJECT_FIELDS.PTO_DATE
+      ]
+    });
+
+    const projects = projectsResponse.data || [];
+    
+    // Determine current stage for each project
+    const stageCounts: Record<string, { count: number; totalDays: number }> = {};
+    
+    for (const project of projects) {
+      let currentStage = 'Intake';
+      const projectAge = Number(project[PROJECT_FIELDS.PROJECT_AGE]) || 0;
+      
+      // Determine stage based on milestone dates
+      if (project[PROJECT_FIELDS.PTO_DATE]) {
+        currentStage = 'PTO';
+      } else if (project[PROJECT_FIELDS.INSTALL_DATE]) {
+        currentStage = 'Install';
+      } else if (project[PROJECT_FIELDS.NEM_DATE]) {
+        currentStage = 'NEM';
+      } else if (project[PROJECT_FIELDS.PERMIT_DATE]) {
+        currentStage = 'Permit';
+      } else if (project[PROJECT_FIELDS.DESIGN_DATE]) {
+        currentStage = 'Design';
+      } else if (project[PROJECT_FIELDS.SURVEY_DATE]) {
+        currentStage = 'Survey';
+      }
+      
+      if (!stageCounts[currentStage]) {
+        stageCounts[currentStage] = { count: 0, totalDays: 0 };
+      }
+      
+      stageCounts[currentStage].count++;
+      stageCounts[currentStage].totalDays += projectAge;
+    }
+    
+    const totalProjects = projects.length;
+    const distribution: PCStageDistribution[] = [];
+    
+    for (const [stageName, data] of Object.entries(stageCounts)) {
+      const avgDaysInStage = data.count > 0 ? data.totalDays / data.count : 0;
+      const percentage = totalProjects > 0 ? (data.count / totalProjects) * 100 : 0;
+      
+      distribution.push({
+        stageName,
+        projectCount: data.count,
+        avgDaysInStage,
+        percentage
+      });
+    }
+    
+    // Sort by typical stage order
+    const stageOrder = ['Intake', 'Survey', 'Design', 'Permit', 'NEM', 'Install', 'PTO'];
+    distribution.sort((a, b) => stageOrder.indexOf(a.stageName) - stageOrder.indexOf(b.stageName));
+
+    logQuickbaseResponse('getPCStageDistribution', { stageCount: distribution.length }, Date.now() - startTime, reqId);
+    return distribution;
+
+  } catch (error) {
+    logQuickbaseError('getPCStageDistribution', error, reqId);
+    throw error;
+  }
+}
+
+/**
+ * Get PC response breakdown data
+ */
+export async function getPCResponseBreakdown(
+  pcEmail: string,
+  pcName: string,
+  timeRange: '7days' | '30days' | '90days' | 'all',
+  reqId: string
+): Promise<PCResponseBreakdown[]> {
+  const startTime = Date.now();
+  
+  try {
+    logQuickbaseRequest('getPCResponseBreakdown', { pcEmail, pcName, timeRange }, reqId);
+
+    const { startDate, endDate } = calculateDateRange(timeRange);
+    
+    const outreachWhere = {
+      and: [
+        { [OUTREACH_RECORD_FIELDS.PC_EMAIL]: { EX: pcEmail } },
+        { [OUTREACH_RECORD_FIELDS.DATE_CREATED]: { GTE: startDate } },
+        { [OUTREACH_RECORD_FIELDS.DATE_CREATED]: { LTE: endDate } }
+      ]
+    };
+
+    const outreachResponse = await qbClient.queryRecords(QB_TABLE_OUTREACH_RECORDS, {
+      where: outreachWhere,
+      select: [
+        OUTREACH_RECORD_FIELDS.OUTREACH_STATUS,
+        OUTREACH_RECORD_FIELDS.RECORD_ID
+      ]
+    });
+
+    const outreachRecords = outreachResponse.data || [];
+    
+    // Group by status
+    const statusCounts: Record<string, number> = {};
+    for (const record of outreachRecords) {
+      const status = record[OUTREACH_RECORD_FIELDS.OUTREACH_STATUS] || 'Unknown';
+      statusCounts[status] = (statusCounts[status] || 0) + 1;
+    }
+    
+    const totalRecords = outreachRecords.length;
+    const breakdown: PCResponseBreakdown[] = [];
+    
+    for (const [status, count] of Object.entries(statusCounts)) {
+      const percentage = totalRecords > 0 ? (count / totalRecords) * 100 : 0;
+      breakdown.push({
+        status,
+        count,
+        percentage
+      });
+    }
+    
+    // Sort by count descending
+    breakdown.sort((a, b) => b.count - a.count);
+
+    logQuickbaseResponse('getPCResponseBreakdown', { statusCount: breakdown.length }, Date.now() - startTime, reqId);
+    return breakdown;
+
+  } catch (error) {
+    logQuickbaseError('getPCResponseBreakdown', error, reqId);
+    throw error;
+  }
+}
+
+/**
+ * Get PC project velocity metrics
+ */
+async function getPCProjectVelocity(reqId: string): Promise<PCProjectVelocity[]> {
+  try {
+    // Query all active projects for milestone durations
+    const projectsResponse = await qbClient.queryRecords(QB_TABLE_PROJECTS, {
+      where: { [PROJECT_FIELDS.PROJECT_STATUS]: { EX: 'Active' } },
+      select: [
+        PROJECT_FIELDS.SALES_DATE,
+        PROJECT_FIELDS.SURVEY_SUBMITTED,
+        PROJECT_FIELDS.SURVEY_APPROVED,
+        PROJECT_FIELDS.DESIGN_COMPLETED,
+        PROJECT_FIELDS.INSTALL_COMPLETED_DATE,
+        PROJECT_FIELDS.PTO_COMPLETED
+      ]
+    });
+
+    const projects = projectsResponse.data || [];
+    const milestoneDurations: Record<string, number[]> = {
+      'Survey': [],
+      'Design': [],
+      'Install': [],
+      'PTO': []
+    };
+
+    for (const project of projects) {
+      const salesDate = project[PROJECT_FIELDS.SALES_DATE];
+      const surveySubmitted = project[PROJECT_FIELDS.SURVEY_SUBMITTED];
+      const surveyApproved = project[PROJECT_FIELDS.SURVEY_APPROVED];
+      const designCompleted = project[PROJECT_FIELDS.DESIGN_COMPLETED];
+      const installCompleted = project[PROJECT_FIELDS.INSTALL_COMPLETED_DATE];
+      const ptoCompleted = project[PROJECT_FIELDS.PTO_COMPLETED];
+
+      // Calculate milestone durations
+      if (salesDate && surveySubmitted) {
+        const duration = (new Date(surveySubmitted).getTime() - new Date(salesDate).getTime()) / (1000 * 60 * 60 * 24);
+        milestoneDurations['Survey'].push(duration);
+      }
+
+      if (surveyApproved && designCompleted) {
+        const duration = (new Date(designCompleted).getTime() - new Date(surveyApproved).getTime()) / (1000 * 60 * 60 * 24);
+        milestoneDurations['Design'].push(duration);
+      }
+
+      if (designCompleted && installCompleted) {
+        const duration = (new Date(installCompleted).getTime() - new Date(designCompleted).getTime()) / (1000 * 60 * 60 * 24);
+        milestoneDurations['Install'].push(duration);
+      }
+
+      if (installCompleted && ptoCompleted) {
+        const duration = (new Date(ptoCompleted).getTime() - new Date(installCompleted).getTime()) / (1000 * 60 * 60 * 24);
+        milestoneDurations['PTO'].push(duration);
+      }
+    }
+
+    // Calculate averages and medians
+    const velocity: PCProjectVelocity[] = [];
+    for (const [milestone, durations] of Object.entries(milestoneDurations)) {
+      if (durations.length > 0) {
+        const avgDays = durations.reduce((sum, d) => sum + d, 0) / durations.length;
+        const sortedDurations = [...durations].sort((a, b) => a - b);
+        const medianDays = sortedDurations[Math.floor(sortedDurations.length / 2)];
+        
+        velocity.push({
+          milestoneName: milestone,
+          avgDays,
+          medianDays,
+          projectCount: durations.length
+        });
+      }
+    }
+
+    return velocity;
+  } catch (error) {
+    logQuickbaseError('getPCProjectVelocity', error, reqId);
+    return [];
+  }
+}
+
+/**
+ * Identify PC bottlenecks
+ */
+async function identifyPCBottlenecks(reqId: string): Promise<PCBottleneck[]> {
+  try {
+    // Query projects by current stage and days in stage
+    const projectsResponse = await qbClient.queryRecords(QB_TABLE_PROJECTS, {
+      where: { [PROJECT_FIELDS.PROJECT_STATUS]: { EX: 'Active' } },
+      select: [
+        PROJECT_FIELDS.PROJECT_ID,
+        PROJECT_FIELDS.CUSTOMER_NAME,
+        PROJECT_FIELDS.PROJECT_STAGE,
+        PROJECT_FIELDS.SALES_DATE,
+        PROJECT_FIELDS.SURVEY_SUBMITTED,
+        PROJECT_FIELDS.SURVEY_APPROVED,
+        PROJECT_FIELDS.DESIGN_COMPLETED,
+        PROJECT_FIELDS.INSTALL_COMPLETED_DATE
+      ]
+    });
+
+    const projects = projectsResponse.data || [];
+    const stageGroups: Record<string, any[]> = {};
+
+    // Group projects by stage and calculate days in stage
+    for (const project of projects) {
+      const stage = project[PROJECT_FIELDS.PROJECT_STAGE] || 'Unknown';
+      const salesDate = project[PROJECT_FIELDS.SALES_DATE];
+      
+      if (!stageGroups[stage]) {
+        stageGroups[stage] = [];
+      }
+
+      // Calculate days in current stage (simplified)
+      let daysInStage = 0;
+      if (salesDate) {
+        const now = new Date();
+        const salesDateObj = new Date(salesDate);
+        daysInStage = (now.getTime() - salesDateObj.getTime()) / (1000 * 60 * 60 * 24);
+      }
+
+      stageGroups[stage].push({
+        ...project,
+        daysInStage
+      });
+    }
+
+    // Identify bottlenecks
+    const bottlenecks: PCBottleneck[] = [];
+    for (const [stage, stageProjects] of Object.entries(stageGroups)) {
+      if (stageProjects.length > 0) {
+        const avgDaysInStage = stageProjects.reduce((sum, p) => sum + p.daysInStage, 0) / stageProjects.length;
+        const longestProject = stageProjects.reduce((longest, current) => 
+          current.daysInStage > longest.daysInStage ? current : longest
+        );
+
+        let severity: 'critical' | 'high' | 'normal' = 'normal';
+        if (avgDaysInStage > 60 || stageProjects.length > 20) severity = 'critical';
+        else if (avgDaysInStage > 30 || stageProjects.length > 10) severity = 'high';
+
+        bottlenecks.push({
+          stageName: stage,
+          projectCount: stageProjects.length,
+          avgDaysInStage,
+          longestProject: {
+            projectId: longestProject[PROJECT_FIELDS.PROJECT_ID],
+            customerName: longestProject[PROJECT_FIELDS.CUSTOMER_NAME],
+            daysInStage: longestProject.daysInStage
+          },
+          severity
+        });
+      }
+    }
+
+    return bottlenecks.sort((a, b) => b.avgDaysInStage - a.avgDaysInStage);
+  } catch (error) {
+    logQuickbaseError('identifyPCBottlenecks', error, reqId);
+    return [];
+  }
+}
+
+/**
+ * Get PC hold analysis
+ */
+async function getPCHoldAnalysis(reqId: string): Promise<PCHoldAnalysis[]> {
+  try {
+    // Query projects on hold
+    const projectsResponse = await qbClient.queryRecords(QB_TABLE_PROJECTS, {
+      where: { [PROJECT_FIELDS.PROJECT_STATUS]: { EX: 'On Hold' } },
+      select: [
+        PROJECT_FIELDS.PROJECT_ID,
+        PROJECT_FIELDS.HOLD_REASON,
+        PROJECT_FIELDS.HOLD_DATE,
+        PROJECT_FIELDS.HOLD_RESOLVED_DATE
+      ]
+    });
+
+    const projects = projectsResponse.data || [];
+    const holdCategories: Record<string, any[]> = {};
+
+    // Group by hold reason
+    for (const project of projects) {
+      const reason = project[PROJECT_FIELDS.HOLD_REASON] || 'Unknown';
+      if (!holdCategories[reason]) {
+        holdCategories[reason] = [];
+      }
+      holdCategories[reason].push(project);
+    }
+
+    const totalHolds = projects.length;
+    const analysis: PCHoldAnalysis[] = [];
+
+    for (const [category, categoryProjects] of Object.entries(holdCategories)) {
+      const resolvedProjects = categoryProjects.filter(p => p[PROJECT_FIELDS.HOLD_RESOLVED_DATE]);
+      const resolvedCount = resolvedProjects.length;
+      
+      // Calculate average resolution days
+      let avgResolutionDays: number | null = null;
+      if (resolvedProjects.length > 0) {
+        const resolutionDays = resolvedProjects.map(p => {
+          const holdDate = new Date(p[PROJECT_FIELDS.HOLD_DATE]);
+          const resolvedDate = new Date(p[PROJECT_FIELDS.HOLD_RESOLVED_DATE]);
+          return (resolvedDate.getTime() - holdDate.getTime()) / (1000 * 60 * 60 * 24);
+        });
+        avgResolutionDays = resolutionDays.reduce((sum, days) => sum + days, 0) / resolutionDays.length;
+      }
+
+      analysis.push({
+        category,
+        count: categoryProjects.length,
+        percentage: totalHolds > 0 ? (categoryProjects.length / totalHolds) * 100 : 0,
+        avgResolutionDays,
+        resolvedCount
+      });
+    }
+
+    return analysis.sort((a, b) => b.count - a.count);
+  } catch (error) {
+    logQuickbaseError('getPCHoldAnalysis', error, reqId);
+    return [];
+  }
+}
+
+/**
+ * Get PC team metrics (operations_manager only)
+ */
+export async function getPCTeamMetrics(
+  timeRange: '7days' | '30days' | '90days' | 'all',
+  reqId: string
+): Promise<PCTeamMetrics> {
+  const startTime = Date.now();
+  
+  try {
+    logQuickbaseRequest('getPCTeamMetrics', { timeRange }, reqId);
+
+    // Get all PCs from Projects table
+    const projectsResponse = await qbClient.queryRecords(QB_TABLE_PROJECTS, {
+      where: { [PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL]: { NE: '' } },
+      select: [
+        PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL,
+        PROJECT_FIELDS.PROJECT_COORDINATOR_NAME
+      ]
+    });
+
+    const projects = projectsResponse.data || [];
+    const uniquePCs = new Map<string, string>();
+    
+    for (const project of projects) {
+      const email = project[PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL];
+      const name = project[PROJECT_FIELDS.PROJECT_COORDINATOR_NAME];
+      if (email && name) {
+        uniquePCs.set(email, name);
+      }
+    }
+    
+    // Get performance metrics for each PC
+    const coordinators: PCCoordinatorPerformance[] = [];
+    let totalResponseRate = 0;
+    let totalTimeToContact = 0;
+    let totalSLACompliance = 0;
+    let validPCs = 0;
+    
+    for (const [email, name] of uniquePCs) {
+      try {
+        const personalMetrics = await getPCPersonalMetrics(email, name, timeRange, reqId);
+        
+        coordinators.push({
+          coordinatorName: name,
+          coordinatorEmail: email,
+          totalProjects: personalMetrics.totalProjects,
+          dailyOutreach: personalMetrics.dailyOutreach,
+          responseRate: personalMetrics.responseRate,
+          avgTimeToContact: personalMetrics.avgTimeToContact,
+          escalationRate: personalMetrics.escalationRate,
+          slaCompliance: personalMetrics.slaCompliance,
+          projectsCompleted: 0, // Would need additional query to calculate
+          avgProjectVelocity: 0 // Would need additional query to calculate
+        });
+        
+        totalResponseRate += personalMetrics.responseRate;
+        totalTimeToContact += personalMetrics.avgTimeToContact;
+        totalSLACompliance += personalMetrics.slaCompliance;
+        validPCs++;
+      } catch (error) {
+        // Skip PCs with errors
+        continue;
+      }
+    }
+    
+    // Calculate team averages
+    const teamAverages = {
+      responseRate: validPCs > 0 ? totalResponseRate / validPCs : 0,
+      avgTimeToContact: validPCs > 0 ? totalTimeToContact / validPCs : 0,
+      slaCompliance: validPCs > 0 ? totalSLACompliance / validPCs : 0
+    };
+    
+    // Get project velocity, bottlenecks, and hold analysis
+    const projectVelocity = await getPCProjectVelocity(reqId);
+    const bottlenecks = await identifyPCBottlenecks(reqId);
+    const holdAnalysis = await getPCHoldAnalysis(reqId);
+
+    const teamMetrics: PCTeamMetrics = {
+      coordinators,
+      projectVelocity,
+      bottlenecks,
+      holdAnalysis,
+      teamAverages
+    };
+
+    logQuickbaseResponse('getPCTeamMetrics', { coordinatorCount: coordinators.length }, Date.now() - startTime, reqId);
+    return teamMetrics;
+
+  } catch (error) {
+    logQuickbaseError('getPCTeamMetrics', error, reqId);
+    throw error;
+  }
+}
+
+// =============================================================================
+// PC CALENDAR QUERIES
+// =============================================================================
+
+/**
+ * Get PC calendar events for a date range
+ * Fetches scheduled installs, surveys, and outreach from Projects and Outreach Records tables
+ */
+export async function getPCCalendarEvents(
+  pcEmail: string,
+  pcName: string,
+  startDate: string,
+  endDate: string,
+  reqId: string
+): Promise<PCCalendarEvent[]> {
+  try {
+    logQuickbaseRequest('getPCCalendarEvents', { pcEmail, pcName, startDate, endDate }, reqId);
+
+    // Sanitize input parameters
+    const sanitizedEmail = sanitizeQbLiteral(pcEmail);
+    const sanitizedName = sanitizeQbLiteral(pcName);
+
+    // Validate date range
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (daysDiff > 90) {
+      throw new Error('Date range cannot exceed 90 days');
+    }
+
+    if (start >= end) {
+      throw new Error('startDate must be before endDate');
+    }
+
+    const events: PCCalendarEvent[] = [];
+    const now = new Date();
+
+    // Query Projects table for scheduled installs and surveys
+    const projectsQuery = {
+      from: QB_TABLE_PROJECTS,
+      select: [
+        FIELD_IDS.PROJECTS.RECORD_ID,
+        FIELD_IDS.PROJECTS.PROJECT_ID,
+        FIELD_IDS.PROJECTS.CUSTOMER_NAME,
+        FIELD_IDS.PROJECTS.CUSTOMER_PHONE,
+        FIELD_IDS.PROJECTS.INSTALL_SCHEDULED_DATE,
+        FIELD_IDS.PROJECTS.SURVEY_SCHEDULED_DATE,
+        FIELD_IDS.PROJECTS.PROJECT_STATUS,
+        FIELD_IDS.PROJECTS.PROJECT_COORDINATOR_EMAIL
+      ],
+      where: `{${FIELD_IDS.PROJECTS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'}AND({${FIELD_IDS.PROJECTS.INSTALL_SCHEDULED_DATE}.AF.'${startDate}'}OR{${FIELD_IDS.PROJECTS.SURVEY_SCHEDULED_DATE}.AF.'${startDate}'})AND({${FIELD_IDS.PROJECTS.INSTALL_SCHEDULED_DATE}.BF.'${endDate}'}OR{${FIELD_IDS.PROJECTS.SURVEY_SCHEDULED_DATE}.BF.'${endDate}'})`
+    };
+
+    const projectsResponse = await qbClient.query(projectsQuery);
+    const projects = projectsResponse.data || [];
+
+    // Transform project events
+    for (const project of projects) {
+      const recordId = project[FIELD_IDS.PROJECTS.RECORD_ID];
+      const projectId = project[FIELD_IDS.PROJECTS.PROJECT_ID];
+      const customerName = project[FIELD_IDS.PROJECTS.CUSTOMER_NAME];
+      const customerPhone = project[FIELD_IDS.PROJECTS.CUSTOMER_PHONE];
+      const projectStatus = project[FIELD_IDS.PROJECTS.PROJECT_STATUS];
+      const installDate = project[FIELD_IDS.PROJECTS.INSTALL_SCHEDULED_DATE];
+      const surveyDate = project[FIELD_IDS.PROJECTS.SURVEY_SCHEDULED_DATE];
+
+      // Create install event if scheduled
+      if (installDate) {
+        const start = new Date(installDate);
+        const end = new Date(start);
+        end.setHours(end.getHours() + 4); // 4-hour install window
+
+        const status = projectStatus === 'Completed' ? 'completed' : 
+                     start < now ? 'overdue' : 'scheduled';
+
+        events.push({
+          id: `install-${recordId}`,
+          title: `Install - ${customerName}`,
+          start,
+          end,
+          allDay: false,
+          type: 'install',
+          projectId,
+          recordId,
+          customerName,
+          customerPhone,
+          status,
+          priority: 'high',
+          coordinatorEmail: pcEmail,
+          metadata: { projectStatus }
+        });
+      }
+
+      // Create survey event if scheduled
+      if (surveyDate) {
+        const start = new Date(surveyDate);
+        const end = new Date(start);
+        end.setHours(end.getHours() + 2); // 2-hour survey window
+
+        const status = projectStatus === 'Completed' ? 'completed' : 
+                     start < now ? 'overdue' : 'scheduled';
+
+        events.push({
+          id: `survey-${recordId}`,
+          title: `Survey - ${customerName}`,
+          start,
+          end,
+          allDay: false,
+          type: 'survey',
+          projectId,
+          recordId,
+          customerName,
+          customerPhone,
+          status,
+          priority: 'normal',
+          coordinatorEmail: pcEmail,
+          metadata: { projectStatus }
+        });
+      }
+    }
+
+    // Query Outreach Records for upcoming outreach
+    const outreachQuery = {
+      from: QB_TABLE_OUTREACH_RECORDS,
+      select: [
+        FIELD_IDS.OUTREACH.RECORD_ID,
+        FIELD_IDS.OUTREACH.RELATED_PROJECT,
+        FIELD_IDS.OUTREACH.NEXT_OUTREACH_DUE_DATE,
+        FIELD_IDS.OUTREACH.OUTREACH_STATUS
+      ],
+      where: `{${FIELD_IDS.OUTREACH.PC_NAME}.EX.'${sanitizedName}'}AND{${FIELD_IDS.OUTREACH.NEXT_OUTREACH_DUE_DATE}.AF.'${startDate}'}AND{${FIELD_IDS.OUTREACH.NEXT_OUTREACH_DUE_DATE}.BF.'${endDate}'}`
+    };
+
+    const outreachResponse = await qbClient.query(outreachQuery);
+    const outreachRecords = outreachResponse.data || [];
+
+    // Transform outreach events
+    for (const record of outreachRecords) {
+      const recordId = record[FIELD_IDS.OUTREACH.RECORD_ID];
+      const projectId = record[FIELD_IDS.OUTREACH.RELATED_PROJECT];
+      const dueDate = record[FIELD_IDS.OUTREACH.NEXT_OUTREACH_DUE_DATE];
+      const outreachStatus = record[FIELD_IDS.OUTREACH.OUTREACH_STATUS];
+
+      if (dueDate) {
+        const start = new Date(dueDate);
+        const end = new Date(start);
+        end.setHours(end.getHours() + 1); // 1-hour outreach window
+
+        const status = outreachStatus === 'Complete' ? 'completed' : 
+                     start < now ? 'overdue' : 'scheduled';
+
+        events.push({
+          id: `outreach-${recordId}`,
+          title: `Outreach Due`,
+          start,
+          end,
+          allDay: true,
+          type: 'outreach',
+          projectId,
+          recordId,
+          customerName: 'Customer',
+          customerPhone: '',
+          status,
+          priority: 'normal',
+          coordinatorEmail: pcEmail,
+          metadata: { outreachStatus }
+        });
+      }
+    }
+
+    // Sort events by start date
+    events.sort((a, b) => a.start.getTime() - b.start.getTime());
+
+    logQuickbaseResponse('getPCCalendarEvents', { eventCount: events.length }, reqId);
+    return events;
+
+  } catch (error) {
+    logQuickbaseError('getPCCalendarEvents', error, reqId);
+    throw error;
+  }
 }

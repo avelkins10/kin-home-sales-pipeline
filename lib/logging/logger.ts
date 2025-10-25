@@ -247,6 +247,114 @@ export function logEmailEvent(
   }
 }
 
+/**
+ * Log Twilio request events
+ */
+export function logTwilioRequest(
+  operation: 'send_sms' | 'initiate_call',
+  params: {
+    to: string;
+    from?: string;
+    body?: string;
+    url?: string;
+  }
+): void {
+  const baseContext = {
+    service: 'twilio',
+    operation,
+    to: params.to,
+    from: params.from,
+  };
+
+  if (process.env.NODE_ENV === 'development') {
+    logInfo(`[TWILIO] ${operation}`, { ...baseContext, ...params });
+  } else {
+    // In production, don't log message content for privacy
+    logInfo(`[TWILIO] ${operation} to ${params.to}`, baseContext);
+  }
+}
+
+/**
+ * Log Twilio response events
+ */
+export function logTwilioResponse(
+  operation: 'send_sms' | 'initiate_call',
+  duration: number,
+  twilioSid: string,
+  status: string
+): void {
+  const baseContext = {
+    service: 'twilio',
+    operation,
+    twilioSid,
+    status,
+    duration,
+  };
+
+  if (duration > 5000) {
+    logWarn(`[TWILIO] ${operation} - ${duration}ms - SID: ${twilioSid} - Status: ${status} (slow response)`, baseContext);
+  } else {
+    logInfo(`[TWILIO] ${operation} - ${duration}ms - SID: ${twilioSid} - Status: ${status}`, baseContext);
+  }
+}
+
+/**
+ * Log Twilio error events
+ */
+export function logTwilioError(
+  operation: 'send_sms' | 'initiate_call',
+  error: Error,
+  context: {
+    to: string;
+    from?: string;
+    twilioErrorCode?: number;
+  }
+): void {
+  const baseContext = {
+    service: 'twilio',
+    operation,
+    twilioErrorCode: context.twilioErrorCode,
+    to: context.to,
+    from: context.from,
+  };
+
+  logError(`[TWILIO] ${operation} failed`, error, baseContext);
+}
+
+/**
+ * Log Twilio webhook events
+ */
+export function logTwilioWebhook(
+  webhookType: 'voice' | 'sms',
+  event: string,
+  context: {
+    MessageSid?: string;
+    CallSid?: string;
+    status: string;
+  }
+): void {
+  const baseContext = {
+    service: 'twilio_webhook',
+    webhookType,
+    event,
+    ...context,
+  };
+
+  if (process.env.NODE_ENV === 'development') {
+    logInfo(`[TWILIO_WEBHOOK] ${webhookType} - ${event}`, baseContext);
+  } else {
+    // In production, log only event type and SID for audit trail
+    const sid = context.MessageSid || context.CallSid;
+    logInfo(`[TWILIO_WEBHOOK] ${webhookType} - ${event} - SID: ${sid}`, {
+      service: 'twilio_webhook',
+      webhookType,
+      event,
+      sid,
+      status: context.status,
+    });
+  }
+}
+
 export async function logAudit(
   action: string,
   resource: string,

@@ -14,7 +14,14 @@ import { MilestonePerformanceCard } from '@/components/analytics/MilestonePerfor
 import { PipelineForecastCard } from '@/components/analytics/PipelineForecastCard';
 import { OfficeComparisonTable } from '@/components/analytics/OfficeComparisonTable';
 import { RepPerformanceTable } from '@/components/analytics/RepPerformanceTable';
+import { SetterPerformanceTable } from '@/components/analytics/SetterPerformanceTable';
+import { CloserPerformanceTable } from '@/components/analytics/CloserPerformanceTable';
 import { RepBenchmarkComparisonCard } from '@/components/analytics/RepBenchmarkComparisonCard';
+import { ConfigurableLeaderboard } from '@/components/analytics/ConfigurableLeaderboard';
+import { CanvassingOverviewCard } from '@/components/analytics/CanvassingOverviewCard';
+import { DoorsKnockedTrendsCard } from '@/components/analytics/DoorsKnockedTrendsCard';
+import { AppointmentRatesCard } from '@/components/analytics/AppointmentRatesCard';
+import { LeadQualityAnalysisCard } from '@/components/analytics/LeadQualityAnalysisCard';
 // import { CancellationAnalysisCard } from '@/components/analytics/CancellationAnalysisCard';
 // import { HoldAnalysisCard } from '@/components/analytics/HoldAnalysisCard';
 import { PeriodComparisonCard } from '@/components/analytics/PeriodComparisonCard';
@@ -71,7 +78,7 @@ export default function AnalyticsPage() {
       });
     }
 
-    if (tabParam && ['overview', 'performance', 'comparisons', 'analysis'].includes(tabParam)) {
+    if (tabParam && ['overview', 'performance', 'comparisons', 'analysis', 'leaderboards', 'canvassing'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [searchParams]);
@@ -271,6 +278,7 @@ export default function AnalyticsPage() {
   };
 
   const handleTabChange = (value: string) => {
+    setActiveTab(value);
     const params = new URLSearchParams(searchParams.toString());
     params.set('tab', value);
     router.push(`/analytics?${params.toString()}`);
@@ -309,7 +317,7 @@ export default function AnalyticsPage() {
         </div>
       ) : (
         <AnalyticsTabs
-          defaultTab={activeTab}
+          value={activeTab}
           onTabChange={handleTabChange}
           overviewContent={
             <>
@@ -343,6 +351,26 @@ export default function AnalyticsPage() {
             <>
               {/* Rep Performance Table - Full Width */}
               <RepPerformanceTable
+                userId={session.user.id}
+                role={session.user.role}
+                timeRange={timeRange}
+                customDateRange={customDateRange}
+                officeIds={selectedOfficeIds}
+                showExport={true}
+              />
+
+              {/* NEW: Setter Performance Table - Full Width */}
+              <SetterPerformanceTable
+                userId={session.user.id}
+                role={session.user.role}
+                timeRange={timeRange}
+                customDateRange={customDateRange}
+                officeIds={selectedOfficeIds}
+                showExport={true}
+              />
+
+              {/* NEW: Closer Performance Table - Full Width */}
+              <CloserPerformanceTable
                 userId={session.user.id}
                 role={session.user.role}
                 timeRange={timeRange}
@@ -432,6 +460,112 @@ export default function AnalyticsPage() {
                   showComparison={true}
                 /> */}
               </div>
+            </>
+          }
+          leaderboardsContent={
+            <>
+              {/* Top Setters - Doors Knocked */}
+              <ConfigurableLeaderboard
+                defaultRole="setter"
+                defaultMetric="doors_knocked"
+                defaultTimeRange={timeRange}
+                defaultOfficeIds={selectedOfficeIds}
+                title="Top Setters - Doors Knocked"
+                description="Leading setters by door knocking activity"
+                limit={25}
+                collapsible={true}
+                defaultOpen={true}
+                showFilters={true}
+                showExport={true}
+                showRefresh={true}
+              />
+
+              {/* Top Closers - Revenue */}
+              <ConfigurableLeaderboard
+                defaultRole="closer"
+                defaultMetric="revenue"
+                defaultTimeRange={timeRange}
+                defaultOfficeIds={selectedOfficeIds}
+                title="Top Closers - Revenue"
+                description="Highest revenue generators"
+                limit={25}
+                collapsible={true}
+                defaultOpen={false}
+                showFilters={true}
+                showExport={true}
+                showRefresh={true}
+              />
+
+              {/* Quality Leaders - All Roles */}
+              <ConfigurableLeaderboard
+                defaultRole="all"
+                defaultMetric="quality_score"
+                defaultTimeRange={timeRange}
+                defaultOfficeIds={selectedOfficeIds}
+                title="Quality Leaders"
+                description="Reps with highest quality scores"
+                limit={50}
+                collapsible={true}
+                defaultOpen={false}
+                showFilters={true}
+                showExport={true}
+                showRefresh={true}
+              />
+
+              {/* Volume Leaders - Appointments Set */}
+              <ConfigurableLeaderboard
+                defaultRole="all"
+                defaultMetric="appointments_set"
+                defaultTimeRange={timeRange}
+                defaultOfficeIds={selectedOfficeIds}
+                title="Volume Leaders - Appointments"
+                description="Reps with most appointments set"
+                limit={50}
+                collapsible={true}
+                defaultOpen={false}
+                showFilters={true}
+                showExport={true}
+                showRefresh={true}
+              />
+            </>
+          }
+          canvassingContent={
+            <>
+              {/* Canvassing Overview - Full Width */}
+              <CanvassingOverviewCard
+                userId={session.user.id}
+                role={session.user.role}
+                timeRange={timeRange}
+                customDateRange={customDateRange}
+                officeIds={selectedOfficeIds}
+              />
+
+              {/* Doors Knocked Trends and Appointment Rates - Side by Side */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <DoorsKnockedTrendsCard
+                  userId={session.user.id}
+                  role={session.user.role}
+                  timeRange={timeRange}
+                  customDateRange={customDateRange}
+                  officeIds={selectedOfficeIds}
+                />
+                <AppointmentRatesCard
+                  userId={session.user.id}
+                  role={session.user.role}
+                  timeRange={timeRange}
+                  customDateRange={customDateRange}
+                  officeIds={selectedOfficeIds}
+                />
+              </div>
+
+              {/* Lead Quality Analysis - Full Width */}
+              <LeadQualityAnalysisCard
+                userId={session.user.id}
+                role={session.user.role}
+                timeRange={timeRange}
+                customDateRange={customDateRange}
+                officeIds={selectedOfficeIds}
+              />
             </>
           }
         />

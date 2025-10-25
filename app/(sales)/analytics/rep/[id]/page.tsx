@@ -27,6 +27,7 @@ import { formatSystemSize, formatPPW, formatPercentage } from '@/lib/utils/forma
 import { exportAnalyticsToCSV } from '@/lib/utils/csv-export';
 import { getBaseUrl } from '@/lib/utils/baseUrl';
 import { toast } from 'sonner';
+import { BaseballCard } from '@/components/rep';
 import type { RepDetailMetrics } from '@/lib/types/analytics';
 import type { TimeRange, CustomDateRange } from '@/lib/types/dashboard';
 
@@ -192,6 +193,17 @@ export default function RepDetailPage() {
       console.error('Export error:', error);
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const getTimeRangeLabel = () => {
+    switch (timeRange) {
+      case 'ytd': return 'Year to Date';
+      case 'last_30': return 'Last 30 Days';
+      case 'last_90': return 'Last 90 Days';
+      case 'last_12_months': return 'Last 12 Months';
+      case 'custom': return 'Custom Range';
+      default: return 'Year to Date';
     }
   };
 
@@ -404,6 +416,16 @@ export default function RepDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Baseball Card - Comprehensive Rep Profile */}
+      <BaseballCard
+        userId={repId}
+        startDate={timeRange === 'custom' && customDateRange ? customDateRange.startDate : undefined}
+        endDate={timeRange === 'custom' && customDateRange ? customDateRange.endDate : undefined}
+        timeRange={getTimeRangeLabel()}
+        showExport={true}
+        className="mb-6"
+      />
 
       {/* Projects Table */}
       <Card>

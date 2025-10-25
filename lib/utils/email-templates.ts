@@ -474,3 +474,191 @@ export function getPasswordResetEmailTemplate(
 
   return getEmailLayout(content, `Reset your Kin Home Dashboard password`);
 }
+
+/**
+ * Generate HTML template for PC milestone notification emails
+ */
+export function getPCMilestoneEmailTemplate(
+  pcName: string,
+  milestoneType: 'survey' | 'install' | 'nem' | 'pto' | 'unresponsive',
+  customerName: string,
+  projectId: string,
+  daysOverdue: number,
+  recommendedAction: string,
+  dashboardUrl: string
+): string {
+  const styles = getEmailStyles();
+  
+  // Milestone-specific messaging and colors
+  const getMilestoneInfo = (type: string) => {
+    switch (type) {
+      case 'survey':
+        return {
+          title: 'Survey Overdue Alert',
+          icon: '📋',
+          color: '#dc3545', // Red for critical
+          message: `The survey for ${customerName} was scheduled ${daysOverdue} days ago but hasn't been submitted yet.`,
+          details: 'Survey completion is required to move the project forward.'
+        };
+      case 'install':
+        return {
+          title: 'Installation Overdue Alert',
+          icon: '🔧',
+          color: '#dc3545', // Red for critical
+          message: `The installation for ${customerName} was scheduled ${daysOverdue} days ago but hasn't been completed.`,
+          details: 'Installation completion is required for project progression.'
+        };
+      case 'nem':
+        return {
+          title: 'NEM Phase Overdue Alert',
+          icon: '⚡',
+          color: '#fd7e14', // Orange for warning
+          message: `${customerName}'s project has been in the NEM phase for ${daysOverdue} days without submission.`,
+          details: 'NEM submission is required for utility interconnection approval.'
+        };
+      case 'pto':
+        return {
+          title: 'PTO Phase Overdue Alert',
+          icon: '✅',
+          color: '#fd7e14', // Orange for warning
+          message: `${customerName}'s project has been in the PTO phase for ${daysOverdue} days without approval.`,
+          details: 'PTO approval is required for project completion.'
+        };
+      case 'unresponsive':
+        return {
+          title: 'Customer Unresponsive Alert',
+          icon: '📞',
+          color: '#dc3545', // Red for critical
+          message: `${customerName} has been unresponsive for ${daysOverdue} days despite multiple contact attempts.`,
+          details: 'Customer engagement is required to maintain project momentum.'
+        };
+      default:
+        return {
+          title: 'Milestone Alert',
+          icon: '⚠️',
+          color: '#6c757d',
+          message: `Milestone alert for ${customerName}`,
+          details: 'Please review project status and take appropriate action.'
+        };
+    }
+  };
+
+  const milestoneInfo = getMilestoneInfo(milestoneType);
+  
+  const content = `
+    <!-- Header with Alert Icon -->
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+      <tr>
+        <td align="center" style="padding-bottom: 30px;">
+          <div style="background-color: ${milestoneInfo.color}; color: white; padding: 20px; border-radius: 8px; text-align: center;">
+            <div style="font-size: 32px; margin-bottom: 10px;">${milestoneInfo.icon}</div>
+            <h1 style="margin: 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.xlarge}; font-weight: 600; color: white;">
+              ${milestoneInfo.title}
+            </h1>
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Greeting -->
+    <div style="margin-bottom: 30px;">
+      <h2 style="margin: 0 0 10px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.large}; font-weight: 600; color: ${styles.text};">
+        Hi ${pcName},
+      </h2>
+      <p style="margin: 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; line-height: 1.5;">
+        ${milestoneInfo.message}
+      </p>
+    </div>
+
+    <!-- Project Details Card -->
+    <div style="margin-bottom: 30px; padding: 20px; background-color: #f8f9fa; border: 1px solid ${styles.border}; border-radius: 8px;">
+      <h3 style="margin: 0 0 15px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; font-weight: 600; color: ${styles.text};">
+        Project Details
+      </h3>
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; font-weight: 600; width: 120px;">
+            Customer:
+          </td>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text};">
+            ${customerName}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; font-weight: 600;">
+            Project ID:
+          </td>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text};">
+            ${projectId}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; font-weight: 600;">
+            Milestone:
+          </td>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text};">
+            ${milestoneType.charAt(0).toUpperCase() + milestoneType.slice(1)}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; font-weight: 600;">
+            Days Overdue:
+          </td>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${milestoneInfo.color}; font-weight: 600;">
+            ${daysOverdue} days
+          </td>
+        </tr>
+      </table>
+      <p style="margin: 15px 0 0 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; line-height: 1.5;">
+        ${milestoneInfo.details}
+      </p>
+    </div>
+
+    <!-- Recommended Action -->
+    <div style="margin-bottom: 30px; padding: 20px; background-color: #e7f3ff; border: 1px solid #b3d9ff; border-radius: 8px;">
+      <h3 style="margin: 0 0 15px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; font-weight: 600; color: ${styles.text};">
+        Recommended Action
+      </h3>
+      <p style="margin: 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; line-height: 1.5;">
+        ${recommendedAction}
+      </p>
+    </div>
+
+    <!-- Call to Action -->
+    <div style="margin-bottom: 30px; text-align: center;">
+      <a href="${dashboardUrl}" 
+         style="display: inline-block; background-color: ${styles.primary}; color: white; text-decoration: none; padding: 15px 30px; border-radius: 6px; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; font-weight: 600; text-align: center; min-width: 200px;">
+        View Project
+      </a>
+    </div>
+
+    <!-- Alternative Link -->
+    <div style="margin-bottom: 30px; padding: 15px; background-color: #f8f9fa; border-radius: 4px; text-align: center;">
+      <p style="margin: 0 0 10px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.small}; color: #666; line-height: 1.4;">
+        If the button doesn't work, copy and paste this link:
+      </p>
+      <p style="margin: 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.small}; color: ${styles.primary}; word-break: break-all; line-height: 1.4;">
+        ${dashboardUrl}
+      </p>
+    </div>
+
+    <!-- Urgency Notice -->
+    <div style="margin-bottom: 30px; padding: 15px; background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px;">
+      <p style="margin: 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.small}; color: #856404; line-height: 1.4;">
+        <strong>⏰ Urgent:</strong> This milestone requires immediate attention to prevent project delays and maintain customer satisfaction.
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="border-top: 1px solid ${styles.border}; padding-top: 20px; text-align: center;">
+      <p style="margin: 0 0 10px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.small}; color: #666; line-height: 1.4;">
+        This is an automated notification from the Kin Home Operations Dashboard.
+      </p>
+      <p style="margin: 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.small}; color: #999; line-height: 1.4;">
+        © ${new Date().getFullYear()} Kin Home. All rights reserved.
+      </p>
+    </div>
+  `;
+
+  return getEmailLayout(content, `${milestoneInfo.title}: ${customerName} - Action Required`);
+}

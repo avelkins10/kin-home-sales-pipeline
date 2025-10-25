@@ -97,6 +97,7 @@ app/
 - **Database**: Neon PostgreSQL
 - **API Integration**: Quickbase REST API v1
 - **Offline Support**: IndexedDB + Service Worker (Phase 3)
+- **PDF Export**: jsPDF + html2canvas for component export functionality
 
 ## Prerequisites
 
@@ -244,6 +245,77 @@ If email is not configured, admins can still create invites and share the invite
 - QuickBase data auto-sync on account activation
 - Secure token-based invite system with 7-day expiration
 
+## Baseball Card Component
+
+The Baseball Card component (`components/rep/BaseballCard.tsx`) displays a comprehensive profile of a sales rep's performance by combining RepCard canvassing data with QuickBase sales data.
+
+### Features
+
+- **Volume Stats**: Doors knocked, appointments set, sales closed, revenue generated
+- **Quality Metrics**: Appointment speed, power bill attachment rate, reschedule rate, follow-up consistency
+- **Efficiency Metrics**: Doors per appointment, appointments per sale, average deal size, time to close
+- **Leaderboard Rankings**: Overall rank and office rank with trend indicators
+- **PDF Export**: Export the baseball card as a PDF for sharing or printing
+- **Graceful Degradation**: Shows appropriate message when RepCard data is unavailable
+- **Responsive Design**: Mobile-friendly layout that adapts to screen size
+
+### Usage
+
+```tsx
+import { BaseballCard } from '@/components/rep';
+
+<BaseballCard
+  userId="user-id-123"
+  startDate="2024-01-01"
+  endDate="2024-01-31"
+  timeRange="January 2024"
+  showExport={true}
+/>
+```
+
+### Props
+
+- `userId` (required): Dashboard user ID
+- `startDate` (optional): Start date for metrics (YYYY-MM-DD), defaults to current month start
+- `endDate` (optional): End date for metrics (YYYY-MM-DD), defaults to today
+- `timeRange` (optional): Human-readable time range label for display
+- `showExport` (optional): Whether to show PDF export button (default: true)
+- `className` (optional): Additional CSS classes
+
+### Data Sources
+
+- **RepCard API**: Canvassing data (doors knocked, appointments, quality metrics)
+- **Stats API**: Sales data (closed deals, revenue) sourced indirectly from QuickBase via the stats endpoint
+- **Leaderboard API**: Rankings and trends
+
+### PDF Export
+
+The component uses `html2canvas` and `jsPDF` to capture the card and generate a PDF. The export functionality:
+
+1. Captures the card element as a high-resolution canvas
+2. Converts the canvas to a PDF document
+3. Downloads the PDF with filename format: `{rep-name}-baseball-card.pdf`
+
+### Caching
+
+- User stats: 15-minute cache
+- Leaderboard data: 15-minute cache
+- All data is fetched via React Query with automatic refetching on stale data
+
+### Error Handling
+
+- Shows loading skeleton while fetching data
+- Displays error message with retry option on API failures
+- Shows "Not linked to RepCard" message when RepCard ID is missing
+- Handles missing or incomplete data gracefully
+
+### Integration
+
+The Baseball Card is currently integrated into:
+- Rep detail page (`/analytics/rep/[id]`)
+
+It can be added to any page that needs to display comprehensive rep profiles.
+
 ## Security
 
 ### Authentication & Authorization
@@ -322,6 +394,41 @@ npm run start        # Start production server
 npm run lint         # Run ESLint
 npm run type-check   # Run TypeScript compiler
 ```
+
+### User Sync Scripts
+
+**Purpose:** Daily refresh of user data from QuickBase Contacts table
+
+The `sync-users-from-contacts.ts` script refreshes all existing users from the QuickBase Contacts table using the existing `enrichUserFromContacts()` function. This is different from the seed script which creates NEW users from projects.
+
+**Available Commands:**
+```bash
+npm run sync:contacts                    # Full sync of all users
+npm run sync:contacts:dry-run           # Preview changes without updating
+npm run sync:contacts -- --limit=10     # Test with first 10 users
+npm run sync:contacts -- --force        # Force sync even if recently synced
+npm run sync:contacts -- --verbose      # Detailed logging
+```
+
+**When to run:**
+- Daily via cron job (automated)
+- After bulk updates to QuickBase Contacts table
+- When RepCard IDs or Enerflo IDs are updated in Contacts
+- When office/team assignments change
+
+**What it does:**
+- Queries all users from local database
+- For each user, looks up in QuickBase Contacts table by email
+- Updates missing fields using COALESCE strategy (never overwrites existing data)
+- Logs all operations to user_sync_log table
+- Provides detailed summary report
+
+**Troubleshooting:**
+- If many users not found in Contacts: Check email addresses match between systems
+- If high error rate: Check QuickBase API credentials and rate limits
+- If sync is slow: Use --limit flag to test with smaller batches first
+
+Reference the existing enrichment infrastructure in `lib/users/enrich-user.ts` and field mappings in `lib/constants/contactFieldIds.ts`.
 
 ## CI/CD Pipeline
 
@@ -924,6 +1031,866 @@ Current status: ~85% ready. CI/CD added; manual QA pending. See `docs/PRODUCTION
 - 90%+ daily active users (after launch)
 - 30%+ increase in task completion rate
 - 50% reduction in hold resolution time
+
+## Components
+
+### ConfigurableLeaderboard Component
+
+The ConfigurableLeaderboard component (`components/analytics/ConfigurableLeaderboard.tsx`) displays a ranked list of sales reps based on various performance metrics from RepCard and QuickBase data.
+
+#### Features
+
+- **Flexible Filtering**: Role (Setter/Closer/All), Metric (8 options), Time Period (7 presets + custom), Office (multi-select)
+- **Visual Rankings**: Top 3 performers get medal badges (🥇🥈🥉) with gradient backgrounds
+- **Trend Indicators**: Shows performance trends (↑↓→⭐) with color coding
+- **Real-time Updates**: Auto-refreshes every 15 minutes via React Query
+- **Export to CSV**: Download leaderboard data with formatted values
+- **Click to Navigate**: Click any entry to view rep detail page
+- **Responsive Design**: Mobile-friendly with horizontal scroll for tables
+- **Collapsible**: Optional collapsible card for space-saving layouts
+- **Customizable**: Accepts props for default filters and preset views
+
+#### Usage
+
+**Basic Usage:**
+```tsx
+import { ConfigurableLeaderboard } from '@/components/analytics';
+
+<ConfigurableLeaderboard />
+```
+
+**Preset View (Top Setters by Doors Knocked):**
+```tsx
+<ConfigurableLeaderboard
+  defaultRole="setter"
+  defaultMetric="doors_knocked"
+  defaultTimeRange="month"
+  title="Top Setters - Doors Knocked"
+  description="Leading setters by door knocking activity this month"
+  limit={25}
+/>
+```
+
+**Preset View (Top Closers by Revenue):**
+```tsx
+<ConfigurableLeaderboard
+  defaultRole="closer"
+  defaultMetric="revenue"
+  defaultTimeRange="quarter"
+  title="Top Closers - Revenue"
+  description="Highest revenue generators this quarter"
+  limit={25}
+/>
+```
+
+**Quality Leaders (All Roles):**
+```tsx
+<ConfigurableLeaderboard
+  defaultRole="all"
+  defaultMetric="quality_score"
+  defaultTimeRange="month"
+  title="Quality Leaders"
+  description="Reps with highest quality scores this month"
+  limit={50}
+/>
+```
+
+**Collapsible with Hidden Filters:**
+```tsx
+<ConfigurableLeaderboard
+  collapsible={true}
+  defaultOpen={false}
+  showFilters={false}
+  defaultMetric="sales_closed"
+  title="Sales Leaderboard"
+/>
+```
+
+#### Props
+
+- `defaultRole?: 'setter' | 'closer' | 'all'` - Default role filter (default: 'all')
+- `defaultMetric?: LeaderboardMetric` - Default metric (default: 'quality_score')
+- `defaultTimeRange?: TimeRange` - Default time range (default: 'month')
+- `defaultOfficeIds?: number[]` - Default office IDs to filter by
+- `showFilters?: boolean` - Show filter controls (default: true)
+- `showExport?: boolean` - Show export button (default: true)
+- `showRefresh?: boolean` - Show manual refresh button (default: true)
+- `limit?: number` - Number of entries to display (default: 50)
+- `title?: string` - Custom card title (default: 'Leaderboard')
+- `description?: string` - Custom description text
+- `collapsible?: boolean` - Make card collapsible (default: false)
+- `defaultOpen?: boolean` - Default collapsed state (default: true)
+- `className?: string` - Additional CSS classes
+- `onEntryClick?: (entry: LeaderboardEntry) => void` - Custom click handler
+
+#### Available Metrics
+
+- **doors_knocked**: Total doors knocked (Setter metric)
+- **appointments_set**: Total appointments set (Setter metric)
+- **sales_closed**: Total sales closed (Closer metric)
+- **revenue**: Total revenue generated (Closer metric)
+- **quality_score**: Composite quality score (Both roles)
+- **appointment_speed**: % of appointments scheduled within 24 hours (Setter quality)
+- **attachment_rate**: % of customers with power bill attachments (Setter quality)
+
+#### Time Range Options
+
+- **today**: Today's data
+- **week**: This week (Monday to today)
+- **month**: This month (1st to today)
+- **quarter**: This quarter (Q1/Q2/Q3/Q4 start to today)
+- **year**: This year (Jan 1 to today)
+- **custom**: Custom date range (via date picker)
+
+#### Data Source
+
+- **API Endpoint**: `/api/repcard/leaderboard`
+- **Cache Strategy**: 15-minute cache with auto-refresh
+- **Data Combines**: RepCard canvassing data + QuickBase sales data
+
+#### Visual Design
+
+**Rank Badges:**
+- 🥇 Rank 1: Gold medal with yellow gradient background
+- 🥈 Rank 2: Silver medal with gray gradient background
+- 🥉 Rank 3: Bronze medal with orange gradient background
+- Rank 4+: Numbered badge with blue background
+
+**Trend Indicators:**
+- ↑ (Green): Performance improved vs previous period
+- ↓ (Red): Performance declined vs previous period
+- → (Gray): Performance unchanged
+- ⭐ (Blue): New entry (first time on leaderboard)
+
+#### Integration
+
+The ConfigurableLeaderboard is designed to be integrated into the Analytics page with preset views:
+- **Leaderboards Tab**: Multiple preset leaderboards (Top Setters, Top Closers, Quality Leaders, Volume Leaders)
+- **Dashboard**: Featured leaderboard widget on main dashboard
+- **Office Pages**: Office-specific leaderboards
+
+See the next phase documentation for Analytics page integration details.
+
+#### Error Handling
+
+- Shows loading skeleton while fetching data
+- Displays error message with retry button on API failures
+- Shows empty state when no data matches filters
+- Handles missing RepCard data gracefully
+- Validates date ranges before API calls
+
+#### Performance
+
+- React Query caching reduces API calls
+- 15-minute auto-refresh keeps data fresh
+- Memoized calculations for formatting and badges
+- Efficient re-renders with proper React keys
+- Lazy loading of office data
+
+#### Accessibility
+
+- ARIA labels on all interactive elements
+- Keyboard navigation support
+- Screen reader friendly
+- WCAG AA color contrast compliance
+- Tooltips for metric explanations
+
+---
+
+**Note:** This component is part of the RepCard integration phase. It will be consumed by the Analytics page in the next implementation phase.
+
+## Setter and Closer Performance Tables
+
+Role-specific performance tables that combine RepCard canvassing data with QuickBase sales data to provide comprehensive insights into setter and closer performance.
+
+### SetterPerformanceTable
+
+**Location:** `components/analytics/SetterPerformanceTable.tsx`
+
+**Purpose:** Display setter-specific metrics including canvassing activity, appointment setting, and quality indicators.
+
+**Columns:**
+- **Rank**: Position based on selected sort column
+- **Setter Name**: Clickable link to rep detail page
+- **Office**: Office assignment
+- **Doors Knocked**: Total doors knocked (from RepCard)
+- **Appointments Set**: Total appointments set (from RepCard)
+- **Set Rate (%)**: Conversion rate from doors to appointments (calculated: appointments / doors * 100)
+- **Show Rate (%)**: Percentage of appointments where customer showed up (from appointment_speed metric)
+- **Close Rate (%)**: Percentage of appointments that resulted in sales (calculated: sales / appointments * 100)
+- **Quality Score**: Composite quality score (from quality metrics service)
+
+**Data Sources:**
+- RepCard API: `/api/repcard/leaderboard` with multiple metric queries (doors_knocked, appointments_set, quality_score, appointment_speed, sales_closed)
+- QuickBase: Sales closed data for close rate calculation
+
+**Features:**
+- Sortable columns with visual indicators
+- Search by setter name
+- Color-coded metrics (green/yellow/red based on thresholds)
+- Export to CSV
+- Collapsible card with localStorage persistence
+- Responsive design with horizontal scroll
+
+**Usage:**
+```typescript
+import { SetterPerformanceTable } from '@/components/analytics';
+
+<SetterPerformanceTable
+  userId={session.user.id}
+  role={session.user.role}
+  timeRange="last_12_months"
+  officeIds={[1, 2, 3]}
+  showExport={true}
+/>
+```
+
+### CloserPerformanceTable
+
+**Location:** `components/analytics/CloserPerformanceTable.tsx`
+
+**Purpose:** Display closer-specific metrics including appointment conversion, revenue generation, and follow-up activity.
+
+**Columns:**
+- **Rank**: Position based on selected sort column
+- **Closer Name**: Clickable link to rep detail page
+- **Office**: Office assignment
+- **Appointments Sat**: Total appointments attended (from QuickBase projects count)
+- **Sales Closed**: Total deals closed (from QuickBase)
+- **Sit/Close (%)**: Conversion rate from appointments to sales (calculated: sales / appointments * 100)
+- **Revenue**: Total revenue generated (from QuickBase system_cost sum)
+- **Avg Deal Size**: Average revenue per sale (calculated: revenue / sales)
+- **Follow-Ups**: Total follow-up appointments completed (from quality metrics)
+
+**Data Sources:**
+- RepCard API: `/api/repcard/leaderboard` for sales_closed and revenue metrics
+- QuickBase: Direct database queries for appointments sat (project count per closer)
+- Quality Metrics API: `/api/repcard/users/[userId]/quality-metrics` for follow-up data
+
+**Features:**
+- Sortable columns with visual indicators
+- Search by closer name
+- Color-coded sit/close rate (green ≥30%, yellow 20-30%, red <20%)
+- Export to CSV
+- Collapsible card with localStorage persistence
+- Responsive design with horizontal scroll
+
+**Usage:**
+```typescript
+import { CloserPerformanceTable } from '@/components/analytics';
+
+<CloserPerformanceTable
+  userId={session.user.id}
+  role={session.user.role}
+  timeRange="last_12_months"
+  officeIds={[1, 2, 3]}
+  showExport={true}
+/>
+```
+
+### Helper Module: closerMetrics.ts
+
+**Location:** `lib/analytics/closerMetrics.ts`
+
+**Purpose:** Centralize complex closer metric queries that require custom database logic.
+
+**Exports:**
+- `getAppointmentsSatByCloser()`: Fetch appointment counts per closer from QuickBase projects
+- `getFollowUpsByCloser()`: Fetch follow-up counts per closer from quality metrics
+- `calculateDateRange()`: Helper to convert TimeRange to date strings
+
+**Usage:**
+```typescript
+import { getAppointmentsSatByCloser, getFollowUpsByCloser } from '@/lib/analytics/closerMetrics';
+
+const appointmentsSat = await getAppointmentsSatByCloser('last_12_months', undefined, [1, 2, 3]);
+const followUps = await getFollowUpsByCloser('last_12_months', undefined, [1, 2, 3]);
+```
+
+### Integration
+
+Both tables are integrated into the **Analytics Performance tab** alongside the existing RepPerformanceTable:
+
+1. **RepPerformanceTable**: General performance for all reps
+2. **SetterPerformanceTable**: Setter-specific metrics
+3. **CloserPerformanceTable**: Closer-specific metrics
+4. **RepBenchmarkComparisonCard**: Benchmark comparisons
+5. **MilestonePerformanceCard**: Milestone tracking
+
+All tables respect page-level filters (time range, office selection) and are collapsible for better space management.
+
+### Performance Considerations
+
+**SetterPerformanceTable:**
+- Makes 5 parallel API calls to leaderboard endpoint
+- Uses React Query caching (15-minute stale time)
+- Combines data client-side for flexibility
+
+**CloserPerformanceTable:**
+- Makes 2 leaderboard API calls + custom database queries
+- Follow-ups query is expensive (N API calls per closer)
+- Consider implementing batch endpoint for follow-ups if performance becomes an issue
+- Uses aggressive caching (30 minutes) for quality metrics
+
+### Color Coding Thresholds
+
+**Setter Metrics:**
+- Set Rate: Green ≥20%, Yellow 10-20%, Red <10%
+- Show Rate: Green ≥80%, Yellow 60-80%, Red <60%
+- Close Rate: Green ≥30%, Yellow 20-30%, Red <20%
+- Quality Score: Green ≥80%, Yellow 60-80%, Red <60%
+
+**Closer Metrics:**
+- Sit/Close %: Green ≥30%, Yellow 20-30%, Red <20%
+
+### Future Enhancements
+
+- Add trend indicators (↑↓) showing change vs previous period
+- Implement batch endpoint for follow-ups to improve performance
+- Add drill-down capability (click row to see detailed breakdown)
+- Add comparison to office/company benchmarks
+- Add goal lines and target indicators
+- Add export to PDF functionality
+- Add real-time updates with WebSocket or polling
+
+---
+
+**Related Documentation:**
+- RepCard Integration: See RepCard API Endpoints section
+- Quality Metrics: See RepCard Quality Metrics section
+- Analytics Page: See Analytics Page - Tab Structure section
+
+## RepCard API Endpoints
+
+The RepCard integration provides four API endpoints for accessing canvassing and quality metrics data:
+
+**1. User Stats - `/api/repcard/users/[userId]/stats`**
+- **Method**: GET
+- **Authentication**: Required (user can view own stats, managers can view team stats)
+- **Query Parameters**:
+  - `startDate` (optional): YYYY-MM-DD format, defaults to start of current month
+  - `endDate` (optional): YYYY-MM-DD format, defaults to today
+  - `timeRange` (optional): 'week', 'month', 'quarter', 'ytd', 'custom'
+- **Response**: Comprehensive user statistics combining RepCard canvassing data with QuickBase sales data
+- **Cache**: 15 minutes
+- **Use Case**: Display on user profile pages, baseball cards, performance dashboards
+
+**2. Quality Metrics - `/api/repcard/users/[userId]/quality-metrics`**
+- **Method**: GET
+- **Authentication**: Required (user can view own metrics, managers can view team metrics)
+- **Query Parameters**:
+  - `startDate` (optional): YYYY-MM-DD format
+  - `endDate` (optional): YYYY-MM-DD format
+  - `timeRange` (optional): 'week', 'month', 'quarter', 'ytd', 'custom'
+  - `useCache` (optional): boolean, defaults to true
+- **Response**: Detailed quality metrics breakdown (appointment speed, attachment rate, reschedule rate, follow-up consistency)
+- **Cache**: 30 minutes (via qualityMetrics.ts)
+- **Use Case**: Quality analysis, coaching insights, performance improvement tracking
+
+**3. Leaderboard - `/api/repcard/leaderboard`**
+- **Method**: GET
+- **Authentication**: Required (accessible by all authenticated users)
+- **Query Parameters**:
+  - `role` (optional): 'setter', 'closer', 'all' (default: 'all')
+  - `metric` (optional): 'doors_knocked', 'appointments_set', 'sales_closed', 'revenue', 'quality_score', 'appointment_speed', 'attachment_rate' (default: 'quality_score')
+  - `timeRange` (optional): 'today', 'week', 'month', 'quarter', 'ytd', 'custom' (default: 'month')
+  - `startDate` (optional): YYYY-MM-DD format (required if timeRange='custom')
+  - `endDate` (optional): YYYY-MM-DD format (required if timeRange='custom')
+  - `officeIds` (optional): comma-separated office names for filtering
+  - `limit` (optional): number of entries to return (default: 50, max: 100)
+  - `page` (optional): page number for pagination (default: 1)
+- **Response**: Ranked list of users by selected metric with pagination
+- **Cache**: 15 minutes
+- **Use Case**: Leaderboard displays, competitive motivation, performance tracking
+
+**4. Office Stats - `/api/repcard/offices/[officeId]/stats`**
+- **Method**: GET
+- **Authentication**: Required (office leaders and above)
+- **Authorization**: Office leaders can only view their own office
+- **Query Parameters**:
+  - `startDate` (optional): YYYY-MM-DD format
+  - `endDate` (optional): YYYY-MM-DD format
+  - `timeRange` (optional): 'week', 'month', 'quarter', 'ytd', 'custom'
+- **Response**: Office-level aggregate statistics with top performers
+- **Cache**: 30 minutes
+- **Use Case**: Office dashboards, team performance tracking, manager insights
+
+**Graceful Degradation:**
+All endpoints handle missing `repcard_user_id` gracefully by returning:
+```json
+{
+  "hasRepcardData": false,
+  "message": "User not linked to RepCard",
+  "userId": "...",
+  "userName": "..."
+}
+```
+
+**Error Handling:**
+- 400: Invalid parameters (with helpful error message)
+- 401: Unauthorized (not authenticated)
+- 403: Forbidden (authenticated but not authorized)
+- 404: User/office not found
+- 500: Internal server error (with error message and stack trace in development)
+
+**Caching Strategy:**
+- User stats: 15 minutes (balance between freshness and performance)
+- Quality metrics: 30 minutes (calculations are expensive)
+- Leaderboard: 15 minutes (needs to feel fresh for motivation)
+- Office stats: 30 minutes (aggregate data changes less frequently)
+
+**Performance Considerations:**
+- All endpoints use in-memory caching with LRU eviction
+- RepCard API calls are batched when possible
+- Parallel data fetching with Promise.all
+- Maximum cache size: 100 entries (50 for office stats)
+
+**Related Documentation:**
+- RepCard API Client: `lib/repcard/client.ts`
+- Quality Metrics Service: `lib/repcard/qualityMetrics.ts`
+- Type Definitions: `lib/repcard/types.ts`
+
+## RepCard Quality Metrics
+
+The quality metrics service calculates four key performance indicators from RepCard canvassing data:
+
+**1. Appointment Speed**
+- Measures how quickly appointments are scheduled after lead creation
+- Target: >80% of appointments scheduled within 24 hours
+- Indicates setter responsiveness and lead quality
+
+**2. Power Bill Attachment Rate**
+- Measures percentage of customers with power bill attachments
+- Target: >70% of customers should have attachments
+- Indicates thoroughness of lead qualification
+
+**3. Reschedule Rate**
+- Measures average number of reschedules per customer
+- Target: <1.5 reschedules per customer
+- Lower is better - indicates appointment quality and customer commitment
+
+**4. Follow-Up Consistency**
+- Measures percentage of customers receiving required follow-ups
+- Target: >90% of customers requiring follow-ups should receive them
+- Indicates closer persistence and follow-through
+
+**Usage Examples:**
+
+```typescript
+import { getQualityMetricsForUser, getQualityMetricsForOffice } from '@/lib/repcard';
+
+// Get metrics for a single user
+const userMetrics = await getQualityMetricsForUser(
+  'user-id-123',
+  '2024-01-01',
+  '2024-01-31'
+);
+
+// Get metrics for an entire office
+const officeMetrics = await getQualityMetricsForOffice(
+  'Phoenix Office',
+  '2024-01-01',
+  '2024-01-31'
+);
+
+// Get metrics for multiple users
+const metrics = await getQualityMetricsForUsers({
+  userIds: ['user-1', 'user-2'],
+  startDate: '2024-01-01',
+  endDate: '2024-01-31'
+});
+```
+
+**Caching:**
+- Metrics are cached for 30 minutes to reduce API load
+- Cache can be bypassed with `useCache: false` parameter
+- Cache statistics available via `getCacheStats()`
+- Clear cache with `clearQualityMetricsCache()`
+
+**Performance:**
+- Typical calculation time: 2-5 seconds (depending on data volume)
+- Cached responses: <10ms
+- API calls are made in parallel for optimal performance
+
+**Testing:**
+- Run tests: `npm test qualityMetrics.test.ts`
+- Tests cover all calculation functions and edge cases
+- Mock data ensures consistent test results
+
+**Future Enhancements:**
+- Add configurable status IDs for reschedule detection
+- Implement file type filtering for power bill attachments
+- Refine follow-up consistency logic based on business requirements
+- Add trend analysis and forecasting
+
+## Analytics Page - Tab Structure
+
+The Analytics page (`app/(sales)/analytics/page.tsx`) provides comprehensive performance insights with 6 tabs:
+
+### 1. Overview Tab
+- **Purpose**: High-level office and pipeline metrics
+- **Components**: OfficeOverviewCard, PipelineForecastCard
+- **Access**: Office leaders and above
+
+### 2. Performance Tab
+- **Purpose**: Individual rep performance analysis
+- **Components**: RepPerformanceTable, SetterPerformanceTable, CloserPerformanceTable, RepBenchmarkComparisonCard, MilestonePerformanceCard
+- **Access**: Office leaders and above
+
+### 3. Comparisons Tab
+- **Purpose**: Period-over-period and benchmark comparisons
+- **Components**: PeriodComparisonCard, BenchmarkComparisonCard, VisualComparisonsCard, OfficeComparisonTable
+- **Access**: Office leaders and above
+
+### 4. Analysis Tab
+- **Purpose**: Deep-dive analysis of cancellations and holds
+- **Components**: CancellationAnalysisCard, HoldAnalysisCard (currently commented out)
+- **Access**: Office leaders and above
+
+### 5. Leaderboards Tab ⭐ NEW
+- **Purpose**: Competitive rankings and performance leaderboards
+- **Components**: 4 preset ConfigurableLeaderboard instances
+  - **Top Setters - Doors Knocked**: Leading setters by door knocking activity (25 entries, open by default)
+  - **Top Closers - Revenue**: Highest revenue generators (25 entries, collapsed by default)
+  - **Quality Leaders**: Reps with highest quality scores (50 entries, collapsed by default)
+  - **Volume Leaders - Appointments**: Reps with most appointments set (50 entries, collapsed by default)
+- **Features**:
+  - Each leaderboard has independent filters (role, metric, time range, office)
+  - Export to CSV functionality
+  - Real-time updates (15-minute auto-refresh)
+  - Collapsible cards for space management
+  - Medal badges for top 3 performers (🥇🥈🥉)
+  - Trend indicators (↑↓→⭐)
+- **Access**: Office leaders and above
+- **Data Source**: `/api/repcard/leaderboard` with RepCard canvassing data + QuickBase sales data
+
+### 6. Canvassing Tab ⭐ NEW
+- **Purpose**: Canvassing activity analysis and lead quality metrics
+- **Components**:
+  - **CanvassingOverviewCard**: High-level metrics (total doors, appointments, conversion rate, active reps)
+  - **DoorsKnockedTrendsCard**: Line chart showing door knocking trends over time (placeholder with mock data)
+  - **AppointmentRatesCard**: Bar chart showing appointment set rates by office/rep
+  - **LeadQualityAnalysisCard**: Quality metrics breakdown (show rate, sit rate, close rate, follow-up rate) (placeholder with mock data)
+- **Features**:
+  - Uses page-level filters (time range, office selection)
+  - Responsive grid layout (side-by-side on desktop, stacked on mobile)
+  - Color-coded quality indicators (green/yellow/red)
+  - Target benchmarks for quality metrics
+- **Access**: Office leaders and above
+- **Data Source**: `/api/repcard/leaderboard` (current), future: dedicated canvassing endpoints
+- **Status**: Placeholder components with basic functionality. Full implementation requires:
+  - Time-series data from RepCard API for trend charts
+  - Aggregated quality metrics endpoint
+  - Enhanced visualizations and drill-down capabilities
+
+### Tab Navigation
+- **URL-based state**: Tab selection persists in URL (`?tab=leaderboards`)
+- **Responsive design**: 3 columns on mobile (2 rows), 6 columns on desktop (1 row)
+- **Smooth transitions**: Fade-in animations when switching tabs
+- **Scroll behavior**: Auto-scroll to top when changing tabs
+
+### Filter Integration
+- **Page-level filters**: Time range, office selection, rep selection (managed in `page.tsx`)
+- **Leaderboards tab**: Each leaderboard has independent filters that override page-level defaults
+- **Other tabs**: Use page-level filters directly
+- **URL persistence**: All filters persist in URL for shareable links
+
+### Access Control
+- **Required role**: Office leader, Regional, or Super Admin
+- **Office scoping**: Office leaders see only their assigned offices by default
+- **Regional/Super Admin**: See all offices by default
+
+### Future Enhancements
+- **Canvassing Tab**:
+  - Replace mock trend data with real time-series data from RepCard API
+  - Implement aggregated quality metrics endpoint
+  - Add drill-down capabilities (click chart to see rep details)
+  - Add comparison to previous period
+  - Add goal lines and target indicators
+- **Leaderboards Tab**:
+  - Add more preset leaderboards (e.g., "Most Improved", "Consistency Leaders")
+  - Add team leaderboards (office vs office)
+  - Add historical trend view (rank changes over time)
+- **General**:
+  - Add export functionality for all tabs
+  - Add scheduled reports (email daily/weekly summaries)
+  - Add custom dashboard builder (drag-and-drop widgets)
+
+---
+
+**Related Documentation:**
+- ConfigurableLeaderboard Component: See Components section
+- RepCard Integration: See RepCard API Endpoints section
+- Analytics API Routes: See API Routes section
+
+## User Sync System
+
+The user sync system automatically refreshes user data from QuickBase Contacts table daily, ensuring the dashboard has up-to-date RepCard IDs, Enerflo IDs, office assignments, and other user metadata.
+
+### Overview
+
+**Purpose**: Sync user data from QuickBase Contacts table (master source) to local database
+
+**Frequency**: Daily at 2 AM UTC (configurable in `vercel.json`)
+
+**Scope**: All users with email addresses (excludes test users by default)
+
+**Data Synced**:
+- RepCard User ID
+- Enerflo User ID
+- Office assignment
+- Team assignment
+- Role (setter/closer)
+- Profile image URL
+- Project counts (closer/setter)
+
+### Architecture
+
+**Components**:
+1. **Sync Script**: `scripts/sync-users-from-contacts.ts` - Core sync logic
+2. **Cron Endpoint**: `/api/cron/sync-users` - Triggered by Vercel Cron
+3. **Admin Endpoint**: `/api/admin/sync-users` - Manual trigger for admins
+4. **Monitoring Dashboard**: `/operations/sync-monitoring` - View sync history and statistics
+5. **Notification System**: `lib/notifications/slack.ts` - Alert on failures
+6. **Run Logger**: `lib/sync/syncRunLogger.ts` - Track sync runs in database
+
+**Data Flow**:
+```
+Vercel Cron (2 AM UTC)
+  ↓
+/api/cron/sync-users
+  ↓
+runSync() from sync script
+  ↓
+Query all users from local DB
+  ↓
+For each user:
+  - Query QuickBase Contacts by email
+  - Update user with COALESCE strategy
+  - Log to user_sync_log table
+  ↓
+Aggregate statistics
+  ↓
+Log to user_sync_runs table
+  ↓
+Send Slack notification (if failures)
+  ↓
+Return statistics
+```
+
+### Manual Sync
+
+**Via Admin Dashboard**:
+1. Navigate to `/operations/sync-monitoring`
+2. Click "Run Manual Sync" button
+3. View progress and results in real-time
+
+**Via API**:
+```bash
+curl -X POST https://your-domain.com/api/admin/sync-users \
+  -H "Authorization: Bearer YOUR_SESSION_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"force": true}'
+```
+
+**Via CLI** (local development):
+```bash
+# Full sync
+npm run sync:contacts
+
+# Dry run (preview changes)
+npm run sync:contacts:dry-run
+
+# Test with limited users
+npm run sync:contacts -- --limit=10
+
+# Force sync (ignore last sync timestamp)
+npm run sync:contacts -- --force
+
+# Verbose logging
+npm run sync:contacts -- --verbose
+```
+
+### Monitoring
+
+**Dashboard**: `/operations/sync-monitoring`
+
+**Metrics Tracked**:
+- Total sync runs
+- Success rate (percentage)
+- Average execution time
+- Last successful sync timestamp
+- Consecutive failures count
+
+**History Table**:
+- Status (running, success, partial, failed)
+- Start/completion timestamps
+- Users processed, enriched, errors
+- Triggered by (cron or manual)
+- Execution time
+- Error details (expandable)
+
+**Auto-refresh**: Dashboard updates every 30 seconds
+
+### Notifications
+
+**Slack Notifications** (optional):
+- Configure `SLACK_WEBHOOK_URL` in environment variables
+- Notifications sent when:
+  - Error rate > 10%
+  - Complete sync failure
+  - Execution time > 10 minutes
+
+**Notification Format**:
+```
+🚨 User Sync Failed
+
+Status: Partial Failure
+Total Users: 196
+Enriched: 180
+Errors: 16 (8.2%)
+Execution Time: 2m 34s
+
+Sample Errors:
+• user1@example.com: QuickBase API timeout
+• user2@example.com: Not found in Contacts
+
+View Details: https://your-domain.com/operations/sync-monitoring
+```
+
+### Configuration
+
+**Environment Variables**:
+```bash
+# Required
+DATABASE_URL=postgresql://...
+QUICKBASE_REALM=your-realm
+QUICKBASE_TOKEN=your-token
+CRON_SECRET=your-cron-secret
+
+# Optional
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
+```
+
+**Cron Schedule** (in `vercel.json`):
+```json
+{
+  "path": "/api/cron/sync-users",
+  "schedule": "0 2 * * *"  // 2 AM UTC daily
+}
+```
+
+**To change schedule**:
+- Modify `schedule` in `vercel.json`
+- Use cron expression format: `minute hour day month dayOfWeek`
+- Examples:
+  - Every 6 hours: `0 */6 * * *`
+  - Twice daily (2 AM, 2 PM): `0 2,14 * * *`
+  - Weekly on Monday: `0 2 * * 1`
+
+### Troubleshooting
+
+**High Error Rate (>10%)**:
+- Check QuickBase API credentials (`QUICKBASE_TOKEN`)
+- Verify QuickBase API rate limits not exceeded
+- Check Contacts table data quality
+- Review error details in monitoring dashboard
+
+**High Not-Found Rate (>20%)**:
+- Verify email addresses match between systems
+- Check Contacts table has all active users
+- Review not-found samples in monitoring dashboard
+
+**Sync Timeout (>10 minutes)**:
+- Check database connection performance
+- Verify QuickBase API response times
+- Consider increasing `maxDuration` in `vercel.json`
+
+**Consecutive Failures**:
+- Check environment variables are set correctly
+- Verify database connection is working
+- Check Vercel function logs for errors
+- Try manual sync to isolate issue
+
+**Sync Not Running**:
+- Verify `CRON_SECRET` is set in Vercel environment
+- Check Vercel Cron logs in dashboard
+- Verify cron job is enabled in `vercel.json`
+- Check function deployment status
+
+### Database Schema
+
+**Table: `user_sync_runs`**
+- Stores aggregate statistics for each sync run
+- Enables monitoring and trend analysis
+- Retention: Keep all records (no automatic cleanup)
+
+**Table: `user_sync_log`**
+- Stores individual user sync operations
+- Tracks confidence scores and field changes
+- Retention: Keep all records for audit trail
+
+**Migration**:
+```bash
+npm run migrate:sync-runs
+```
+
+### Security
+
+**Cron Authentication**:
+- Vercel Cron sends `Authorization: Bearer ${CRON_SECRET}` header
+- Endpoint validates header before executing sync
+- Returns 401 if authentication fails
+
+**Admin Endpoint**:
+- Requires authentication via `requireAuth()`
+- Only `super_admin` role can trigger manual sync
+- Returns 403 if user not authorized
+
+**Rate Limiting**:
+- Prevents concurrent syncs (checks for running status)
+- Returns 429 if sync already in progress
+
+**Data Protection**:
+- User emails not exposed in public logs
+- Error details only visible to admins
+- Slack notifications sent to private channel
+
+### Performance
+
+**Typical Execution Time**:
+- 200 users: ~2-3 minutes
+- 500 users: ~5-7 minutes
+- 1000 users: ~10-15 minutes
+
+**Optimization**:
+- Users synced sequentially to avoid rate limiting
+- Recently synced users skipped (within 23 hours)
+- Database queries optimized with indexes
+- QuickBase API calls batched where possible
+
+**Limits**:
+- Max duration: 5 minutes (configurable in `vercel.json`)
+- Max memory: 1GB
+- QuickBase API rate limit: 10 requests/second
+
+### Future Enhancements
+
+- [ ] Email notifications (in addition to Slack)
+- [ ] Retry logic with exponential backoff
+- [ ] Parallel processing for faster syncs
+- [ ] Incremental sync (only changed users)
+- [ ] Webhook notifications to external systems
+- [ ] Sync scheduling UI (change schedule without code)
+- [ ] Historical trend charts in monitoring dashboard
+- [ ] Export sync history to CSV
+
+---
+
+**Related Documentation**:
+- User Enrichment: See "Self-Enriching User Database" section
+- QuickBase Integration: See "QuickBase API" section
+- Admin Dashboard: See "Admin Features" section
 
 ## Success Metrics
 

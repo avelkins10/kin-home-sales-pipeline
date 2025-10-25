@@ -348,6 +348,50 @@ export class QuickbaseClient {
       return json;
     });
   }
+
+  async deleteRecord(params: { from: string; where: string }): Promise<any> {
+    const startTime = Date.now();
+    logQuickbaseRequest('DELETE', '/v1/records', params);
+
+    return this.queueRequest(async () => {
+      const response = await this.fetchWithRetry(
+        'https://api.quickbase.com/v1/records',
+        {
+          method: 'DELETE',
+          headers: {
+            'QB-Realm-Hostname': this.realm,
+            'Authorization': `QB-USER-TOKEN ${this.token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: params.from,
+            where: params.where
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: response.statusText }));
+        const errorMessage = error.message || error.description || response.statusText;
+
+        console.error('[QuickbaseClient] Delete failed:', {
+          status: response.status,
+          error: error,
+          requestParams: params
+        });
+
+        logQuickbaseError('DELETE', '/v1/records', new Error(errorMessage));
+        throw new Error(`Quickbase delete error: ${errorMessage} - ${JSON.stringify(error)}`);
+      }
+
+      const json = await response.json();
+      const duration = Date.now() - startTime;
+      logQuickbaseResponse('DELETE', '/v1/records', duration, json.numberDeleted || 0);
+
+      console.log(`[QuickbaseClient] Deleted ${json.numberDeleted || 0} record(s) from ${params.from}`);
+      return json;
+    });
+  }
 }
 
 // Create and export a configured client instance
