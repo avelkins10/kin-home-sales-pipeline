@@ -7,21 +7,20 @@ import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { 
-  UserPlus, 
-  Clock, 
-  CheckCircle, 
-  MessageSquare, 
+import {
+  UserPlus,
+  Clock,
+  CheckCircle,
+  MessageSquare,
   History,
   Zap,
   Home,
   DollarSign,
-  AlertCircle,
-  MessageSquareText
+  AlertCircle
 } from 'lucide-react';
 import { PCEscalation, PCEscalationAction, PCEscalationCategory } from '@/lib/types/operations';
 import { EscalationTimer } from './EscalationTimer';
-import { calculateSalesAidUrgency } from '@/lib/quickbase/queries';
+import { calculateSalesAidUrgency } from '@/lib/utils/escalation-helpers';
 
 interface EscalationCardProps {
   escalation: PCEscalation;

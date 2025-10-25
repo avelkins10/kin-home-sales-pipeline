@@ -107,6 +107,11 @@ export class RepCardClient {
     this.baseUrl = baseUrl || process.env.REPCARD_API_URL || 'https://api.repcard.com';
     this.apiKey = apiKey || process.env.REPCARD_API_KEY || '';
 
+    // Don't throw on construction - let methods fail gracefully if needed
+    // This allows the module to be imported during build without requiring the API key
+  }
+
+  private checkApiKey() {
     if (!this.apiKey) {
       throw new Error('RepCard API key is required. Set REPCARD_API_KEY environment variable.');
     }
@@ -116,6 +121,8 @@ export class RepCardClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<RepCardApiResponse<T>> {
+    this.checkApiKey(); // Check API key before making request
+
     const url = `${this.baseUrl}${endpoint}`;
 
     const headers = {
