@@ -548,7 +548,7 @@ export const TASK_TEMPLATE_FIELDS = {
 } as const;
 
 // QuickBase table IDs
-export const QB_TABLE_PROJECTS = 'bqj8x8k8n'; // Projects table ID
+export const QB_TABLE_PROJECTS = 'br9kwm8na'; // Projects table ID
 export const QB_TABLE_TASK_GROUPS = 'bu36gem4p';
 export const QB_TABLE_TASKS = 'bu36ggiht';
 export const QB_TABLE_TASK_SUBMISSIONS = 'bu36g8j99';
