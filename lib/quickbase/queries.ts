@@ -79,6 +79,15 @@ function isTrueQB(value: any): boolean {
   return false;
 }
 
+/**
+ * Sanitize QuickBase query values to prevent injection
+ * Escapes single quotes and special characters
+ */
+function sanitizeQuickbaseValue(value: string): string {
+  if (!value) return '';
+  return value.replace(/'/g, "\\'");
+}
+
 // In-process cache for commission/team bucket calculations
 interface CacheEntry<T> {
   data: T;
@@ -4739,7 +4748,7 @@ export async function getPCDashboardMetrics(
       ]
     };
 
-    const response = await quickbaseClient.query(query);
+    const response = await qbClient.queryRecords(query);
     logQuickbaseResponse('getPCDashboardMetrics', response);
 
     const records = response.data || [];
@@ -4831,7 +4840,7 @@ export async function getPCPriorityQueue(
       ]
     };
 
-    const response = await quickbaseClient.query(query);
+    const response = await qbClient.queryRecords(query);
     logQuickbaseResponse('getPCPriorityQueue', response);
 
     const records = response.data || [];
@@ -4912,7 +4921,7 @@ export async function getPCProjectPipeline(
       ]
     };
 
-    const response = await quickbaseClient.query(query);
+    const response = await qbClient.queryRecords(query);
     logQuickbaseResponse('getPCProjectPipeline', response);
 
     const records = response.data || [];
@@ -4979,7 +4988,7 @@ export async function getPCActivityFeed(
       select: [PROJECT_FIELDS.RECORD_ID, PROJECT_FIELDS.PROJECT_ID, PROJECT_FIELDS.CUSTOMER_NAME]
     };
 
-    const projectsResponse = await quickbaseClient.query(projectsQuery);
+    const projectsResponse = await qbClient.queryRecords(projectsQuery);
     const projectRecords = projectsResponse.data || [];
     const projectIds = projectRecords.map(p => p[PROJECT_FIELDS.RECORD_ID]);
 
@@ -5006,7 +5015,7 @@ export async function getPCActivityFeed(
       ]
     };
 
-    const response = await quickbaseClient.query(query);
+    const response = await qbClient.queryRecords(query);
     logQuickbaseResponse('getPCActivityFeed', response);
 
     const records = response.data || [];
@@ -6049,7 +6058,7 @@ export async function getPCInboundRepQueue(
       sortBy: [{ field: SALES_AID_FIELDS.DATE_CREATED, order: 'DESC' }]
     };
 
-    const salesAidResponse = await qbClient.query(salesAidQuery);
+    const salesAidResponse = await qbClient.queryRecords(salesAidQuery);
     
     if (!salesAidResponse.data || salesAidResponse.data.length === 0) {
       logQuickbaseResponse('getPCInboundRepQueue', { count: 0 }, reqId, Date.now() - startTime);
@@ -6080,7 +6089,7 @@ export async function getPCInboundRepQueue(
       where: `{${PROJECT_FIELDS.RECORD_ID}.IN.${projectIds.join(',')}} AND {${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'}`
     };
 
-    const projectsResponse = await qbClient.query(projectsQuery);
+    const projectsResponse = await qbClient.queryRecords(projectsQuery);
     
     if (!projectsResponse.data || projectsResponse.data.length === 0) {
       logQuickbaseResponse('getPCInboundRepQueue', { count: 0 }, reqId, Date.now() - startTime);
@@ -6225,7 +6234,7 @@ export async function getPCConversationHistory(
       sortBy: [{ field: INSTALL_COMMUNICATION_FIELDS.DATE, order: 'DESC' }]
     };
 
-    const communicationsResponse = await qbClient.query(communicationsQuery);
+    const communicationsResponse = await qbClient.queryRecords(communicationsQuery);
     
     if (!communicationsResponse.data || communicationsResponse.data.length === 0) {
       logQuickbaseResponse('getPCConversationHistory', { count: 0 }, reqId, Date.now() - startTime);
@@ -6249,7 +6258,7 @@ export async function getPCConversationHistory(
       where: `{${PROJECT_FIELDS.RECORD_ID}.IN.${projectIds.join(',')}}`
     };
 
-    const projectsResponse = await qbClient.query(projectsQuery);
+    const projectsResponse = await qbClient.queryRecords(projectsQuery);
     const projectMap = new Map();
     projectsResponse.data?.forEach((project: any) => {
       projectMap.set(project[PROJECT_FIELDS.RECORD_ID], {
@@ -6365,7 +6374,7 @@ export async function getPCBulkMessagingRecipients(
       where: whereConditions.join(' AND ')
     };
 
-    const projectsResponse = await qbClient.query(projectsQuery);
+    const projectsResponse = await qbClient.queryRecords(projectsQuery);
     
     if (!projectsResponse.data || projectsResponse.data.length === 0) {
       logQuickbaseResponse('getPCBulkMessagingRecipients', { count: 0 }, reqId, Date.now() - startTime);
@@ -7236,7 +7245,7 @@ export async function getPCEscalations(
       ]
     };
 
-    const response = await qbClient.query(query);
+    const response = await qbClient.queryRecords(query);
     
     if (!response.data) {
       logQuickbaseResponse('getPCEscalations', { data: [] }, reqId);
@@ -7264,7 +7273,7 @@ export async function getPCEscalations(
           ]
         };
         
-        const projectResponse = await qbClient.query(projectQuery);
+        const projectResponse = await qbClient.queryRecords(projectQuery);
         if (projectResponse.data) {
           projectResponse.data.forEach((project: any) => {
             projectDetails.set(project[PROJECT_FIELDS.RECORD_ID], project);
@@ -7589,7 +7598,7 @@ export async function getEscalationHistory(
       sortBy: [{ field: COMMUNICATION_FIELDS.DATE, order: 'DESC' }]
     };
 
-    const response = await qbClient.query(query);
+    const response = await qbClient.queryRecords(query);
     
     if (!response.data) {
       logQuickbaseResponse('getEscalationHistory', { data: [] }, reqId);
@@ -8492,7 +8501,7 @@ export async function getPCCalendarEvents(
       where: `{${FIELD_IDS.PROJECTS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'}AND({${FIELD_IDS.PROJECTS.INSTALL_SCHEDULED_DATE}.AF.'${startDate}'}OR{${FIELD_IDS.PROJECTS.SURVEY_SCHEDULED_DATE}.AF.'${startDate}'})AND({${FIELD_IDS.PROJECTS.INSTALL_SCHEDULED_DATE}.BF.'${endDate}'}OR{${FIELD_IDS.PROJECTS.SURVEY_SCHEDULED_DATE}.BF.'${endDate}'})`
     };
 
-    const projectsResponse = await qbClient.query(projectsQuery);
+    const projectsResponse = await qbClient.queryRecords(projectsQuery);
     const projects = projectsResponse.data || [];
 
     // Transform project events
@@ -8572,7 +8581,7 @@ export async function getPCCalendarEvents(
       where: `{${FIELD_IDS.OUTREACH.PC_NAME}.EX.'${sanitizedName}'}AND{${FIELD_IDS.OUTREACH.NEXT_OUTREACH_DUE_DATE}.AF.'${startDate}'}AND{${FIELD_IDS.OUTREACH.NEXT_OUTREACH_DUE_DATE}.BF.'${endDate}'}`
     };
 
-    const outreachResponse = await qbClient.query(outreachQuery);
+    const outreachResponse = await qbClient.queryRecords(outreachQuery);
     const outreachRecords = outreachResponse.data || [];
 
     // Transform outreach events
