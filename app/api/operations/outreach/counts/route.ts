@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
       where: `{${OUTREACH_RECORD_FIELDS.PROJECT_COORDINATOR}.EX.'${userEmail}'}AND{${OUTREACH_RECORD_FIELDS.OUTREACH_STATUS}.EX.'Pending'}`
     };
 
-    const response = await qbClient.query(countsQuery);
+    const response = await qbClient.queryRecords(countsQuery);
     const records = response.data || [];
 
     // Count pending outreach
