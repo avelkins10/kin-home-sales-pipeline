@@ -28,8 +28,10 @@ export async function GET(request: NextRequest) {
     logApiRequest('GET', '/api/operations/analytics/personal', {}, reqId);
 
     // Require authentication
-    const session = await requireAuth();
-    
+    const auth = await requireAuth();
+    if (!auth.authorized) return auth.response;
+    const session = auth.session;
+
     // Check user role
     const allowedRoles = ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'];
     if (!session.user?.role || !allowedRoles.includes(session.user.role)) {

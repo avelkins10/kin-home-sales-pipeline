@@ -24,8 +24,10 @@ export async function GET(request: NextRequest) {
     logApiRequest('GET', '/api/operations/analytics/team', {}, reqId);
 
     // Require authentication
-    const session = await requireAuth();
-    
+    const auth = await requireAuth();
+    if (!auth.authorized) return auth.response;
+    const session = auth.session;
+
     // Check user role - only managers can access team metrics
     if (!session.user?.role || !isManagerRole(session.user.role)) {
       return NextResponse.json(
