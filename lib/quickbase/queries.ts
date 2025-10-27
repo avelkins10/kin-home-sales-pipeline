@@ -5661,10 +5661,10 @@ export async function getPCOutreachInitial(
     });
 
     const outreachRecords = response.data || [];
-    
+
     // Get project data for each outreach record
-    const projectIds = outreachRecords.map((record: any) => record[OUTREACH_RECORD_FIELDS.RELATED_PROJECT]?.value || record[OUTREACH_RECORD_FIELDS.RELATED_PROJECT]);
-    const uniqueProjectIds = [...new Set(projectIds.filter(Boolean))];
+    const relatedProjectIds = outreachRecords.map((record: any) => record[OUTREACH_RECORD_FIELDS.RELATED_PROJECT]?.value || record[OUTREACH_RECORD_FIELDS.RELATED_PROJECT]);
+    const uniqueProjectIds = [...new Set(relatedProjectIds.filter(Boolean))];
 
     let projectData: any[] = [];
     if (uniqueProjectIds.length > 0) {
@@ -6410,11 +6410,11 @@ export async function getPCConversationHistory(
     }
 
     // Get project data for customer names
-    const projectIds = communicationsResponse.data
+    const communicationProjectIds = communicationsResponse.data
       .map((record: any) => record[INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT])
       .filter((id: any) => id);
 
-    const projectsQuery = {
+    const communicationProjectsQuery = {
       from: QB_TABLE_PROJECTS,
       select: [
         PROJECT_FIELDS.RECORD_ID,
@@ -6423,12 +6423,12 @@ export async function getPCConversationHistory(
         PROJECT_FIELDS.CUSTOMER_PHONE,
         PROJECT_FIELDS.PROJECT_STAGE
       ],
-      where: `{${PROJECT_FIELDS.RECORD_ID}.IN.${projectIds.join(',')}}`
+      where: `{${PROJECT_FIELDS.RECORD_ID}.IN.${communicationProjectIds.join(',')}}`
     };
 
-    const projectsResponse = await qbClient.queryRecords(projectsQuery);
+    const communicationProjectsResponse = await qbClient.queryRecords(communicationProjectsQuery);
     const projectMap = new Map();
-    projectsResponse.data?.forEach((project: any) => {
+    communicationProjectsResponse.data?.forEach((project: any) => {
       projectMap.set(project[PROJECT_FIELDS.RECORD_ID], {
         projectId: project[PROJECT_FIELDS.PROJECT_ID],
         customerName: project[PROJECT_FIELDS.CUSTOMER_NAME],
@@ -7468,15 +7468,15 @@ export async function getPCEscalations(
     }
 
     // Collect unique project IDs for lookup
-    const projectIds = [...new Set(response.data.map((record: any) => record[SALES_AID_FIELDS.RELATED_PROJECT]))];
-    
+    const escalationProjectIds = [...new Set(response.data.map((record: any) => record[SALES_AID_FIELDS.RELATED_PROJECT]))];
+
     // Fetch project details if we have project IDs
     let projectDetails: Map<number, any> = new Map();
-    if (projectIds.length > 0) {
+    if (escalationProjectIds.length > 0) {
       try {
         const projectQuery = {
           from: QB_TABLE_PROJECTS,
-          where: `{${PROJECT_FIELDS.RECORD_ID}.IN.${projectIds.join(',')}}`,
+          where: `{${PROJECT_FIELDS.RECORD_ID}.IN.${escalationProjectIds.join(',')}}`,
           select: [
             PROJECT_FIELDS.RECORD_ID,
             PROJECT_FIELDS.PROJECT_ID,
