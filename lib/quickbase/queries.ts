@@ -5087,10 +5087,10 @@ export async function getPCActivityFeed(
     }
 
     // Query Install Communications table with proper date range and project linking
-    // Use date range operator for field 8 (DATE) and construct OR chain for RELATED_PROJECT
+    // Use XIN operator (in list) instead of OR chain for better performance
     const dateRange = getDateRange(7);
-    const projectOrClause = projectIds.map(id => `{${INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT}.EX.'${id}'}`).join('OR');
-    const whereClause = `{${INSTALL_COMMUNICATION_FIELDS.DATE}.AF.'${dateRange}'}AND(${projectOrClause})`;
+    const projectIdsStr = projectIds.join(',');
+    const whereClause = `{${INSTALL_COMMUNICATION_FIELDS.DATE}.AF.'${dateRange}'}AND{${INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT}.XIN.'${projectIdsStr}'}`;
     
     const query = {
       from: 'bsb6bqt3b', // Install Communications table
