@@ -125,7 +125,7 @@ export async function GET(request: NextRequest) {
     const timeRange = searchParams.get('timeRange') || 'month';
     const startDate = searchParams.get('startDate') || undefined;
     const endDate = searchParams.get('endDate') || undefined;
-    const officeIds = searchParams.get('officeIds')?.split(',').filter(Boolean);
+    const officeIds = searchParams.get('officeIds')?.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
     const page = Math.max(parseInt(searchParams.get('page') || '1'), 1);
     
@@ -178,7 +178,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Build cache key
-    const cacheKey = `${role}:${metric}:${timeRange}:${calculatedStartDate}:${calculatedEndDate}:${officeIds?.join(',') || 'all'}:${limit}:${page}`;
+    const cacheKey = `${role}:${metric}:${timeRange}:${calculatedStartDate}:${calculatedEndDate}:${officeIds?.map(String).join(',') || 'all'}:${limit}:${page}`;
     
     // Check cache
     cleanCache();
@@ -211,25 +211,31 @@ export async function GET(request: NextRequest) {
     }
 
     if (officeIds && officeIds.length > 0) {
-      // Convert array to PostgreSQL array format
-      const officeIdsArray = `{${officeIds.join(',')}}`;
+      // Build IN clause with individual parameters
+      const officeIdParams = officeIds.map((_, i) => `$${i + 3}`).join(',');
+
       if (role !== 'all') {
-        usersQuery = sql`
-          SELECT DISTINCT u.id, u.name, u.email, u.repcard_user_id, u.sales_office[1] as office, u.role
-          FROM users u
-          JOIN offices o ON o.name = ANY(u.sales_office)
-          WHERE u.repcard_user_id IS NOT NULL
-            AND u.role = ${role}
-            AND o.quickbase_office_id = ANY(${officeIdsArray}::int[])
-        `;
+        // Use sql.query for dynamic IN clause
+        const result = await sql.query(
+          `SELECT DISTINCT u.id, u.name, u.email, u.repcard_user_id, u.sales_office[1] as office, u.role
+           FROM users u
+           JOIN offices o ON o.name = ANY(u.sales_office)
+           WHERE u.repcard_user_id IS NOT NULL
+             AND u.role = $1
+             AND o.quickbase_office_id = ANY($2::int[])`,
+          [role, officeIds]
+        );
+        usersQuery = Promise.resolve(result.rows);
       } else {
-        usersQuery = sql`
-          SELECT DISTINCT u.id, u.name, u.email, u.repcard_user_id, u.sales_office[1] as office, u.role
-          FROM users u
-          JOIN offices o ON o.name = ANY(u.sales_office)
-          WHERE u.repcard_user_id IS NOT NULL
-            AND o.quickbase_office_id = ANY(${officeIdsArray}::int[])
-        `;
+        const result = await sql.query(
+          `SELECT DISTINCT u.id, u.name, u.email, u.repcard_user_id, u.sales_office[1] as office, u.role
+           FROM users u
+           JOIN offices o ON o.name = ANY(u.sales_office)
+           WHERE u.repcard_user_id IS NOT NULL
+             AND o.quickbase_office_id = ANY($1::int[])`,
+          [officeIds]
+        );
+        usersQuery = Promise.resolve(result.rows);
       }
     }
     
@@ -425,7 +431,7 @@ export async function GET(request: NextRequest) {
         timeRange,
         startDate: calculatedStartDate,
         endDate: calculatedEndDate,
-        officeIds,
+        officeIds: officeIds?.map(String),
         totalEntries,
         page,
         limit,

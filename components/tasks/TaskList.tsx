@@ -10,8 +10,19 @@ interface TaskListProps {
     projectId: number
     projectName: string
     projectStatus: string
+    closerName?: string | null
+    salesOffice?: string | null
   }>
-  groupBy?: 'none' | 'project' | 'urgency'
+  groupBy?: 'none' | 'project' | 'urgency' | 'office'
+}
+
+// Helper: Sort tasks by date (newest first)
+function sortByDate(tasks: any[]) {
+  return [...tasks].sort((a, b) => {
+    const dateA = a.dateCreated ? new Date(a.dateCreated).getTime() : 0
+    const dateB = b.dateCreated ? new Date(b.dateCreated).getTime() : 0
+    return dateB - dateA // Newest first
+  })
 }
 
 export function TaskList({ tasks, groupBy = 'none' }: TaskListProps) {
@@ -54,7 +65,7 @@ export function TaskList({ tasks, groupBy = 'none' }: TaskListProps) {
               </span>
             </h3>
             <div className="space-y-3">
-              {sortTasksByUrgency(projectTasks).map((task) => (
+              {sortByDate(projectTasks).map((task) => (
                 <TaskListItem key={task.recordId} task={task as any} showProject={false} />
               ))}
             </div>
@@ -64,19 +75,56 @@ export function TaskList({ tasks, groupBy = 'none' }: TaskListProps) {
     )
   }
 
+  if (groupBy === 'office') {
+    const tasksByOffice = tasks.reduce((acc, task) => {
+      const officeName = task.salesOffice || 'No Office'
+      if (!acc[officeName]) {
+        acc[officeName] = []
+      }
+      acc[officeName].push(task)
+      return acc
+    }, {} as Record<string, typeof tasks>)
+
+    // Sort offices alphabetically
+    const sortedOffices = Object.keys(tasksByOffice).sort()
+
+    return (
+      <div className="space-y-6">
+        {sortedOffices.map((officeName) => {
+          const officeTasks = tasksByOffice[officeName]
+          return (
+            <div key={officeName}>
+              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <span>{officeName}</span>
+                <span className="text-xs font-normal text-gray-500">
+                  ({officeTasks.length} {officeTasks.length === 1 ? 'task' : 'tasks'})
+                </span>
+              </h3>
+              <div className="space-y-3">
+                {sortByDate(officeTasks).map((task) => (
+                  <TaskListItem key={task.recordId} task={task as any} />
+                ))}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
   if (groupBy === 'urgency') {
     const sortedTasks = sortTasksByUrgency(tasks)
-    const critical = sortedTasks.filter(t => {
+    const critical = sortByDate(sortedTasks.filter(t => {
       const daysWaiting = t.dateCreated ? Math.ceil((Date.now() - new Date(t.dateCreated).getTime()) / (1000 * 60 * 60 * 24)) : 0
       const isRejected = typeof t.projectStatus === 'string' && t.projectStatus.toLowerCase().includes('reject')
       return daysWaiting > 7 || isRejected
-    })
-    const urgent = sortedTasks.filter(t => {
+    }))
+    const urgent = sortByDate(sortedTasks.filter(t => {
       const daysWaiting = t.dateCreated ? Math.ceil((Date.now() - new Date(t.dateCreated).getTime()) / (1000 * 60 * 60 * 24)) : 0
       const hasRevision = t.submissions?.[0]?.opsDisposition === 'Needs Revision'
       return (daysWaiting >= 3 && daysWaiting <= 7) || hasRevision
-    }).filter(t => !critical.includes(t))
-    const normal = sortedTasks.filter(t => !critical.includes(t) && !urgent.includes(t))
+    }).filter(t => !critical.includes(t)))
+    const normal = sortByDate(sortedTasks.filter(t => !critical.includes(t) && !urgent.includes(t)))
 
     return (
       <div className="space-y-6">
@@ -125,8 +173,8 @@ export function TaskList({ tasks, groupBy = 'none' }: TaskListProps) {
     )
   }
 
-  // No grouping - just sorted by urgency
-  const sortedTasks = sortTasksByUrgency(tasks)
+  // No grouping - sort by date first
+  const sortedTasks = sortByDate(tasks)
 
   return (
     <div className="space-y-3">

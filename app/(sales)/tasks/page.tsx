@@ -4,18 +4,19 @@ import { useSession } from 'next-auth/react'
 import { redirect } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import { AlertTriangle, CheckCircle, Clock, Filter, Grid3x3, List } from 'lucide-react'
+import { AlertTriangle, CheckCircle, Clock, Filter, Grid3x3, List, Building2 } from 'lucide-react'
 import { TaskList } from '@/components/tasks/TaskList'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils/cn'
 import { getTaskUrgency } from '@/lib/utils/task-urgency'
 
-type GroupBy = 'none' | 'project' | 'urgency'
+type GroupBy = 'none' | 'project' | 'urgency' | 'office'
 
 export default function TasksPage() {
   const { data: session, status } = useSession()
   const [groupBy, setGroupBy] = useState<GroupBy>('urgency')
+  const [selectedCloser, setSelectedCloser] = useState<string>('all')
 
   // Fetch all tasks for current user
   // IMPORTANT: Must call all hooks before any early returns (Rules of Hooks)
@@ -41,17 +42,29 @@ export default function TasksPage() {
     redirect('/login')
   }
 
-  // Calculate stats
-  const totalTasks = tasks.length
-  const criticalCount = tasks.filter((task: any) => {
+  // Extract unique closers for filter
+  const uniqueClosers = Array.from(new Set(
+    tasks
+      .map((t: any) => t.closerName)
+      .filter((name): name is string => !!name)
+  )).sort()
+
+  // Filter tasks by selected closer
+  const filteredTasks = selectedCloser === 'all'
+    ? tasks
+    : tasks.filter((t: any) => t.closerName === selectedCloser)
+
+  // Calculate stats from filtered tasks
+  const totalTasks = filteredTasks.length
+  const criticalCount = filteredTasks.filter((task: any) => {
     const urgency = getTaskUrgency(task, task.projectStatus)
     return urgency.level === 'critical'
   }).length
-  const urgentCount = tasks.filter((task: any) => {
+  const urgentCount = filteredTasks.filter((task: any) => {
     const urgency = getTaskUrgency(task, task.projectStatus)
     return urgency.level === 'urgent'
   }).length
-  const waitingOver7Days = tasks.filter((task: any) => {
+  const waitingOver7Days = filteredTasks.filter((task: any) => {
     const daysWaiting = task.dateCreated
       ? Math.ceil((Date.now() - new Date(task.dateCreated).getTime()) / (1000 * 60 * 60 * 24))
       : 0
@@ -113,12 +126,34 @@ export default function TasksPage() {
         </div>
 
         {/* Controls */}
-        <div className="flex items-center justify-between mb-6 bg-white rounded-lg border p-4">
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-gray-500" />
-            <span className="text-sm font-medium text-gray-700">Group by:</span>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 bg-white rounded-lg border p-4">
+          {/* Filter by Closer */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-gray-500" />
+              <span className="text-sm font-medium text-gray-700">Filter:</span>
+            </div>
+            <select
+              value={selectedCloser}
+              onChange={(e) => setSelectedCloser(e.target.value)}
+              className="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">All Closers ({tasks.length})</option>
+              {uniqueClosers.map((closer) => {
+                const count = tasks.filter((t: any) => t.closerName === closer).length
+                return (
+                  <option key={closer} value={closer}>
+                    {closer} ({count})
+                  </option>
+                )
+              })}
+            </select>
           </div>
-          <div className="flex items-center gap-2">
+
+          {/* Group by */}
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-gray-700">Group by:</span>
+            <div className="flex items-center gap-2">
             <Button
               variant={groupBy === 'urgency' ? 'default' : 'outline'}
               size="sm"
@@ -140,6 +175,17 @@ export default function TasksPage() {
             >
               <Grid3x3 className="w-4 h-4 mr-1.5" />
               Project
+            </Button>
+            <Button
+              variant={groupBy === 'office' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setGroupBy('office')}
+              className={cn(
+                groupBy === 'office' && 'bg-blue-600 hover:bg-blue-700'
+              )}
+            >
+              <Building2 className="w-4 h-4 mr-1.5" />
+              Office
             </Button>
             <Button
               variant={groupBy === 'none' ? 'default' : 'outline'}
@@ -169,7 +215,7 @@ export default function TasksPage() {
             </p>
           </div>
         ) : (
-          <TaskList tasks={tasks} groupBy={groupBy} />
+          <TaskList tasks={filteredTasks} groupBy={groupBy} />
         )}
       </div>
     </div>

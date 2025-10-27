@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Clock, FileText, AlertTriangle, CheckCircle } from 'lucide-react'
+import { Clock, FileText, AlertTriangle, CheckCircle, User } from 'lucide-react'
 import { Task } from '@/lib/types/task'
 import { formatDaysAgo } from '@/lib/utils/formatters'
 import { TaskStatusBadge } from '@/components/projects/TaskStatusBadge'
@@ -14,6 +14,8 @@ interface TaskListItemProps {
     projectId: number
     projectName: string
     projectStatus: string
+    closerName?: string | null
+    salesOffice?: string | null
   }
   showProject?: boolean
 }
@@ -56,9 +58,17 @@ export function TaskListItem({ task, showProject = true }: TaskListItemProps) {
 
       {/* Project Context */}
       {showProject && (
-        <div className="flex items-center gap-1.5 text-xs text-gray-600 mb-2">
-          <FileText className="w-3.5 h-3.5" />
-          <span>Project: {task.projectName}</span>
+        <div className="flex items-center gap-3 text-xs text-gray-600 mb-2 flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <FileText className="w-3.5 h-3.5" />
+            <span>Project: {task.projectName}</span>
+          </div>
+          {task.closerName && (
+            <div className="flex items-center gap-1.5">
+              <User className="w-3.5 h-3.5" />
+              <span>{task.closerName}</span>
+            </div>
+          )}
         </div>
       )}
 

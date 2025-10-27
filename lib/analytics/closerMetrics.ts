@@ -71,20 +71,23 @@ export async function getAppointmentsSatByCloser(
     AND repcard_user_id IS NOT NULL
   `;
 
+  let closers: any[];
+
   if (officeIds && officeIds.length > 0) {
-    // Convert array to PostgreSQL array format
-    const officeIdsArray = `{${officeIds.join(',')}}`;
-    closersQuery = sql`
-      SELECT DISTINCT u.id, u.name, u.email, u.sales_office[1] as office
-      FROM users u
-      JOIN offices o ON o.name = ANY(u.sales_office)
-      WHERE u.role = 'closer'
-      AND u.repcard_user_id IS NOT NULL
-      AND o.quickbase_office_id = ANY(${officeIdsArray}::int[])
-    `;
+    // Use sql.query with proper array parameter
+    const result = await sql.query(
+      `SELECT DISTINCT u.id, u.name, u.email, u.sales_office[1] as office
+       FROM users u
+       JOIN offices o ON o.name = ANY(u.sales_office)
+       WHERE u.role = 'closer'
+       AND u.repcard_user_id IS NOT NULL
+       AND o.quickbase_office_id = ANY($1::int[])`,
+      [officeIds]
+    );
+    closers = result.rows;
+  } else {
+    closers = await closersQuery as unknown as any[];
   }
-  
-  const closers = await closersQuery as unknown as any[];
   
   // For each closer, count projects (appointments sat)
   const results = await Promise.all(
@@ -132,20 +135,23 @@ export async function getFollowUpsByCloser(
     AND repcard_user_id IS NOT NULL
   `;
 
+  let closers: any[];
+
   if (officeIds && officeIds.length > 0) {
-    // Convert array to PostgreSQL array format
-    const officeIdsArray = `{${officeIds.join(',')}}`;
-    closersQuery = sql`
-      SELECT DISTINCT u.id, u.repcard_user_id
-      FROM users u
-      JOIN offices o ON o.name = ANY(u.sales_office)
-      WHERE u.role = 'closer'
-      AND u.repcard_user_id IS NOT NULL
-      AND o.quickbase_office_id = ANY(${officeIdsArray}::int[])
-    `;
+    // Use sql.query with proper array parameter
+    const result = await sql.query(
+      `SELECT DISTINCT u.id, u.repcard_user_id
+       FROM users u
+       JOIN offices o ON o.name = ANY(u.sales_office)
+       WHERE u.role = 'closer'
+       AND u.repcard_user_id IS NOT NULL
+       AND o.quickbase_office_id = ANY($1::int[])`,
+      [officeIds]
+    );
+    closers = result.rows;
+  } else {
+    closers = await closersQuery as unknown as any[];
   }
-  
-  const closers = await closersQuery as unknown as any[];
   
   // Fetch quality metrics for each closer
   const results = await Promise.all(

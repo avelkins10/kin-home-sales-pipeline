@@ -314,7 +314,9 @@ export async function GET(req: Request) {
             PROJECT_FIELDS.CUSTOMER_NAME,
             PROJECT_FIELDS.PROJECT_STATUS,
             PROJECT_FIELDS.CLOSER_EMAIL,
+            PROJECT_FIELDS.CLOSER_NAME,
             PROJECT_FIELDS.SETTER_EMAIL,
+            PROJECT_FIELDS.SALES_OFFICE,
             PROJECT_FIELDS.OFFICE_RECORD_ID
           ],
           where: projectsWhereClause
@@ -335,7 +337,9 @@ export async function GET(req: Request) {
           PROJECT_FIELDS.CUSTOMER_NAME,
           PROJECT_FIELDS.PROJECT_STATUS,
           PROJECT_FIELDS.CLOSER_EMAIL,
+          PROJECT_FIELDS.CLOSER_NAME,
           PROJECT_FIELDS.SETTER_EMAIL,
+          PROJECT_FIELDS.SALES_OFFICE,
           PROJECT_FIELDS.OFFICE_RECORD_ID
         ],
         where: projectsWhereClause
@@ -432,7 +436,9 @@ export async function GET(req: Request) {
         projectMap.set(recordId, {
           projectId: p[PROJECT_FIELDS.PROJECT_ID]?.value || recordId,
           customerName: p[PROJECT_FIELDS.CUSTOMER_NAME]?.value || 'Unknown',
-          projectStatus: p[PROJECT_FIELDS.PROJECT_STATUS]?.value || ''
+          projectStatus: p[PROJECT_FIELDS.PROJECT_STATUS]?.value || '',
+          closerName: p[PROJECT_FIELDS.CLOSER_NAME]?.value || null,
+          salesOffice: p[PROJECT_FIELDS.SALES_OFFICE]?.value || null
         });
       }
     });
@@ -564,7 +570,9 @@ export async function GET(req: Request) {
       const projectInfo = projectMap.get(projectId) || {
         projectId: projectId,
         customerName: 'Unknown',
-        projectStatus: ''
+        projectStatus: '',
+        closerName: null,
+        salesOffice: null
       };
 
       const taskId = record[TASK_FIELDS.RECORD_ID]?.value || 0;
@@ -588,7 +596,9 @@ export async function GET(req: Request) {
         projectId,
         projectName: projectInfo.customerName,
         projectStatus: projectInfo.projectStatus,
-        customerName: projectInfo.customerName
+        customerName: projectInfo.customerName,
+        closerName: projectInfo.closerName,
+        salesOffice: projectInfo.salesOffice
       };
     });
 
