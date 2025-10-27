@@ -4778,7 +4778,9 @@ export async function getPCDashboardMetrics(
     const activeEscalations = records.filter(r => (r[PROJECT_FIELDS.PC_ESCALATIONS] || 0) > 0).length;
     const todaysInstalls = records.filter(r => {
       const installDate = r[PROJECT_FIELDS.INSTALL_COMPLETED_DATE];
-      return installDate && installDate.startsWith(today);
+      if (!installDate) return false;
+      const dateStr = typeof installDate === 'string' ? installDate : String(installDate);
+      return dateStr.startsWith(today);
     }).length;
     
     // Calculate comprehensive SLA compliance across all relevant milestones
@@ -7342,9 +7344,11 @@ async function getOrCreateTaskGroup(
  * Parse PC task type from TASK_CATEGORY field
  */
 function parsePCTaskType(taskCategory: string): PCTaskType | null {
-  if (!taskCategory || !taskCategory.startsWith('PC: ')) return null;
-  
-  const taskType = taskCategory.replace('PC: ', '') as PCTaskType;
+  if (!taskCategory) return null;
+  const categoryStr = typeof taskCategory === 'string' ? taskCategory : String(taskCategory);
+  if (!categoryStr.startsWith('PC: ')) return null;
+
+  const taskType = categoryStr.replace('PC: ', '') as PCTaskType;
   const validTypes: PCTaskType[] = [
     'callback_customer',
     'collect_documents',
@@ -8028,7 +8032,12 @@ export async function getPCPersonalMetrics(
     const weekStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const monthStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     
-    const dailyOutreach = outreachRecords.filter(r => r[OUTREACH_RECORD_FIELDS.DATE_CREATED]?.startsWith(today)).length;
+    const dailyOutreach = outreachRecords.filter(r => {
+      const dateCreated = r[OUTREACH_RECORD_FIELDS.DATE_CREATED];
+      if (!dateCreated) return false;
+      const dateStr = typeof dateCreated === 'string' ? dateCreated : String(dateCreated);
+      return dateStr.startsWith(today);
+    }).length;
     const weeklyOutreach = outreachRecords.filter(r => r[OUTREACH_RECORD_FIELDS.DATE_CREATED] >= weekStart).length;
     const monthlyOutreach = outreachRecords.filter(r => r[OUTREACH_RECORD_FIELDS.DATE_CREATED] >= monthStart).length;
     
