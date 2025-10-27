@@ -5835,7 +5835,7 @@ export async function getPCOutreachInitial(
       };
 
       const projectsResponse = await qbClient.queryRecords(projectsQuery);
-      const projectIds = (projectsResponse.data || []).map((p: any) => p[PROJECT_FIELDS.RECORD_ID]);
+      const projectIds = (projectsResponse.data || []).map((p: any) => extractNumericValue(p[PROJECT_FIELDS.RECORD_ID]));
 
       if (projectIds.length === 0) {
         return [];
@@ -6406,8 +6406,8 @@ export async function getPCInboundRepQueue(
 
     // Get project IDs for filtering
     const projectIds = salesAidResponse.data
-      .map((record: any) => record[SALES_AID_FIELDS.RELATED_PROJECT])
-      .filter((id: any) => id);
+      .map((record: any) => extractNumericValue(record[SALES_AID_FIELDS.RELATED_PROJECT]))
+      .filter((id: any) => id && id > 0);
 
     if (projectIds.length === 0) {
       logQuickbaseResponse('getPCInboundRepQueue', { count: 0 }, reqId, Date.now() - startTime);
@@ -6586,7 +6586,7 @@ export async function getPCConversationHistory(
       };
 
       const projectsResponse = await qbClient.queryRecords(projectsQuery);
-      const projectIds = (projectsResponse.data || []).map((p: any) => p[PROJECT_FIELDS.RECORD_ID]);
+      const projectIds = (projectsResponse.data || []).map((p: any) => extractNumericValue(p[PROJECT_FIELDS.RECORD_ID]));
 
       if (projectIds.length === 0) {
         return [];
@@ -6630,8 +6630,8 @@ export async function getPCConversationHistory(
 
     // Get project data for customer names
     const communicationProjectIds = communicationsResponse.data
-      .map((record: any) => record[INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT])
-      .filter((id: any) => id);
+      .map((record: any) => extractNumericValue(record[INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT]))
+      .filter((id: any) => id && id > 0);
 
     const communicationProjectsQuery = {
       from: QB_TABLE_PROJECTS,
@@ -7648,7 +7648,7 @@ export async function getPCEscalations(
       };
 
       const projectsResponse = await qbClient.queryRecords(projectsQuery);
-      const projectIds = (projectsResponse.data || []).map((p: any) => p[PROJECT_FIELDS.RECORD_ID]);
+      const projectIds = (projectsResponse.data || []).map((p: any) => extractNumericValue(p[PROJECT_FIELDS.RECORD_ID]));
 
       if (projectIds.length === 0) {
         return [];
@@ -7692,7 +7692,7 @@ export async function getPCEscalations(
     }
 
     // Collect unique project IDs for lookup
-    const escalationProjectIds = [...new Set(response.data.map((record: any) => record[SALES_AID_FIELDS.RELATED_PROJECT]))];
+    const escalationProjectIds = [...new Set(response.data.map((record: any) => extractNumericValue(record[SALES_AID_FIELDS.RELATED_PROJECT])))].filter(id => id && id > 0);
 
     // Fetch project details if we have project IDs
     let projectDetails: Map<number, any> = new Map();
