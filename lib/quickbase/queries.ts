@@ -4780,7 +4780,7 @@ export async function getPCDashboardMetrics(
         PROJECT_FIELDS.PTO_APPROVED
       ],
       sortBy: [{ field: PROJECT_FIELDS.DATE_CREATED, order: 'DESC' }],
-      options: { top: 500 }
+      options: { top: 5000 }
     };
 
     const response = await qbClient.queryRecords(query);
@@ -4891,7 +4891,7 @@ export async function getPCPriorityQueue(
         PROJECT_FIELDS.PTO_STATUS
       ],
       sortBy: [{ field: PROJECT_FIELDS.DATE_CREATED, order: 'DESC' }],
-      options: { top: 500 }
+      options: { top: 5000 }
     };
 
     const response = await qbClient.queryRecords(query);
@@ -4986,7 +4986,7 @@ export async function getPCProjectPipeline(
         PROJECT_FIELDS.PROJECT_AGE
       ],
       sortBy: [{ field: PROJECT_FIELDS.DATE_CREATED, order: 'DESC' }],
-      options: { top: 500 }
+      options: { top: 5000 }
     };
 
     const response = await qbClient.queryRecords(query);
@@ -5070,7 +5070,9 @@ export async function getPCActivityFeed(
     const projectsQuery = {
       from: 'br9kwm8na', // Projects table
       where: projectsWhere,
-      select: [PROJECT_FIELDS.RECORD_ID, PROJECT_FIELDS.PROJECT_ID, PROJECT_FIELDS.CUSTOMER_NAME]
+      select: [PROJECT_FIELDS.RECORD_ID, PROJECT_FIELDS.PROJECT_ID, PROJECT_FIELDS.CUSTOMER_NAME],
+      sortBy: [{ field: PROJECT_FIELDS.DATE_CREATED, order: 'DESC' }],
+      options: { top: 5000 }
     };
 
     const projectsResponse = await qbClient.queryRecords(projectsQuery);
@@ -5099,7 +5101,7 @@ export async function getPCActivityFeed(
         INSTALL_COMMUNICATION_FIELDS.NEM_BLOCKER_OUTREACH
       ],
       sortBy: [{ field: INSTALL_COMMUNICATION_FIELDS.DATE, order: 'DESC' }],
-      options: { top: 500 }
+      options: { top: 5000 }
     };
 
     const response = await qbClient.queryRecords(query);
@@ -5693,7 +5695,7 @@ export async function getPCOutreachInitial(
       where: whereClause,
       select: selectFields,
       sortBy: [{ field: OUTREACH_RECORD_FIELDS.DATE_CREATED, order: 'DESC' }],
-      options: { top: 500 }
+      options: { top: 5000 }
     });
 
     const outreachRecords = response.data || [];
@@ -5842,7 +5844,7 @@ export async function getPCOutreachFollowups(
       where: whereClause,
       select: selectFields,
       sortBy: [{ field: PROJECT_FIELDS.DATE_CREATED, order: 'DESC' }],
-      options: { top: 500 }
+      options: { top: 5000 }
     });
 
     const projectRecords = response.data || [];
@@ -5917,7 +5919,7 @@ export async function getPCOutreachWelcome(
       where: whereClause,
       select: selectFields,
       sortBy: [{ field: PROJECT_FIELDS.DATE_CREATED, order: 'DESC' }],
-      options: { top: 500 }
+      options: { top: 5000 }
     });
 
     const projectRecords = response.data || [];
@@ -6220,7 +6222,7 @@ export async function getPCInboundRepQueue(
       ],
       where: `{${SALES_AID_FIELDS.SALES_AID_STATUS}.EX.'Waiting for Rep'} OR {${SALES_AID_FIELDS.SALES_AID_STATUS}.EX.'Working With Rep'}`,
       sortBy: [{ field: SALES_AID_FIELDS.DATE_CREATED, order: 'DESC' }],
-      options: { top: 500 }
+      options: { top: 5000 }
     };
 
     const salesAidResponse = await qbClient.queryRecords(salesAidQuery);
@@ -6441,7 +6443,7 @@ export async function getPCConversationHistory(
       ],
       where: whereConditions.join(' AND '),
       sortBy: [{ field: INSTALL_COMMUNICATION_FIELDS.DATE, order: 'DESC' }],
-      options: { top: 500 }
+      options: { top: 5000 }
     };
 
     const communicationsResponse = await qbClient.queryRecords(communicationsQuery);
@@ -6598,7 +6600,7 @@ export async function getPCBulkMessagingRecipients(
       ],
       where: whereConditions.join(' AND '),
       sortBy: [{ field: PROJECT_FIELDS.DATE_CREATED, order: 'DESC' }],
-      options: { top: 500 }
+      options: { top: 5000 }
     };
 
     const projectsResponse = await qbClient.queryRecords(projectsQuery);
@@ -7509,7 +7511,7 @@ export async function getPCEscalations(
         { field: SALES_AID_FIELDS.URGENCY_LEVEL, order: 'DESC' },
         { field: SALES_AID_FIELDS.TIME_WAITING, order: 'DESC' }
       ],
-      options: { top: 500 }
+      options: { top: 5000 }
     };
 
     const response = await qbClient.queryRecords(query);
