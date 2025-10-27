@@ -52,7 +52,6 @@ import { User, CreateUserInput } from '@/lib/types/user'
 import { getBaseUrl } from '@/lib/utils/baseUrl'
 import { getRoleBadgeVariant, getRoleDisplayName } from '@/lib/utils/roles'
 import { InviteUserDialog } from './InviteUserDialog'
-import { QuickBaseLookupDialog } from './QuickBaseLookupDialog'
 import { SmartSyncDialog } from './SmartSyncDialog'
 import { DeactivateInactiveDialog } from './DeactivateInactiveDialog'
 import { HierarchyTreeView } from './HierarchyTreeView'
@@ -65,9 +64,7 @@ export default function UsersTab() {
   const [officeFilter, setOfficeFilter] = useState('all')
   const [activityFilter, setActivityFilter] = useState('all')
   const [managedByFilter, setManagedByFilter] = useState<string | null>(null)
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false)
-  const [isLookupDialogOpen, setIsLookupDialogOpen] = useState(false)
   const [isSmartSyncDialogOpen, setIsSmartSyncDialogOpen] = useState(false)
   const [isDeactivateDialogOpen, setIsDeactivateDialogOpen] = useState(false)
   const [isHierarchyView, setIsHierarchyView] = useState(false)
@@ -77,25 +74,6 @@ export default function UsersTab() {
   const [userToDelete, setUserToDelete] = useState<User | null>(null)
   const [newPassword, setNewPassword] = useState<string | null>(null)
   const [passwordResetUser, setPasswordResetUser] = useState<User | null>(null)
-  const [newUser, setNewUser] = useState<CreateUserInput & { 
-    offices?: string[]
-    managedBy?: string
-    manages?: string[]
-    officeAccess?: Array<{ officeName: string; accessLevel: string }>
-  }>({
-    name: '',
-    email: '',
-    phone: '',
-    role: 'closer',
-    quickbaseUserId: '',
-    office: '',
-    offices: [],
-    region: '',
-    temporaryPassword: '',
-    managedBy: undefined,
-    manages: [],
-    officeAccess: [],
-  })
 
   const queryClient = useQueryClient()
 
@@ -144,44 +122,6 @@ export default function UsersTab() {
       return activityStatus === activityFilter
     })
   }, [users, activityFilter])
-
-  // Create user mutation
-  const createUserMutation = useMutation({
-    mutationFn: async (userData: CreateUserInput) => {
-      const response = await fetch(`${getBaseUrl()}/api/admin/users`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userData),
-      })
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Failed to create user')
-      }
-      return response.json()
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] })
-      setIsAddDialogOpen(false)
-      setNewUser({
-        name: '',
-        email: '',
-        phone: '',
-        role: 'closer',
-        quickbaseUserId: '',
-        office: '',
-        offices: [],
-        region: '',
-        temporaryPassword: '',
-        managedBy: undefined,
-        manages: [],
-        officeAccess: [],
-      })
-      toast.success('User created successfully')
-    },
-    onError: (error: Error) => {
-      toast.error(error.message)
-    },
-  })
 
   // Toggle active status mutation
   const toggleActiveMutation = useMutation({
@@ -277,27 +217,6 @@ export default function UsersTab() {
     },
   })
 
-  const handleCreateUser = () => {
-    if (!newUser.name || !newUser.email || !newUser.temporaryPassword) {
-      toast.error('Name, email, and temporary password are required')
-      return
-    }
-    
-    // Validate office assignments for office-based roles
-    if (isOfficeBasedRole(newUser.role) && (!newUser.offices || newUser.offices.length === 0)) {
-      toast.error('Office-based roles must have at least one office assigned')
-      return
-    }
-    
-    // Team lead validation - allow creation without initial managed reps
-    if (isTeamLeadRole(newUser.role) && (!newUser.manages || newUser.manages.length === 0)) {
-      // Show informational toast instead of error
-      toast.info('Team lead created without initial managed reps. You can assign reps later.')
-    }
-    
-    createUserMutation.mutate(newUser)
-  }
-
   const getActivityStatus = (lastProjectDate?: string) => {
     if (!lastProjectDate) return 'dormant'
     const date = new Date(lastProjectDate)
@@ -364,229 +283,12 @@ export default function UsersTab() {
             <UserMinus className="h-4 w-4 mr-2" />
             Deactivate Inactive
           </Button>
-          <Button 
-            variant="outline"
-            onClick={() => setIsLookupDialogOpen(true)}
-          >
-            <Search className="h-4 w-4 mr-2" />
-            Add from QuickBase
-          </Button>
-          <Button 
-            variant="outline"
+          <Button
             onClick={() => setIsInviteDialogOpen(true)}
           >
-            <Mail className="h-4 w-4 mr-2" />
-            Invite
+            <UserPlus className="h-4 w-4 mr-2" />
+            Invite User
           </Button>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <UserPlus className="h-4 w-4 mr-2" />
-                Add User
-              </Button>
-            </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Add New User</DialogTitle>
-              <DialogDescription>
-                Create a new user account with role and office assignment.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="name">Name *</Label>
-                <Input
-                  id="name"
-                  value={newUser.name}
-                  onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
-                  placeholder="Full name"
-                />
-              </div>
-              <div>
-                <Label htmlFor="email">Email *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={newUser.email}
-                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                  placeholder="user@kinhome.com"
-                />
-              </div>
-              <div>
-                <Label htmlFor="phone">Phone</Label>
-                <Input
-                  id="phone"
-                  value={newUser.phone || ''}
-                  onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
-                  placeholder="555-1234"
-                />
-              </div>
-              <div>
-                <Label htmlFor="role">Role *</Label>
-                <Select value={newUser.role} onValueChange={(value) => setNewUser({ ...newUser, role: value })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="closer">Closer</SelectItem>
-                    <SelectItem value="setter">Setter</SelectItem>
-                    <SelectItem value="team_lead">Team Lead</SelectItem>
-                    <SelectItem value="office_leader">Office Leader</SelectItem>
-                    <SelectItem value="area_director">Area Director</SelectItem>
-                    <SelectItem value="divisional">Divisional</SelectItem>
-                    <SelectItem value="regional">Regional Manager</SelectItem>
-                    <SelectItem value="super_admin">Super Admin</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="quickbaseUserId">Quickbase User ID (Optional)</Label>
-                <Input
-                  id="quickbaseUserId"
-                  value={newUser.quickbaseUserId}
-                  onChange={(e) => setNewUser({ ...newUser, quickbaseUserId: e.target.value })}
-                  placeholder="Leave blank for admin/ops users"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Only required for sales team members with QuickBase access
-                </p>
-              </div>
-              <div>
-                <Label htmlFor="offices">Offices {isOfficeBasedRole(newUser.role) && '*'}</Label>
-                <OfficeMultiSelect
-                  value={newUser.offices || []}
-                  onChange={(offices) => {
-                    setNewUser({ 
-                      ...newUser, 
-                      offices,
-                      office: offices[0] || '', // Set first office as primary
-                      officeAccess: offices.map(name => ({
-                        officeName: name,
-                        accessLevel: 'manage' as const
-                      }))
-                    })
-                  }}
-                  placeholder="Select offices..."
-                />
-                {isOfficeBasedRole(newUser.role) && (
-                  <div className="flex items-start gap-2 mt-2 p-2 bg-blue-50 rounded-md">
-                    <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                    <p className="text-xs text-blue-700">
-                      Office-based roles see ALL projects in their assigned offices, including projects from users without active accounts.
-                    </p>
-                  </div>
-                )}
-              </div>
-              {/* Team Lead: Select users to manage */}
-              {isTeamLeadRole(newUser.role) && (
-                <div>
-                  <Label htmlFor="manages">Manages (Reps)</Label>
-                  <Select
-                    value="__select__"
-                    onValueChange={(userId) => {
-                      if (userId !== '__select__' && !newUser.manages?.includes(userId)) {
-                        setNewUser({
-                          ...newUser,
-                          manages: [...(newUser.manages || []), userId]
-                        })
-                      }
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select reps to manage..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__select__" disabled>Select reps to manage...</SelectItem>
-                      {users
-                        .filter((u: User) => ['closer', 'setter'].includes(u.role))
-                        .map((u: User) => (
-                          <SelectItem key={u.id} value={u.id}>
-                            {u.name} ({u.role})
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                  {newUser.manages && newUser.manages.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {newUser.manages.map((userId) => {
-                        const user = users.find((u: User) => u.id === userId)
-                        return user ? (
-                          <Badge key={userId} variant="secondary" className="gap-1">
-                            {user.name}
-                            <button
-                              onClick={() => {
-                                setNewUser({
-                                  ...newUser,
-                                  manages: newUser.manages?.filter(id => id !== userId)
-                                })
-                              }}
-                              className="ml-1 rounded-full hover:bg-gray-300"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </Badge>
-                        ) : null
-                      })}
-                    </div>
-                  )}
-                  <div className="flex items-start gap-2 mt-2 p-2 bg-cyan-50 rounded-md">
-                    <Info className="h-4 w-4 text-cyan-600 mt-0.5 flex-shrink-0" />
-                    <p className="text-xs text-cyan-700">
-                      Team leads see projects for their managed reps (both closer and setter projects).
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Closers/Setters: Select team lead */}
-              {['closer', 'setter'].includes(newUser.role) && (
-                <div>
-                  <Label htmlFor="managedBy">Managed By (Team Lead)</Label>
-                  <Select 
-                    value={newUser.managedBy ?? 'none'} 
-                    onValueChange={(value) => setNewUser({ ...newUser, managedBy: value === 'none' ? undefined : value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select team lead (optional)..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      {users
-                        .filter((u: User) => ['team_lead', 'office_leader', 'area_director', 'divisional', 'regional', 'super_admin'].includes(u.role))
-                        .map((u: User) => (
-                          <SelectItem key={u.id} value={u.id}>
-                            {u.name} ({getRoleDisplayName(u.role)})
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              <div>
-                <Label htmlFor="temporaryPassword">Temporary Password *</Label>
-                <Input
-                  id="temporaryPassword"
-                  type="password"
-                  value={newUser.temporaryPassword}
-                  onChange={(e) => setNewUser({ ...newUser, temporaryPassword: e.target.value })}
-                  placeholder="Minimum 8 characters"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleCreateUser}
-                disabled={createUserMutation.isPending}
-              >
-                {createUserMutation.isPending ? 'Creating...' : 'Create User'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
       </div>
 
@@ -647,31 +349,28 @@ export default function UsersTab() {
         <HierarchyTreeView />
       ) : (
         /* Users Table */
-        <div className="border rounded-lg">
+        <div className="border rounded-lg overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Offices</TableHead>
+                <TableHead className="min-w-[200px]">Name / Status</TableHead>
+                <TableHead className="min-w-[220px]">Email / Role</TableHead>
                 <TableHead>Managed By</TableHead>
                 <TableHead>Manages</TableHead>
-                <TableHead>Status</TableHead>
                 <TableHead>Last Login</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8">
+                  <TableCell colSpan={6} className="text-center py-8">
                     Loading users...
                   </TableCell>
                 </TableRow>
               ) : users.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8">
+                  <TableCell colSpan={6} className="text-center py-8">
                     No users found
                   </TableCell>
                 </TableRow>
@@ -679,46 +378,33 @@ export default function UsersTab() {
                 displayedUsers.map((user: User) => (
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${getActivityColor(getActivityStatus(user.lastProjectDate))}`} />
-                        {user.name}
+                      <div className="flex items-center gap-3">
+                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${getActivityColor(getActivityStatus(user.lastProjectDate))}`} />
+                        <div className="flex flex-col gap-1">
+                          <div className="font-medium">{user.name}</div>
+                          {user.inviteToken && !user.inviteAcceptedAt ? (
+                            <Badge variant="secondary" className="bg-amber-100 text-amber-800 border-amber-300 w-fit">
+                              Pending Invite
+                            </Badge>
+                          ) : user.isActive ? (
+                            <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-300 w-fit">
+                              Active
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="bg-gray-100 text-gray-600 border-gray-300 w-fit">
+                              Inactive
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
-                    <TableCell>{user.email}</TableCell>
                     <TableCell>
-                      <Badge variant={getRoleBadgeVariant(user.role)}>
-                        {getRoleDisplayName(user.role)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {user.officeAccess && user.officeAccess.length > 0 ? (
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-auto p-1">
-                              <Badge variant="secondary">
-                                {user.officeAccess.length} {user.officeAccess.length === 1 ? 'office' : 'offices'}
-                              </Badge>
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-64">
-                            <div className="space-y-2">
-                              <h4 className="font-semibold text-sm">Assigned Offices</h4>
-                              <div className="space-y-1">
-                                {user.officeAccess.map((access: any, idx: number) => (
-                                  <div key={idx} className="flex items-center justify-between text-sm">
-                                    <span>{access.officeName}</span>
-                                    <Badge variant="outline" className="text-xs">{access.accessLevel}</Badge>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      ) : user.salesOffice && user.salesOffice.length > 0 ? (
-                        <span className="text-sm">{user.salesOffice.join(', ')}</span>
-                      ) : (
-                        <span className="text-gray-400">—</span>
-                      )}
+                      <div className="flex flex-col gap-1">
+                        <div className="text-sm">{user.email}</div>
+                        <Badge variant={getRoleBadgeVariant(user.role)} className="w-fit">
+                          {getRoleDisplayName(user.role)}
+                        </Badge>
+                      </div>
                     </TableCell>
                     <TableCell>
                       {user.managedBy ? (
@@ -780,21 +466,6 @@ export default function UsersTab() {
                     </TableCell>
                     <TableCell>
                       {user.inviteToken && !user.inviteAcceptedAt ? (
-                        <Badge variant="secondary" className="bg-amber-100 text-amber-800 border-amber-300">
-                          Pending Invite
-                        </Badge>
-                      ) : user.isActive ? (
-                        <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-300">
-                          Active
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary" className="bg-gray-100 text-gray-600 border-gray-300">
-                          Inactive
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {user.inviteToken && !user.inviteAcceptedAt ? (
                         <div className="text-sm">
                           <span className="text-gray-500">Invited </span>
                           <span className="text-gray-700">
@@ -807,8 +478,8 @@ export default function UsersTab() {
                         <span className="text-gray-400">Never</span>
                       )}
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -852,11 +523,6 @@ export default function UsersTab() {
       <InviteUserDialog
         open={isInviteDialogOpen}
         onOpenChange={setIsInviteDialogOpen}
-      />
-
-      <QuickBaseLookupDialog
-        open={isLookupDialogOpen}
-        onOpenChange={setIsLookupDialogOpen}
       />
 
       <SmartSyncDialog
