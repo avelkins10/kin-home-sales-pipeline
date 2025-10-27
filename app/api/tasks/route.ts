@@ -464,43 +464,92 @@ export async function GET(req: Request) {
         reqId
       });
 
-      const submissionsWhereClause = taskIds
-        .map((id: number) => `{${TASK_SUBMISSION_FIELDS.RELATED_TASK}.EX.${id}}`)
-        .join('OR');
+      // Batch submissions query if we have many tasks
+      if (taskIds.length > BATCH_SIZE) {
+        logInfo('[TASKS_API] Batching submissions query', {
+          batches: Math.ceil(taskIds.length / BATCH_SIZE),
+          reqId
+        });
 
-      const submissionsResponse = await qbClient.queryRecords({
-        from: QB_TABLE_TASK_SUBMISSIONS,
-        select: [
-          TASK_SUBMISSION_FIELDS.RECORD_ID,
-          TASK_SUBMISSION_FIELDS.DATE_CREATED,
-          TASK_SUBMISSION_FIELDS.RELATED_TASK,
-          TASK_SUBMISSION_FIELDS.SUBMISSION_STATUS,
-          TASK_SUBMISSION_FIELDS.OPS_DISPOSITION,
-          TASK_SUBMISSION_FIELDS.FILE_ATTACHMENT_1,
-          TASK_SUBMISSION_FIELDS.IS_MAX_SUBMISSION
-        ],
-        where: submissionsWhereClause
-      });
+        for (let i = 0; i < taskIds.length; i += BATCH_SIZE) {
+          const batch = taskIds.slice(i, i + BATCH_SIZE);
+          const submissionsWhereClause = batch
+            .map((id: number) => `{${TASK_SUBMISSION_FIELDS.RELATED_TASK}.EX.${id}}`)
+            .join('OR');
 
-      submissionsResponse.data.forEach((s: any) => {
-        const taskId = s[TASK_SUBMISSION_FIELDS.RELATED_TASK]?.value;
-        if (!taskId) return;
+          const batchResponse = await qbClient.queryRecords({
+            from: QB_TABLE_TASK_SUBMISSIONS,
+            select: [
+              TASK_SUBMISSION_FIELDS.RECORD_ID,
+              TASK_SUBMISSION_FIELDS.DATE_CREATED,
+              TASK_SUBMISSION_FIELDS.RELATED_TASK,
+              TASK_SUBMISSION_FIELDS.SUBMISSION_STATUS,
+              TASK_SUBMISSION_FIELDS.OPS_DISPOSITION,
+              TASK_SUBMISSION_FIELDS.FILE_ATTACHMENT_1,
+              TASK_SUBMISSION_FIELDS.IS_MAX_SUBMISSION
+            ],
+            where: submissionsWhereClause
+          });
 
-        const submission: TaskSubmission = {
-          recordId: s[TASK_SUBMISSION_FIELDS.RECORD_ID]?.value || 0,
-          dateCreated: s[TASK_SUBMISSION_FIELDS.DATE_CREATED]?.value || '',
-          relatedTask: taskId,
-          submissionStatus: s[TASK_SUBMISSION_FIELDS.SUBMISSION_STATUS]?.value || 'Pending Approval',
-          opsDisposition: s[TASK_SUBMISSION_FIELDS.OPS_DISPOSITION]?.value || null,
-          fileAttachment1: s[TASK_SUBMISSION_FIELDS.FILE_ATTACHMENT_1]?.value || null,
-          isMaxSubmission: s[TASK_SUBMISSION_FIELDS.IS_MAX_SUBMISSION]?.value || false
-        };
+          batchResponse.data.forEach((s: any) => {
+            const taskId = s[TASK_SUBMISSION_FIELDS.RELATED_TASK]?.value;
+            if (!taskId) return;
 
-        if (!submissionsMap.has(taskId)) {
-          submissionsMap.set(taskId, []);
+            const submission: TaskSubmission = {
+              recordId: s[TASK_SUBMISSION_FIELDS.RECORD_ID]?.value || 0,
+              dateCreated: s[TASK_SUBMISSION_FIELDS.DATE_CREATED]?.value || '',
+              relatedTask: taskId,
+              submissionStatus: s[TASK_SUBMISSION_FIELDS.SUBMISSION_STATUS]?.value || 'Pending Approval',
+              opsDisposition: s[TASK_SUBMISSION_FIELDS.OPS_DISPOSITION]?.value || null,
+              fileAttachment1: s[TASK_SUBMISSION_FIELDS.FILE_ATTACHMENT_1]?.value || null,
+              isMaxSubmission: s[TASK_SUBMISSION_FIELDS.IS_MAX_SUBMISSION]?.value || false
+            };
+
+            if (!submissionsMap.has(taskId)) {
+              submissionsMap.set(taskId, []);
+            }
+            submissionsMap.get(taskId)!.push(submission);
+          });
         }
-        submissionsMap.get(taskId)!.push(submission);
-      });
+      } else {
+        const submissionsWhereClause = taskIds
+          .map((id: number) => `{${TASK_SUBMISSION_FIELDS.RELATED_TASK}.EX.${id}}`)
+          .join('OR');
+
+        const submissionsResponse = await qbClient.queryRecords({
+          from: QB_TABLE_TASK_SUBMISSIONS,
+          select: [
+            TASK_SUBMISSION_FIELDS.RECORD_ID,
+            TASK_SUBMISSION_FIELDS.DATE_CREATED,
+            TASK_SUBMISSION_FIELDS.RELATED_TASK,
+            TASK_SUBMISSION_FIELDS.SUBMISSION_STATUS,
+            TASK_SUBMISSION_FIELDS.OPS_DISPOSITION,
+            TASK_SUBMISSION_FIELDS.FILE_ATTACHMENT_1,
+            TASK_SUBMISSION_FIELDS.IS_MAX_SUBMISSION
+          ],
+          where: submissionsWhereClause
+        });
+
+        submissionsResponse.data.forEach((s: any) => {
+          const taskId = s[TASK_SUBMISSION_FIELDS.RELATED_TASK]?.value;
+          if (!taskId) return;
+
+          const submission: TaskSubmission = {
+            recordId: s[TASK_SUBMISSION_FIELDS.RECORD_ID]?.value || 0,
+            dateCreated: s[TASK_SUBMISSION_FIELDS.DATE_CREATED]?.value || '',
+            relatedTask: taskId,
+            submissionStatus: s[TASK_SUBMISSION_FIELDS.SUBMISSION_STATUS]?.value || 'Pending Approval',
+            opsDisposition: s[TASK_SUBMISSION_FIELDS.OPS_DISPOSITION]?.value || null,
+            fileAttachment1: s[TASK_SUBMISSION_FIELDS.FILE_ATTACHMENT_1]?.value || null,
+            isMaxSubmission: s[TASK_SUBMISSION_FIELDS.IS_MAX_SUBMISSION]?.value || false
+          };
+
+          if (!submissionsMap.has(taskId)) {
+            submissionsMap.set(taskId, []);
+          }
+          submissionsMap.get(taskId)!.push(submission);
+        });
+      }
 
       // Sort submissions by date desc
       submissionsMap.forEach((submissions) => {
