@@ -7593,7 +7593,7 @@ export async function getPCEscalations(
     const sanitizedName = sanitizeQuickbaseValue(pcName);
 
     // Build WHERE clause for escalation status
-    const escalationStatusClause = `{${SALES_AID_FIELDS.SALES_AID_STATUS}.EX.'Escalated to Sales Aid'}OR{${SALES_AID_FIELDS.ESCALATE_TO_SALES_AID.EX.true}AND{${SALES_AID_FIELDS.SALES_AID_STATUS}.NE.'Resolved by Rep'}AND{${SALES_AID_FIELDS.SALES_AID_STATUS}.NE.'Task Completed'}`;
+    const escalationStatusClause = `{${SALES_AID_FIELDS.SALES_AID_STATUS}}.EX.'Escalated to Sales Aid' OR {${SALES_AID_FIELDS.ESCALATE_TO_SALES_AID}}.EX.'true' AND {${SALES_AID_FIELDS.SALES_AID_STATUS}}.NE.'Resolved by Rep' AND {${SALES_AID_FIELDS.SALES_AID_STATUS}}.NE.'Task Completed'`;
 
     let whereClause: string;
 
