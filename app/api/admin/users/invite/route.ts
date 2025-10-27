@@ -125,10 +125,10 @@ export async function POST(request: NextRequest) {
       const userResult = await sql.query(`
         INSERT INTO users (
           email, name, role, quickbase_user_id, sales_office,
-          is_active, invite_token, invited_at, invited_by
+          is_active, invite_token, invited_at
         )
-        VALUES ($1, $2, $3, $4, CASE WHEN $5 IS NOT NULL THEN ARRAY[$5]::text[] ELSE NULL END, $6, $7, $8, $9)
-        RETURNING id, email, name, role, sales_office, invite_token, invited_at, invited_by
+        VALUES ($1, $2, $3, $4, CASE WHEN $5 IS NOT NULL THEN ARRAY[$5]::text[] ELSE NULL END, $6, $7, $8)
+        RETURNING id, email, name, role, sales_office, invite_token, invited_at
       `, [
         email,
         name,
@@ -137,8 +137,7 @@ export async function POST(request: NextRequest) {
         validatedOffice || null,
         false, // is_active
         inviteToken,
-        invitedAt,
-        auth.session.user.id // invited_by
+        invitedAt
       ])
 
       const user = userResult.rows[0]
@@ -295,14 +294,12 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Look up invite by token with inviter name
+    // Look up invite by token
     const result = await sql.query(`
-      SELECT 
-        u.id, u.email, u.name, u.role, u.sales_office, 
-        u.invited_at, u.invite_accepted_at, u.invited_by,
-        inviter.name as invited_by_name
+      SELECT
+        u.id, u.email, u.name, u.role, u.sales_office,
+        u.invited_at, u.invite_accepted_at
       FROM users u
-      LEFT JOIN users inviter ON u.invited_by = inviter.id
       WHERE u.invite_token = $1
     `, [token])
 
@@ -350,8 +347,6 @@ export async function GET(request: NextRequest) {
       office: user.sales_office?.[0], // Backward compatibility
       offices: offices, // New field with all assigned offices
       invitedAt: user.invited_at,
-      invitedBy: user.invited_by,
-      invitedByName: user.invited_by_name,
       accepted: !!user.invite_accepted_at
     })
   } catch (error) {
