@@ -188,8 +188,23 @@ export async function GET(req: Request) {
       where: tasksWhereClause
     });
 
+    // Show sample of tasks pulled
+    const sampleTasks = tasksResponse.data.slice(0, 5).map((t: any) => ({
+      id: t[TASK_FIELDS.RECORD_ID]?.value,
+      name: t[TASK_FIELDS.NAME]?.value,
+      status: t[TASK_FIELDS.STATUS]?.value,
+      created: t[TASK_FIELDS.DATE_CREATED]?.value
+    }));
+
     logInfo('[TASKS_API] Tasks query complete', {
       tasksCount: tasksResponse.data.length,
+      sampleTasks: sampleTasks,
+      fieldsSelected: [
+        'RECORD_ID', 'DATE_CREATED', 'DATE_MODIFIED', 'TASK_GROUP',
+        'STATUS', 'NAME', 'DESCRIPTION', 'MAX_SUBMISSION_STATUS',
+        'TASK_TEMPLATE', 'TASK_CATEGORY', 'TASK_MISSING_ITEM',
+        'REVIEWED_BY_OPS', 'REVIEWED_BY_OPS_USER', 'OPS_REVIEW_NOTE'
+      ],
       reqId
     });
 
@@ -329,6 +344,27 @@ export async function GET(req: Request) {
       allProjects.push(...projectsResponse.data);
     }
 
+    // Show sample of projects pulled
+    const sampleProjects = allProjects.slice(0, 5).map((p: any) => ({
+      id: p[PROJECT_FIELDS.RECORD_ID]?.value,
+      projectId: p[PROJECT_FIELDS.PROJECT_ID]?.value,
+      customerName: p[PROJECT_FIELDS.CUSTOMER_NAME]?.value,
+      status: p[PROJECT_FIELDS.PROJECT_STATUS]?.value,
+      officeId: p[PROJECT_FIELDS.OFFICE_RECORD_ID]?.value,
+      closerEmail: p[PROJECT_FIELDS.CLOSER_EMAIL]?.value,
+      setterEmail: p[PROJECT_FIELDS.SETTER_EMAIL]?.value
+    }));
+
+    logInfo('[TASKS_API] Projects query complete', {
+      projectsCount: allProjects.length,
+      sampleProjects: sampleProjects,
+      fieldsSelected: [
+        'RECORD_ID', 'PROJECT_ID', 'CUSTOMER_NAME', 'PROJECT_STATUS',
+        'CLOSER_EMAIL', 'SETTER_EMAIL', 'OFFICE_RECORD_ID'
+      ],
+      reqId
+    });
+
     // STEP 4: Filter projects by user authorization
     const authorizedProjectIds = new Set(
       allProjects
@@ -364,15 +400,33 @@ export async function GET(req: Request) {
         .map((p: any) => p[PROJECT_FIELDS.RECORD_ID]?.value)
     );
 
+    // Show what got filtered out
+    const filteredOutCount = allProjects.length - authorizedProjectIds.size;
+    const authorizedProjectsSample = allProjects
+      .filter((p: any) => authorizedProjectIds.has(p[PROJECT_FIELDS.RECORD_ID]?.value))
+      .slice(0, 5)
+      .map((p: any) => ({
+        id: p[PROJECT_FIELDS.RECORD_ID]?.value,
+        projectId: p[PROJECT_FIELDS.PROJECT_ID]?.value,
+        customerName: p[PROJECT_FIELDS.CUSTOMER_NAME]?.value,
+        closerEmail: p[PROJECT_FIELDS.CLOSER_EMAIL]?.value,
+        setterEmail: p[PROJECT_FIELDS.SETTER_EMAIL]?.value
+      }));
+
     logInfo('[TASKS_API] Authorization filter applied', {
-      totalProjects: projectIds.length,
+      totalProjects: allProjects.length,
       authorizedProjects: authorizedProjectIds.size,
+      filteredOutCount: filteredOutCount,
+      userRole: userRole,
+      userEmail: userEmail,
+      effectiveOfficeIds: effectiveOfficeIds,
+      authorizedProjectsSample: authorizedProjectsSample,
       reqId
     });
 
     // Create project lookup map (only for authorized projects)
     const projectMap = new Map();
-    projectsResponse.data.forEach((p: any) => {
+    allProjects.forEach((p: any) => {
       const recordId = p[PROJECT_FIELDS.RECORD_ID]?.value;
       if (recordId && authorizedProjectIds.has(recordId)) {
         projectMap.set(recordId, {
@@ -388,6 +442,13 @@ export async function GET(req: Request) {
       const taskGroupId = task[TASK_FIELDS.TASK_GROUP]?.value;
       const projectId = taskGroupToProjectMap.get(taskGroupId);
       return projectId && authorizedProjectIds.has(projectId);
+    });
+
+    logInfo('[TASKS_API] Tasks filtered by authorization', {
+      totalTasksQueried: tasksResponse.data.length,
+      authorizedTasks: allTasks.length,
+      filteredOutTasks: tasksResponse.data.length - allTasks.length,
+      reqId
     });
 
     // STEP 5: Get submissions for these tasks
@@ -482,11 +543,33 @@ export async function GET(req: Request) {
       };
     });
 
+    // Final summary log
+    const totalSubmissions = Array.from(submissionsMap.values()).reduce((sum, subs) => sum + subs.length, 0);
+    const sampleFinalTasks = tasksWithProject.slice(0, 3).map(t => ({
+      id: t.recordId,
+      name: t.name,
+      status: t.status,
+      projectId: t.projectId,
+      customerName: t.customerName,
+      submissionsCount: t.submissions.length
+    }));
+
+    logInfo('[TASKS_API] Final result summary', {
+      totalTasksReturned: tasksWithProject.length,
+      totalSubmissions: totalSubmissions,
+      uniqueProjects: authorizedProjectIds.size,
+      sampleFinalTasks: sampleFinalTasks,
+      queryStrategy: 'task-first with YTD filter',
+      dateFilter: range,
+      reqId
+    });
+
     // Log response
     const duration = Date.now() - startedAt;
     logApiResponse('GET', '/api/tasks', duration, {
       tasks: tasksWithProject.length,
-      projects: projectIds.length
+      projects: authorizedProjectIds.size,
+      submissions: totalSubmissions
     }, reqId);
 
     return NextResponse.json(tasksWithProject, { status: 200 });
