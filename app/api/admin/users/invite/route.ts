@@ -569,21 +569,21 @@ async function handleInviteAcceptance(body: { token: string; password: string })
     }
 
     // Update user: set password, activate account, clear invite token, and back-fill QuickBase data
+    // Construct the sales_office update based on whether we have a defaultOffice
+    const salesOfficeValue = defaultOffice ? [defaultOffice] : user.sales_office;
+
     await sql.query(`
-      UPDATE users 
-      SET 
+      UPDATE users
+      SET
         password_hash = $1,
         is_active = true,
         invite_accepted_at = $2,
         invite_token = NULL,
         quickbase_user_id = $4,
         phone = $5,
-        sales_office = CASE 
-          WHEN $6 IS NOT NULL AND $6 != '' THEN ARRAY[$6]::text[]
-          ELSE sales_office
-        END
+        sales_office = COALESCE($6::text[], sales_office)
       WHERE id = $3
-    `, [hashedPassword, acceptedAt, user.id, quickbaseUserId, phone, defaultOffice])
+    `, [hashedPassword, acceptedAt, user.id, quickbaseUserId, phone, salesOfficeValue])
 
     // Log audit event for QuickBase data back-fill (only if data was found)
     if (quickbaseUserId || phone || defaultOffice) {
