@@ -124,92 +124,193 @@ export async function GET(req: Request) {
       logInfo('[TASKS_API] Fetched offices from database', { userId, role: userRole, officeCount: effectiveOfficeIds?.length || 0, reqId });
     }
 
-    // Step 1: Get accessible projects for this user
+    // Parse query parameters for filtering
+    const { searchParams } = new URL(req.url);
+    const range = searchParams.get('range') || 'ytd'; // ytd, all, 90, 30
+
+    // QuickBase table IDs
     const QB_TABLE_PROJECTS = (process.env.QUICKBASE_TABLE_PROJECTS || 'br9kwm8na').trim();
     const QB_TABLE_TASK_GROUPS = (process.env.QUICKBASE_TABLE_TASK_GROUPS || 'bu36gem4p').trim();
     const QB_TABLE_TASKS = (process.env.QUICKBASE_TABLE_TASKS || 'bu36ggiht').trim();
     const QB_TABLE_TASK_SUBMISSIONS = (process.env.QUICKBASE_TABLE_TASK_SUBMISSIONS || 'bu36g8j99').trim();
-    const projectAccessClause = buildProjectAccessClause(userEmail, userRole, effectiveOfficeIds, managedEmails, reqId);
 
-    logInfo('[TASKS_API] Generated WHERE clause', {
-      clause: projectAccessClause,
-      clauseLength: projectAccessClause?.length || 0,
-      userEmail: userEmail ? 'present' : 'null',
-      role: userRole,
-      reqId
-    });
+    // Helper: Format date for QuickBase (MM-DD-YYYY)
+    const formatQBDate = (date: Date): string => {
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${month}-${day}-${year}`;
+    };
 
-    logInfo('[TASKS_API] Using table IDs', {
-      QB_TABLE_PROJECTS,
-      QB_TABLE_TASK_GROUPS,
-      QB_TABLE_TASKS,
-      QB_TABLE_TASK_SUBMISSIONS,
-      reqId
-    });
-
-    // TEMPORARY DEBUG: Just try the first query
-    console.log('[TASKS_API] About to query QuickBase with:', {
-      table: QB_TABLE_PROJECTS,
-      whereClause: projectAccessClause,
-      selectFields: [
-        PROJECT_FIELDS.RECORD_ID,
-        PROJECT_FIELDS.PROJECT_ID,
-        PROJECT_FIELDS.CUSTOMER_NAME,
-        PROJECT_FIELDS.PROJECT_STATUS
-      ]
-    });
-
-    let projectsResponse;
-    try {
-      projectsResponse = await qbClient.queryRecords({
-        from: QB_TABLE_PROJECTS,
-        select: [
-          PROJECT_FIELDS.RECORD_ID,
-          PROJECT_FIELDS.PROJECT_ID,
-          PROJECT_FIELDS.CUSTOMER_NAME,
-          PROJECT_FIELDS.PROJECT_STATUS
-        ],
-        where: projectAccessClause
-      });
-
-      console.log('[TASKS_API] QuickBase query succeeded, got', projectsResponse.data?.length, 'projects');
-    } catch (queryError: any) {
-      console.error('[TASKS_API] QuickBase query FAILED:', {
-        errorMessage: queryError?.message,
-        errorStack: queryError?.stack,
-        whereClause: projectAccessClause,
-        tableId: QB_TABLE_PROJECTS
-      });
-
-      logError('Projects query failed', queryError as Error, {
-        whereClause: projectAccessClause,
-        tableId: QB_TABLE_PROJECTS,
-        errorMessage: queryError?.message,
-        errorDetails: queryError?.response?.data || queryError?.response || 'no response data',
-        reqId
-      });
-
-      // Return a simple error response for now
-      return NextResponse.json({
-        error: 'QuickBase Query Failed',
-        message: queryError?.message || 'Unknown error',
-        whereClause: projectAccessClause,
-        table: QB_TABLE_PROJECTS
-      }, { status: 500 });
+    // Build date filter based on range parameter
+    let dateFilter = '';
+    if (range === 'ytd') {
+      dateFilter = `AND{${TASK_FIELDS.DATE_CREATED}.OAF.'01-01-2025'}`;
+    } else if (range !== 'all') {
+      const days = parseInt(range);
+      if (!isNaN(days)) {
+        const date = new Date();
+        date.setDate(date.getDate() - days);
+        dateFilter = `AND{${TASK_FIELDS.DATE_CREATED}.OAF.'${formatQBDate(date)}'}`;
+      }
     }
 
-    if (projectsResponse.data.length === 0) {
+    // STEP 1: Query incomplete tasks first (task-first strategy)
+    // This is the key optimization - we query tasks directly instead of projects
+    const tasksWhereClause = `{${TASK_FIELDS.STATUS}.XEX.'Completed'}${dateFilter}`;
+
+    logInfo('[TASKS_API] Querying incomplete tasks', {
+      range,
+      dateFilter,
+      tasksWhereClause,
+      reqId
+    });
+
+    // Query all incomplete tasks (with date filter)
+    const tasksResponse = await qbClient.queryRecords({
+      from: QB_TABLE_TASKS,
+      select: [
+        TASK_FIELDS.RECORD_ID,
+        TASK_FIELDS.DATE_CREATED,
+        TASK_FIELDS.DATE_MODIFIED,
+        TASK_FIELDS.TASK_GROUP,
+        TASK_FIELDS.STATUS,
+        TASK_FIELDS.NAME,
+        TASK_FIELDS.DESCRIPTION,
+        TASK_FIELDS.MAX_SUBMISSION_STATUS,
+        TASK_FIELDS.TASK_TEMPLATE,
+        TASK_FIELDS.TASK_CATEGORY,
+        TASK_FIELDS.TASK_MISSING_ITEM,
+        TASK_FIELDS.REVIEWED_BY_OPS,
+        TASK_FIELDS.REVIEWED_BY_OPS_USER,
+        TASK_FIELDS.OPS_REVIEW_NOTE
+      ],
+      where: tasksWhereClause
+    });
+
+    logInfo('[TASKS_API] Tasks query complete', {
+      tasksCount: tasksResponse.data.length,
+      reqId
+    });
+
+    if (tasksResponse.data.length === 0) {
       logApiResponse('GET', '/api/tasks', Date.now() - startedAt, { tasks: 0 }, reqId);
       return NextResponse.json([], { status: 200 });
     }
 
-    const projectIds = projectsResponse.data.map((p: any) => p[PROJECT_FIELDS.RECORD_ID]?.value).filter(Boolean);
+    // STEP 2: Get task groups for these tasks
+    const taskGroupIds = [...new Set(
+      tasksResponse.data
+        .map((t: any) => t[TASK_FIELDS.TASK_GROUP]?.value)
+        .filter(Boolean)
+    )];
 
-    // Create project lookup map
+    logInfo('[TASKS_API] Querying task groups', {
+      taskGroupCount: taskGroupIds.length,
+      reqId
+    });
+
+    const taskGroupsWhereClause = taskGroupIds
+      .map((id: number) => `{${TASK_GROUP_FIELDS.RECORD_ID}.EX.${id}}`)
+      .join('OR');
+
+    const taskGroupsResponse = await qbClient.queryRecords({
+      from: QB_TABLE_TASK_GROUPS,
+      select: [
+        TASK_GROUP_FIELDS.RECORD_ID,
+        TASK_GROUP_FIELDS.RELATED_PROJECT
+      ],
+      where: taskGroupsWhereClause
+    });
+
+    // Map task groups to projects
+    const taskGroupToProjectMap = new Map();
+    taskGroupsResponse.data.forEach((tg: any) => {
+      const groupId = tg[TASK_GROUP_FIELDS.RECORD_ID]?.value;
+      const projectId = tg[TASK_GROUP_FIELDS.RELATED_PROJECT]?.value;
+      if (groupId && projectId) {
+        taskGroupToProjectMap.set(groupId, projectId);
+      }
+    });
+
+    // STEP 3: Get projects for these task groups
+    const projectIds = [...new Set(
+      taskGroupsResponse.data
+        .map((tg: any) => tg[TASK_GROUP_FIELDS.RELATED_PROJECT]?.value)
+        .filter(Boolean)
+    )];
+
+    logInfo('[TASKS_API] Querying projects', {
+      projectCount: projectIds.length,
+      reqId
+    });
+
+    const projectsWhereClause = projectIds
+      .map((id: number) => `{${PROJECT_FIELDS.RECORD_ID}.EX.${id}}`)
+      .join('OR');
+
+    const projectsResponse = await qbClient.queryRecords({
+      from: QB_TABLE_PROJECTS,
+      select: [
+        PROJECT_FIELDS.RECORD_ID,
+        PROJECT_FIELDS.PROJECT_ID,
+        PROJECT_FIELDS.CUSTOMER_NAME,
+        PROJECT_FIELDS.PROJECT_STATUS,
+        PROJECT_FIELDS.CLOSER_EMAIL,
+        PROJECT_FIELDS.SETTER_EMAIL,
+        PROJECT_FIELDS.OFFICE_RECORD_ID
+      ],
+      where: projectsWhereClause
+    });
+
+    // STEP 4: Filter projects by user authorization
+    const projectAccessClause = buildProjectAccessClause(userEmail, userRole, effectiveOfficeIds, managedEmails, reqId);
+
+    const authorizedProjectIds = new Set(
+      projectsResponse.data
+        .filter((project: any) => {
+          // For super_admin and regional without office filter, allow all
+          if (['super_admin', 'regional'].includes(userRole) && (!effectiveOfficeIds || effectiveOfficeIds.length === 0)) {
+            return true;
+          }
+
+          // For office-based roles, check office ID
+          if (effectiveOfficeIds && effectiveOfficeIds.length > 0) {
+            const projectOfficeId = project[PROJECT_FIELDS.OFFICE_RECORD_ID]?.value;
+            return effectiveOfficeIds.includes(projectOfficeId);
+          }
+
+          // For reps, check email match
+          if (['closer', 'setter'].includes(userRole) && userEmail) {
+            const closerEmail = project[PROJECT_FIELDS.CLOSER_EMAIL]?.value?.toLowerCase();
+            const setterEmail = project[PROJECT_FIELDS.SETTER_EMAIL]?.value?.toLowerCase();
+            return closerEmail === userEmail.toLowerCase() || setterEmail === userEmail.toLowerCase();
+          }
+
+          // For team leads, check managed emails
+          if (userRole === 'team_lead' && managedEmails && managedEmails.length > 0) {
+            const closerEmail = project[PROJECT_FIELDS.CLOSER_EMAIL]?.value?.toLowerCase();
+            const setterEmail = project[PROJECT_FIELDS.SETTER_EMAIL]?.value?.toLowerCase();
+            const managedLower = managedEmails.map(e => e.toLowerCase());
+            return managedLower.includes(closerEmail) || managedLower.includes(setterEmail);
+          }
+
+          return false;
+        })
+        .map((p: any) => p[PROJECT_FIELDS.RECORD_ID]?.value)
+    );
+
+    logInfo('[TASKS_API] Authorization filter applied', {
+      totalProjects: projectIds.length,
+      authorizedProjects: authorizedProjectIds.size,
+      reqId
+    });
+
+    // Create project lookup map (only for authorized projects)
     const projectMap = new Map();
     projectsResponse.data.forEach((p: any) => {
       const recordId = p[PROJECT_FIELDS.RECORD_ID]?.value;
-      if (recordId) {
+      if (recordId && authorizedProjectIds.has(recordId)) {
         projectMap.set(recordId, {
           projectId: p[PROJECT_FIELDS.PROJECT_ID]?.value || recordId,
           customerName: p[PROJECT_FIELDS.CUSTOMER_NAME]?.value || 'Unknown',
@@ -218,97 +319,14 @@ export async function GET(req: Request) {
       }
     });
 
-    // Step 2: Get task groups for these projects
-    // IMPORTANT: Batch queries to avoid QB query length limits
-    // QB has strict WHERE clause length limits (~2-3KB), so use small batches
-    const BATCH_SIZE = 100; // ~1.5KB per query, well under QB limits
-    const allTaskGroups: any[] = [];
-
-    logInfo('[TASKS_API] Batching task groups query', {
-      totalProjects: projectIds.length,
-      batchSize: BATCH_SIZE,
-      batches: Math.ceil(projectIds.length / BATCH_SIZE),
-      reqId
+    // Filter tasks to only authorized projects
+    const allTasks = tasksResponse.data.filter((task: any) => {
+      const taskGroupId = task[TASK_FIELDS.TASK_GROUP]?.value;
+      const projectId = taskGroupToProjectMap.get(taskGroupId);
+      return projectId && authorizedProjectIds.has(projectId);
     });
 
-    for (let i = 0; i < projectIds.length; i += BATCH_SIZE) {
-      const batch = projectIds.slice(i, i + BATCH_SIZE);
-      const taskGroupsWhereClause = batch
-        .map((id: number) => `{${TASK_GROUP_FIELDS.RELATED_PROJECT}.EX.${id}}`)
-        .join('OR');
-
-      const taskGroupsResponse = await qbClient.queryRecords({
-        from: QB_TABLE_TASK_GROUPS,
-        select: [
-          TASK_GROUP_FIELDS.RECORD_ID,
-          TASK_GROUP_FIELDS.RELATED_PROJECT
-        ],
-        where: taskGroupsWhereClause
-      });
-
-      allTaskGroups.push(...taskGroupsResponse.data);
-    }
-
-    if (allTaskGroups.length === 0) {
-      logApiResponse('GET', '/api/tasks', Date.now() - startedAt, { tasks: 0 }, reqId);
-      return NextResponse.json([], { status: 200 });
-    }
-
-    // Map task groups to projects
-    const taskGroupToProjectMap = new Map();
-    allTaskGroups.forEach((tg: any) => {
-      const groupId = tg[TASK_GROUP_FIELDS.RECORD_ID]?.value;
-      const projectId = tg[TASK_GROUP_FIELDS.RELATED_PROJECT]?.value;
-      if (groupId && projectId) {
-        taskGroupToProjectMap.set(groupId, projectId);
-      }
-    });
-
-    const taskGroupIds = allTaskGroups
-      .map((tg: any) => tg[TASK_GROUP_FIELDS.RECORD_ID]?.value)
-      .filter(Boolean);
-
-    // Step 3: Get tasks for these task groups (batched)
-    const allTasks: any[] = [];
-
-    logInfo('[TASKS_API] Batching tasks query', {
-      totalTaskGroups: taskGroupIds.length,
-      batchSize: BATCH_SIZE,
-      batches: Math.ceil(taskGroupIds.length / BATCH_SIZE),
-      reqId
-    });
-
-    for (let i = 0; i < taskGroupIds.length; i += BATCH_SIZE) {
-      const batch = taskGroupIds.slice(i, i + BATCH_SIZE);
-      const tasksWhereClause = batch
-        .map((id: number) => `{${TASK_FIELDS.TASK_GROUP}.EX.${id}}`)
-        .join('OR');
-
-      const tasksResponse = await qbClient.queryRecords({
-        from: QB_TABLE_TASKS,
-        select: [
-          TASK_FIELDS.RECORD_ID,
-          TASK_FIELDS.DATE_CREATED,
-          TASK_FIELDS.DATE_MODIFIED,
-          TASK_FIELDS.TASK_GROUP,
-          TASK_FIELDS.STATUS,
-          TASK_FIELDS.NAME,
-          TASK_FIELDS.DESCRIPTION,
-          TASK_FIELDS.MAX_SUBMISSION_STATUS,
-          TASK_FIELDS.TASK_TEMPLATE,
-          TASK_FIELDS.TASK_CATEGORY,
-          TASK_FIELDS.TASK_MISSING_ITEM,
-          TASK_FIELDS.REVIEWED_BY_OPS,
-          TASK_FIELDS.REVIEWED_BY_OPS_USER,
-          TASK_FIELDS.OPS_REVIEW_NOTE
-        ],
-        where: tasksWhereClause
-      });
-
-      allTasks.push(...tasksResponse.data);
-    }
-
-    // Step 4: Get submissions for these tasks (for urgency calculation)
+    // STEP 5: Get submissions for these tasks
     const taskIds = allTasks
       .map((t: any) => t[TASK_FIELDS.RECORD_ID]?.value)
       .filter(Boolean);
@@ -316,53 +334,48 @@ export async function GET(req: Request) {
     let submissionsMap = new Map<number, TaskSubmission[]>();
 
     if (taskIds.length > 0) {
-      logInfo('[TASKS_API] Batching submissions query', {
+      logInfo('[TASKS_API] Querying submissions', {
         totalTasks: taskIds.length,
-        batchSize: BATCH_SIZE,
-        batches: Math.ceil(taskIds.length / BATCH_SIZE),
         reqId
       });
 
-      for (let i = 0; i < taskIds.length; i += BATCH_SIZE) {
-        const batch = taskIds.slice(i, i + BATCH_SIZE);
-        const submissionsWhereClause = batch
-          .map((id: number) => `{${TASK_SUBMISSION_FIELDS.RELATED_TASK}.EX.${id}}`)
-          .join('OR');
+      const submissionsWhereClause = taskIds
+        .map((id: number) => `{${TASK_SUBMISSION_FIELDS.RELATED_TASK}.EX.${id}}`)
+        .join('OR');
 
-        const submissionsResponse = await qbClient.queryRecords({
-          from: QB_TABLE_TASK_SUBMISSIONS,
-          select: [
-            TASK_SUBMISSION_FIELDS.RECORD_ID,
-            TASK_SUBMISSION_FIELDS.DATE_CREATED,
-            TASK_SUBMISSION_FIELDS.RELATED_TASK,
-            TASK_SUBMISSION_FIELDS.SUBMISSION_STATUS,
-            TASK_SUBMISSION_FIELDS.OPS_DISPOSITION,
-            TASK_SUBMISSION_FIELDS.FILE_ATTACHMENT_1,
-            TASK_SUBMISSION_FIELDS.IS_MAX_SUBMISSION
-          ],
-          where: submissionsWhereClause
-        });
+      const submissionsResponse = await qbClient.queryRecords({
+        from: QB_TABLE_TASK_SUBMISSIONS,
+        select: [
+          TASK_SUBMISSION_FIELDS.RECORD_ID,
+          TASK_SUBMISSION_FIELDS.DATE_CREATED,
+          TASK_SUBMISSION_FIELDS.RELATED_TASK,
+          TASK_SUBMISSION_FIELDS.SUBMISSION_STATUS,
+          TASK_SUBMISSION_FIELDS.OPS_DISPOSITION,
+          TASK_SUBMISSION_FIELDS.FILE_ATTACHMENT_1,
+          TASK_SUBMISSION_FIELDS.IS_MAX_SUBMISSION
+        ],
+        where: submissionsWhereClause
+      });
 
-        submissionsResponse.data.forEach((s: any) => {
-          const taskId = s[TASK_SUBMISSION_FIELDS.RELATED_TASK]?.value;
-          if (!taskId) return;
+      submissionsResponse.data.forEach((s: any) => {
+        const taskId = s[TASK_SUBMISSION_FIELDS.RELATED_TASK]?.value;
+        if (!taskId) return;
 
-          const submission: TaskSubmission = {
-            recordId: s[TASK_SUBMISSION_FIELDS.RECORD_ID]?.value || 0,
-            dateCreated: s[TASK_SUBMISSION_FIELDS.DATE_CREATED]?.value || '',
-            relatedTask: taskId,
-            submissionStatus: s[TASK_SUBMISSION_FIELDS.SUBMISSION_STATUS]?.value || 'Pending Approval',
-            opsDisposition: s[TASK_SUBMISSION_FIELDS.OPS_DISPOSITION]?.value || null,
-            fileAttachment1: s[TASK_SUBMISSION_FIELDS.FILE_ATTACHMENT_1]?.value || null,
-            isMaxSubmission: s[TASK_SUBMISSION_FIELDS.IS_MAX_SUBMISSION]?.value || false
-          };
+        const submission: TaskSubmission = {
+          recordId: s[TASK_SUBMISSION_FIELDS.RECORD_ID]?.value || 0,
+          dateCreated: s[TASK_SUBMISSION_FIELDS.DATE_CREATED]?.value || '',
+          relatedTask: taskId,
+          submissionStatus: s[TASK_SUBMISSION_FIELDS.SUBMISSION_STATUS]?.value || 'Pending Approval',
+          opsDisposition: s[TASK_SUBMISSION_FIELDS.OPS_DISPOSITION]?.value || null,
+          fileAttachment1: s[TASK_SUBMISSION_FIELDS.FILE_ATTACHMENT_1]?.value || null,
+          isMaxSubmission: s[TASK_SUBMISSION_FIELDS.IS_MAX_SUBMISSION]?.value || false
+        };
 
-          if (!submissionsMap.has(taskId)) {
-            submissionsMap.set(taskId, []);
-          }
-          submissionsMap.get(taskId)!.push(submission);
-        });
-      }
+        if (!submissionsMap.has(taskId)) {
+          submissionsMap.set(taskId, []);
+        }
+        submissionsMap.get(taskId)!.push(submission);
+      });
 
       // Sort submissions by date desc
       submissionsMap.forEach((submissions) => {
