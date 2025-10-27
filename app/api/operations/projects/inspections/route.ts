@@ -37,12 +37,15 @@ export async function GET(request: NextRequest) {
     const pcName = session.user.name || '';
     const role = session.user.role;
 
-    // Get search params for filtering (to be implemented client-side)
+    // Get search params for filtering
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || 'all';
     const office = searchParams.get('office') || 'all';
     const salesRep = searchParams.get('salesRep') || 'all';
     const search = searchParams.get('search') || '';
+    const dateRange = searchParams.get('dateRange') || 'all';
+    const customStartDate = searchParams.get('customStartDate') || null;
+    const customEndDate = searchParams.get('customEndDate') || null;
 
     // Fetch inspection data from QuickBase
     const inspectionData = await getInspectionProjects(pcEmail, pcName, role, reqId);
@@ -50,7 +53,29 @@ export async function GET(request: NextRequest) {
     // Apply client-side filters if needed
     let filteredData: PCInspectionData = inspectionData;
 
-    if (status !== 'all' || office !== 'all' || salesRep !== 'all' || search) {
+    if (status !== 'all' || office !== 'all' || salesRep !== 'all' || search || dateRange !== 'all') {
+      // Calculate date filter boundaries
+      let dateFilterStart: Date | null = null;
+      if (dateRange !== 'all') {
+        const now = new Date();
+        switch (dateRange) {
+          case '7days':
+            dateFilterStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            break;
+          case '30days':
+            dateFilterStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+            break;
+          case '90days':
+            dateFilterStart = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+            break;
+          case 'custom':
+            if (customStartDate) {
+              dateFilterStart = new Date(customStartDate);
+            }
+            break;
+        }
+      }
+
       const applyFilters = (projects: any[]) => {
         return projects.filter(project => {
           // Filter by status (already categorized, so this is redundant but safe)
@@ -75,6 +100,22 @@ export async function GET(request: NextRequest) {
             const matchesCustomerName = project.customerName.toLowerCase().includes(searchLower);
             if (!matchesProjectId && !matchesCustomerName) {
               return false;
+            }
+          }
+
+          // Filter by date range based on install completed date
+          if (dateFilterStart && project.installCompletedDate) {
+            const installDate = new Date(project.installCompletedDate);
+            if (installDate < dateFilterStart) {
+              return false;
+            }
+
+            // If custom range with end date, check upper bound
+            if (dateRange === 'custom' && customEndDate) {
+              const endDate = new Date(customEndDate);
+              if (installDate > endDate) {
+                return false;
+              }
             }
           }
 

@@ -785,4 +785,7 @@ export interface PCInspectionFilters {
   office: string | 'all';
   salesRep: string | 'all';
   search: string;
+  dateRange: '7days' | '30days' | '90days' | 'custom' | 'all';
+  customStartDate?: string; // ISO date string for custom range
+  customEndDate?: string; // ISO date string for custom range
 }
