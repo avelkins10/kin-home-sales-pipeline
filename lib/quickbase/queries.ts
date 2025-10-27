@@ -350,7 +350,7 @@ export async function getProjectsForUserList(userId: string, role: string, view?
   let memberEmailFilter: string | undefined;
   if (memberEmail) {
     const sanitizedEmail = sanitizeQbLiteral(memberEmail);
-    memberEmailFilter = `({${PROJECT_FIELDS.CLOSER_EMAIL.EX.'${sanitizedEmail}'} OR {${PROJECT_FIELDS.SETTER_EMAIL.EX.'${sanitizedEmail}'})`;
+    memberEmailFilter = `({${PROJECT_FIELDS.CLOSER_EMAIL}.EX.'${sanitizedEmail}'} OR {${PROJECT_FIELDS.SETTER_EMAIL}.EX.'${sanitizedEmail}'})`;
     if (process.env.NODE_ENV !== 'production') {
       console.log('[getProjectsForUserList] Filtering by team member email:', memberEmail);
     } else {
