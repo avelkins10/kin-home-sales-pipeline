@@ -201,12 +201,21 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch quality metrics for all users (aggregated)
-    const qualityMetrics = await getQualityMetricsForUsers({
-      repcardUserIds,
-      startDate: calculatedStartDate,
-      endDate: calculatedEndDate,
-      useCache: true
-    });
+    console.log(`[Quality Aggregate] Fetching quality metrics for ${repcardUserIds.length} users, date range: ${calculatedStartDate} to ${calculatedEndDate}`);
+
+    let qualityMetrics;
+    try {
+      qualityMetrics = await getQualityMetricsForUsers({
+        repcardUserIds,
+        startDate: calculatedStartDate,
+        endDate: calculatedEndDate,
+        useCache: true
+      });
+      console.log(`[Quality Aggregate] Successfully fetched quality metrics`);
+    } catch (error) {
+      console.error(`[Quality Aggregate] Error fetching quality metrics:`, error);
+      throw error;
+    }
 
     // Extract metrics
     const showRate = qualityMetrics.appointmentShowRate.percentageShowRate || 0;

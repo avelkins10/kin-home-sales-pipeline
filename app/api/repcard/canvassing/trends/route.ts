@@ -183,6 +183,9 @@ export async function GET(request: NextRequest) {
     let page = 1;
     let hasMore = true;
 
+    console.log(`[Canvassing Trends] Fetching customers for date range: ${calculatedStartDate} to ${calculatedEndDate}`);
+    console.log(`[Canvassing Trends] Filtering for ${users.length} users in offices: ${officeIds?.join(',') || 'all'}`);
+
     while (hasMore) {
       try {
         const response = await repcardClient.getCustomers({
@@ -191,20 +194,28 @@ export async function GET(request: NextRequest) {
           startDate: calculatedStartDate,
           endDate: calculatedEndDate
         });
+        console.log(`[Canvassing Trends] Page ${page}: Got ${response.result.data.length} customers (total: ${response.result.total}, currentPage: ${response.result.currentPage}, lastPage: ${response.result.lastPage})`);
         allCustomers.push(...response.result.data);
         hasMore = response.result.currentPage < response.result.lastPage;
         page++;
       } catch (error) {
-        console.error(`Failed to fetch customers page ${page}:`, error);
+        console.error(`[Canvassing Trends] Failed to fetch customers page ${page}:`, error);
         hasMore = false;
       }
     }
+
+    console.log(`[Canvassing Trends] Total customers fetched from RepCard: ${allCustomers.length}`);
 
     // Filter customers by users
     const repcardUserIds = new Set(users.map(u => u.repcard_user_id?.toString()));
     const filteredCustomers = allCustomers.filter((c: any) =>
       repcardUserIds.has(c.userId?.toString())
     );
+
+    console.log(`[Canvassing Trends] After filtering by ${repcardUserIds.size} user IDs: ${filteredCustomers.length} customers remain`);
+    if (filteredCustomers.length > 0) {
+      console.log(`[Canvassing Trends] Sample customer:`, JSON.stringify(filteredCustomers[0], null, 2));
+    }
 
     // Group customers by date
     const trendsMap = new Map<string, number>();
