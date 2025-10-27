@@ -61,11 +61,17 @@ export function PCPriorityQueue({ priorityQueue }: PCPriorityQueueProps) {
     return 'bg-yellow-100 text-yellow-800 border-yellow-200';
   };
 
+  // Helper to extract value from QuickBase wrapped objects
+  const extractValue = (field: any): string => {
+    if (typeof field === 'object' && field?.value) {
+      return String(field.value);
+    }
+    return String(field || '');
+  };
+
   const getContactMethodIcon = (method: string | any) => {
     // Handle both string and wrapped object {value: "string"} from QuickBase
-    const methodStr = typeof method === 'object' && method?.value
-      ? String(method.value).toLowerCase()
-      : String(method || 'call').toLowerCase();
+    const methodStr = extractValue(method).toLowerCase() || 'call';
 
     switch (methodStr) {
       case 'text':
@@ -140,29 +146,29 @@ export function PCPriorityQueue({ priorityQueue }: PCPriorityQueueProps) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2">
                       <p className="font-medium text-gray-900 truncate">
-                        {item.customerName}
+                        {extractValue(item.customerName)}
                       </p>
                       <span className="text-xs text-gray-500">
                         #{item.projectId}
                       </span>
                     </div>
-                    
+
                     <div className="flex items-center space-x-4 mt-1">
                       <div className="flex items-center space-x-1 text-xs text-gray-600">
                         <Calendar className="h-3 w-3" />
-                        <span>{item.currentStage}</span>
+                        <span>{extractValue(item.currentStage)}</span>
                         <span>•</span>
                         <span>{item.daysInStage} days</span>
                       </div>
-                      
+
                       <div className="flex items-center space-x-1 text-xs text-gray-600">
                         <Clock className="h-3 w-3" />
                         <span>{formatLastContact(item.lastContactDate)}</span>
                       </div>
                     </div>
-                    
+
                     <p className="text-xs text-gray-500 mt-1 truncate">
-                      {item.priorityReason}
+                      {extractValue(item.priorityReason)}
                     </p>
                   </div>
                 </div>
@@ -170,7 +176,7 @@ export function PCPriorityQueue({ priorityQueue }: PCPriorityQueueProps) {
                 <div className="flex items-center space-x-2 ml-4">
                   <div className="flex items-center space-x-1 text-xs text-gray-500">
                     <ContactIcon className="h-3 w-3" />
-                    <span>{item.preferredContactMethod}</span>
+                    <span>{extractValue(item.preferredContactMethod)}</span>
                   </div>
                   
                   <div className="flex space-x-1">
