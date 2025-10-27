@@ -4919,7 +4919,9 @@ export async function getPCPriorityQueue(
         dueMilestones: record[PROJECT_FIELDS.PC_OUTREACH_DUE] || 0,
         isUnresponsive: record[PROJECT_FIELDS.PC_IS_UNRESPONSIVE] === 'Yes',
         escalationLevel: record[PROJECT_FIELDS.PC_ESCALATIONS] || 0,
-        preferredContactMethod: record[PROJECT_FIELDS.PC_OUTREACH_PREFERRED_METHOD] || 'Call',
+        preferredContactMethod: (typeof record[PROJECT_FIELDS.PC_OUTREACH_PREFERRED_METHOD] === 'object'
+          ? record[PROJECT_FIELDS.PC_OUTREACH_PREFERRED_METHOD]?.value
+          : record[PROJECT_FIELDS.PC_OUTREACH_PREFERRED_METHOD]) || 'Call',
         lastContactDate: record[PROJECT_FIELDS.PC_MAX_OUTREACH_COMPLETED] || null,
         coordinatorEmail: pcEmail,
         salesRepName: record[PROJECT_FIELDS.CLOSER_NAME] || '',
