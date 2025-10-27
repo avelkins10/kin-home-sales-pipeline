@@ -6,8 +6,6 @@ import { getQualityMetricsForUsers, calculateCompositeQualityScore } from '@/lib
 import { sql } from '@/lib/db/client';
 import { repcardClient } from '@/lib/repcard/client';
 import type { LeaderboardMetric, LeaderboardRole, LeaderboardEntry, LeaderboardResponse } from '@/lib/repcard/types';
-import { qbClient } from '@/lib/quickbase/client';
-import { PROJECT_FIELDS, QB_TABLE_PROJECTS } from '@/lib/constants/fieldIds';
 
 export const runtime = 'nodejs';
 
@@ -380,37 +378,74 @@ export async function GET(request: NextRequest) {
           };
         });
       } else if (metric === 'sales_closed' || metric === 'revenue') {
-        // Query QuickBase projects
-        const userEmails = (users as any[]).map((u: any) => u.email);
+        // Fetch customer status logs from RepCard to find sales
+        // NOTE: We'll need to filter for "sold" or "closed" status types
+        // For now, fetch all customers and their status logs
+        let allStatusLogs: any[] = [];
+        let page = 1;
+        let hasMore = true;
 
-        // Build WHERE clause for all closer emails
-        const emailFilters = userEmails.map((email: string) =>
-          `{${PROJECT_FIELDS.CLOSER_EMAIL}.EX.'${email}'}`
-        ).join('OR');
+        while (hasMore) {
+          try {
+            const response = await repcardClient.getCustomerStatusLogs({
+              userIds: repcardUserIds.join(','),
+              fromDate: calculatedStartDate,
+              toDate: calculatedEndDate,
+              page,
+              perPage: 100
+            });
 
-        const whereClause = `(${emailFilters})AND{${PROJECT_FIELDS.SALES_DATE}.OAF.'${calculatedStartDate}'}AND{${PROJECT_FIELDS.SALES_DATE}.OBF.'${calculatedEndDate}'}`;
+            allStatusLogs.push(...response.result.data);
+            hasMore = response.result.currentPage < (response.result.totalPages || 1);
+            page++;
+          } catch (error) {
+            console.error(`Failed to fetch status logs page ${page}:`, error);
+            hasMore = false;
+          }
+        }
 
-        const projectsResult = await qbClient.queryRecords({
-          from: QB_TABLE_PROJECTS,
-          select: [
-            PROJECT_FIELDS.RECORD_ID,
-            PROJECT_FIELDS.CLOSER_EMAIL,
-            PROJECT_FIELDS.SYSTEM_PRICE
-          ],
-          where: whereClause
+        // Filter for "sold" statuses (customize based on actual status names in RepCard)
+        // Common status names: "Sold", "Closed", "Won", "Installed", etc.
+        const soldStatuses = allStatusLogs.filter((log: any) => {
+          const statusName = log.statusTo?.statusName?.toLowerCase() || '';
+          return statusName.includes('sold') ||
+                 statusName.includes('closed') ||
+                 statusName.includes('won') ||
+                 statusName.includes('install');
         });
 
-        const projects = projectsResult.data || [];
+        // For revenue, we need to fetch the customers to get systemCost
+        const soldCustomerIds = [...new Set(soldStatuses.map((log: any) => log.customerId))];
+        const customers = await Promise.all(
+          soldCustomerIds.slice(0, 50).map(async (customerId: number) => { // Limit to avoid too many requests
+            try {
+              const customer = await repcardClient.getCustomerById(customerId);
+              return customer.result;
+            } catch (error) {
+              console.error(`Failed to fetch customer ${customerId}:`, error);
+              return null;
+            }
+          })
+        );
 
         leaderboardEntries = (users as any[]).map((user: any) => {
-          const userProjects = projects.filter((p: any) =>
-            p[PROJECT_FIELDS.CLOSER_EMAIL]?.value === user.email
+          // Find sales for this user
+          const userSales = soldStatuses.filter((log: any) =>
+            log.userId?.toString() === user.repcard_user_id?.toString()
           );
-          const metricValue = metric === 'sales_closed'
-            ? userProjects.length
-            : userProjects.reduce((sum: number, p: any) =>
-                sum + (parseFloat(p[PROJECT_FIELDS.SYSTEM_PRICE]?.value) || 0), 0
+
+          let metricValue = 0;
+          if (metric === 'sales_closed') {
+            metricValue = userSales.length;
+          } else {
+            // Revenue: sum up systemCost from customers
+            const userCustomerIds = userSales.map((log: any) => log.customerId);
+            metricValue = customers
+              .filter((c: any) => c && userCustomerIds.includes(c.id))
+              .reduce((sum: number, c: any) =>
+                sum + (c.customFields?.systemCost || 0), 0
               );
+          }
 
           return {
             rank: 0,

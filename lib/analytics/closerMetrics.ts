@@ -1,8 +1,7 @@
 import { sql } from '@/lib/db/client';
 import { getQualityMetricsForUsers } from '@/lib/repcard/qualityMetrics';
 import type { TimeRange, CustomDateRange } from '@/lib/types/dashboard';
-import { qbClient } from '@/lib/quickbase/client';
-import { PROJECT_FIELDS, QB_TABLE_PROJECTS } from '@/lib/constants/fieldIds';
+import { repcardClient } from '@/lib/repcard/client';
 
 /**
  * Calculate date range from TimeRange and CustomDateRange
@@ -67,7 +66,7 @@ export async function getAppointmentsSatByCloser(
   
   // Fetch all closers
   let closersQuery = sql`
-    SELECT id, name, email, sales_office[1] as office
+    SELECT id, name, email, sales_office[1] as office, repcard_user_id
     FROM users
     WHERE role = 'closer'
     AND repcard_user_id IS NOT NULL
@@ -78,7 +77,7 @@ export async function getAppointmentsSatByCloser(
   if (officeIds && officeIds.length > 0) {
     // Use sql.query with proper array parameter
     const result = await sql.query(
-      `SELECT DISTINCT u.id, u.name, u.email, u.sales_office[1] as office
+      `SELECT DISTINCT u.id, u.name, u.email, u.sales_office[1] as office, u.repcard_user_id
        FROM users u
        JOIN offices o ON o.name = ANY(u.sales_office)
        WHERE u.role = 'closer'
@@ -91,35 +90,60 @@ export async function getAppointmentsSatByCloser(
     closers = await closersQuery as unknown as any[];
   }
   
-  // For each closer, count projects (appointments sat) from QuickBase
-  const results = await Promise.all(
-    closers.map(async (closer) => {
-      try {
-        const projects = await qbClient.queryRecords({
-          from: QB_TABLE_PROJECTS,
-          select: [PROJECT_FIELDS.RECORD_ID],
-          where: `{${PROJECT_FIELDS.CLOSER_EMAIL}.EX.'${closer.email}'}AND{${PROJECT_FIELDS.SALES_DATE}.OAF.'${startDate}'}AND{${PROJECT_FIELDS.SALES_DATE}.OBF.'${endDate}'}`
-        });
+  // Get RepCard user IDs for all closers
+  const repcardUserIds = closers
+    .filter((c: any) => c.repcard_user_id)
+    .map((c: any) => c.repcard_user_id);
 
-        return {
-          userId: closer.id,
-          userName: closer.name,
-          userEmail: closer.email,
-          office: closer.office,
-          appointmentsSat: projects.data?.length || 0
-        };
-      } catch (error) {
-        // Return zero if query fails for this closer
-        return {
-          userId: closer.id,
-          userName: closer.name,
-          userEmail: closer.email,
-          office: closer.office,
-          appointmentsSat: 0
-        };
-      }
-    })
-  );
+  if (repcardUserIds.length === 0) {
+    // No closers with RepCard IDs, return zeros
+    return closers.map((closer: any) => ({
+      userId: closer.id,
+      userName: closer.name,
+      userEmail: closer.email,
+      office: closer.office,
+      appointmentsSat: 0
+    }));
+  }
+
+  // Fetch all appointments from RepCard for these closers
+  let allAppointments: any[] = [];
+  let page = 1;
+  let hasMore = true;
+
+  while (hasMore) {
+    try {
+      const response = await repcardClient.getAppointments({
+        closerIds: repcardUserIds.join(','),
+        fromDate: startDate,
+        toDate: endDate,
+        page,
+        perPage: 100
+      });
+
+      allAppointments.push(...response.result.data);
+      hasMore = response.result.currentPage < (response.result.totalPages || 1);
+      page++;
+    } catch (error) {
+      console.error(`Failed to fetch appointments page ${page}:`, error);
+      hasMore = false;
+    }
+  }
+
+  // Count appointments per closer
+  const results = closers.map((closer: any) => {
+    const closerAppointments = allAppointments.filter(
+      (apt: any) => apt.closerId?.toString() === closer.repcard_user_id?.toString()
+    );
+
+    return {
+      userId: closer.id,
+      userName: closer.name,
+      userEmail: closer.email,
+      office: closer.office,
+      appointmentsSat: closerAppointments.length
+    };
+  });
 
   return results;
 }

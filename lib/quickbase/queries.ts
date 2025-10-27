@@ -4757,14 +4757,14 @@ export async function getPCProjectsData(
     const { hasOperationsUnrestrictedAccess, isOperationsManager } = await import('@/lib/utils/role-helpers');
 
     if (hasOperationsUnrestrictedAccess(role)) {
-      // Super admin, regional, office leaders see ALL projects
-      whereClause = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}`;
+      // Super admin, regional, office leaders see ALL projects (excluding Lost/Cancelled)
+      whereClause = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Lost'}AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Cancelled'}`;
     } else if (isOperationsManager(role)) {
-      // Operations managers see all operations projects (any project with a PC)
-      whereClause = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+      // Operations managers see all operations projects (any project with a PC, excluding Lost/Cancelled)
+      whereClause = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Lost'}AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Cancelled'}`;
     } else {
-      // Operations coordinators see only their assigned projects
-      whereClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+      // Operations coordinators see only their assigned projects (excluding Lost/Cancelled)
+      whereClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Lost'}AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Cancelled'}`;
     }
 
     // Fetch all fields needed by metrics, priority queue, and pipeline
@@ -4857,14 +4857,14 @@ export async function getPCDashboardMetrics(
       const { hasOperationsUnrestrictedAccess, isOperationsManager } = await import('@/lib/utils/role-helpers');
 
       if (hasOperationsUnrestrictedAccess(role)) {
-        // Super admin, regional, office leaders see ALL projects
-        whereClause = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}`;
+        // Super admin, regional, office leaders see ALL projects (excluding Lost/Cancelled)
+        whereClause = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Lost'}AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Cancelled'}`;
       } else if (isOperationsManager(role)) {
-        // Operations managers see all operations projects (any project with a PC)
-        whereClause = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+        // Operations managers see all operations projects (any project with a PC, excluding Lost/Cancelled)
+        whereClause = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Lost'}AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Cancelled'}`;
       } else {
-        // Operations coordinators see only their assigned projects
-        whereClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+        // Operations coordinators see only their assigned projects (excluding Lost/Cancelled)
+        whereClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Lost'}AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Cancelled'}`;
       }
 
       const query = {
@@ -5823,9 +5823,9 @@ export async function getPCOutreachInitial(
       // For restricted roles, we need to fetch accessible projects first
       let projectsWhere: string;
       if (isOperationsManager(role)) {
-        projectsWhere = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+        projectsWhere = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Lost'}AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Cancelled'}`;
       } else {
-        projectsWhere = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+        projectsWhere = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Lost'}AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Cancelled'}`;
       }
 
       const projectsQuery = {
@@ -5984,8 +5984,8 @@ export async function getPCOutreachFollowups(
       pcFilterClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
     }
 
-    // Query Projects table for unresponsive customers
-    const whereClause = `(${pcFilterClause}) AND {${PROJECT_FIELDS.PROJECT_STATUS}.EX.'Active'} AND {${PROJECT_FIELDS.PC_IS_UNRESPONSIVE}.EX.'Yes'}`;
+    // Query Projects table for unresponsive customers (excluding Lost/Cancelled)
+    const whereClause = `(${pcFilterClause}) AND {${PROJECT_FIELDS.PROJECT_STATUS}.CT.'Active'} AND {${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Lost'} AND {${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Cancelled'} AND {${PROJECT_FIELDS.PC_IS_UNRESPONSIVE}.EX.'Yes'}`;
     const selectFields = [
       PROJECT_FIELDS.RECORD_ID,
       PROJECT_FIELDS.PROJECT_ID,
@@ -6068,8 +6068,8 @@ export async function getPCOutreachWelcome(
       pcFilterClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
     }
 
-    // Query Projects table for welcome call candidates
-    const whereClause = `(${pcFilterClause}) AND {${PROJECT_FIELDS.PROJECT_STATUS}.EX.'Active'} AND {${PROJECT_FIELDS.PC_OUTREACH_CREATE_CHECKIN.EX.true}`;
+    // Query Projects table for welcome call candidates (excluding Lost/Cancelled)
+    const whereClause = `(${pcFilterClause}) AND {${PROJECT_FIELDS.PROJECT_STATUS}.CT.'Active'} AND {${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Lost'} AND {${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Cancelled'} AND {${PROJECT_FIELDS.PC_OUTREACH_CREATE_CHECKIN.EX.true}`;
     const selectFields = [
       PROJECT_FIELDS.RECORD_ID,
       PROJECT_FIELDS.PROJECT_ID,
@@ -7634,11 +7634,11 @@ export async function getPCEscalations(
       // For restricted roles, we need to fetch accessible projects first
       let projectsWhere: string;
       if (isOperationsManager(role)) {
-        // Operations managers see escalations for all operations projects (any project with a PC)
-        projectsWhere = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+        // Operations managers see escalations for all operations projects (any project with a PC, excluding Lost/Cancelled)
+        projectsWhere = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Lost'}AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Cancelled'}`;
       } else {
-        // Operations coordinators see only escalations for their assigned projects
-        projectsWhere = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+        // Operations coordinators see only escalations for their assigned projects (excluding Lost/Cancelled)
+        projectsWhere = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Lost'}AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Cancelled'}`;
       }
 
       const projectsQuery = {
