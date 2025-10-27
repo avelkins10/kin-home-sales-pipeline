@@ -200,6 +200,7 @@ export default function TasksPage() {
             </Button>
           </div>
         </div>
+        </div>
 
         {/* Task List */}
         {isLoading ? (
