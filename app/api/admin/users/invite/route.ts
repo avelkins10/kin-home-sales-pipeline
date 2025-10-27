@@ -121,20 +121,23 @@ export async function POST(request: NextRequest) {
     await sql.query('BEGIN')
 
     try {
+      // Prepare sales_office array
+      const salesOfficeArray = validatedOffice ? [validatedOffice] : null
+
       // Create user with is_active=false and invite token
       const userResult = await sql.query(`
         INSERT INTO users (
           email, name, role, quickbase_user_id, sales_office,
           is_active, invite_token, invited_at
         )
-        VALUES ($1, $2, $3, $4, CASE WHEN $5 IS NOT NULL THEN ARRAY[$5]::text[] ELSE NULL END, $6, $7, $8)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING id, email, name, role, sales_office, invite_token, invited_at
       `, [
         email,
         name,
         role,
         null, // quickbase_user_id will be filled when user accepts invite (if they have one)
-        validatedOffice || null,
+        salesOfficeArray,
         false, // is_active
         inviteToken,
         invitedAt
