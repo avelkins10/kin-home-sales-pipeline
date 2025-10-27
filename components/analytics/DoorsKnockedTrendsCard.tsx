@@ -94,13 +94,28 @@ export function DoorsKnockedTrendsCard({
   customDateRange,
   officeIds
 }: DoorsKnockedTrendsCardProps) {
-  // TODO: Replace mock data with real time-series data from RepCard API
+  // Fetch real time-series data from RepCard API
   const { data: trendData, isLoading, error } = useQuery({
     queryKey: ['doors-knocked-trends', timeRange, customDateRange, officeIds],
     queryFn: async () => {
-      // For now, return mock data
-      // Future: Fetch from /api/repcard/canvassing/trends
-      return { data: generateMockTrendData(timeRange) };
+      const params = new URLSearchParams({
+        timeRange
+      });
+
+      if (officeIds.length > 0) {
+        params.append('officeIds', officeIds.join(','));
+      }
+
+      if (customDateRange) {
+        params.set('startDate', customDateRange.startDate);
+        params.set('endDate', customDateRange.endDate);
+      }
+
+      const response = await fetch(`${getBaseUrl()}/api/repcard/canvassing/trends?${params}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch trend data: ${response.statusText}`);
+      }
+      return response.json();
     },
     enabled: officeIds.length > 0
   });
@@ -143,15 +158,10 @@ export function DoorsKnockedTrendsCard({
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-purple-600" />
-            Doors Knocked Trends
-          </CardTitle>
-          <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
-            Coming Soon
-          </Badge>
-        </div>
+        <CardTitle className="flex items-center gap-2">
+          <TrendingUp className="h-5 w-5 text-purple-600" />
+          Doors Knocked Trends
+        </CardTitle>
         <p className="text-sm text-gray-600">
           Daily door knocking activity over selected time period
         </p>
@@ -161,40 +171,35 @@ export function DoorsKnockedTrendsCard({
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={trendData?.data || []}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis 
-                dataKey="date" 
+              <XAxis
+                dataKey="date"
                 tick={{ fontSize: 12 }}
                 stroke="#666"
               />
-              <YAxis 
+              <YAxis
                 tick={{ fontSize: 12 }}
                 stroke="#666"
               />
-              <Tooltip 
+              <Tooltip
                 formatter={(value: number) => [formatLargeNumber(value), 'Doors']}
                 labelStyle={{ color: '#333' }}
-                contentStyle={{ 
-                  backgroundColor: '#fff', 
+                contentStyle={{
+                  backgroundColor: '#fff',
                   border: '1px solid #e5e7eb',
                   borderRadius: '6px'
                 }}
               />
               <Legend />
-              <Line 
-                type="monotone" 
-                dataKey="doors" 
-                stroke="#8b5cf6" 
+              <Line
+                type="monotone"
+                dataKey="doors"
+                stroke="#8b5cf6"
                 strokeWidth={2}
                 dot={{ fill: '#8b5cf6', strokeWidth: 2, r: 4 }}
                 activeDot={{ r: 6, stroke: '#8b5cf6', strokeWidth: 2 }}
               />
             </LineChart>
           </ResponsiveContainer>
-        </div>
-        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <p className="text-sm text-yellow-800">
-            <strong>Note:</strong> This is placeholder data. Full implementation requires time-series data from RepCard API.
-          </p>
         </div>
       </CardContent>
     </Card>

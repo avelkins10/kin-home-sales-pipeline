@@ -56,25 +56,24 @@ export function LeadQualityAnalysisCard({
   customDateRange,
   officeIds
 }: LeadQualityAnalysisCardProps) {
-  // Fetch quality score data to use as base for mock metrics
+  // Fetch aggregated quality metrics from RepCard
   const { data: qualityData, isLoading, error } = useQuery({
     queryKey: ['lead-quality-analysis', timeRange, customDateRange, officeIds],
     queryFn: async () => {
       const params = new URLSearchParams({
-        metric: 'quality_score',
         timeRange
       });
-      
+
       if (officeIds.length > 0) {
         params.append('officeIds', officeIds.join(','));
       }
-      
+
       if (customDateRange) {
         params.set('startDate', customDateRange.startDate);
         params.set('endDate', customDateRange.endDate);
       }
 
-      const response = await fetch(`${getBaseUrl()}/api/repcard/leaderboard?${params}`);
+      const response = await fetch(`${getBaseUrl()}/api/repcard/quality-aggregate?${params}`);
       if (!response.ok) throw new Error('Failed to fetch quality data');
       return response.json();
     }
@@ -123,17 +122,11 @@ export function LeadQualityAnalysisCard({
     );
   }
 
-  // Calculate average quality score from leaderboard data
-  const avgQualityScore = qualityData?.leaderboard?.reduce((sum: number, entry: any) => 
-    sum + (entry.metricValue || 0), 0) / (qualityData?.leaderboard?.length || 1) || 75;
-
-  // Generate mock quality metrics
-  const qualityMetrics = generateMockQualityMetrics(avgQualityScore);
-
+  // Extract real quality metrics from API response
   const metrics = [
     {
       label: 'Show Rate',
-      value: qualityMetrics.showRate,
+      value: qualityData?.showRate || 0,
       icon: CheckCircle,
       color: 'text-green-600',
       bgColor: 'bg-green-50',
@@ -144,7 +137,7 @@ export function LeadQualityAnalysisCard({
     },
     {
       label: 'Sit Rate',
-      value: qualityMetrics.sitRate,
+      value: qualityData?.sitRate || 0,
       icon: Users,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50',
@@ -155,7 +148,7 @@ export function LeadQualityAnalysisCard({
     },
     {
       label: 'Close Rate',
-      value: qualityMetrics.closeRate,
+      value: qualityData?.closeRate || 0,
       icon: Target,
       color: 'text-purple-600',
       bgColor: 'bg-purple-50',
@@ -166,7 +159,7 @@ export function LeadQualityAnalysisCard({
     },
     {
       label: 'Follow-Up Rate',
-      value: qualityMetrics.followUpRate,
+      value: qualityData?.followUpRate || 0,
       icon: TrendingUp,
       color: 'text-orange-600',
       bgColor: 'bg-orange-50',
@@ -180,15 +173,10 @@ export function LeadQualityAnalysisCard({
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5 text-purple-600" />
-            Lead Quality Analysis
-          </CardTitle>
-          <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
-            Coming Soon
-          </Badge>
-        </div>
+        <CardTitle className="flex items-center gap-2">
+          <Target className="h-5 w-5 text-purple-600" />
+          Lead Quality Analysis
+        </CardTitle>
         <p className="text-sm text-gray-600">
           Aggregate quality metrics across all reps in selected offices
         </p>
@@ -198,11 +186,11 @@ export function LeadQualityAnalysisCard({
           {metrics.map((metric, index) => {
             const IconComponent = metric.icon;
             const valueColor = getQualityColor(
-              metric.value, 
-              metric.goodThreshold, 
+              metric.value,
+              metric.goodThreshold,
               metric.warningThreshold
             );
-            
+
             return (
               <div
                 key={index}
@@ -223,11 +211,6 @@ export function LeadQualityAnalysisCard({
               </div>
             );
           })}
-        </div>
-        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <p className="text-sm text-yellow-800">
-            <strong>Note:</strong> This is placeholder data. Full implementation requires aggregated quality metrics from RepCard API.
-          </p>
         </div>
       </CardContent>
     </Card>

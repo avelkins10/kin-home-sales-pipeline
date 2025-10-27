@@ -232,19 +232,14 @@ export class RepCardClient {
    * Get customers
    * @param params Query parameters for filtering
    */
-  async getCustomers(params?: {
-    companyId?: number;
-    userId?: number;
-    perPage?: number;
-    page?: number;
-    search?: string;
-    statusId?: number;
-  }): Promise<RepCardPaginatedResponse<RepCardCustomer>> {
+  async getCustomers(params?: RepCardCustomerQueryParams): Promise<RepCardPaginatedResponse<RepCardCustomer>> {
     const searchParams = new URLSearchParams();
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined) {
-          searchParams.append(key, value.toString());
+          // Convert camelCase to snake_case for API
+          const apiKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+          searchParams.append(apiKey, value.toString());
         }
       });
     }

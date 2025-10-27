@@ -317,23 +317,29 @@ export async function GET(request: NextRequest) {
       const repcardUserIds = (users as any[]).map((u: any) => u.repcard_user_id);
       
       if (metric === 'doors_knocked') {
-        // Fetch customers with pagination
+        // Fetch customers with pagination and date filtering
         const allCustomers: any[] = [];
         let page = 1;
         let hasMore = true;
-        
+
         while (hasMore) {
           const response = await repcardClient.getCustomers({
             page,
-            perPage: 100
+            perPage: 100,
+            startDate: calculatedStartDate,
+            endDate: calculatedEndDate
           });
           allCustomers.push(...response.result.data);
           hasMore = response.result.currentPage < response.result.lastPage;
           page++;
         }
-        
+
+        // Count customers per user (doors knocked = customers created by user)
         leaderboardEntries = (users as any[]).map((user: any) => {
-          const userCustomers = allCustomers.filter((c: any) => c.assignedUserId === user.repcard_user_id) || [];
+          // Filter by userId (the person who created/knocked the door)
+          const userCustomers = allCustomers.filter((c: any) =>
+            c.userId?.toString() === user.repcard_user_id?.toString()
+          ) || [];
           return {
             rank: 0,
             userId: user.id,
