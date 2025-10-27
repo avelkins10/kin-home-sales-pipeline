@@ -362,7 +362,7 @@ export async function getProjectsForUserList(userId: string, role: string, view?
   let officeFilterClause: string | undefined;
   if (officeFilter) {
     const sanitizedOffice = sanitizeQbLiteral(officeFilter);
-    officeFilterClause = `{${PROJECT_FIELDS.SALES_OFFICE.EX.'${sanitizedOffice}'}`;
+    officeFilterClause = `{${PROJECT_FIELDS.SALES_OFFICE}.EX.'${sanitizedOffice}'}`;
     if (process.env.NODE_ENV !== 'production') {
       console.log('[getProjectsForUserList] Filtering by office:', officeFilter);
     } else {
@@ -374,7 +374,7 @@ export async function getProjectsForUserList(userId: string, role: string, view?
   let setterFilterClause: string | undefined;
   if (setterFilter) {
     const sanitizedSetter = sanitizeQbLiteral(setterFilter);
-    setterFilterClause = `{${PROJECT_FIELDS.SETTER_EMAIL.EX.'${sanitizedSetter}'}`;
+    setterFilterClause = `{${PROJECT_FIELDS.SETTER_EMAIL}.EX.'${sanitizedSetter}'}`;
     if (process.env.NODE_ENV !== 'production') {
       console.log('[getProjectsForUserList] Filtering by setter:', setterFilter);
     } else {
@@ -386,7 +386,7 @@ export async function getProjectsForUserList(userId: string, role: string, view?
   let closerFilterClause: string | undefined;
   if (closerFilter) {
     const sanitizedCloser = sanitizeQbLiteral(closerFilter);
-    closerFilterClause = `{${PROJECT_FIELDS.CLOSER_EMAIL.EX.'${sanitizedCloser}'}`;
+    closerFilterClause = `{${PROJECT_FIELDS.CLOSER_EMAIL}.EX.'${sanitizedCloser}'}`;
     if (process.env.NODE_ENV !== 'production') {
       console.log('[getProjectsForUserList] Filtering by closer:', closerFilter);
     } else {
