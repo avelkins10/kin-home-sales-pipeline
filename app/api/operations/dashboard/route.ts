@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/guards';
 import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
 import {
+  getPCProjectsData,
   getPCDashboardMetrics,
   getPCPriorityQueue,
   getPCProjectPipeline
@@ -48,12 +49,13 @@ export async function GET(req: Request) {
       return NextResponse.json(cached.data, { status: 200 });
     }
 
-    // Fetch all PC dashboard data in parallel
-    const [metrics, priorityQueue, pipeline] = await Promise.all([
-      getPCDashboardMetrics(pcEmail, pcName, role, reqId),
-      getPCPriorityQueue(pcEmail, pcName, role, 10, reqId),
-      getPCProjectPipeline(pcEmail, pcName, role, reqId)
-    ]);
+    // Fetch all project data once (optimized: 1 API call instead of 3)
+    const projectsData = await getPCProjectsData(pcEmail, pcName, role, reqId);
+
+    // Process the shared data with all three functions
+    const metrics = await getPCDashboardMetrics(pcEmail, pcName, role, reqId, projectsData);
+    const priorityQueue = await getPCPriorityQueue(pcEmail, pcName, role, 10, reqId, projectsData);
+    const pipeline = await getPCProjectPipeline(pcEmail, pcName, role, reqId, projectsData);
 
     // Combine into dashboard data
     const dashboardData: PCDashboardData = {

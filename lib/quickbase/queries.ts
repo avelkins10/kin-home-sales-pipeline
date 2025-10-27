@@ -4728,17 +4728,18 @@ export async function calculateTaskBasedResolutionTime(projectId: number): Promi
 // ============================================================
 
 /**
- * Get PC Dashboard Metrics
- * Fetches key metrics for PC dashboard including total projects, pending outreach, etc.
+ * Get PC Projects Data (Consolidated)
+ * Fetches all project data needed for the dashboard in a single query
+ * This optimized function reduces API calls from 3 to 1 for better performance
  */
-export async function getPCDashboardMetrics(
+export async function getPCProjectsData(
   pcEmail: string,
   pcName: string,
   role: string,
   reqId: string
-): Promise<PCDashboardMetrics> {
+): Promise<any[]> {
   try {
-    logQuickbaseRequest('getPCDashboardMetrics', { pcEmail, pcName, role, reqId });
+    logQuickbaseRequest('getPCProjectsData', { pcEmail, pcName, role, reqId });
 
     // Build WHERE clause based on role
     const sanitizedEmail = sanitizeQbLiteral(pcEmail);
@@ -4758,35 +4759,136 @@ export async function getPCDashboardMetrics(
       whereClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
     }
 
+    // Fetch all fields needed by metrics, priority queue, and pipeline
     const query = {
       from: 'br9kwm8na', // Projects table
       where: whereClause,
       select: [
         PROJECT_FIELDS.RECORD_ID,
+        PROJECT_FIELDS.PROJECT_ID,
+        PROJECT_FIELDS.CUSTOMER_NAME,
+        PROJECT_FIELDS.CUSTOMER_PHONE,
+        PROJECT_FIELDS.PROJECT_STATUS,
+        // Metrics fields
         PROJECT_FIELDS.PC_OUTREACH_DUE,
         PROJECT_FIELDS.PC_UNRESPONSIVE_COUNT,
         PROJECT_FIELDS.PC_IS_UNRESPONSIVE,
         PROJECT_FIELDS.PC_ESCALATIONS,
         PROJECT_FIELDS.INSTALL_COMPLETED_DATE,
         PROJECT_FIELDS.DESIGN_SLA_BREACH,
-        // Add milestone completion dates for comprehensive SLA calculation
         PROJECT_FIELDS.INTAKE_COMPLETED_DATE,
         PROJECT_FIELDS.SURVEY_APPROVED,
         PROJECT_FIELDS.DESIGN_COMPLETED,
         PROJECT_FIELDS.PERMIT_APPROVED,
         PROJECT_FIELDS.NEM_SUBMITTED,
-        PROJECT_FIELDS.INSTALL_COMPLETED_DATE,
         PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED,
-        PROJECT_FIELDS.PTO_APPROVED
+        PROJECT_FIELDS.PTO_APPROVED,
+        // Priority queue fields
+        PROJECT_FIELDS.PC_DAYS_SINCE_CONTACT_INTAKE,
+        PROJECT_FIELDS.PC_DAYS_SINCE_CONTACT_NEM,
+        PROJECT_FIELDS.PC_DAYS_SINCE_CONTACT_PTO,
+        PROJECT_FIELDS.PC_DAYS_SINCE_CONTACT_INSTALL,
+        PROJECT_FIELDS.PC_CONTACT_ATTEMPTS_INTAKE,
+        PROJECT_FIELDS.PC_CONTACT_ATTEMPTS_NEM,
+        PROJECT_FIELDS.PC_CONTACT_ATTEMPTS_PTO,
+        PROJECT_FIELDS.PC_CONTACT_ATTEMPTS_INSTALL,
+        PROJECT_FIELDS.PC_OUTREACH_PREFERRED_METHOD,
+        PROJECT_FIELDS.PC_MAX_OUTREACH_COMPLETED,
+        PROJECT_FIELDS.CLOSER_NAME,
+        PROJECT_FIELDS.CLOSER_EMAIL,
+        // Pipeline fields
+        PROJECT_FIELDS.INTAKE_STATUS,
+        PROJECT_FIELDS.SURVEY_STATUS,
+        PROJECT_FIELDS.DESIGN_STATUS,
+        PROJECT_FIELDS.PERMIT_STATUS,
+        PROJECT_FIELDS.NEM_INTERCONNECTION_STATUS,
+        PROJECT_FIELDS.PTO_STATUS,
+        PROJECT_FIELDS.PROJECT_AGE
       ],
       sortBy: [{ field: PROJECT_FIELDS.DATE_CREATED, order: 'DESC' }],
       options: { top: 5000 }
     };
 
     const response = await qbClient.queryRecords(query);
-    logQuickbaseResponse('getPCDashboardMetrics', response);
+    logQuickbaseResponse('getPCProjectsData', response);
 
-    const records = response.data || [];
+    return response.data || [];
+
+  } catch (error) {
+    logQuickbaseError('getPCProjectsData', error as Error, { pcEmail, reqId });
+    throw error;
+  }
+}
+
+/**
+ * Get PC Dashboard Metrics
+ * Fetches key metrics for PC dashboard including total projects, pending outreach, etc.
+ * @param projectsData - Optional pre-fetched project data for performance optimization
+ */
+export async function getPCDashboardMetrics(
+  pcEmail: string,
+  pcName: string,
+  role: string,
+  reqId: string,
+  projectsData?: any[]
+): Promise<PCDashboardMetrics> {
+  try {
+    logQuickbaseRequest('getPCDashboardMetrics', { pcEmail, pcName, role, reqId, usingCache: !!projectsData });
+
+    let records: any[];
+
+    // Use pre-fetched data if available (optimized path)
+    if (projectsData) {
+      records = projectsData;
+    } else {
+      // Fall back to individual query (backward compatibility)
+      const sanitizedEmail = sanitizeQbLiteral(pcEmail);
+      const sanitizedName = sanitizeQbLiteral(pcName);
+
+      let whereClause: string;
+      const { hasOperationsUnrestrictedAccess, isOperationsManager } = await import('@/lib/utils/role-helpers');
+
+      if (hasOperationsUnrestrictedAccess(role)) {
+        // Super admin, regional, office leaders see ALL projects
+        whereClause = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}`;
+      } else if (isOperationsManager(role)) {
+        // Operations managers see all operations projects (any project with a PC)
+        whereClause = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+      } else {
+        // Operations coordinators see only their assigned projects
+        whereClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+      }
+
+      const query = {
+        from: 'br9kwm8na', // Projects table
+        where: whereClause,
+        select: [
+          PROJECT_FIELDS.RECORD_ID,
+          PROJECT_FIELDS.PC_OUTREACH_DUE,
+          PROJECT_FIELDS.PC_UNRESPONSIVE_COUNT,
+          PROJECT_FIELDS.PC_IS_UNRESPONSIVE,
+          PROJECT_FIELDS.PC_ESCALATIONS,
+          PROJECT_FIELDS.INSTALL_COMPLETED_DATE,
+          PROJECT_FIELDS.DESIGN_SLA_BREACH,
+          // Add milestone completion dates for comprehensive SLA calculation
+          PROJECT_FIELDS.INTAKE_COMPLETED_DATE,
+          PROJECT_FIELDS.SURVEY_APPROVED,
+          PROJECT_FIELDS.DESIGN_COMPLETED,
+          PROJECT_FIELDS.PERMIT_APPROVED,
+          PROJECT_FIELDS.NEM_SUBMITTED,
+          PROJECT_FIELDS.INSTALL_COMPLETED_DATE,
+          PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED,
+          PROJECT_FIELDS.PTO_APPROVED
+        ],
+        sortBy: [{ field: PROJECT_FIELDS.DATE_CREATED, order: 'DESC' }],
+        options: { top: 5000 }
+      };
+
+      const response = await qbClient.queryRecords(query);
+      logQuickbaseResponse('getPCDashboardMetrics', response);
+
+      records = response.data || [];
+    }
     const today = new Date().toISOString().split('T')[0];
 
     // Calculate metrics
@@ -4828,76 +4930,90 @@ export async function getPCDashboardMetrics(
 /**
  * Get PC Priority Queue
  * Fetches projects with priority scoring algorithm for PC outreach recommendations
+ * @param projectsData - Optional pre-fetched project data for performance optimization
  */
 export async function getPCPriorityQueue(
   pcEmail: string,
   pcName: string,
   role: string,
   limit: number = 10,
-  reqId: string
+  reqId: string,
+  projectsData?: any[]
 ): Promise<PCPriorityQueueItem[]> {
   try {
-    logQuickbaseRequest('getPCPriorityQueue', { pcEmail, pcName, role, limit, reqId });
+    logQuickbaseRequest('getPCPriorityQueue', { pcEmail, pcName, role, limit, reqId, usingCache: !!projectsData });
 
-    // Build WHERE clause based on role
-    const sanitizedEmail = sanitizeQbLiteral(pcEmail);
-    const sanitizedName = sanitizeQbLiteral(pcName);
+    let records: any[];
 
-    let pcFilter: string;
-    const { hasOperationsUnrestrictedAccess, isOperationsManager } = await import('@/lib/utils/role-helpers');
-
-    if (hasOperationsUnrestrictedAccess(role)) {
-      // Super admin, regional, office leaders see ALL projects
-      pcFilter = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}`;
-    } else if (isOperationsManager(role)) {
-      // Operations managers see all operations projects (any project with a PC)
-      pcFilter = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+    // Use pre-fetched data if available (optimized path)
+    if (projectsData) {
+      // Filter for active projects only
+      records = projectsData.filter(r => {
+        const status = r[PROJECT_FIELDS.PROJECT_STATUS];
+        const statusStr = typeof status === 'object' ? status?.value : status;
+        return statusStr && String(statusStr).toLowerCase().includes('active');
+      });
     } else {
-      // Operations coordinators see only their assigned projects
-      pcFilter = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+      // Fall back to individual query (backward compatibility)
+      const sanitizedEmail = sanitizeQbLiteral(pcEmail);
+      const sanitizedName = sanitizeQbLiteral(pcName);
+
+      let pcFilter: string;
+      const { hasOperationsUnrestrictedAccess, isOperationsManager } = await import('@/lib/utils/role-helpers');
+
+      if (hasOperationsUnrestrictedAccess(role)) {
+        // Super admin, regional, office leaders see ALL projects
+        pcFilter = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}`;
+      } else if (isOperationsManager(role)) {
+        // Operations managers see all operations projects (any project with a PC)
+        pcFilter = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+      } else {
+        // Operations coordinators see only their assigned projects
+        pcFilter = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+      }
+
+      const whereClause = `(${pcFilter})AND{${PROJECT_FIELDS.PROJECT_STATUS}.CT.'Active'}`;
+
+      const query = {
+        from: 'br9kwm8na', // Projects table
+        where: whereClause,
+        select: [
+          PROJECT_FIELDS.RECORD_ID,
+          PROJECT_FIELDS.PROJECT_ID,
+          PROJECT_FIELDS.CUSTOMER_NAME,
+          PROJECT_FIELDS.CUSTOMER_PHONE,
+          PROJECT_FIELDS.PROJECT_STATUS,
+          PROJECT_FIELDS.PC_DAYS_SINCE_CONTACT_INTAKE,
+          PROJECT_FIELDS.PC_DAYS_SINCE_CONTACT_NEM,
+          PROJECT_FIELDS.PC_DAYS_SINCE_CONTACT_PTO,
+          PROJECT_FIELDS.PC_DAYS_SINCE_CONTACT_INSTALL,
+          PROJECT_FIELDS.PC_CONTACT_ATTEMPTS_INTAKE,
+          PROJECT_FIELDS.PC_CONTACT_ATTEMPTS_NEM,
+          PROJECT_FIELDS.PC_CONTACT_ATTEMPTS_PTO,
+          PROJECT_FIELDS.PC_CONTACT_ATTEMPTS_INSTALL,
+          PROJECT_FIELDS.PC_OUTREACH_DUE,
+          PROJECT_FIELDS.PC_ESCALATIONS,
+          PROJECT_FIELDS.PC_IS_UNRESPONSIVE,
+          PROJECT_FIELDS.PC_OUTREACH_PREFERRED_METHOD,
+          PROJECT_FIELDS.PC_MAX_OUTREACH_COMPLETED,
+          PROJECT_FIELDS.CLOSER_NAME,
+          PROJECT_FIELDS.CLOSER_EMAIL,
+          PROJECT_FIELDS.INTAKE_STATUS,
+          PROJECT_FIELDS.SURVEY_STATUS,
+          PROJECT_FIELDS.DESIGN_STATUS,
+          PROJECT_FIELDS.PERMIT_STATUS,
+          PROJECT_FIELDS.NEM_INTERCONNECTION_STATUS,
+          PROJECT_FIELDS.PTO_STATUS
+        ],
+        sortBy: [{ field: PROJECT_FIELDS.DATE_CREATED, order: 'DESC' }],
+        options: { top: 5000 }
+      };
+
+      const response = await qbClient.queryRecords(query);
+      logQuickbaseResponse('getPCPriorityQueue', response);
+
+      records = response.data || [];
     }
-
-    const whereClause = `(${pcFilter})AND{${PROJECT_FIELDS.PROJECT_STATUS}.CT.'Active'}`;
-
-    const query = {
-      from: 'br9kwm8na', // Projects table
-      where: whereClause,
-      select: [
-        PROJECT_FIELDS.RECORD_ID,
-        PROJECT_FIELDS.PROJECT_ID,
-        PROJECT_FIELDS.CUSTOMER_NAME,
-        PROJECT_FIELDS.CUSTOMER_PHONE,
-        PROJECT_FIELDS.PROJECT_STATUS,
-        PROJECT_FIELDS.PC_DAYS_SINCE_CONTACT_INTAKE,
-        PROJECT_FIELDS.PC_DAYS_SINCE_CONTACT_NEM,
-        PROJECT_FIELDS.PC_DAYS_SINCE_CONTACT_PTO,
-        PROJECT_FIELDS.PC_DAYS_SINCE_CONTACT_INSTALL,
-        PROJECT_FIELDS.PC_CONTACT_ATTEMPTS_INTAKE,
-        PROJECT_FIELDS.PC_CONTACT_ATTEMPTS_NEM,
-        PROJECT_FIELDS.PC_CONTACT_ATTEMPTS_PTO,
-        PROJECT_FIELDS.PC_CONTACT_ATTEMPTS_INSTALL,
-        PROJECT_FIELDS.PC_OUTREACH_DUE,
-        PROJECT_FIELDS.PC_ESCALATIONS,
-        PROJECT_FIELDS.PC_IS_UNRESPONSIVE,
-        PROJECT_FIELDS.PC_OUTREACH_PREFERRED_METHOD,
-        PROJECT_FIELDS.PC_MAX_OUTREACH_COMPLETED,
-        PROJECT_FIELDS.CLOSER_NAME,
-        PROJECT_FIELDS.CLOSER_EMAIL,
-        PROJECT_FIELDS.INTAKE_STATUS,
-        PROJECT_FIELDS.SURVEY_STATUS,
-        PROJECT_FIELDS.DESIGN_STATUS,
-        PROJECT_FIELDS.PERMIT_STATUS,
-        PROJECT_FIELDS.NEM_INTERCONNECTION_STATUS,
-        PROJECT_FIELDS.PTO_STATUS
-      ],
-      sortBy: [{ field: PROJECT_FIELDS.DATE_CREATED, order: 'DESC' }],
-      options: { top: 5000 }
-    };
-
-    const response = await qbClient.queryRecords(query);
-    logQuickbaseResponse('getPCPriorityQueue', response);
-
-    const records = response.data || [];
     
     // Apply priority scoring algorithm
     const priorityItems: PCPriorityQueueItem[] = records.map(record => {
@@ -4945,56 +5061,70 @@ export async function getPCPriorityQueue(
 /**
  * Get PC Project Pipeline
  * Fetches projects grouped by current milestone stage
+ * @param projectsData - Optional pre-fetched project data for performance optimization
  */
 export async function getPCProjectPipeline(
   pcEmail: string,
   pcName: string,
   role: string,
-  reqId: string
+  reqId: string,
+  projectsData?: any[]
 ): Promise<PCProjectPipelineStage[]> {
   try {
-    logQuickbaseRequest('getPCProjectPipeline', { pcEmail, pcName, role, reqId });
+    logQuickbaseRequest('getPCProjectPipeline', { pcEmail, pcName, role, reqId, usingCache: !!projectsData });
 
-    // Build WHERE clause based on role
-    const sanitizedEmail = sanitizeQbLiteral(pcEmail);
-    const sanitizedName = sanitizeQbLiteral(pcName);
+    let records: any[];
 
-    let pcFilter: string;
-    const { hasOperationsUnrestrictedAccess, isOperationsManager } = await import('@/lib/utils/role-helpers');
-
-    if (hasOperationsUnrestrictedAccess(role)) {
-      pcFilter = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}`;
-    } else if (isOperationsManager(role)) {
-      pcFilter = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+    // Use pre-fetched data if available (optimized path)
+    if (projectsData) {
+      // Filter for active projects only
+      records = projectsData.filter(r => {
+        const status = r[PROJECT_FIELDS.PROJECT_STATUS];
+        const statusStr = typeof status === 'object' ? status?.value : status;
+        return statusStr && String(statusStr).toLowerCase().includes('active');
+      });
     } else {
-      pcFilter = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+      // Fall back to individual query (backward compatibility)
+      const sanitizedEmail = sanitizeQbLiteral(pcEmail);
+      const sanitizedName = sanitizeQbLiteral(pcName);
+
+      let pcFilter: string;
+      const { hasOperationsUnrestrictedAccess, isOperationsManager } = await import('@/lib/utils/role-helpers');
+
+      if (hasOperationsUnrestrictedAccess(role)) {
+        pcFilter = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}`;
+      } else if (isOperationsManager(role)) {
+        pcFilter = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+      } else {
+        pcFilter = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+      }
+
+      const whereClause = `(${pcFilter})AND{${PROJECT_FIELDS.PROJECT_STATUS}.CT.'Active'}`;
+
+      const query = {
+        from: 'br9kwm8na', // Projects table
+        where: whereClause,
+        select: [
+          PROJECT_FIELDS.RECORD_ID,
+          PROJECT_FIELDS.PROJECT_ID,
+          PROJECT_FIELDS.CUSTOMER_NAME,
+          PROJECT_FIELDS.INTAKE_STATUS,
+          PROJECT_FIELDS.SURVEY_STATUS,
+          PROJECT_FIELDS.DESIGN_STATUS,
+          PROJECT_FIELDS.PERMIT_STATUS,
+          PROJECT_FIELDS.NEM_INTERCONNECTION_STATUS,
+          PROJECT_FIELDS.PTO_STATUS,
+          PROJECT_FIELDS.PROJECT_AGE
+        ],
+        sortBy: [{ field: PROJECT_FIELDS.DATE_CREATED, order: 'DESC' }],
+        options: { top: 5000 }
+      };
+
+      const response = await qbClient.queryRecords(query);
+      logQuickbaseResponse('getPCProjectPipeline', response);
+
+      records = response.data || [];
     }
-
-    const whereClause = `(${pcFilter})AND{${PROJECT_FIELDS.PROJECT_STATUS}.CT.'Active'}`;
-
-    const query = {
-      from: 'br9kwm8na', // Projects table
-      where: whereClause,
-      select: [
-        PROJECT_FIELDS.RECORD_ID,
-        PROJECT_FIELDS.PROJECT_ID,
-        PROJECT_FIELDS.CUSTOMER_NAME,
-        PROJECT_FIELDS.INTAKE_STATUS,
-        PROJECT_FIELDS.SURVEY_STATUS,
-        PROJECT_FIELDS.DESIGN_STATUS,
-        PROJECT_FIELDS.PERMIT_STATUS,
-        PROJECT_FIELDS.NEM_INTERCONNECTION_STATUS,
-        PROJECT_FIELDS.PTO_STATUS,
-        PROJECT_FIELDS.PROJECT_AGE
-      ],
-      sortBy: [{ field: PROJECT_FIELDS.DATE_CREATED, order: 'DESC' }],
-      options: { top: 5000 }
-    };
-
-    const response = await qbClient.queryRecords(query);
-    logQuickbaseResponse('getPCProjectPipeline', response);
-
-    const records = response.data || [];
     
     // Group projects by current stage
     const stages: { [key: string]: any[] } = {
