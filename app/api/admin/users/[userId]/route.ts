@@ -113,11 +113,19 @@ export async function DELETE(
     try {
       // Delete related data first (foreign key constraints)
 
+      // Delete notifications
+      await sql.query('DELETE FROM notifications WHERE user_id = $1', [userId])
+
+      // Delete notification settings
+      await sql.query('DELETE FROM notification_settings WHERE user_id = $1', [userId])
+
       // Delete user hierarchies (both as manager and managed user)
       await sql.query('DELETE FROM user_hierarchies WHERE user_id = $1 OR manager_id = $1', [userId])
 
       // Delete office assignments
       await sql.query('DELETE FROM office_assignments WHERE user_id = $1', [userId])
+
+      // Note: audit_logs are kept for historical records (don't delete)
 
       // Delete the user
       await sql.query('DELETE FROM users WHERE id = $1', [userId])
@@ -142,9 +150,21 @@ export async function DELETE(
       throw error
     }
   } catch (error) {
-    logError('Failed to delete user', error instanceof Error ? error : new Error(String(error)))
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorStack = error instanceof Error ? error.stack : undefined
+
+    logError('Failed to delete user', error instanceof Error ? error : new Error(String(error)), {
+      userId: params.userId,
+      errorMessage,
+      errorStack
+    })
+
     return NextResponse.json(
-      { error: 'Failed to delete user' },
+      {
+        error: 'Failed to delete user',
+        message: errorMessage,
+        ...(process.env.NODE_ENV === 'development' && { stack: errorStack })
+      },
       { status: 500 }
     )
   }
