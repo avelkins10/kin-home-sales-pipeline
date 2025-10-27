@@ -409,6 +409,9 @@ export function ProjectDetailModal({ recordId, isOpen, onClose }: ProjectDetailM
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Loading Project Details</DialogTitle>
+          </DialogHeader>
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
           </div>
@@ -421,6 +424,9 @@ export function ProjectDetailModal({ recordId, isOpen, onClose }: ProjectDetailM
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Error Loading Project</DialogTitle>
+          </DialogHeader>
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <XCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
