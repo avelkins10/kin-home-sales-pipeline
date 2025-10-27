@@ -219,8 +219,9 @@ export async function GET(req: Request) {
     });
 
     // Step 2: Get task groups for these projects
-    // IMPORTANT: Batch queries to avoid QB query length limits (max ~500 IDs per query)
-    const BATCH_SIZE = 500;
+    // IMPORTANT: Batch queries to avoid QB query length limits
+    // QB has strict WHERE clause length limits (~2-3KB), so use small batches
+    const BATCH_SIZE = 100; // ~1.5KB per query, well under QB limits
     const allTaskGroups: any[] = [];
 
     logInfo('[TASKS_API] Batching task groups query', {
