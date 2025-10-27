@@ -65,19 +65,22 @@ export async function getAppointmentsSatByCloser(
   
   // Fetch all closers
   let closersQuery = sql`
-    SELECT id, name, email, office 
-    FROM users 
-    WHERE role = 'closer' 
+    SELECT id, name, email, sales_office[1] as office
+    FROM users
+    WHERE role = 'closer'
     AND repcard_user_id IS NOT NULL
   `;
-  
+
   if (officeIds && officeIds.length > 0) {
+    // Convert array to PostgreSQL array format
+    const officeIdsArray = `{${officeIds.join(',')}}`;
     closersQuery = sql`
-      SELECT id, name, email, office 
-      FROM users 
-      WHERE role = 'closer' 
-      AND repcard_user_id IS NOT NULL
-      AND office = ANY(${officeIds})
+      SELECT DISTINCT u.id, u.name, u.email, u.sales_office[1] as office
+      FROM users u
+      JOIN offices o ON o.name = ANY(u.sales_office)
+      WHERE u.role = 'closer'
+      AND u.repcard_user_id IS NOT NULL
+      AND o.quickbase_office_id = ANY(${officeIdsArray}::int[])
     `;
   }
   
@@ -120,22 +123,25 @@ export async function getFollowUpsByCloser(
 }>> {
   // Calculate date range
   const { startDate, endDate } = calculateDateRange(timeRange, customDateRange);
-  
+
   // Fetch all closers
   let closersQuery = sql`
-    SELECT id, repcard_user_id 
-    FROM users 
-    WHERE role = 'closer' 
+    SELECT id, repcard_user_id
+    FROM users
+    WHERE role = 'closer'
     AND repcard_user_id IS NOT NULL
   `;
-  
+
   if (officeIds && officeIds.length > 0) {
+    // Convert array to PostgreSQL array format
+    const officeIdsArray = `{${officeIds.join(',')}}`;
     closersQuery = sql`
-      SELECT id, repcard_user_id 
-      FROM users 
-      WHERE role = 'closer' 
-      AND repcard_user_id IS NOT NULL
-      AND office = ANY(${officeIds})
+      SELECT DISTINCT u.id, u.repcard_user_id
+      FROM users u
+      JOIN offices o ON o.name = ANY(u.sales_office)
+      WHERE u.role = 'closer'
+      AND u.repcard_user_id IS NOT NULL
+      AND o.quickbase_office_id = ANY(${officeIdsArray}::int[])
     `;
   }
   

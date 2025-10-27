@@ -168,8 +168,8 @@ export async function GET(
     
     // User lookup
     const userResult = await sql`
-      SELECT id, name, email, repcard_user_id, office, role 
-      FROM users 
+      SELECT id, name, email, repcard_user_id, sales_office[1] as office, role
+      FROM users
       WHERE id = ${params.userId}
     `;
     

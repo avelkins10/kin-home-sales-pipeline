@@ -197,34 +197,38 @@ export async function GET(request: NextRequest) {
     
     // Fetch users
     let usersQuery = sql`
-      SELECT id, name, email, repcard_user_id, office, role 
-      FROM users 
+      SELECT id, name, email, repcard_user_id, sales_office[1] as office, role
+      FROM users
       WHERE repcard_user_id IS NOT NULL
     `;
-    
+
     if (role !== 'all') {
       usersQuery = sql`
-        SELECT id, name, email, repcard_user_id, office, role 
-        FROM users 
+        SELECT id, name, email, repcard_user_id, sales_office[1] as office, role
+        FROM users
         WHERE repcard_user_id IS NOT NULL AND role = ${role}
       `;
     }
-    
+
     if (officeIds && officeIds.length > 0) {
+      // Convert array to PostgreSQL array format
+      const officeIdsArray = `{${officeIds.join(',')}}`;
       if (role !== 'all') {
         usersQuery = sql`
-          SELECT id, name, email, repcard_user_id, office, role 
-          FROM users 
-          WHERE repcard_user_id IS NOT NULL 
-            AND role = ${role}
-            AND office = ANY(${officeIds as any})
+          SELECT DISTINCT u.id, u.name, u.email, u.repcard_user_id, u.sales_office[1] as office, u.role
+          FROM users u
+          JOIN offices o ON o.name = ANY(u.sales_office)
+          WHERE u.repcard_user_id IS NOT NULL
+            AND u.role = ${role}
+            AND o.quickbase_office_id = ANY(${officeIdsArray}::int[])
         `;
       } else {
         usersQuery = sql`
-          SELECT id, name, email, repcard_user_id, office, role 
-          FROM users 
-          WHERE repcard_user_id IS NOT NULL 
-            AND office = ANY(${officeIds as any})
+          SELECT DISTINCT u.id, u.name, u.email, u.repcard_user_id, u.sales_office[1] as office, u.role
+          FROM users u
+          JOIN offices o ON o.name = ANY(u.sales_office)
+          WHERE u.repcard_user_id IS NOT NULL
+            AND o.quickbase_office_id = ANY(${officeIdsArray}::int[])
         `;
       }
     }

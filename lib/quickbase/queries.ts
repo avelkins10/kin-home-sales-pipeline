@@ -350,7 +350,7 @@ export async function getProjectsForUserList(userId: string, role: string, view?
   let memberEmailFilter: string | undefined;
   if (memberEmail) {
     const sanitizedEmail = sanitizeQbLiteral(memberEmail);
-    memberEmailFilter = `({${PROJECT_FIELDS.CLOSER_EMAIL}.EX.'${sanitizedEmail}'} OR {${PROJECT_FIELDS.SETTER_EMAIL}.EX.'${sanitizedEmail}'})`;
+    memberEmailFilter = `({${PROJECT_FIELDS.CLOSER_EMAIL.EX.'${sanitizedEmail}'} OR {${PROJECT_FIELDS.SETTER_EMAIL.EX.'${sanitizedEmail}'})`;
     if (process.env.NODE_ENV !== 'production') {
       console.log('[getProjectsForUserList] Filtering by team member email:', memberEmail);
     } else {
@@ -362,7 +362,7 @@ export async function getProjectsForUserList(userId: string, role: string, view?
   let officeFilterClause: string | undefined;
   if (officeFilter) {
     const sanitizedOffice = sanitizeQbLiteral(officeFilter);
-    officeFilterClause = `{${PROJECT_FIELDS.SALES_OFFICE}.EX.'${sanitizedOffice}'}`;
+    officeFilterClause = `{${PROJECT_FIELDS.SALES_OFFICE.EX.'${sanitizedOffice}'}`;
     if (process.env.NODE_ENV !== 'production') {
       console.log('[getProjectsForUserList] Filtering by office:', officeFilter);
     } else {
@@ -374,7 +374,7 @@ export async function getProjectsForUserList(userId: string, role: string, view?
   let setterFilterClause: string | undefined;
   if (setterFilter) {
     const sanitizedSetter = sanitizeQbLiteral(setterFilter);
-    setterFilterClause = `{${PROJECT_FIELDS.SETTER_EMAIL}.EX.'${sanitizedSetter}'}`;
+    setterFilterClause = `{${PROJECT_FIELDS.SETTER_EMAIL.EX.'${sanitizedSetter}'}`;
     if (process.env.NODE_ENV !== 'production') {
       console.log('[getProjectsForUserList] Filtering by setter:', setterFilter);
     } else {
@@ -386,7 +386,7 @@ export async function getProjectsForUserList(userId: string, role: string, view?
   let closerFilterClause: string | undefined;
   if (closerFilter) {
     const sanitizedCloser = sanitizeQbLiteral(closerFilter);
-    closerFilterClause = `{${PROJECT_FIELDS.CLOSER_EMAIL}.EX.'${sanitizedCloser}'}`;
+    closerFilterClause = `{${PROJECT_FIELDS.CLOSER_EMAIL.EX.'${sanitizedCloser}'}`;
     if (process.env.NODE_ENV !== 'production') {
       console.log('[getProjectsForUserList] Filtering by closer:', closerFilter);
     } else {
@@ -494,7 +494,7 @@ export async function getProjectsForUserList(userId: string, role: string, view?
 
       // Build filter for these project IDs
       const projectIds = Array.from(projectIdsWithTasks);
-      tasksFilter = projectIds.map(id => `{${PROJECT_FIELDS.RECORD_ID}.EX.${id}}`).join(' OR ');
+      tasksFilter = projectIds.map(id => `{${PROJECT_FIELDS.RECORD_ID.EX.${id}}`).join(' OR ');
       console.log('[getProjectsForUserList] Found', projectIds.length, 'projects with unapproved tasks');
     } catch (error) {
       logError('Failed to fetch projects with tasks', error as Error, { userId, role });
@@ -773,7 +773,7 @@ function buildViewFilter(view?: string): string {
 
     case 'install-completed':
       // PROJECT_STATUS = "Active - Installed" OR has install date but not PTO
-      return `{${PROJECT_FIELDS.PROJECT_STATUS}.CT.'Installed'} OR ({${PROJECT_FIELDS.INSTALL_COMPLETED_DATE}.XEX.''} AND {${PROJECT_FIELDS.PTO_APPROVED}.EX.''})`;
+      return `{${PROJECT_FIELDS.PROJECT_STATUS}.CT.'Installed'} OR ({${PROJECT_FIELDS.INSTALL_COMPLETED_DATE.XEX.''} AND {${PROJECT_FIELDS.PTO_APPROVED.EX.''})`;
 
     case 'pending-cancel':
       // PROJECT_STATUS contains "Pending Cancel"
@@ -781,7 +781,7 @@ function buildViewFilter(view?: string): string {
 
     case 'cancelled':
       // PROJECT_STATUS = "Cancelled" (exact match or contains Cancel but not Pending)
-      return `({${PROJECT_FIELDS.PROJECT_STATUS}.EX.'Cancelled'} OR ({${PROJECT_FIELDS.PROJECT_STATUS}.CT.'Cancel'} AND {${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Pending'}))`;
+      return `({${PROJECT_FIELDS.PROJECT_STATUS.EX.'Cancelled'} OR ({${PROJECT_FIELDS.PROJECT_STATUS}.CT.'Cancel'} AND {${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Pending'}))`;
 
     case 'rejected':
       // Check BOTH INTAKE_STATUS and PROJECT_STATUS for "Rejected" (KCA Intake rejection)
@@ -841,13 +841,13 @@ function buildOwnershipFilter(userEmail: string | null, ownership?: string): str
 
   if (ownership === 'my-projects') {
     // Filter to projects where user is closer OR setter
-    return `({${PROJECT_FIELDS.CLOSER_EMAIL}.EX.'${sanitizedEmail}'} OR {${PROJECT_FIELDS.SETTER_EMAIL}.EX.'${sanitizedEmail}'})`;
+    return `({${PROJECT_FIELDS.CLOSER_EMAIL.EX.'${sanitizedEmail}'} OR {${PROJECT_FIELDS.SETTER_EMAIL.EX.'${sanitizedEmail}'})`;
   }
 
   if (ownership === 'team-projects') {
     // Filter to projects where user is NOT closer AND NOT setter
     // Include projects with no closer/setter (unassigned)
-    return `(({${PROJECT_FIELDS.CLOSER_EMAIL}.XEX.'${sanitizedEmail}'} OR {${PROJECT_FIELDS.CLOSER_EMAIL}.EX.''}) AND ({${PROJECT_FIELDS.SETTER_EMAIL}.XEX.'${sanitizedEmail}'} OR {${PROJECT_FIELDS.SETTER_EMAIL}.EX.''}))`;
+    return `(({${PROJECT_FIELDS.CLOSER_EMAIL.XEX.'${sanitizedEmail}'} OR {${PROJECT_FIELDS.CLOSER_EMAIL.EX.''}) AND ({${PROJECT_FIELDS.SETTER_EMAIL.XEX.'${sanitizedEmail}'} OR {${PROJECT_FIELDS.SETTER_EMAIL.EX.''}))`;
   }
 
   return '';
@@ -2251,7 +2251,7 @@ export async function getTeamActivityFeed(
 
   // Build date filter for last 7 days - only include records where the date field is populated AND recent
   // Use AF (after) operator with actual date
-  const dateFilter = `(({${PROJECT_FIELDS.DATE_ON_HOLD}.XEX.''} AND {${PROJECT_FIELDS.DATE_ON_HOLD}.OAF.'${sevenDaysAgoStr}'}) OR ({${PROJECT_FIELDS.INSTALL_COMPLETED_DATE}.XEX.''} AND {${PROJECT_FIELDS.INSTALL_COMPLETED_DATE}.OAF.'${sevenDaysAgoStr}'}) OR ({${PROJECT_FIELDS.PTO_APPROVED}.XEX.''} AND {${PROJECT_FIELDS.PTO_APPROVED}.OAF.'${sevenDaysAgoStr}'}))`;
+  const dateFilter = `(({${PROJECT_FIELDS.DATE_ON_HOLD.XEX.''} AND {${PROJECT_FIELDS.DATE_ON_HOLD}.OAF.'${sevenDaysAgoStr}'}) OR ({${PROJECT_FIELDS.INSTALL_COMPLETED_DATE.XEX.''} AND {${PROJECT_FIELDS.INSTALL_COMPLETED_DATE}.OAF.'${sevenDaysAgoStr}'}) OR ({${PROJECT_FIELDS.PTO_APPROVED.XEX.''} AND {${PROJECT_FIELDS.PTO_APPROVED}.OAF.'${sevenDaysAgoStr}'}))`;
 
   // Combine clauses
   const whereClause = `(${accessClause}) AND (${dateFilter})`;
@@ -2362,7 +2362,7 @@ export async function getProjectById(recordId: number) {
   const result = await qbClient.queryRecords({
     from: QB_TABLE_PROJECTS,
     select: Object.values(PROJECT_FIELDS), // All 92 fields
-    where: `{${PROJECT_FIELDS.RECORD_ID}.EX.${recordId}}`,
+    where: `{${PROJECT_FIELDS.RECORD_ID.EX.${recordId}}`,
   });
 
   return result.data[0] || null;
@@ -2435,7 +2435,7 @@ export async function getProjectsOnHold(userId: string, role: string, officeIds?
 
   // Use shared role scoping helper and consistent ON_HOLD value (now email-based)
   const roleClause = buildProjectAccessClause(userEmail, role, effectiveOfficeIds, managedEmails);
-  const whereClause = `(${roleClause}) AND {${PROJECT_FIELDS.ON_HOLD}.EX.'Yes'}`;
+  const whereClause = `(${roleClause}) AND {${PROJECT_FIELDS.ON_HOLD.EX.'Yes'}`;
 
   const result = await qbClient.queryRecords({
     from: QB_TABLE_PROJECTS,
@@ -2481,7 +2481,7 @@ export async function getAddersForProject(projectRecordId: string | number) {
   try {
     const response = await qbClient.queryRecords({
       from: QB_TABLE_ADDERS,
-      where: `{${ADDER_FIELDS.RELATED_PROJECT}.EX.${projectRecordId}}`,
+      where: `{${ADDER_FIELDS.RELATED_PROJECT.EX.${projectRecordId}}`,
       select: [
         ADDER_FIELDS.RECORD_ID,
         ADDER_FIELDS.PRODUCT_NAME,
@@ -2513,7 +2513,7 @@ export async function getNotesForProject(projectRecordId: string | number) {
   try {
     const response = await qbClient.queryRecords({
       from: QB_TABLE_NOTES,
-      where: `{${NOTE_FIELDS.RELATED_PROJECT}.EX.${projectRecordId}} AND {${NOTE_FIELDS.REP_VISIBLE}.EX.'Rep Visible'}`,
+      where: `{${NOTE_FIELDS.RELATED_PROJECT.EX.${projectRecordId}} AND {${NOTE_FIELDS.REP_VISIBLE.EX.'Rep Visible'}`,
       select: [
         NOTE_FIELDS.RECORD_ID,
         NOTE_FIELDS.NOTE_CONTENT,
@@ -4007,7 +4007,7 @@ export async function getProjectTasks(projectId: number): Promise<Task[]> {
     const taskGroupsResponse = await qbClient.queryRecords({
       from: QB_TABLE_TASK_GROUPS,
       select: [TASK_GROUP_FIELDS.RECORD_ID],
-      where: `{${TASK_GROUP_FIELDS.RELATED_PROJECT}.EX.${projectId}}`
+      where: `{${TASK_GROUP_FIELDS.RELATED_PROJECT.EX.${projectId}}`
     });
 
     // Extract task group IDs
@@ -4024,7 +4024,7 @@ export async function getProjectTasks(projectId: number): Promise<Task[]> {
 
     // Step 2: Get tasks for these task groups
     // Build OR clause: {6.EX.123}OR{6.EX.456}OR{6.EX.789}
-    const whereClause = taskGroupIds.map((id: number) => `{${TASK_FIELDS.TASK_GROUP}.EX.${id}}`).join('OR');
+    const whereClause = taskGroupIds.map((id: number) => `{${TASK_FIELDS.TASK_GROUP.EX.${id}}`).join('OR');
 
     const response = await qbClient.queryRecords({
       from: QB_TABLE_TASKS,
@@ -4382,7 +4382,7 @@ export async function getTaskCountsForProjects(projectIds: number[]): Promise<Ma
     // Build array of promises for parallel execution
     const promises = batches.map(batch => {
       // Build OR clause for this batch
-      const whereClause = batch.map(id => `{${TASK_GROUP_FIELDS.RELATED_PROJECT}.EX.${id}}`).join(' OR ');
+      const whereClause = batch.map(id => `{${TASK_GROUP_FIELDS.RELATED_PROJECT.EX.${id}}`).join(' OR ');
 
       return qbClient.queryRecords({
         from: QB_TABLE_TASK_GROUPS,
@@ -4577,7 +4577,7 @@ export async function checkAllTasksComplete(projectId: number): Promise<{
         TASK_GROUP_FIELDS.TOTAL_TASKS,
         TASK_GROUP_FIELDS.UNAPPROVED_TASKS
       ],
-      where: `{${TASK_GROUP_FIELDS.RELATED_PROJECT}.EX.${projectId}}`
+      where: `{${TASK_GROUP_FIELDS.RELATED_PROJECT.EX.${projectId}}`
     });
 
     // Sum up totals across all task groups
@@ -4657,7 +4657,7 @@ export async function calculateTaskBasedResolutionTime(projectId: number): Promi
     // Step 1: Query all tasks for this project
     const tasksResponse = await qbClient.queryRecords({
       from: QB_TABLE_TASKS,
-      where: `{6}.EX.${projectId}`, // Field 6 = TASK_GROUP (which links to project)
+      where: `{6.EX.${projectId}`, // Field 6 = TASK_GROUP (which links to project)
       select: [
         TASK_FIELDS.RECORD_ID,
         TASK_FIELDS.DATE_CREATED,
@@ -4690,7 +4690,7 @@ export async function calculateTaskBasedResolutionTime(projectId: number): Promi
       return null;
     }
 
-    const submissionsWhere = taskIds.map(id => `{${TASK_SUBMISSION_FIELDS.RELATED_TASK}.EX.${id}}`).join(' OR ');
+    const submissionsWhere = taskIds.map(id => `{${TASK_SUBMISSION_FIELDS.RELATED_TASK.EX.${id}}`).join(' OR ');
 
     const submissionsResponse = await qbClient.queryRecords({
       from: QB_TABLE_TASK_SUBMISSIONS,
@@ -4761,10 +4761,10 @@ export async function getPCProjectsData(
       whereClause = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}`;
     } else if (isOperationsManager(role)) {
       // Operations managers see all operations projects (any project with a PC)
-      whereClause = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+      whereClause = `{${PROJECT_FIELDS.PROJECT_COORDINATOR.XEX.''}`;
     } else {
       // Operations coordinators see only their assigned projects
-      whereClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+      whereClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR.EX.'${sanitizedName}'})`;
     }
 
     // Fetch all fields needed by metrics, priority queue, and pipeline
@@ -4861,10 +4861,10 @@ export async function getPCDashboardMetrics(
         whereClause = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}`;
       } else if (isOperationsManager(role)) {
         // Operations managers see all operations projects (any project with a PC)
-        whereClause = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+        whereClause = `{${PROJECT_FIELDS.PROJECT_COORDINATOR.XEX.''}`;
       } else {
         // Operations coordinators see only their assigned projects
-        whereClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+        whereClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR.EX.'${sanitizedName}'})`;
       }
 
       const query = {
@@ -4974,10 +4974,10 @@ export async function getPCPriorityQueue(
         pcFilter = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}`;
       } else if (isOperationsManager(role)) {
         // Operations managers see all operations projects (any project with a PC)
-        pcFilter = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+        pcFilter = `{${PROJECT_FIELDS.PROJECT_COORDINATOR.XEX.''}`;
       } else {
         // Operations coordinators see only their assigned projects
-        pcFilter = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+        pcFilter = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR.EX.'${sanitizedName}'})`;
       }
 
       const whereClause = `(${pcFilter})AND{${PROJECT_FIELDS.PROJECT_STATUS}.CT.'Active'}`;
@@ -5102,9 +5102,9 @@ export async function getPCProjectPipeline(
       if (hasOperationsUnrestrictedAccess(role)) {
         pcFilter = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}`;
       } else if (isOperationsManager(role)) {
-        pcFilter = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+        pcFilter = `{${PROJECT_FIELDS.PROJECT_COORDINATOR.XEX.''}`;
       } else {
-        pcFilter = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+        pcFilter = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR.EX.'${sanitizedName}'})`;
       }
 
       const whereClause = `(${pcFilter})AND{${PROJECT_FIELDS.PROJECT_STATUS}.CT.'Active'}`;
@@ -5201,10 +5201,10 @@ export async function getPCActivityFeed(
       projectsWhere = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}`;
     } else if (isOperationsManager(role)) {
       // Operations managers see all operations projects (any project with a PC)
-      projectsWhere = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+      projectsWhere = `{${PROJECT_FIELDS.PROJECT_COORDINATOR.XEX.''}`;
     } else {
       // Operations coordinators see only their assigned projects
-      projectsWhere = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+      projectsWhere = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR.EX.'${sanitizedName}'})`;
     }
 
     const projectsQuery = {
@@ -5626,7 +5626,7 @@ export async function getProjectsForMilestoneCheck(
     
     // Add PC filter if specified
     if (pcEmail) {
-      whereClause += `AND{${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.${pcEmail}}`;
+      whereClause += `AND{${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL.EX.${pcEmail}}`;
     }
 
     // Select fields needed for milestone checks using numeric FIDs
@@ -5789,14 +5789,14 @@ export async function getPCOutreachInitial(
     let whereClause: string;
     if (hasOperationsUnrestrictedAccess(role)) {
       // Super admin, regional, office leaders see ALL outreach records - no project filter needed
-      whereClause = `{${OUTREACH_RECORD_FIELDS.REPORTING_DUE_DATE}.OBF.TODAY} AND {${OUTREACH_RECORD_FIELDS.OUTREACH_STATUS}.XEX.'Complete'}`;
+      whereClause = `{${OUTREACH_RECORD_FIELDS.REPORTING_DUE_DATE}.OBF.TODAY} AND {${OUTREACH_RECORD_FIELDS.OUTREACH_STATUS.XEX.'Complete'}`;
     } else {
       // For restricted roles, we need to fetch accessible projects first
       let projectsWhere: string;
       if (isOperationsManager(role)) {
-        projectsWhere = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+        projectsWhere = `{${PROJECT_FIELDS.PROJECT_COORDINATOR.XEX.''}`;
       } else {
-        projectsWhere = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+        projectsWhere = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR.EX.'${sanitizedName}'})`;
       }
 
       const projectsQuery = {
@@ -5814,7 +5814,7 @@ export async function getPCOutreachInitial(
 
       // Query Outreach Records table for initial outreach, filtered by accessible projects
       const projectIdsStr = projectIds.join(',');
-      whereClause = `{${OUTREACH_RECORD_FIELDS.RELATED_PROJECT}.XIN.${projectIdsStr}} AND {${OUTREACH_RECORD_FIELDS.REPORTING_DUE_DATE}.OBF.TODAY} AND {${OUTREACH_RECORD_FIELDS.OUTREACH_STATUS}.XEX.'Complete'}`;
+      whereClause = `{${OUTREACH_RECORD_FIELDS.RELATED_PROJECT}.XIN.${projectIdsStr}} AND {${OUTREACH_RECORD_FIELDS.REPORTING_DUE_DATE}.OBF.TODAY} AND {${OUTREACH_RECORD_FIELDS.OUTREACH_STATUS.XEX.'Complete'}`;
     }
 
     const selectFields = [
@@ -5950,13 +5950,13 @@ export async function getPCOutreachFollowups(
     if (hasOperationsUnrestrictedAccess(role)) {
       pcFilterClause = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}`;
     } else if (isOperationsManager(role)) {
-      pcFilterClause = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+      pcFilterClause = `{${PROJECT_FIELDS.PROJECT_COORDINATOR.XEX.''}`;
     } else {
-      pcFilterClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+      pcFilterClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR.EX.'${sanitizedName}'})`;
     }
 
     // Query Projects table for unresponsive customers
-    const whereClause = `(${pcFilterClause}) AND {${PROJECT_FIELDS.PROJECT_STATUS}.EX.'Active'} AND {${PROJECT_FIELDS.PC_IS_UNRESPONSIVE}.EX.'Yes'}`;
+    const whereClause = `(${pcFilterClause}) AND {${PROJECT_FIELDS.PROJECT_STATUS.EX.'Active'} AND {${PROJECT_FIELDS.PC_IS_UNRESPONSIVE.EX.'Yes'}`;
     const selectFields = [
       PROJECT_FIELDS.RECORD_ID,
       PROJECT_FIELDS.PROJECT_ID,
@@ -6034,13 +6034,13 @@ export async function getPCOutreachWelcome(
     if (hasOperationsUnrestrictedAccess(role)) {
       pcFilterClause = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}`;
     } else if (isOperationsManager(role)) {
-      pcFilterClause = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+      pcFilterClause = `{${PROJECT_FIELDS.PROJECT_COORDINATOR.XEX.''}`;
     } else {
-      pcFilterClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+      pcFilterClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR.EX.'${sanitizedName}'})`;
     }
 
     // Query Projects table for welcome call candidates
-    const whereClause = `(${pcFilterClause}) AND {${PROJECT_FIELDS.PROJECT_STATUS}.EX.'Active'} AND {${PROJECT_FIELDS.PC_OUTREACH_CREATE_CHECKIN}.EX.true}`;
+    const whereClause = `(${pcFilterClause}) AND {${PROJECT_FIELDS.PROJECT_STATUS.EX.'Active'} AND {${PROJECT_FIELDS.PC_OUTREACH_CREATE_CHECKIN.EX.true}`;
     const selectFields = [
       PROJECT_FIELDS.RECORD_ID,
       PROJECT_FIELDS.PROJECT_ID,
@@ -6363,7 +6363,7 @@ export async function getPCInboundRepQueue(
         SALES_AID_FIELDS.REP_72_HOUR_DEADLINE,
         SALES_AID_FIELDS.COMPLETED_DATE
       ],
-      where: `{${SALES_AID_FIELDS.SALES_AID_STATUS}.EX.'Waiting for Rep'} OR {${SALES_AID_FIELDS.SALES_AID_STATUS}.EX.'Working With Rep'}`,
+      where: `{${SALES_AID_FIELDS.SALES_AID_STATUS.EX.'Waiting for Rep'} OR {${SALES_AID_FIELDS.SALES_AID_STATUS.EX.'Working With Rep'}`,
       sortBy: [{ field: SALES_AID_FIELDS.DATE_CREATED, order: 'DESC' }],
       options: { top: 5000 }
     };
@@ -6390,9 +6390,9 @@ export async function getPCInboundRepQueue(
     if (hasOperationsUnrestrictedAccess(role)) {
       pcFilterClause = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}`;
     } else if (isOperationsManager(role)) {
-      pcFilterClause = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+      pcFilterClause = `{${PROJECT_FIELDS.PROJECT_COORDINATOR.XEX.''}`;
     } else {
-      pcFilterClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+      pcFilterClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR.EX.'${sanitizedName}'})`;
     }
 
     // Query Projects table to get PC's projects and customer data
@@ -6406,7 +6406,7 @@ export async function getPCInboundRepQueue(
         PROJECT_FIELDS.CLOSER_EMAIL,
         PROJECT_FIELDS.PROJECT_COORDINATOR
       ],
-      where: `{${PROJECT_FIELDS.RECORD_ID}.IN.${projectIds.join(',')}} AND (${pcFilterClause})`
+      where: `{${PROJECT_FIELDS.RECORD_ID.IN.${projectIds.join(',')}} AND (${pcFilterClause})`
     };
 
     const projectsResponse = await qbClient.queryRecords(projectsQuery);
@@ -6509,15 +6509,15 @@ export async function getPCConversationHistory(
     switch (filters.dateRange) {
       case '7days':
         const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        dateFilter = `{${INSTALL_COMMUNICATION_FIELDS.DATE}.GTE.'${sevenDaysAgo.toISOString()}'}`;
+        dateFilter = `{${INSTALL_COMMUNICATION_FIELDS.DATE.GTE.'${sevenDaysAgo.toISOString()}'}`;
         break;
       case '30days':
         const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        dateFilter = `{${INSTALL_COMMUNICATION_FIELDS.DATE}.GTE.'${thirtyDaysAgo.toISOString()}'}`;
+        dateFilter = `{${INSTALL_COMMUNICATION_FIELDS.DATE.GTE.'${thirtyDaysAgo.toISOString()}'}`;
         break;
       case '90days':
         const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-        dateFilter = `{${INSTALL_COMMUNICATION_FIELDS.DATE}.GTE.'${ninetyDaysAgo.toISOString()}'}`;
+        dateFilter = `{${INSTALL_COMMUNICATION_FIELDS.DATE.GTE.'${ninetyDaysAgo.toISOString()}'}`;
         break;
     }
 
@@ -6525,7 +6525,7 @@ export async function getPCConversationHistory(
     let tabFilter = '';
     switch (filters.tab) {
       case 'needs_response':
-        tabFilter = `{${INSTALL_COMMUNICATION_FIELDS.NEM_BLOCKER_OUTREACH}.EX.'Yes'}`;
+        tabFilter = `{${INSTALL_COMMUNICATION_FIELDS.NEM_BLOCKER_OUTREACH.EX.'Yes'}`;
         break;
       case 'scheduled':
         tabFilter = `{${INSTALL_COMMUNICATION_FIELDS.DATE}.GT.'${now.toISOString()}'}`;
@@ -6545,9 +6545,9 @@ export async function getPCConversationHistory(
       // For restricted roles, we need to fetch accessible projects first
       let projectsWhere: string;
       if (isOperationsManager(role)) {
-        projectsWhere = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+        projectsWhere = `{${PROJECT_FIELDS.PROJECT_COORDINATOR.XEX.''}`;
       } else {
-        projectsWhere = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+        projectsWhere = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR.EX.'${sanitizedName}'})`;
       }
 
       const projectsQuery = {
@@ -6613,7 +6613,7 @@ export async function getPCConversationHistory(
         PROJECT_FIELDS.CUSTOMER_PHONE,
         PROJECT_FIELDS.PROJECT_STAGE
       ],
-      where: `{${PROJECT_FIELDS.RECORD_ID}.IN.${communicationProjectIds.join(',')}}`
+      where: `{${PROJECT_FIELDS.RECORD_ID.IN.${communicationProjectIds.join(',')}}`
     };
 
     const communicationProjectsResponse = await qbClient.queryRecords(communicationProjectsQuery);
@@ -6711,25 +6711,25 @@ export async function getPCBulkMessagingRecipients(
     if (hasOperationsUnrestrictedAccess(role)) {
       pcFilterClause = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}`;
     } else if (isOperationsManager(role)) {
-      pcFilterClause = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+      pcFilterClause = `{${PROJECT_FIELDS.PROJECT_COORDINATOR.XEX.''}`;
     } else {
-      pcFilterClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+      pcFilterClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR.EX.'${sanitizedName}'})`;
     }
 
     // Build filter conditions
     const whereConditions = [
       `(${pcFilterClause})`,
-      `{${PROJECT_FIELDS.PROJECT_STATUS}.EX.'Active'}`
+      `{${PROJECT_FIELDS.PROJECT_STATUS.EX.'Active'}`
     ];
 
     if (filters.projectStage && filters.projectStage !== 'all') {
-      whereConditions.push(`{${PROJECT_FIELDS.PROJECT_STAGE}.EX.'${sanitizeQuickbaseValue(filters.projectStage)}'}`);
+      whereConditions.push(`{${PROJECT_FIELDS.PROJECT_STAGE.EX.'${sanitizeQuickbaseValue(filters.projectStage)}'}`);
     }
     if (filters.lender && filters.lender !== 'all') {
-      whereConditions.push(`{${PROJECT_FIELDS.LENDER_NAME}.EX.'${sanitizeQuickbaseValue(filters.lender)}'}`);
+      whereConditions.push(`{${PROJECT_FIELDS.LENDER_NAME.EX.'${sanitizeQuickbaseValue(filters.lender)}'}`);
     }
     if (filters.salesRep && filters.salesRep !== 'all') {
-      whereConditions.push(`{${PROJECT_FIELDS.CLOSER_NAME}.EX.'${sanitizeQuickbaseValue(filters.salesRep)}'}`);
+      whereConditions.push(`{${PROJECT_FIELDS.CLOSER_NAME.EX.'${sanitizeQuickbaseValue(filters.salesRep)}'}`);
     }
 
     // Query Projects table
@@ -6886,7 +6886,7 @@ export async function getPCProjectCommunications(
   try {
     logQuickbaseRequest('getPCProjectCommunications', { projectId, recordId }, reqId);
 
-    const whereClause = `{${INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT}}.EX.'${projectId}' OR {${INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT}}.EX.${recordId}`;
+    const whereClause = `{${INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT.EX.'${projectId}'}OR{${INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT.EX.${recordId}}`;
 
     const selectFields = [
       INSTALL_COMMUNICATION_FIELDS.RECORD_ID,
@@ -7055,7 +7055,7 @@ export async function getPCTasksForProject(
     // First, get task groups for this project
     const taskGroupsResponse = await qbClient.queryRecords({
       from: QB_TABLE_TASK_GROUPS,
-      where: `{${TASK_GROUP_FIELDS.RELATED_PROJECT}}.EX.${recordId}`,
+      where: `{${TASK_GROUP_FIELDS.RELATED_PROJECT}.EX.${recordId}}`,
       select: [TASK_GROUP_FIELDS.RECORD_ID]
     });
 
@@ -7069,7 +7069,7 @@ export async function getPCTasksForProject(
     // Query tasks in these groups that are PC-assigned (TASK_CATEGORY starts with 'PC:')
     const tasksResponse = await qbClient.queryRecords({
       from: QB_TABLE_TASKS,
-      where: `{${TASK_FIELDS.TASK_GROUP}}.IN.${taskGroupIds.join(',')} AND {${TASK_FIELDS.TASK_CATEGORY}}.SW.'PC:'`,
+      where: `{${TASK_FIELDS.TASK_GROUP}.IN.${taskGroupIds.join(',')}}AND{${TASK_FIELDS.TASK_CATEGORY}.SW.'PC:'}`,
       select: [
         TASK_FIELDS.RECORD_ID,
         TASK_FIELDS.DATE_CREATED,
@@ -7092,7 +7092,7 @@ export async function getPCTasksForProject(
     if (taskIds.length > 0) {
       const submissionsResponse = await qbClient.queryRecords({
         from: QB_TABLE_TASK_SUBMISSIONS,
-        where: `{${TASK_SUBMISSION_FIELDS.RELATED_TASK}}.IN.${taskIds.join(',')}`,
+        where: `{${TASK_SUBMISSION_FIELDS.RELATED_TASK}.IN.${taskIds.join(',')}}`,
         select: [
           TASK_SUBMISSION_FIELDS.RECORD_ID,
           TASK_SUBMISSION_FIELDS.DATE_CREATED,
@@ -7263,7 +7263,7 @@ export async function updatePCTaskStatus(
     // First, fetch the task to get its TASK_GROUP
     const taskResponse = await qbClient.queryRecords({
       from: QB_TABLE_TASKS,
-      where: `{${TASK_FIELDS.RECORD_ID}}.EX.${taskId}`,
+      where: `{${TASK_FIELDS.RECORD_ID}.EX.${taskId}}`,
       select: [TASK_FIELDS.TASK_GROUP]
     });
 
@@ -7277,7 +7277,7 @@ export async function updatePCTaskStatus(
     // Then fetch the Task Group to get the RELATED_PROJECT
     const taskGroupResponse = await qbClient.queryRecords({
       from: QB_TABLE_TASK_GROUPS,
-      where: `{${TASK_GROUP_FIELDS.RECORD_ID}}.EX.${taskGroupId}`,
+      where: `{${TASK_GROUP_FIELDS.RECORD_ID}.EX.${taskGroupId}}`,
       select: [TASK_GROUP_FIELDS.RELATED_PROJECT]
     });
 
@@ -7337,7 +7337,7 @@ export async function getPCMessagesForProject(
     // This is a simple implementation - in production, you might want to store taskId in a separate field
     const response = await qbClient.queryRecords({
       from: QB_TABLE_INSTALL_COMMUNICATIONS,
-      where: `{${INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT}}.EX.${recordId}`,
+      where: `{${INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT}.EX.${recordId}}`,
       select: [
         INSTALL_COMMUNICATION_FIELDS.RECORD_ID,
         INSTALL_COMMUNICATION_FIELDS.DATE,
@@ -7495,7 +7495,7 @@ async function getOrCreateTaskGroup(
     // First, try to find existing task group
     const existingResponse = await qbClient.queryRecords({
       from: QB_TABLE_TASK_GROUPS,
-      where: `{${TASK_GROUP_FIELDS.RELATED_PROJECT}}.EX.${recordId}`,
+      where: `{${TASK_GROUP_FIELDS.RELATED_PROJECT}.EX.${recordId}}`,
       select: [TASK_GROUP_FIELDS.RECORD_ID]
     });
 
@@ -7593,7 +7593,7 @@ export async function getPCEscalations(
     const sanitizedName = sanitizeQuickbaseValue(pcName);
 
     // Build WHERE clause for escalation status
-    const escalationStatusClause = `{${SALES_AID_FIELDS.SALES_AID_STATUS}.EX.'Escalated to Sales Aid'}OR{${SALES_AID_FIELDS.ESCALATE_TO_SALES_AID}.EX.true}AND{${SALES_AID_FIELDS.SALES_AID_STATUS}.NE.'Resolved by Rep'}AND{${SALES_AID_FIELDS.SALES_AID_STATUS}.NE.'Task Completed'}`;
+    const escalationStatusClause = `{${SALES_AID_FIELDS.SALES_AID_STATUS.EX.'Escalated to Sales Aid'}OR{${SALES_AID_FIELDS.ESCALATE_TO_SALES_AID.EX.true}AND{${SALES_AID_FIELDS.SALES_AID_STATUS}.NE.'Resolved by Rep'}AND{${SALES_AID_FIELDS.SALES_AID_STATUS}.NE.'Task Completed'}`;
 
     let whereClause: string;
 
@@ -7606,10 +7606,10 @@ export async function getPCEscalations(
       let projectsWhere: string;
       if (isOperationsManager(role)) {
         // Operations managers see escalations for all operations projects (any project with a PC)
-        projectsWhere = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+        projectsWhere = `{${PROJECT_FIELDS.PROJECT_COORDINATOR.XEX.''}`;
       } else {
         // Operations coordinators see only escalations for their assigned projects
-        projectsWhere = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+        projectsWhere = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR.EX.'${sanitizedName}'})`;
       }
 
       const projectsQuery = {
@@ -7627,7 +7627,7 @@ export async function getPCEscalations(
 
       // Filter by accessible projects
       const projectIdsStr = projectIds.join(',');
-      whereClause = `(${escalationStatusClause})AND{${SALES_AID_FIELDS.RELATED_PROJECT}.IN.${projectIdsStr}}`;
+      whereClause = `(${escalationStatusClause})AND{${SALES_AID_FIELDS.RELATED_PROJECT.IN.${projectIdsStr}}`;
     }
 
     const query = {
@@ -7671,7 +7671,7 @@ export async function getPCEscalations(
       try {
         const projectQuery = {
           from: QB_TABLE_PROJECTS,
-          where: `{${PROJECT_FIELDS.RECORD_ID}.IN.${escalationProjectIds.join(',')}}`,
+          where: `{${PROJECT_FIELDS.RECORD_ID.IN.${escalationProjectIds.join(',')}}`,
           select: [
             PROJECT_FIELDS.RECORD_ID,
             PROJECT_FIELDS.PROJECT_ID,
@@ -8001,7 +8001,7 @@ export async function getEscalationHistory(
 
     const query = {
       from: QB_TABLE_INSTALL_COMMUNICATIONS,
-      where: `{${COMMUNICATION_FIELDS.RELATED_SALES_AID_REQUEST}.EX.${escalationId}}`,
+      where: `{${COMMUNICATION_FIELDS.RELATED_SALES_AID_REQUEST.EX.${escalationId}}`,
       select: [
         COMMUNICATION_FIELDS.DATE,
         COMMUNICATION_FIELDS.COMMUNICATION_TYPE,
@@ -8528,7 +8528,7 @@ async function getPCProjectVelocity(reqId: string): Promise<PCProjectVelocity[]>
     // Query all active projects for milestone durations
     const projectsResponse = await qbClient.queryRecords({
       from: QB_TABLE_PROJECTS,
-      where: `{${PROJECT_FIELDS.PROJECT_STATUS}}.EX.'Active'`,
+      where: `{${PROJECT_FIELDS.PROJECT_STATUS}.EX.'Active'}`,
       select: [
         PROJECT_FIELDS.SALES_DATE,
         PROJECT_FIELDS.SURVEY_SUBMITTED,
@@ -8892,7 +8892,7 @@ export async function getPCCalendarEvents(
         FIELD_IDS.PROJECTS.PROJECT_STATUS,
         FIELD_IDS.PROJECTS.PROJECT_COORDINATOR_EMAIL
       ],
-      where: `{${FIELD_IDS.PROJECTS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'}AND({${FIELD_IDS.PROJECTS.INSTALL_SCHEDULED_DATE}.AF.'${startDate}'}OR{${FIELD_IDS.PROJECTS.SURVEY_SCHEDULED_DATE}.AF.'${startDate}'})AND({${FIELD_IDS.PROJECTS.INSTALL_SCHEDULED_DATE}.BF.'${endDate}'}OR{${FIELD_IDS.PROJECTS.SURVEY_SCHEDULED_DATE}.BF.'${endDate}'})`
+      where: `{${FIELD_IDS.PROJECTS.PROJECT_COORDINATOR_EMAIL.EX.'${sanitizedEmail}'}AND({${FIELD_IDS.PROJECTS.INSTALL_SCHEDULED_DATE}.AF.'${startDate}'}OR{${FIELD_IDS.PROJECTS.SURVEY_SCHEDULED_DATE}.AF.'${startDate}'})AND({${FIELD_IDS.PROJECTS.INSTALL_SCHEDULED_DATE}.BF.'${endDate}'}OR{${FIELD_IDS.PROJECTS.SURVEY_SCHEDULED_DATE}.BF.'${endDate}'})`
     };
 
     const projectsResponse = await qbClient.queryRecords(projectsQuery);
@@ -8972,7 +8972,7 @@ export async function getPCCalendarEvents(
         FIELD_IDS.OUTREACH.NEXT_OUTREACH_DUE_DATE,
         FIELD_IDS.OUTREACH.OUTREACH_STATUS
       ],
-      where: `{${FIELD_IDS.OUTREACH.PC_NAME}.EX.'${sanitizedName}'}AND{${FIELD_IDS.OUTREACH.NEXT_OUTREACH_DUE_DATE}.AF.'${startDate}'}AND{${FIELD_IDS.OUTREACH.NEXT_OUTREACH_DUE_DATE}.BF.'${endDate}'}`
+      where: `{${FIELD_IDS.OUTREACH.PC_NAME.EX.'${sanitizedName}'}AND{${FIELD_IDS.OUTREACH.NEXT_OUTREACH_DUE_DATE}.AF.'${startDate}'}AND{${FIELD_IDS.OUTREACH.NEXT_OUTREACH_DUE_DATE}.BF.'${endDate}'}`
     };
 
     const outreachResponse = await qbClient.queryRecords(outreachQuery);

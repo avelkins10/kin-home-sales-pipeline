@@ -169,6 +169,29 @@ npm run dev
 └── data/                 # Quickbase field configuration
 ```
 
+## Developer Resources
+
+### 📚 Essential Documentation for Developers
+
+**New to the codebase? Start here:**
+
+1. **[Developer Guide](docs/DEVELOPER-GUIDE.md)** - Coding patterns, best practices, and common pitfalls
+2. **[Database Schema Reference](docs/DATABASE-SCHEMA.md)** - Complete database schema, SQL patterns, and query examples
+3. **[Setup Guide](SETUP.md)** - Initial development environment setup
+
+**Key topics:**
+- **Database queries**: Always check `sales_office` is an array, not a string! See [DATABASE-SCHEMA.md](docs/DATABASE-SCHEMA.md#users-table)
+- **SQL patterns**: Common query patterns for users, offices, and filtering - [DATABASE-SCHEMA.md](docs/DATABASE-SCHEMA.md#common-query-patterns)
+- **API development**: Authentication, validation, logging patterns - [DEVELOPER-GUIDE.md](docs/DEVELOPER-GUIDE.md#api-development)
+- **Testing requirements**: What to test before submitting PRs - [DEVELOPER-GUIDE.md](docs/DEVELOPER-GUIDE.md#testing-requirements)
+- **Database migrations**: Located in `lib/db/migrations/` - check these FIRST before writing SQL
+
+**Quick Reference:**
+- Database schema definitions: `lib/db/migrations/*.sql`
+- Example SQL queries: Search codebase with `grep -r "FROM users" app/api`
+- API route patterns: See existing routes in `app/api/`
+- Component patterns: See existing components in `components/`
+
 ## Key Features
 
 ### Email Configuration (Optional)
