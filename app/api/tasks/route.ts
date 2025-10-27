@@ -198,7 +198,7 @@ export async function GET(req: Request) {
       return NextResponse.json([], { status: 200 });
     }
 
-    // STEP 2: Get task groups for these tasks
+    // STEP 2: Get task groups for these tasks (with batching if needed)
     const taskGroupIds = [...new Set(
       tasksResponse.data
         .map((t: any) => t[TASK_FIELDS.TASK_GROUP]?.value)
@@ -210,22 +210,53 @@ export async function GET(req: Request) {
       reqId
     });
 
-    const taskGroupsWhereClause = taskGroupIds
-      .map((id: number) => `{${TASK_GROUP_FIELDS.RECORD_ID}.EX.${id}}`)
-      .join('OR');
+    const BATCH_SIZE = 100;
+    const allTaskGroups: any[] = [];
 
-    const taskGroupsResponse = await qbClient.queryRecords({
-      from: QB_TABLE_TASK_GROUPS,
-      select: [
-        TASK_GROUP_FIELDS.RECORD_ID,
-        TASK_GROUP_FIELDS.RELATED_PROJECT
-      ],
-      where: taskGroupsWhereClause
-    });
+    // Batch if we have many task groups
+    if (taskGroupIds.length > BATCH_SIZE) {
+      logInfo('[TASKS_API] Batching task groups query', {
+        batches: Math.ceil(taskGroupIds.length / BATCH_SIZE),
+        reqId
+      });
+
+      for (let i = 0; i < taskGroupIds.length; i += BATCH_SIZE) {
+        const batch = taskGroupIds.slice(i, i + BATCH_SIZE);
+        const taskGroupsWhereClause = batch
+          .map((id: number) => `{${TASK_GROUP_FIELDS.RECORD_ID}.EX.${id}}`)
+          .join('OR');
+
+        const batchResponse = await qbClient.queryRecords({
+          from: QB_TABLE_TASK_GROUPS,
+          select: [
+            TASK_GROUP_FIELDS.RECORD_ID,
+            TASK_GROUP_FIELDS.RELATED_PROJECT
+          ],
+          where: taskGroupsWhereClause
+        });
+
+        allTaskGroups.push(...batchResponse.data);
+      }
+    } else {
+      const taskGroupsWhereClause = taskGroupIds
+        .map((id: number) => `{${TASK_GROUP_FIELDS.RECORD_ID}.EX.${id}}`)
+        .join('OR');
+
+      const taskGroupsResponse = await qbClient.queryRecords({
+        from: QB_TABLE_TASK_GROUPS,
+        select: [
+          TASK_GROUP_FIELDS.RECORD_ID,
+          TASK_GROUP_FIELDS.RELATED_PROJECT
+        ],
+        where: taskGroupsWhereClause
+      });
+
+      allTaskGroups.push(...taskGroupsResponse.data);
+    }
 
     // Map task groups to projects
     const taskGroupToProjectMap = new Map();
-    taskGroupsResponse.data.forEach((tg: any) => {
+    allTaskGroups.forEach((tg: any) => {
       const groupId = tg[TASK_GROUP_FIELDS.RECORD_ID]?.value;
       const projectId = tg[TASK_GROUP_FIELDS.RELATED_PROJECT]?.value;
       if (groupId && projectId) {
@@ -233,9 +264,9 @@ export async function GET(req: Request) {
       }
     });
 
-    // STEP 3: Get projects for these task groups
+    // STEP 3: Get projects for these task groups (with batching if needed)
     const projectIds = [...new Set(
-      taskGroupsResponse.data
+      allTaskGroups
         .map((tg: any) => tg[TASK_GROUP_FIELDS.RELATED_PROJECT]?.value)
         .filter(Boolean)
     )];
@@ -245,29 +276,62 @@ export async function GET(req: Request) {
       reqId
     });
 
-    const projectsWhereClause = projectIds
-      .map((id: number) => `{${PROJECT_FIELDS.RECORD_ID}.EX.${id}}`)
-      .join('OR');
+    const allProjects: any[] = [];
 
-    const projectsResponse = await qbClient.queryRecords({
-      from: QB_TABLE_PROJECTS,
-      select: [
-        PROJECT_FIELDS.RECORD_ID,
-        PROJECT_FIELDS.PROJECT_ID,
-        PROJECT_FIELDS.CUSTOMER_NAME,
-        PROJECT_FIELDS.PROJECT_STATUS,
-        PROJECT_FIELDS.CLOSER_EMAIL,
-        PROJECT_FIELDS.SETTER_EMAIL,
-        PROJECT_FIELDS.OFFICE_RECORD_ID
-      ],
-      where: projectsWhereClause
-    });
+    // Batch if we have many projects
+    if (projectIds.length > BATCH_SIZE) {
+      logInfo('[TASKS_API] Batching projects query', {
+        batches: Math.ceil(projectIds.length / BATCH_SIZE),
+        reqId
+      });
+
+      for (let i = 0; i < projectIds.length; i += BATCH_SIZE) {
+        const batch = projectIds.slice(i, i + BATCH_SIZE);
+        const projectsWhereClause = batch
+          .map((id: number) => `{${PROJECT_FIELDS.RECORD_ID}.EX.${id}}`)
+          .join('OR');
+
+        const batchResponse = await qbClient.queryRecords({
+          from: QB_TABLE_PROJECTS,
+          select: [
+            PROJECT_FIELDS.RECORD_ID,
+            PROJECT_FIELDS.PROJECT_ID,
+            PROJECT_FIELDS.CUSTOMER_NAME,
+            PROJECT_FIELDS.PROJECT_STATUS,
+            PROJECT_FIELDS.CLOSER_EMAIL,
+            PROJECT_FIELDS.SETTER_EMAIL,
+            PROJECT_FIELDS.OFFICE_RECORD_ID
+          ],
+          where: projectsWhereClause
+        });
+
+        allProjects.push(...batchResponse.data);
+      }
+    } else {
+      const projectsWhereClause = projectIds
+        .map((id: number) => `{${PROJECT_FIELDS.RECORD_ID}.EX.${id}}`)
+        .join('OR');
+
+      const projectsResponse = await qbClient.queryRecords({
+        from: QB_TABLE_PROJECTS,
+        select: [
+          PROJECT_FIELDS.RECORD_ID,
+          PROJECT_FIELDS.PROJECT_ID,
+          PROJECT_FIELDS.CUSTOMER_NAME,
+          PROJECT_FIELDS.PROJECT_STATUS,
+          PROJECT_FIELDS.CLOSER_EMAIL,
+          PROJECT_FIELDS.SETTER_EMAIL,
+          PROJECT_FIELDS.OFFICE_RECORD_ID
+        ],
+        where: projectsWhereClause
+      });
+
+      allProjects.push(...projectsResponse.data);
+    }
 
     // STEP 4: Filter projects by user authorization
-    const projectAccessClause = buildProjectAccessClause(userEmail, userRole, effectiveOfficeIds, managedEmails, reqId);
-
     const authorizedProjectIds = new Set(
-      projectsResponse.data
+      allProjects
         .filter((project: any) => {
           // For super_admin and regional without office filter, allow all
           if (['super_admin', 'regional'].includes(userRole) && (!effectiveOfficeIds || effectiveOfficeIds.length === 0)) {
