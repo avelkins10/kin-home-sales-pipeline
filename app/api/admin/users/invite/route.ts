@@ -297,12 +297,18 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Look up invite by token
+    // Look up invite by token and get inviter info from audit log
     const result = await sql.query(`
       SELECT
         u.id, u.email, u.name, u.role, u.sales_office,
-        u.invited_at, u.invite_accepted_at
+        u.invited_at, u.invite_accepted_at,
+        inviter.name as invited_by_name,
+        inviter.email as invited_by_email
       FROM users u
+      LEFT JOIN audit_logs al ON al.record_id = u.id::text
+        AND al.action = 'invite'
+        AND al.entity_type = 'user'
+      LEFT JOIN users inviter ON inviter.id = al.user_id
       WHERE u.invite_token = $1
     `, [token])
 
@@ -347,9 +353,11 @@ export async function GET(request: NextRequest) {
       email: user.email,
       name: user.name,
       role: user.role,
-      office: user.sales_office?.[0], // Backward compatibility
+      office: user.sales_office?.[0] || null, // Backward compatibility
       offices: offices, // New field with all assigned offices
       invitedAt: user.invited_at,
+      invitedBy: user.invited_by_email || 'Administrator',
+      invitedByName: user.invited_by_name || 'Administrator',
       accepted: !!user.invite_accepted_at
     })
   } catch (error) {
