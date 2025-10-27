@@ -45,8 +45,14 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
+    // Get the actual project ID from the project object
+    const actualProjectId = project[PROJECT_FIELDS.PROJECT_ID];
+    if (!actualProjectId) {
+      return NextResponse.json({ error: 'Project ID not found in project data' }, { status: 500 });
+    }
+
     // Fetch communication history
-    const communications = await getPCProjectCommunications(projectId, recordId, reqId);
+    const communications = await getPCProjectCommunications(actualProjectId, recordId, reqId);
 
     // Enrich communications with project data
     const enrichedCommunications = communications.map(comm => ({
@@ -57,7 +63,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     }));
 
     // Fetch documents (placeholder implementation)
-    const documents = await getPCProjectDocuments(projectId, recordId, reqId);
+    const documents = await getPCProjectDocuments(actualProjectId, recordId, reqId);
 
     // Transform project to team members
     const teamMembers = transformProjectToTeamMembers(project);
@@ -70,11 +76,11 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       teamMembers
     };
 
-    logApiResponse('GET', `/api/operations/projects/${projectId}`, Date.now() - startedAt, {}, reqId);
+    logApiResponse('GET', `/api/operations/projects/${recordId}`, Date.now() - startedAt, {}, reqId);
     return NextResponse.json(projectDetail, { status: 200 });
 
   } catch (error) {
-    logError('Failed to fetch project detail', error as Error, { projectId, recordId });
+    logError('Failed to fetch project detail', error as Error, { recordId });
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
