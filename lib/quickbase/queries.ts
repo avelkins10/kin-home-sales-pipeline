@@ -9052,3 +9052,197 @@ export async function getPCCalendarEvents(
     throw error;
   }
 }
+
+/**
+ * Get Inspection Projects Data
+ * Fetches all installed projects and categorizes them by inspection status
+ */
+export async function getInspectionProjects(
+  pcEmail: string,
+  pcName: string,
+  role: string,
+  reqId: string
+): Promise<import('@/lib/types/operations').PCInspectionData> {
+  try {
+    logQuickbaseRequest('getInspectionProjects', { pcEmail, pcName, role, reqId });
+
+    // Build WHERE clause based on role
+    const sanitizedEmail = sanitizeQbLiteral(pcEmail);
+    const sanitizedName = sanitizeQbLiteral(pcName);
+
+    let whereClause: string;
+    const { hasOperationsUnrestrictedAccess, isOperationsManager } = await import('@/lib/utils/role-helpers');
+
+    // Role-based filtering
+    if (hasOperationsUnrestrictedAccess(role)) {
+      // Super admin, regional, office leaders see ALL projects
+      whereClause = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}`;
+    } else if (isOperationsManager(role)) {
+      // Operations managers see all operations projects (any project with a PC)
+      whereClause = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+    } else {
+      // Operations coordinators see only their assigned projects
+      whereClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+    }
+
+    // Add filters: must have install completed, exclude Lost/Cancelled, exclude already PTO'd
+    whereClause += `AND{${PROJECT_FIELDS.INSTALL_COMPLETED_DATE}.XEX.''}`;
+    whereClause += `AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Lost'}`;
+    whereClause += `AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Cancelled'}`;
+    whereClause += `AND{${PROJECT_FIELDS.PTO_APPROVED}.EX.''}`;
+
+    // Fetch all installed projects with inspection-related fields
+    const query = {
+      from: QB_TABLE_PROJECTS,
+      where: whereClause,
+      select: [
+        PROJECT_FIELDS.RECORD_ID,
+        PROJECT_FIELDS.PROJECT_ID,
+        PROJECT_FIELDS.CUSTOMER_NAME,
+        PROJECT_FIELDS.CUSTOMER_PHONE,
+        PROJECT_FIELDS.SALES_OFFICE,
+        PROJECT_FIELDS.INSTALL_COMPLETED_DATE,
+        PROJECT_FIELDS.INSPECTION_SCHEDULED_DATE,
+        PROJECT_FIELDS.INSPECTION_FAILED_DATE,
+        PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED,
+        PROJECT_FIELDS.NOTE,
+        PROJECT_FIELDS.BLOCK_REASON,
+        PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL,
+        PROJECT_FIELDS.CLOSER_NAME,
+        PROJECT_FIELDS.CLOSER_EMAIL,
+        PROJECT_FIELDS.LENDER_NAME
+      ],
+      sortBy: [{ field: PROJECT_FIELDS.INSTALL_COMPLETED_DATE, order: 'DESC' }],
+      options: { top: 5000 }
+    };
+
+    const response = await qbClient.queryRecords(query);
+    const projects = response.data || [];
+
+    // Helper to extract values from wrapped QuickBase objects
+    const extractStringValue = (field: any): string => {
+      if (typeof field === 'object' && field?.value !== undefined) {
+        return String(field.value);
+      }
+      return String(field || '');
+    };
+
+    const extractDateValue = (field: any): string | null => {
+      if (!field) return null;
+      if (typeof field === 'object' && field?.value !== undefined) {
+        return String(field.value);
+      }
+      return String(field);
+    };
+
+    // Categorize projects by inspection status
+    const waitingForInspection: any[] = [];
+    const inspectionScheduled: any[] = [];
+    const inspectionFailed: any[] = [];
+    const inspectionPassed: any[] = [];
+
+    for (const project of projects) {
+      const installDate = extractDateValue(project[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]);
+      const scheduledDate = extractDateValue(project[PROJECT_FIELDS.INSPECTION_SCHEDULED_DATE]);
+      const failedDate = extractDateValue(project[PROJECT_FIELDS.INSPECTION_FAILED_DATE]);
+      const passedDate = extractDateValue(project[PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED]);
+
+      // Determine inspection status and days in status
+      let inspectionStatus: import('@/lib/types/operations').PCInspectionStatus;
+      let statusDate: string | null;
+
+      if (passedDate) {
+        inspectionStatus = 'inspection_passed';
+        statusDate = passedDate;
+      } else if (failedDate) {
+        inspectionStatus = 'inspection_failed';
+        statusDate = failedDate;
+      } else if (scheduledDate) {
+        inspectionStatus = 'inspection_scheduled';
+        statusDate = scheduledDate;
+      } else {
+        inspectionStatus = 'waiting_for_inspection';
+        statusDate = installDate;
+      }
+
+      // Calculate days in status
+      const now = new Date();
+      const statusDateObj = statusDate ? new Date(statusDate) : new Date();
+      const daysInStatus = Math.ceil((now.getTime() - statusDateObj.getTime()) / (1000 * 60 * 60 * 24));
+
+      // Get failure reason (if failed)
+      let failureReason: string | null = null;
+      if (inspectionStatus === 'inspection_failed') {
+        const blockReason = extractStringValue(project[PROJECT_FIELDS.BLOCK_REASON]);
+        const note = extractStringValue(project[PROJECT_FIELDS.NOTE]);
+
+        // Prefer BLOCK_REASON, fallback to NOTE
+        if (blockReason && blockReason.toLowerCase().includes('inspection')) {
+          failureReason = blockReason;
+        } else if (note && note.toLowerCase().includes('inspection')) {
+          // Extract inspection-related portion of notes
+          const sentences = note.split(/[.!?]/);
+          const inspectionSentence = sentences.find(s => s.toLowerCase().includes('inspection'));
+          failureReason = inspectionSentence ? inspectionSentence.trim() : note.substring(0, 200);
+        } else {
+          failureReason = blockReason || null;
+        }
+      }
+
+      const inspectionProject = {
+        recordId: project[PROJECT_FIELDS.RECORD_ID],
+        projectId: extractStringValue(project[PROJECT_FIELDS.PROJECT_ID]),
+        customerName: extractStringValue(project[PROJECT_FIELDS.CUSTOMER_NAME]),
+        customerPhone: extractStringValue(project[PROJECT_FIELDS.CUSTOMER_PHONE]),
+        salesOffice: extractStringValue(project[PROJECT_FIELDS.SALES_OFFICE]),
+        inspectionStatus,
+        installCompletedDate: installDate,
+        inspectionScheduledDate: scheduledDate,
+        inspectionFailedDate: failedDate,
+        inspectionPassedDate: passedDate,
+        daysInStatus,
+        failureReason,
+        coordinatorEmail: extractStringValue(project[PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL]),
+        salesRepName: extractStringValue(project[PROJECT_FIELDS.CLOSER_NAME]),
+        salesRepEmail: extractStringValue(project[PROJECT_FIELDS.CLOSER_EMAIL]),
+        lenderName: extractStringValue(project[PROJECT_FIELDS.LENDER_NAME])
+      };
+
+      // Add to appropriate category
+      switch (inspectionStatus) {
+        case 'waiting_for_inspection':
+          waitingForInspection.push(inspectionProject);
+          break;
+        case 'inspection_scheduled':
+          inspectionScheduled.push(inspectionProject);
+          break;
+        case 'inspection_failed':
+          inspectionFailed.push(inspectionProject);
+          break;
+        case 'inspection_passed':
+          inspectionPassed.push(inspectionProject);
+          break;
+      }
+    }
+
+    const result = {
+      waitingForInspection,
+      inspectionScheduled,
+      inspectionFailed,
+      inspectionPassed,
+      counts: {
+        waitingForInspection: waitingForInspection.length,
+        inspectionScheduled: inspectionScheduled.length,
+        inspectionFailed: inspectionFailed.length,
+        inspectionPassed: inspectionPassed.length
+      }
+    };
+
+    logQuickbaseResponse('getInspectionProjects', result, reqId);
+    return result;
+
+  } catch (error) {
+    logQuickbaseError('getInspectionProjects', error as Error, { pcEmail, reqId });
+    throw error;
+  }
+}

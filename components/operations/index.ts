@@ -39,3 +39,6 @@ export { PCBottlenecksCard } from './PCBottlenecksCard';
 
 // PC Calendar Component
 export { PCCalendar } from './PCCalendar';
+
+// PC Inspections Components
+export { InspectionsTable, InspectionTableSkeleton } from './InspectionsTable';

@@ -60,6 +60,7 @@ export function TopNavbar() {
   // Operations navigation items
   const operationsNavigationItems = [
     { name: 'Dashboard', href: '/operations', icon: Home, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
+    { name: 'Projects', href: '/operations/projects', icon: FolderKanban, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
     { name: 'Outreach', href: '/operations/outreach', icon: MessageSquare, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
     { name: 'Communications', href: '/operations/communications', icon: Phone, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
     { name: 'Escalations', href: '/operations/escalations', icon: AlertTriangle, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },

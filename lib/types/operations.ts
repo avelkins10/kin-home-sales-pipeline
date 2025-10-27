@@ -711,3 +711,56 @@ export interface PCCalendarFilters {
   status: PCCalendarEvent['status'] | 'all';
   dateRange: { start: Date; end: Date };
 }
+
+// =============================================================================
+// PC INSPECTIONS TYPES
+// =============================================================================
+
+// Inspection status type
+export type PCInspectionStatus =
+  | 'waiting_for_inspection'   // Install complete, no inspection scheduled
+  | 'inspection_scheduled'     // Inspection date is scheduled
+  | 'inspection_failed'        // Inspection failed, needs remediation
+  | 'inspection_passed';       // Inspection passed, waiting for PTO
+
+// PC Inspection Project
+export interface PCInspectionProject {
+  recordId: number;
+  projectId: string;
+  customerName: string;
+  customerPhone: string;
+  salesOffice: string;
+  inspectionStatus: PCInspectionStatus;
+  installCompletedDate: string | null;
+  inspectionScheduledDate: string | null;
+  inspectionFailedDate: string | null;
+  inspectionPassedDate: string | null;
+  daysInStatus: number; // days since entering current status
+  failureReason: string | null; // from NOTE or BLOCK_REASON field
+  coordinatorEmail: string;
+  salesRepName: string;
+  salesRepEmail: string;
+  lenderName: string;
+}
+
+// PC Inspection Data (returned by API)
+export interface PCInspectionData {
+  waitingForInspection: PCInspectionProject[];
+  inspectionScheduled: PCInspectionProject[];
+  inspectionFailed: PCInspectionProject[];
+  inspectionPassed: PCInspectionProject[];
+  counts: {
+    waitingForInspection: number;
+    inspectionScheduled: number;
+    inspectionFailed: number;
+    inspectionPassed: number;
+  };
+}
+
+// PC Inspection Filters
+export interface PCInspectionFilters {
+  status: PCInspectionStatus | 'all';
+  office: string | 'all';
+  salesRep: string | 'all';
+  search: string;
+}
