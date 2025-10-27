@@ -61,8 +61,13 @@ export function PCPriorityQueue({ priorityQueue }: PCPriorityQueueProps) {
     return 'bg-yellow-100 text-yellow-800 border-yellow-200';
   };
 
-  const getContactMethodIcon = (method: string) => {
-    switch (method.toLowerCase()) {
+  const getContactMethodIcon = (method: string | any) => {
+    // Handle both string and wrapped object {value: "string"} from QuickBase
+    const methodStr = typeof method === 'object' && method?.value
+      ? String(method.value).toLowerCase()
+      : String(method || 'call').toLowerCase();
+
+    switch (methodStr) {
       case 'text':
         return MessageSquare;
       case 'email':
