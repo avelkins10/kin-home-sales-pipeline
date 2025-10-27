@@ -134,8 +134,8 @@ export function PCProjectPipeline({ pipeline }: PCProjectPipelineProps) {
                             </span>
                           </div>
                           <div className="flex items-center justify-between text-xs text-gray-500">
-                            <span>#{project.projectId}</span>
-                            <span>{project.daysInStage} days</span>
+                            <span>#{extractValue(project.projectId)}</span>
+                            <span>{extractValue(project.daysInStage)} days</span>
                           </div>
                         </div>
                       ))}

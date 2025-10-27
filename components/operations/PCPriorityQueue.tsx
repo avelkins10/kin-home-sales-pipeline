@@ -147,7 +147,7 @@ export function PCPriorityQueue({ priorityQueue }: PCPriorityQueueProps) {
                         {extractValue(item.customerName)}
                       </p>
                       <span className="text-xs text-gray-500">
-                        #{item.projectId}
+                        #{extractValue(item.projectId)}
                       </span>
                     </div>
 
@@ -156,7 +156,7 @@ export function PCPriorityQueue({ priorityQueue }: PCPriorityQueueProps) {
                         <Calendar className="h-3 w-3" />
                         <span>{extractValue(item.currentStage)}</span>
                         <span>•</span>
-                        <span>{item.daysInStage} days</span>
+                        <span>{extractValue(item.daysInStage)} days</span>
                       </div>
 
                       <div className="flex items-center space-x-1 text-xs text-gray-600">
