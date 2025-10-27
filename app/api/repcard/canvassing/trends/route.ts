@@ -44,17 +44,20 @@ function calculateDateRange(timeRange: string, startDate?: string, endDate?: str
       calculatedStartDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
       calculatedEndDate = now.toISOString().split('T')[0];
       break;
+    case 'last_month':
+      const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+      calculatedStartDate = lastMonthStart.toISOString().split('T')[0];
+      calculatedEndDate = lastMonthEnd.toISOString().split('T')[0];
+      break;
+    case 'ytd':
+      calculatedStartDate = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0];
+      calculatedEndDate = now.toISOString().split('T')[0];
+      break;
     case 'quarter':
       const quarterStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
       calculatedStartDate = quarterStart.toISOString().split('T')[0];
       calculatedEndDate = now.toISOString().split('T')[0];
-      break;
-    case 'custom':
-      if (!startDate || !endDate) {
-        throw new Error('startDate and endDate are required for custom time range');
-      }
-      calculatedStartDate = startDate;
-      calculatedEndDate = endDate;
       break;
     case 'last_30':
       const last30 = new Date(now);
@@ -73,6 +76,18 @@ function calculateDateRange(timeRange: string, startDate?: string, endDate?: str
       last12.setMonth(now.getMonth() - 12);
       calculatedStartDate = last12.toISOString().split('T')[0];
       calculatedEndDate = now.toISOString().split('T')[0];
+      break;
+    case 'lifetime':
+      // Return a very old date for lifetime
+      calculatedStartDate = '2000-01-01';
+      calculatedEndDate = now.toISOString().split('T')[0];
+      break;
+    case 'custom':
+      if (!startDate || !endDate) {
+        throw new Error('startDate and endDate are required for custom time range');
+      }
+      calculatedStartDate = startDate;
+      calculatedEndDate = endDate;
       break;
     default:
       // Default to last 7 days
