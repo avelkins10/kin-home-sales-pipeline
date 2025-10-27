@@ -34,7 +34,15 @@ export function EscalationCard({ escalation, onAction, onViewDetails }: Escalati
   const [showResolveDialog, setShowResolveDialog] = useState(false);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [showNotifyDialog, setShowNotifyDialog] = useState(false);
-  
+
+  // Helper to extract value from QuickBase wrapped objects
+  const extractValue = (field: any): string => {
+    if (typeof field === 'object' && field?.value) {
+      return String(field.value);
+    }
+    return String(field || '');
+  };
+
   // Form state
   const [selectedRepEmail, setSelectedRepEmail] = useState('');
   const [assignmentNote, setAssignmentNote] = useState('');
@@ -104,7 +112,7 @@ export function EscalationCard({ escalation, onAction, onViewDetails }: Escalati
               </h3>
               {escalation.assignedEscalationRep && (
                 <p className="text-sm text-gray-600">
-                  Assigned to: {escalation.assignedEscalationRep}
+                  Assigned to: {extractValue(escalation.assignedEscalationRep)}
                 </p>
               )}
             </div>
@@ -114,7 +122,7 @@ export function EscalationCard({ escalation, onAction, onViewDetails }: Escalati
           </div>
 
           <p className="text-sm text-gray-700 mb-2 line-clamp-2">
-            {escalation.salesAidReason}
+            {extractValue(escalation.salesAidReason)}
           </p>
 
           <div className="flex items-center gap-2 mb-2">
