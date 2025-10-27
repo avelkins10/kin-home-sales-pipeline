@@ -257,9 +257,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    logError('Failed to create user invite', error instanceof Error ? error : new Error(String(error)))
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorStack = error instanceof Error ? error.stack : undefined
+
+    logError('Failed to create user invite', error instanceof Error ? error : new Error(String(error)), {
+      errorMessage,
+      errorStack,
+      body: JSON.stringify(body)
+    })
+
     return NextResponse.json(
-      { error: 'Failed to create user invite' },
+      {
+        error: 'Failed to create user invite',
+        message: errorMessage,
+        ...(process.env.NODE_ENV === 'development' && { stack: errorStack })
+      },
       { status: 500 }
     )
   }
