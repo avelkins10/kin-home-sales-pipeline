@@ -1112,3 +1112,171 @@ export function getAllTasksCompleteEmailTemplate(
 
   return getEmailLayout(content, `All Tasks Complete: ${projectName}`);
 }
+
+/**
+ * Generate HTML template for daily digest email
+ */
+export function getDailyDigestEmailTemplate(
+  recipientName: string,
+  digestData: {
+    unreadNotifications: number;
+    criticalNotifications: number;
+    tasksCompleted: number;
+    tasksNeedingAttention: number;
+    projectsUpdated: number;
+    newProjects: number;
+    topNotifications: Array<{
+      title: string;
+      message: string;
+      projectName: string;
+      priority: 'critical' | 'normal' | 'info';
+    }>;
+  },
+  dashboardUrl: string
+): string {
+  const styles = getEmailStyles();
+  const today = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+
+  const content = `
+    <!-- Header -->
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+      <tr>
+        <td align="center" style="padding-bottom: 30px;">
+          <div style="background-color: ${styles.primary}; color: white; padding: 20px; border-radius: 8px; text-align: center;">
+            <div style="font-size: 32px; margin-bottom: 10px;">📊</div>
+            <h1 style="margin: 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.xlarge}; font-weight: 600; color: white;">
+              Daily Digest
+            </h1>
+            <p style="margin: 8px 0 0 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: rgba(255,255,255,0.9);">
+              ${today}
+            </p>
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Greeting -->
+    <div style="margin-bottom: 30px;">
+      <h2 style="margin: 0 0 10px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.large}; font-weight: 600; color: ${styles.text};">
+        Good morning, ${recipientName}!
+      </h2>
+      <p style="margin: 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; line-height: 1.5;">
+        Here's your daily summary from the Kin Home Sales Dashboard.
+      </p>
+    </div>
+
+    <!-- Quick Stats Grid -->
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom: 30px;">
+      <tr>
+        <td style="padding: 0 10px 10px 0; width: 50%;">
+          <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 15px; text-align: center;">
+            <div style="font-family: ${styles.fontFamily}; font-size: 32px; font-weight: 700; color: #dc2626; margin-bottom: 5px;">
+              ${digestData.criticalNotifications}
+            </div>
+            <div style="font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.small}; color: #991b1b; font-weight: 600;">
+              Critical Alerts
+            </div>
+          </div>
+        </td>
+        <td style="padding: 0 0 10px 10px; width: 50%;">
+          <div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 15px; text-align: center;">
+            <div style="font-family: ${styles.fontFamily}; font-size: 32px; font-weight: 700; color: #2563eb; margin-bottom: 5px;">
+              ${digestData.unreadNotifications}
+            </div>
+            <div style="font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.small}; color: #1e40af; font-weight: 600;">
+              Unread Messages
+            </div>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 10px 0 0; width: 50%;">
+          <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 15px; text-align: center;">
+            <div style="font-family: ${styles.fontFamily}; font-size: 32px; font-weight: 700; color: #16a34a; margin-bottom: 5px;">
+              ${digestData.tasksCompleted}
+            </div>
+            <div style="font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.small}; color: #15803d; font-weight: 600;">
+              Tasks Completed
+            </div>
+          </div>
+        </td>
+        <td style="padding: 10px 0 0 10px; width: 50%;">
+          <div style="background-color: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 15px; text-align: center;">
+            <div style="font-family: ${styles.fontFamily}; font-size: 32px; font-weight: 700; color: #ea580c; margin-bottom: 5px;">
+              ${digestData.tasksNeedingAttention}
+            </div>
+            <div style="font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.small}; color: #c2410c; font-weight: 600;">
+              Need Attention
+            </div>
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Activity Summary -->
+    ${digestData.newProjects > 0 || digestData.projectsUpdated > 0 ? `
+    <div style="margin-bottom: 30px; padding: 20px; background-color: #f8f9fa; border: 1px solid ${styles.border}; border-radius: 8px;">
+      <h3 style="margin: 0 0 15px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; font-weight: 600; color: ${styles.text};">
+        Activity Summary
+      </h3>
+      <ul style="margin: 0; padding-left: 20px; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; line-height: 1.8;">
+        ${digestData.newProjects > 0 ? `<li><strong>${digestData.newProjects}</strong> new project${digestData.newProjects === 1 ? '' : 's'} added</li>` : ''}
+        ${digestData.projectsUpdated > 0 ? `<li><strong>${digestData.projectsUpdated}</strong> project${digestData.projectsUpdated === 1 ? '' : 's'} updated</li>` : ''}
+        ${digestData.tasksCompleted > 0 ? `<li><strong>${digestData.tasksCompleted}</strong> task${digestData.tasksCompleted === 1 ? '' : 's'} completed</li>` : ''}
+      </ul>
+    </div>
+    ` : ''}
+
+    <!-- Top Notifications -->
+    ${digestData.topNotifications.length > 0 ? `
+    <div style="margin-bottom: 30px;">
+      <h3 style="margin: 0 0 15px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; font-weight: 600; color: ${styles.text};">
+        Recent Notifications
+      </h3>
+      ${digestData.topNotifications.map(notif => {
+        const bgColor = notif.priority === 'critical' ? '#fef2f2' : notif.priority === 'normal' ? '#eff6ff' : '#f8f9fa';
+        const borderColor = notif.priority === 'critical' ? '#fecaca' : notif.priority === 'normal' ? '#bfdbfe' : '#e5e7eb';
+
+        return `
+          <div style="margin-bottom: 12px; padding: 15px; background-color: ${bgColor}; border: 1px solid ${borderColor}; border-radius: 6px;">
+            <div style="font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; font-weight: 600; color: ${styles.text}; margin-bottom: 5px;">
+              ${notif.title}
+            </div>
+            <div style="font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.small}; color: #666; margin-bottom: 5px;">
+              ${notif.message}
+            </div>
+            <div style="font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.small}; color: #999;">
+              Project: ${notif.projectName}
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+    ` : ''}
+
+    <!-- Call to Action -->
+    <div style="margin-bottom: 30px; text-align: center;">
+      <a href="${dashboardUrl}"
+         style="display: inline-block; background-color: ${styles.primary}; color: white; text-decoration: none; padding: 15px 30px; border-radius: 6px; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; font-weight: 600; text-align: center; min-width: 200px;">
+        View Dashboard
+      </a>
+    </div>
+
+    <!-- Footer -->
+    <div style="border-top: 1px solid ${styles.border}; padding-top: 20px; text-align: center;">
+      <p style="margin: 0 0 10px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.small}; color: #666; line-height: 1.4;">
+        This daily digest is sent every morning at 8:00 AM. You can manage your email preferences in Settings.
+      </p>
+      <p style="margin: 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.small}; color: #999; line-height: 1.4;">
+        © ${new Date().getFullYear()} Kin Home. All rights reserved.
+      </p>
+    </div>
+  `;
+
+  return getEmailLayout(content, `Daily Digest - ${today}`);
+}

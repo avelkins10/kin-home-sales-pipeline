@@ -414,11 +414,11 @@ async function sendEmailNotification(check: PCMilestoneCheck) {
       dashboardUrl
     );
 
-    await sendCustomEmail({
-      to: check.coordinator_email,
-      subject: `${getNotificationTitle(check.milestone_type, check.customer_name)} - Action Required`,
-      html: emailTemplate
-    });
+    await sendCustomEmail(
+      check.coordinator_email,
+      `${getNotificationTitle(check.milestone_type, check.customer_name)} - Action Required`,
+      emailTemplate
+    );
 
     logInfo('Sent milestone email notification', {
       coordinatorEmail: check.coordinator_email,
