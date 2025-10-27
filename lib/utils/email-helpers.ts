@@ -7,10 +7,14 @@
 
 import { sendMail } from './mailer';
 import { logInfo, logError, logEmailEvent } from '@/lib/logging/logger';
-import { 
-  getInviteEmailTemplate, 
-  getWelcomeEmailTemplate, 
-  getPasswordResetEmailTemplate 
+import {
+  getInviteEmailTemplate,
+  getWelcomeEmailTemplate,
+  getPasswordResetEmailTemplate,
+  getTaskSubmittedEmailTemplate,
+  getTaskApprovedEmailTemplate,
+  getTaskRevisionNeededEmailTemplate,
+  getAllTasksCompleteEmailTemplate
 } from './email-templates';
 
 interface EmailResult {
@@ -288,10 +292,262 @@ export async function sendCustomEmail(
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logEmailEvent('send_failure', { recipient: to, emailType: 'custom', error: errorMessage });
-    
-    return { 
-      success: false, 
-      error: errorMessage 
+
+    return {
+      success: false,
+      error: errorMessage
+    };
+  }
+}
+
+/**
+ * Send task submitted notification email
+ * ALWAYS sent - no user configuration needed
+ */
+export async function sendTaskSubmittedEmail(
+  recipientEmail: string,
+  recipientName: string,
+  submitterName: string,
+  taskName: string,
+  taskCategory: string | undefined,
+  projectId: number,
+  projectName: string,
+  customerName: string,
+  notes: string | undefined
+): Promise<EmailResult> {
+  try {
+    // Check if email is enabled
+    if (process.env.EMAIL_ENABLED !== 'true') {
+      logEmailEvent('send_skipped', { recipient: recipientEmail, emailType: 'task_submitted' });
+      return { success: false, error: 'email_disabled', skipped: true };
+    }
+
+    // Validate email configuration
+    const config = validateEmailConfig();
+    if (!config.valid) {
+      logEmailEvent('send_skipped', { recipient: recipientEmail, emailType: 'task_submitted' });
+      return { success: false, error: 'email_disabled', skipped: true };
+    }
+
+    logEmailEvent('send_attempt', { recipient: recipientEmail, emailType: 'task_submitted' });
+
+    const dashboardUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://dashboard.kinhome.com';
+    const html = getTaskSubmittedEmailTemplate(
+      recipientName,
+      submitterName,
+      taskName,
+      taskCategory,
+      projectId,
+      projectName,
+      customerName,
+      notes,
+      dashboardUrl
+    );
+
+    await retryWithBackoff(async () => {
+      await sendMail({
+        to: recipientEmail,
+        subject: `Task Submitted: ${taskName}`,
+        html
+      });
+    });
+
+    logEmailEvent('send_success', { recipient: recipientEmail, emailType: 'task_submitted' });
+    return { success: true };
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logEmailEvent('send_failure', { recipient: recipientEmail, emailType: 'task_submitted', error: errorMessage });
+
+    return {
+      success: false,
+      error: errorMessage
+    };
+  }
+}
+
+/**
+ * Send task approved notification email
+ * ALWAYS sent - no user configuration needed
+ */
+export async function sendTaskApprovedEmail(
+  recipientEmail: string,
+  recipientName: string,
+  taskName: string,
+  taskCategory: string | undefined,
+  projectId: number,
+  projectName: string,
+  customerName: string
+): Promise<EmailResult> {
+  try {
+    // Check if email is enabled
+    if (process.env.EMAIL_ENABLED !== 'true') {
+      logEmailEvent('send_skipped', { recipient: recipientEmail, emailType: 'task_approved' });
+      return { success: false, error: 'email_disabled', skipped: true };
+    }
+
+    // Validate email configuration
+    const config = validateEmailConfig();
+    if (!config.valid) {
+      logEmailEvent('send_skipped', { recipient: recipientEmail, emailType: 'task_approved' });
+      return { success: false, error: 'email_disabled', skipped: true };
+    }
+
+    logEmailEvent('send_attempt', { recipient: recipientEmail, emailType: 'task_approved' });
+
+    const dashboardUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://dashboard.kinhome.com';
+    const html = getTaskApprovedEmailTemplate(
+      recipientName,
+      taskName,
+      taskCategory,
+      projectId,
+      projectName,
+      customerName,
+      dashboardUrl
+    );
+
+    await retryWithBackoff(async () => {
+      await sendMail({
+        to: recipientEmail,
+        subject: `Task Approved: ${taskName}`,
+        html
+      });
+    });
+
+    logEmailEvent('send_success', { recipient: recipientEmail, emailType: 'task_approved' });
+    return { success: true };
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logEmailEvent('send_failure', { recipient: recipientEmail, emailType: 'task_approved', error: errorMessage });
+
+    return {
+      success: false,
+      error: errorMessage
+    };
+  }
+}
+
+/**
+ * Send task revision needed notification email
+ * ALWAYS sent - no user configuration needed
+ */
+export async function sendTaskRevisionNeededEmail(
+  recipientEmail: string,
+  recipientName: string,
+  taskName: string,
+  taskCategory: string | undefined,
+  projectId: number,
+  projectName: string,
+  customerName: string,
+  opsFeedback: string | undefined
+): Promise<EmailResult> {
+  try {
+    // Check if email is enabled
+    if (process.env.EMAIL_ENABLED !== 'true') {
+      logEmailEvent('send_skipped', { recipient: recipientEmail, emailType: 'task_revision_needed' });
+      return { success: false, error: 'email_disabled', skipped: true };
+    }
+
+    // Validate email configuration
+    const config = validateEmailConfig();
+    if (!config.valid) {
+      logEmailEvent('send_skipped', { recipient: recipientEmail, emailType: 'task_revision_needed' });
+      return { success: false, error: 'email_disabled', skipped: true };
+    }
+
+    logEmailEvent('send_attempt', { recipient: recipientEmail, emailType: 'task_revision_needed' });
+
+    const dashboardUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://dashboard.kinhome.com';
+    const html = getTaskRevisionNeededEmailTemplate(
+      recipientName,
+      taskName,
+      taskCategory,
+      projectId,
+      projectName,
+      customerName,
+      opsFeedback,
+      dashboardUrl
+    );
+
+    await retryWithBackoff(async () => {
+      await sendMail({
+        to: recipientEmail,
+        subject: `Revision Needed: ${taskName}`,
+        html
+      });
+    });
+
+    logEmailEvent('send_success', { recipient: recipientEmail, emailType: 'task_revision_needed' });
+    return { success: true };
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logEmailEvent('send_failure', { recipient: recipientEmail, emailType: 'task_revision_needed', error: errorMessage });
+
+    return {
+      success: false,
+      error: errorMessage
+    };
+  }
+}
+
+/**
+ * Send all tasks complete notification email
+ * ALWAYS sent - no user configuration needed
+ */
+export async function sendAllTasksCompleteEmail(
+  recipientEmail: string,
+  recipientName: string,
+  projectId: number,
+  projectName: string,
+  customerName: string,
+  totalTasks: number
+): Promise<EmailResult> {
+  try {
+    // Check if email is enabled
+    if (process.env.EMAIL_ENABLED !== 'true') {
+      logEmailEvent('send_skipped', { recipient: recipientEmail, emailType: 'all_tasks_complete' });
+      return { success: false, error: 'email_disabled', skipped: true };
+    }
+
+    // Validate email configuration
+    const config = validateEmailConfig();
+    if (!config.valid) {
+      logEmailEvent('send_skipped', { recipient: recipientEmail, emailType: 'all_tasks_complete' });
+      return { success: false, error: 'email_disabled', skipped: true };
+    }
+
+    logEmailEvent('send_attempt', { recipient: recipientEmail, emailType: 'all_tasks_complete' });
+
+    const dashboardUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://dashboard.kinhome.com';
+    const html = getAllTasksCompleteEmailTemplate(
+      recipientName,
+      projectId,
+      projectName,
+      customerName,
+      totalTasks,
+      dashboardUrl
+    );
+
+    await retryWithBackoff(async () => {
+      await sendMail({
+        to: recipientEmail,
+        subject: `All Tasks Complete: ${projectName}`,
+        html
+      });
+    });
+
+    logEmailEvent('send_success', { recipient: recipientEmail, emailType: 'all_tasks_complete' });
+    return { success: true };
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logEmailEvent('send_failure', { recipient: recipientEmail, emailType: 'all_tasks_complete', error: errorMessage });
+
+    return {
+      success: false,
+      error: errorMessage
     };
   }
 }

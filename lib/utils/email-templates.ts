@@ -662,3 +662,453 @@ export function getPCMilestoneEmailTemplate(
 
   return getEmailLayout(content, `${milestoneInfo.title}: ${customerName} - Action Required`);
 }
+
+/**
+ * Generate HTML template for task submitted notification
+ */
+export function getTaskSubmittedEmailTemplate(
+  recipientName: string,
+  submitterName: string,
+  taskName: string,
+  taskCategory: string | undefined,
+  projectId: number,
+  projectName: string,
+  customerName: string,
+  notes: string | undefined,
+  dashboardUrl: string
+): string {
+  const styles = getEmailStyles();
+
+  const content = `
+    <!-- Header -->
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+      <tr>
+        <td align="center" style="padding-bottom: 30px;">
+          <div style="background-color: ${styles.primary}; color: white; padding: 20px; border-radius: 8px; text-align: center;">
+            <div style="font-size: 32px; margin-bottom: 10px;">📋</div>
+            <h1 style="margin: 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.xlarge}; font-weight: 600; color: white;">
+              Task Submitted for Review
+            </h1>
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Greeting -->
+    <div style="margin-bottom: 30px;">
+      <h2 style="margin: 0 0 10px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.large}; font-weight: 600; color: ${styles.text};">
+        Hi ${recipientName},
+      </h2>
+      <p style="margin: 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; line-height: 1.5;">
+        ${submitterName} has submitted a task for review.
+      </p>
+    </div>
+
+    <!-- Task Details Card -->
+    <div style="margin-bottom: 30px; padding: 20px; background-color: #f8f9fa; border: 1px solid ${styles.border}; border-radius: 8px;">
+      <h3 style="margin: 0 0 15px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; font-weight: 600; color: ${styles.text};">
+        Task Details
+      </h3>
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; font-weight: 600; width: 120px;">
+            Task:
+          </td>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text};">
+            ${taskName}
+          </td>
+        </tr>
+        ${taskCategory ? `
+        <tr>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; font-weight: 600;">
+            Category:
+          </td>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text};">
+            ${taskCategory}
+          </td>
+        </tr>
+        ` : ''}
+        <tr>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; font-weight: 600;">
+            Project:
+          </td>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text};">
+            ${projectName}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; font-weight: 600;">
+            Customer:
+          </td>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text};">
+            ${customerName}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; font-weight: 600;">
+            Submitted By:
+          </td>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text};">
+            ${submitterName}
+          </td>
+        </tr>
+      </table>
+      ${notes ? `
+        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid ${styles.border};">
+          <p style="margin: 0 0 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; font-weight: 600;">
+            Submission Notes:
+          </p>
+          <p style="margin: 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; line-height: 1.5; white-space: pre-wrap;">
+            ${notes}
+          </p>
+        </div>
+      ` : ''}
+    </div>
+
+    <!-- Call to Action -->
+    <div style="margin-bottom: 30px; text-align: center;">
+      <a href="${dashboardUrl}/projects/${projectId}#tasks"
+         style="display: inline-block; background-color: ${styles.primary}; color: white; text-decoration: none; padding: 15px 30px; border-radius: 6px; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; font-weight: 600; text-align: center; min-width: 200px;">
+        Review Submission
+      </a>
+    </div>
+
+    <!-- Footer -->
+    <div style="border-top: 1px solid ${styles.border}; padding-top: 20px; text-align: center;">
+      <p style="margin: 0 0 10px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.small}; color: #666; line-height: 1.4;">
+        This is an automated notification from the Kin Home Sales Dashboard.
+      </p>
+      <p style="margin: 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.small}; color: #999; line-height: 1.4;">
+        © ${new Date().getFullYear()} Kin Home. All rights reserved.
+      </p>
+    </div>
+  `;
+
+  return getEmailLayout(content, `Task Submitted: ${taskName}`);
+}
+
+/**
+ * Generate HTML template for task approved notification
+ */
+export function getTaskApprovedEmailTemplate(
+  recipientName: string,
+  taskName: string,
+  taskCategory: string | undefined,
+  projectId: number,
+  projectName: string,
+  customerName: string,
+  dashboardUrl: string
+): string {
+  const styles = getEmailStyles();
+
+  const content = `
+    <!-- Header -->
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+      <tr>
+        <td align="center" style="padding-bottom: 30px;">
+          <div style="background-color: ${styles.secondary}; color: white; padding: 20px; border-radius: 8px; text-align: center;">
+            <div style="font-size: 32px; margin-bottom: 10px;">✅</div>
+            <h1 style="margin: 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.xlarge}; font-weight: 600; color: white;">
+              Task Approved!
+            </h1>
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Greeting -->
+    <div style="margin-bottom: 30px;">
+      <h2 style="margin: 0 0 10px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.large}; font-weight: 600; color: ${styles.text};">
+        Great news, ${recipientName}!
+      </h2>
+      <p style="margin: 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; line-height: 1.5;">
+        Your task submission has been approved by operations.
+      </p>
+    </div>
+
+    <!-- Task Details Card -->
+    <div style="margin-bottom: 30px; padding: 20px; background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;">
+      <h3 style="margin: 0 0 15px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; font-weight: 600; color: ${styles.text};">
+        Approved Task
+      </h3>
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; font-weight: 600; width: 120px;">
+            Task:
+          </td>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text};">
+            ${taskName}
+          </td>
+        </tr>
+        ${taskCategory ? `
+        <tr>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; font-weight: 600;">
+            Category:
+          </td>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text};">
+            ${taskCategory}
+          </td>
+        </tr>
+        ` : ''}
+        <tr>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; font-weight: 600;">
+            Project:
+          </td>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text};">
+            ${projectName}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; font-weight: 600;">
+            Customer:
+          </td>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text};">
+            ${customerName}
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Call to Action -->
+    <div style="margin-bottom: 30px; text-align: center;">
+      <a href="${dashboardUrl}/projects/${projectId}#tasks"
+         style="display: inline-block; background-color: ${styles.secondary}; color: white; text-decoration: none; padding: 15px 30px; border-radius: 6px; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; font-weight: 600; text-align: center; min-width: 200px;">
+        View Project
+      </a>
+    </div>
+
+    <!-- Footer -->
+    <div style="border-top: 1px solid ${styles.border}; padding-top: 20px; text-align: center;">
+      <p style="margin: 0 0 10px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.small}; color: #666; line-height: 1.4;">
+        This is an automated notification from the Kin Home Sales Dashboard.
+      </p>
+      <p style="margin: 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.small}; color: #999; line-height: 1.4;">
+        © ${new Date().getFullYear()} Kin Home. All rights reserved.
+      </p>
+    </div>
+  `;
+
+  return getEmailLayout(content, `Task Approved: ${taskName}`);
+}
+
+/**
+ * Generate HTML template for task revision needed notification
+ */
+export function getTaskRevisionNeededEmailTemplate(
+  recipientName: string,
+  taskName: string,
+  taskCategory: string | undefined,
+  projectId: number,
+  projectName: string,
+  customerName: string,
+  opsFeedback: string | undefined,
+  dashboardUrl: string
+): string {
+  const styles = getEmailStyles();
+
+  const content = `
+    <!-- Header -->
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+      <tr>
+        <td align="center" style="padding-bottom: 30px;">
+          <div style="background-color: #f97316; color: white; padding: 20px; border-radius: 8px; text-align: center;">
+            <div style="font-size: 32px; margin-bottom: 10px;">⚠️</div>
+            <h1 style="margin: 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.xlarge}; font-weight: 600; color: white;">
+              Revision Needed
+            </h1>
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Greeting -->
+    <div style="margin-bottom: 30px;">
+      <h2 style="margin: 0 0 10px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.large}; font-weight: 600; color: ${styles.text};">
+        Hi ${recipientName},
+      </h2>
+      <p style="margin: 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; line-height: 1.5;">
+        Operations has requested revisions on your task submission.
+      </p>
+    </div>
+
+    <!-- Task Details Card -->
+    <div style="margin-bottom: 30px; padding: 20px; background-color: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px;">
+      <h3 style="margin: 0 0 15px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; font-weight: 600; color: ${styles.text};">
+        Task Details
+      </h3>
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; font-weight: 600; width: 120px;">
+            Task:
+          </td>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text};">
+            ${taskName}
+          </td>
+        </tr>
+        ${taskCategory ? `
+        <tr>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; font-weight: 600;">
+            Category:
+          </td>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text};">
+            ${taskCategory}
+          </td>
+        </tr>
+        ` : ''}
+        <tr>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; font-weight: 600;">
+            Project:
+          </td>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text};">
+            ${projectName}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; font-weight: 600;">
+            Customer:
+          </td>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text};">
+            ${customerName}
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    ${opsFeedback ? `
+    <!-- Feedback Card -->
+    <div style="margin-bottom: 30px; padding: 20px; background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px;">
+      <h3 style="margin: 0 0 10px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; font-weight: 600; color: ${styles.text};">
+        Operations Feedback:
+      </h3>
+      <p style="margin: 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; line-height: 1.5; white-space: pre-wrap;">
+        ${opsFeedback}
+      </p>
+    </div>
+    ` : ''}
+
+    <!-- Call to Action -->
+    <div style="margin-bottom: 30px; text-align: center;">
+      <a href="${dashboardUrl}/projects/${projectId}#tasks"
+         style="display: inline-block; background-color: #f97316; color: white; text-decoration: none; padding: 15px 30px; border-radius: 6px; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; font-weight: 600; text-align: center; min-width: 200px;">
+        Revise Task
+      </a>
+    </div>
+
+    <!-- Footer -->
+    <div style="border-top: 1px solid ${styles.border}; padding-top: 20px; text-align: center;">
+      <p style="margin: 0 0 10px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.small}; color: #666; line-height: 1.4;">
+        This is an automated notification from the Kin Home Sales Dashboard.
+      </p>
+      <p style="margin: 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.small}; color: #999; line-height: 1.4;">
+        © ${new Date().getFullYear()} Kin Home. All rights reserved.
+      </p>
+    </div>
+  `;
+
+  return getEmailLayout(content, `Revision Needed: ${taskName}`);
+}
+
+/**
+ * Generate HTML template for all tasks complete notification
+ */
+export function getAllTasksCompleteEmailTemplate(
+  recipientName: string,
+  projectId: number,
+  projectName: string,
+  customerName: string,
+  totalTasks: number,
+  dashboardUrl: string
+): string {
+  const styles = getEmailStyles();
+
+  const content = `
+    <!-- Header -->
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+      <tr>
+        <td align="center" style="padding-bottom: 30px;">
+          <div style="background-color: ${styles.secondary}; color: white; padding: 20px; border-radius: 8px; text-align: center;">
+            <div style="font-size: 32px; margin-bottom: 10px;">🎉</div>
+            <h1 style="margin: 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.xlarge}; font-weight: 600; color: white;">
+              All Tasks Complete!
+            </h1>
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Greeting -->
+    <div style="margin-bottom: 30px;">
+      <h2 style="margin: 0 0 10px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.large}; font-weight: 600; color: ${styles.text};">
+        Congratulations, ${recipientName}!
+      </h2>
+      <p style="margin: 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; line-height: 1.5;">
+        All ${totalTasks} tasks have been approved for your project. Your project is ready for reactivation.
+      </p>
+    </div>
+
+    <!-- Project Details Card -->
+    <div style="margin-bottom: 30px; padding: 20px; background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;">
+      <h3 style="margin: 0 0 15px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; font-weight: 600; color: ${styles.text};">
+        Project Information
+      </h3>
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; font-weight: 600; width: 140px;">
+            Project:
+          </td>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text};">
+            ${projectName}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; font-weight: 600;">
+            Customer:
+          </td>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text};">
+            ${customerName}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; font-weight: 600;">
+            Tasks Completed:
+          </td>
+          <td style="padding: 8px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.secondary}; font-weight: 600;">
+            ${totalTasks} / ${totalTasks}
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Next Steps -->
+    <div style="margin-bottom: 30px; padding: 20px; background-color: #e7f3ff; border: 1px solid #b3d9ff; border-radius: 8px;">
+      <h3 style="margin: 0 0 15px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; font-weight: 600; color: ${styles.text};">
+        Next Steps
+      </h3>
+      <ul style="margin: 0; padding-left: 20px; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; line-height: 1.8;">
+        <li>Your project will be reactivated by operations</li>
+        <li>You'll be notified when the project moves to the next stage</li>
+        <li>Continue monitoring project progress in the dashboard</li>
+      </ul>
+    </div>
+
+    <!-- Call to Action -->
+    <div style="margin-bottom: 30px; text-align: center;">
+      <a href="${dashboardUrl}/projects/${projectId}"
+         style="display: inline-block; background-color: ${styles.secondary}; color: white; text-decoration: none; padding: 15px 30px; border-radius: 6px; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; font-weight: 600; text-align: center; min-width: 200px;">
+        View Project
+      </a>
+    </div>
+
+    <!-- Footer -->
+    <div style="border-top: 1px solid ${styles.border}; padding-top: 20px; text-align: center;">
+      <p style="margin: 0 0 10px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.small}; color: #666; line-height: 1.4;">
+        This is an automated notification from the Kin Home Sales Dashboard.
+      </p>
+      <p style="margin: 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.small}; color: #999; line-height: 1.4;">
+        © ${new Date().getFullYear()} Kin Home. All rights reserved.
+      </p>
+    </div>
+  `;
+
+  return getEmailLayout(content, `All Tasks Complete: ${projectName}`);
+}

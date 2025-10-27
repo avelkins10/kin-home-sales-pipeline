@@ -4517,6 +4517,25 @@ export async function createTaskNotification(params: {
       projectId: params.projectId,
       taskId: params.taskId,
     });
+
+    // Send email notification (async, don't await to avoid blocking)
+    const { sendTaskNotificationEmail } = await import('@/lib/utils/task-email-sender');
+    sendTaskNotificationEmail({
+      type: params.type,
+      userId: params.userId,
+      projectId: params.projectId,
+      taskName: params.taskName,
+      taskCategory: params.taskCategory,
+      submissionId: params.submissionId,
+      opsDisposition: params.opsDisposition,
+      opsFeedback: params.opsFeedback,
+      totalTasks: params.totalTasks,
+      approvedTasks: params.approvedTasks
+    }).catch(emailError => {
+      // Log email errors but don't throw - email failures shouldn't break notifications
+      console.error('[createTaskNotification] Email sending failed:', emailError);
+    });
+
   } catch (error) {
     logError('Failed to create task notification', error as Error, {
       userId: params.userId,
@@ -4759,7 +4778,9 @@ export async function getPCDashboardMetrics(
         PROJECT_FIELDS.INSTALL_COMPLETED_DATE,
         PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED,
         PROJECT_FIELDS.PTO_APPROVED
-      ]
+      ],
+      sortBy: [{ field: PROJECT_FIELDS.DATE_CREATED, order: 'DESC' }],
+      options: { top: 500 }
     };
 
     const response = await qbClient.queryRecords(query);
@@ -4868,7 +4889,9 @@ export async function getPCPriorityQueue(
         PROJECT_FIELDS.PERMIT_STATUS,
         PROJECT_FIELDS.NEM_INTERCONNECTION_STATUS,
         PROJECT_FIELDS.PTO_STATUS
-      ]
+      ],
+      sortBy: [{ field: PROJECT_FIELDS.DATE_CREATED, order: 'DESC' }],
+      options: { top: 500 }
     };
 
     const response = await qbClient.queryRecords(query);
