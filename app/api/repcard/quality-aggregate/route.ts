@@ -169,7 +169,7 @@ export async function GET(request: NextRequest) {
           timeRange,
           startDate: calculatedStartDate,
           endDate: calculatedEndDate,
-          officeIds: officeIds?.map(String),
+          officeIds: officeIds ? officeIds.map(String) : undefined,
           totalUsers: 0,
           cached: false,
           calculatedAt: new Date().toISOString()
@@ -192,7 +192,7 @@ export async function GET(request: NextRequest) {
           timeRange,
           startDate: calculatedStartDate,
           endDate: calculatedEndDate,
-          officeIds: officeIds?.map(String),
+          officeIds: officeIds ? officeIds.map(String) : undefined,
           totalUsers: 0,
           cached: false,
           calculatedAt: new Date().toISOString()
@@ -230,7 +230,7 @@ export async function GET(request: NextRequest) {
         timeRange,
         startDate: calculatedStartDate,
         endDate: calculatedEndDate,
-        officeIds: officeIds?.map(String),
+        officeIds: officeIds ? officeIds.map(String) : undefined,
         totalUsers: users.length,
         totalAppointments: qualityMetrics.appointmentShowRate.totalAppointments,
         cached: false,

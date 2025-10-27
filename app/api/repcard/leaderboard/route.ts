@@ -178,7 +178,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Build cache key
-    const cacheKey = `${role}:${metric}:${timeRange}:${calculatedStartDate}:${calculatedEndDate}:${officeIds?.map(String).join(',') || 'all'}:${limit}:${page}`;
+    const cacheKey = `${role}:${metric}:${timeRange}:${calculatedStartDate}:${calculatedEndDate}:${officeIds ? officeIds.map(String).join(',') : 'all'}:${limit}:${page}`;
     
     // Check cache
     cleanCache();
@@ -248,7 +248,7 @@ export async function GET(request: NextRequest) {
           timeRange,
           startDate: calculatedStartDate,
           endDate: calculatedEndDate,
-          officeIds: officeIds?.map(String),
+          officeIds: officeIds ? officeIds.map(String) : undefined,
           totalEntries: 0,
           page,
           limit,
@@ -488,7 +488,7 @@ export async function GET(request: NextRequest) {
         timeRange,
         startDate: calculatedStartDate,
         endDate: calculatedEndDate,
-        officeIds: officeIds?.map(String),
+        officeIds: officeIds ? officeIds.map(String) : undefined,
         totalEntries,
         page,
         limit,

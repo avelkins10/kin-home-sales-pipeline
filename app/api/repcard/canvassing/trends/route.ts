@@ -171,7 +171,7 @@ export async function GET(request: NextRequest) {
           timeRange,
           startDate: calculatedStartDate,
           endDate: calculatedEndDate,
-          officeIds: officeIds?.map(String),
+          officeIds: officeIds ? officeIds.map(String) : undefined,
           cached: false,
           calculatedAt: new Date().toISOString()
         }
@@ -232,7 +232,7 @@ export async function GET(request: NextRequest) {
         timeRange,
         startDate: calculatedStartDate,
         endDate: calculatedEndDate,
-        officeIds: officeIds?.map(String),
+        officeIds: officeIds ? officeIds.map(String) : undefined,
         totalDoors: filteredCustomers.length,
         totalDays: trendData.length,
         cached: false,
