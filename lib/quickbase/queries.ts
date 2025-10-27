@@ -6886,12 +6886,7 @@ export async function getPCProjectCommunications(
   try {
     logQuickbaseRequest('getPCProjectCommunications', { projectId, recordId }, reqId);
 
-    const whereClause = {
-      or: [
-        { [INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT]: { EX: projectId } },
-        { [INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT]: { EX: recordId } }
-      ]
-    };
+    const whereClause = `{${INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT}}.EX.'${projectId}' OR {${INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT}}.EX.${recordId}`;
 
     const selectFields = [
       INSTALL_COMMUNICATION_FIELDS.RECORD_ID,
@@ -6902,10 +6897,11 @@ export async function getPCProjectCommunications(
       INSTALL_COMMUNICATION_FIELDS.NEM_BLOCKER_OUTREACH
     ];
 
-    const response = await qbClient.queryRecords(QB_TABLE_INSTALL_COMMUNICATIONS, {
+    const response = await qbClient.queryRecords({
+      from: QB_TABLE_INSTALL_COMMUNICATIONS,
       where: whereClause,
       select: selectFields,
-      sortBy: [{ field: INSTALL_COMMUNICATION_FIELDS.DATE, desc: true }]
+      sortBy: [{ fieldId: INSTALL_COMMUNICATION_FIELDS.DATE, order: 'DESC' }]
     });
 
     const communications: PCConversationItem[] = response.data.map((record: any) => ({
@@ -7057,8 +7053,9 @@ export async function getPCTasksForProject(
     logQuickbaseRequest('getPCTasksForProject', { projectId, recordId }, reqId);
 
     // First, get task groups for this project
-    const taskGroupsResponse = await qbClient.queryRecords(QB_TABLE_TASK_GROUPS, {
-      where: { [TASK_GROUP_FIELDS.RELATED_PROJECT]: { EX: recordId } },
+    const taskGroupsResponse = await qbClient.queryRecords({
+      from: QB_TABLE_TASK_GROUPS,
+      where: `{${TASK_GROUP_FIELDS.RELATED_PROJECT}}.EX.${recordId}`,
       select: [TASK_GROUP_FIELDS.RECORD_ID]
     });
 
@@ -7070,13 +7067,9 @@ export async function getPCTasksForProject(
     const taskGroupIds = taskGroupsResponse.data.map((group: any) => group[TASK_GROUP_FIELDS.RECORD_ID]);
 
     // Query tasks in these groups that are PC-assigned (TASK_CATEGORY starts with 'PC:')
-    const tasksResponse = await qbClient.queryRecords(QB_TABLE_TASKS, {
-      where: {
-        and: [
-          { [TASK_FIELDS.TASK_GROUP]: { IN: taskGroupIds } },
-          { [TASK_FIELDS.TASK_CATEGORY]: { BEGINS: 'PC:' } }
-        ]
-      },
+    const tasksResponse = await qbClient.queryRecords({
+      from: QB_TABLE_TASKS,
+      where: `{${TASK_FIELDS.TASK_GROUP}}.IN.${taskGroupIds.join(',')} AND {${TASK_FIELDS.TASK_CATEGORY}}.SW.'PC:'`,
       select: [
         TASK_FIELDS.RECORD_ID,
         TASK_FIELDS.DATE_CREATED,
@@ -7097,8 +7090,9 @@ export async function getPCTasksForProject(
     // Batch query all submissions for all tasks
     let allSubmissions: any[] = [];
     if (taskIds.length > 0) {
-      const submissionsResponse = await qbClient.queryRecords(QB_TABLE_TASK_SUBMISSIONS, {
-        where: { [TASK_SUBMISSION_FIELDS.RELATED_TASK]: { IN: taskIds } },
+      const submissionsResponse = await qbClient.queryRecords({
+        from: QB_TABLE_TASK_SUBMISSIONS,
+        where: `{${TASK_SUBMISSION_FIELDS.RELATED_TASK}}.IN.${taskIds.join(',')}`,
         select: [
           TASK_SUBMISSION_FIELDS.RECORD_ID,
           TASK_SUBMISSION_FIELDS.DATE_CREATED,
@@ -7267,8 +7261,9 @@ export async function updatePCTaskStatus(
     logQuickbaseRequest('updatePCTaskStatus', { taskId, status, updatedBy }, reqId);
 
     // First, fetch the task to get its TASK_GROUP
-    const taskResponse = await qbClient.queryRecords(QB_TABLE_TASKS, {
-      where: { [TASK_FIELDS.RECORD_ID]: { EX: taskId } },
+    const taskResponse = await qbClient.queryRecords({
+      from: QB_TABLE_TASKS,
+      where: `{${TASK_FIELDS.RECORD_ID}}.EX.${taskId}`,
       select: [TASK_FIELDS.TASK_GROUP]
     });
 
@@ -7280,8 +7275,9 @@ export async function updatePCTaskStatus(
     const taskGroupId = taskResponse.data[0][TASK_FIELDS.TASK_GROUP];
 
     // Then fetch the Task Group to get the RELATED_PROJECT
-    const taskGroupResponse = await qbClient.queryRecords(QB_TABLE_TASK_GROUPS, {
-      where: { [TASK_GROUP_FIELDS.RECORD_ID]: { EX: taskGroupId } },
+    const taskGroupResponse = await qbClient.queryRecords({
+      from: QB_TABLE_TASK_GROUPS,
+      where: `{${TASK_GROUP_FIELDS.RECORD_ID}}.EX.${taskGroupId}`,
       select: [TASK_GROUP_FIELDS.RELATED_PROJECT]
     });
 
@@ -7337,14 +7333,11 @@ export async function getPCMessagesForProject(
   try {
     logQuickbaseRequest('getPCMessagesForProject', { projectId, recordId, taskId }, reqId);
 
-    const whereClause: any = {
-      [INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT]: { EX: recordId }
-    };
-
     // If taskId is provided, we'll filter by content metadata
     // This is a simple implementation - in production, you might want to store taskId in a separate field
-    const response = await qbClient.queryRecords(QB_TABLE_INSTALL_COMMUNICATIONS, {
-      where: whereClause,
+    const response = await qbClient.queryRecords({
+      from: QB_TABLE_INSTALL_COMMUNICATIONS,
+      where: `{${INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT}}.EX.${recordId}`,
       select: [
         INSTALL_COMMUNICATION_FIELDS.RECORD_ID,
         INSTALL_COMMUNICATION_FIELDS.DATE,
@@ -7352,7 +7345,7 @@ export async function getPCMessagesForProject(
         INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT,
         INSTALL_COMMUNICATION_FIELDS.COMMUNICATION_NOTE
       ],
-      sortBy: [{ field: INSTALL_COMMUNICATION_FIELDS.DATE, desc: true }]
+      sortBy: [{ fieldId: INSTALL_COMMUNICATION_FIELDS.DATE, order: 'DESC' }]
     });
 
     // Get all message IDs for read status lookup
@@ -7500,8 +7493,9 @@ async function getOrCreateTaskGroup(
 ): Promise<number> {
   try {
     // First, try to find existing task group
-    const existingResponse = await qbClient.queryRecords(QB_TABLE_TASK_GROUPS, {
-      where: { [TASK_GROUP_FIELDS.RELATED_PROJECT]: { EX: recordId } },
+    const existingResponse = await qbClient.queryRecords({
+      from: QB_TABLE_TASK_GROUPS,
+      where: `{${TASK_GROUP_FIELDS.RELATED_PROJECT}}.EX.${recordId}`,
       select: [TASK_GROUP_FIELDS.RECORD_ID]
     });
 
@@ -8193,17 +8187,12 @@ export async function getPCPersonalMetrics(
     logQuickbaseRequest('getPCPersonalMetrics', { pcEmail, pcName, timeRange }, reqId);
 
     const { startDate, endDate } = calculateDateRange(timeRange);
-    
-    // Query Outreach Records for PC's outreach data
-    const outreachWhere = {
-      and: [
-        { [OUTREACH_RECORD_FIELDS.PC_EMAIL]: { EX: pcEmail } },
-        { [OUTREACH_RECORD_FIELDS.DATE_CREATED]: { GTE: startDate } },
-        { [OUTREACH_RECORD_FIELDS.DATE_CREATED]: { LTE: endDate } }
-      ]
-    };
 
-    const outreachResponse = await qbClient.queryRecords(QB_TABLE_OUTREACH_RECORDS, {
+    // Query Outreach Records for PC's outreach data
+    const outreachWhere = `{${OUTREACH_RECORD_FIELDS.PC_EMAIL}}.EX.'${pcEmail}' AND {${OUTREACH_RECORD_FIELDS.DATE_CREATED}}.GTE.'${startDate}' AND {${OUTREACH_RECORD_FIELDS.DATE_CREATED}}.LTE.'${endDate}'`;
+
+    const outreachResponse = await qbClient.queryRecords({
+      from: QB_TABLE_OUTREACH_RECORDS,
       where: outreachWhere,
       select: [
         OUTREACH_RECORD_FIELDS.DATE_CREATED,
@@ -8232,14 +8221,10 @@ export async function getPCPersonalMetrics(
     const responseRate = outreachRecords.length > 0 ? (completedOutreach / outreachRecords.length) * 100 : 0;
     
     // Query Projects for PC's active projects
-    const projectsWhere = {
-      and: [
-        { [PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL]: { EX: pcEmail } },
-        { [PROJECT_FIELDS.PROJECT_STATUS]: { EX: 'Active' } }
-      ]
-    };
+    const projectsWhere = `{${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}}.EX.'${pcEmail}' AND {${PROJECT_FIELDS.PROJECT_STATUS}}.EX.'Active'`;
 
-    const projectsResponse = await qbClient.queryRecords(QB_TABLE_PROJECTS, {
+    const projectsResponse = await qbClient.queryRecords({
+      from: QB_TABLE_PROJECTS,
       where: projectsWhere,
       select: [
         PROJECT_FIELDS.RECORD_ID,
@@ -8271,15 +8256,10 @@ export async function getPCPersonalMetrics(
       : 0;
 
     // Query Sales Aid Requests for escalations
-    const escalationsWhere = {
-      and: [
-        { [SALES_AID_REQUEST_FIELDS.REQUESTED_BY_EMAIL]: { EX: pcEmail } },
-        { [SALES_AID_REQUEST_FIELDS.DATE_CREATED]: { GTE: startDate } },
-        { [SALES_AID_REQUEST_FIELDS.DATE_CREATED]: { LTE: endDate } }
-      ]
-    };
+    const escalationsWhere = `{${SALES_AID_REQUEST_FIELDS.REQUESTED_BY_EMAIL}}.EX.'${pcEmail}' AND {${SALES_AID_REQUEST_FIELDS.DATE_CREATED}}.GTE.'${startDate}' AND {${SALES_AID_REQUEST_FIELDS.DATE_CREATED}}.LTE.'${endDate}'`;
 
-    const escalationsResponse = await qbClient.queryRecords(QB_TABLE_SALES_AID_REQUESTS, {
+    const escalationsResponse = await qbClient.queryRecords({
+      from: QB_TABLE_SALES_AID_REQUESTS,
       where: escalationsWhere,
       select: [SALES_AID_REQUEST_FIELDS.RECORD_ID]
     });
@@ -8335,16 +8315,11 @@ export async function getPCOutreachTrend(
 
     const endDate = new Date().toISOString().split('T')[0];
     const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    
-    const outreachWhere = {
-      and: [
-        { [OUTREACH_RECORD_FIELDS.PC_EMAIL]: { EX: pcEmail } },
-        { [OUTREACH_RECORD_FIELDS.DATE_CREATED]: { GTE: startDate } },
-        { [OUTREACH_RECORD_FIELDS.DATE_CREATED]: { LTE: endDate } }
-      ]
-    };
 
-    const outreachResponse = await qbClient.queryRecords(QB_TABLE_OUTREACH_RECORDS, {
+    const outreachWhere = `{${OUTREACH_RECORD_FIELDS.PC_EMAIL}}.EX.'${pcEmail}' AND {${OUTREACH_RECORD_FIELDS.DATE_CREATED}}.GTE.'${startDate}' AND {${OUTREACH_RECORD_FIELDS.DATE_CREATED}}.LTE.'${endDate}'`;
+
+    const outreachResponse = await qbClient.queryRecords({
+      from: QB_TABLE_OUTREACH_RECORDS,
       where: outreachWhere,
       select: [
         OUTREACH_RECORD_FIELDS.DATE_CREATED,
@@ -8408,14 +8383,10 @@ export async function getPCStageDistribution(
   try {
     logQuickbaseRequest('getPCStageDistribution', { pcEmail, pcName }, reqId);
 
-    const projectsWhere = {
-      and: [
-        { [PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL]: { EX: pcEmail } },
-        { [PROJECT_FIELDS.PROJECT_STATUS]: { EX: 'Active' } }
-      ]
-    };
+    const projectsWhere = `{${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}}.EX.'${pcEmail}' AND {${PROJECT_FIELDS.PROJECT_STATUS}}.EX.'Active'`;
 
-    const projectsResponse = await qbClient.queryRecords(QB_TABLE_PROJECTS, {
+    const projectsResponse = await qbClient.queryRecords({
+      from: QB_TABLE_PROJECTS,
       where: projectsWhere,
       select: [
         PROJECT_FIELDS.RECORD_ID,
@@ -8504,16 +8475,11 @@ export async function getPCResponseBreakdown(
     logQuickbaseRequest('getPCResponseBreakdown', { pcEmail, pcName, timeRange }, reqId);
 
     const { startDate, endDate } = calculateDateRange(timeRange);
-    
-    const outreachWhere = {
-      and: [
-        { [OUTREACH_RECORD_FIELDS.PC_EMAIL]: { EX: pcEmail } },
-        { [OUTREACH_RECORD_FIELDS.DATE_CREATED]: { GTE: startDate } },
-        { [OUTREACH_RECORD_FIELDS.DATE_CREATED]: { LTE: endDate } }
-      ]
-    };
 
-    const outreachResponse = await qbClient.queryRecords(QB_TABLE_OUTREACH_RECORDS, {
+    const outreachWhere = `{${OUTREACH_RECORD_FIELDS.PC_EMAIL}}.EX.'${pcEmail}' AND {${OUTREACH_RECORD_FIELDS.DATE_CREATED}}.GTE.'${startDate}' AND {${OUTREACH_RECORD_FIELDS.DATE_CREATED}}.LTE.'${endDate}'`;
+
+    const outreachResponse = await qbClient.queryRecords({
+      from: QB_TABLE_OUTREACH_RECORDS,
       where: outreachWhere,
       select: [
         OUTREACH_RECORD_FIELDS.OUTREACH_STATUS,
@@ -8560,8 +8526,9 @@ export async function getPCResponseBreakdown(
 async function getPCProjectVelocity(reqId: string): Promise<PCProjectVelocity[]> {
   try {
     // Query all active projects for milestone durations
-    const projectsResponse = await qbClient.queryRecords(QB_TABLE_PROJECTS, {
-      where: { [PROJECT_FIELDS.PROJECT_STATUS]: { EX: 'Active' } },
+    const projectsResponse = await qbClient.queryRecords({
+      from: QB_TABLE_PROJECTS,
+      where: `{${PROJECT_FIELDS.PROJECT_STATUS}}.EX.'Active'`,
       select: [
         PROJECT_FIELDS.SALES_DATE,
         PROJECT_FIELDS.SURVEY_SUBMITTED,
@@ -8640,8 +8607,9 @@ async function getPCProjectVelocity(reqId: string): Promise<PCProjectVelocity[]>
 async function identifyPCBottlenecks(reqId: string): Promise<PCBottleneck[]> {
   try {
     // Query projects by current stage and days in stage
-    const projectsResponse = await qbClient.queryRecords(QB_TABLE_PROJECTS, {
-      where: { [PROJECT_FIELDS.PROJECT_STATUS]: { EX: 'Active' } },
+    const projectsResponse = await qbClient.queryRecords({
+      from: QB_TABLE_PROJECTS,
+      where: `{${PROJECT_FIELDS.PROJECT_STATUS}}.EX.'Active'`,
       select: [
         PROJECT_FIELDS.PROJECT_ID,
         PROJECT_FIELDS.CUSTOMER_NAME,
@@ -8720,8 +8688,9 @@ async function identifyPCBottlenecks(reqId: string): Promise<PCBottleneck[]> {
 async function getPCHoldAnalysis(reqId: string): Promise<PCHoldAnalysis[]> {
   try {
     // Query projects on hold
-    const projectsResponse = await qbClient.queryRecords(QB_TABLE_PROJECTS, {
-      where: { [PROJECT_FIELDS.PROJECT_STATUS]: { EX: 'On Hold' } },
+    const projectsResponse = await qbClient.queryRecords({
+      from: QB_TABLE_PROJECTS,
+      where: `{${PROJECT_FIELDS.PROJECT_STATUS}}.EX.'On Hold'`,
       select: [
         PROJECT_FIELDS.PROJECT_ID,
         PROJECT_FIELDS.HOLD_REASON,
@@ -8789,8 +8758,9 @@ export async function getPCTeamMetrics(
     logQuickbaseRequest('getPCTeamMetrics', { timeRange }, reqId);
 
     // Get all PCs from Projects table
-    const projectsResponse = await qbClient.queryRecords(QB_TABLE_PROJECTS, {
-      where: { [PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL]: { NE: '' } },
+    const projectsResponse = await qbClient.queryRecords({
+      from: QB_TABLE_PROJECTS,
+      where: `{${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}}.XEX.''`,
       select: [
         PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL,
         PROJECT_FIELDS.PROJECT_COORDINATOR_NAME
