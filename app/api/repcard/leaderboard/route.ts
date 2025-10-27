@@ -6,6 +6,8 @@ import { getQualityMetricsForUsers, calculateCompositeQualityScore } from '@/lib
 import { sql } from '@/lib/db/client';
 import { repcardClient } from '@/lib/repcard/client';
 import type { LeaderboardMetric, LeaderboardRole, LeaderboardEntry, LeaderboardResponse } from '@/lib/repcard/types';
+import { qbClient } from '@/lib/quickbase/client';
+import { PROJECT_FIELDS, QB_TABLE_PROJECTS } from '@/lib/constants/fieldIds';
 
 export const runtime = 'nodejs';
 
@@ -196,26 +198,11 @@ export async function GET(request: NextRequest) {
     }
     
     // Fetch users
-    let usersQuery = sql`
-      SELECT id, name, email, repcard_user_id, sales_office[1] as office, role
-      FROM users
-      WHERE repcard_user_id IS NOT NULL
-    `;
-
-    if (role !== 'all') {
-      usersQuery = sql`
-        SELECT id, name, email, repcard_user_id, sales_office[1] as office, role
-        FROM users
-        WHERE repcard_user_id IS NOT NULL AND role = ${role}
-      `;
-    }
+    let users: any[];
 
     if (officeIds && officeIds.length > 0) {
-      // Build IN clause with individual parameters
-      const officeIdParams = officeIds.map((_, i) => `$${i + 3}`).join(',');
-
+      // Use sql.query for office filtering with proper array parameters
       if (role !== 'all') {
-        // Use sql.query for dynamic IN clause
         const result = await sql.query(
           `SELECT DISTINCT u.id, u.name, u.email, u.repcard_user_id, u.sales_office[1] as office, u.role
            FROM users u
@@ -225,7 +212,7 @@ export async function GET(request: NextRequest) {
              AND o.quickbase_office_id = ANY($2::int[])`,
           [role, officeIds]
         );
-        usersQuery = Promise.resolve(result.rows);
+        users = result.rows;
       } else {
         const result = await sql.query(
           `SELECT DISTINCT u.id, u.name, u.email, u.repcard_user_id, u.sales_office[1] as office, u.role
@@ -235,11 +222,24 @@ export async function GET(request: NextRequest) {
              AND o.quickbase_office_id = ANY($1::int[])`,
           [officeIds]
         );
-        usersQuery = Promise.resolve(result.rows);
+        users = result.rows;
+      }
+    } else {
+      // No office filter - use sql template
+      if (role !== 'all') {
+        users = await sql`
+          SELECT id, name, email, repcard_user_id, sales_office[1] as office, role
+          FROM users
+          WHERE repcard_user_id IS NOT NULL AND role = ${role}
+        ` as unknown as any[];
+      } else {
+        users = await sql`
+          SELECT id, name, email, repcard_user_id, sales_office[1] as office, role
+          FROM users
+          WHERE repcard_user_id IS NOT NULL
+        ` as unknown as any[];
       }
     }
-    
-    const users = await usersQuery as unknown as any[];
     
     if (users.length === 0) {
       const response: LeaderboardResponse = {
@@ -250,7 +250,7 @@ export async function GET(request: NextRequest) {
           timeRange,
           startDate: calculatedStartDate,
           endDate: calculatedEndDate,
-          officeIds,
+          officeIds: officeIds?.map(String),
           totalEntries: 0,
           page,
           limit,
@@ -382,20 +382,36 @@ export async function GET(request: NextRequest) {
       } else if (metric === 'sales_closed' || metric === 'revenue') {
         // Query QuickBase projects
         const userEmails = (users as any[]).map((u: any) => u.email);
-        const projects = await sql`
-          SELECT closer_email, system_cost, date_closed
-          FROM projects 
-          WHERE closer_email = ANY(${userEmails as any})
-            AND date_closed >= ${calculatedStartDate}
-            AND date_closed <= ${calculatedEndDate}
-        ` as unknown as any[];
-        
+
+        // Build WHERE clause for all closer emails
+        const emailFilters = userEmails.map((email: string) =>
+          `{${PROJECT_FIELDS.CLOSER_EMAIL}.EX.'${email}'}`
+        ).join('OR');
+
+        const whereClause = `(${emailFilters})AND{${PROJECT_FIELDS.SALES_DATE}.OAF.'${calculatedStartDate}'}AND{${PROJECT_FIELDS.SALES_DATE}.OBF.'${calculatedEndDate}'}`;
+
+        const projectsResult = await qbClient.queryRecords({
+          from: QB_TABLE_PROJECTS,
+          select: [
+            PROJECT_FIELDS.RECORD_ID,
+            PROJECT_FIELDS.CLOSER_EMAIL,
+            PROJECT_FIELDS.SYSTEM_PRICE
+          ],
+          where: whereClause
+        });
+
+        const projects = projectsResult.data || [];
+
         leaderboardEntries = (users as any[]).map((user: any) => {
-          const userProjects = projects.filter((p: any) => p.closer_email === user.email);
-          const metricValue = metric === 'sales_closed' 
-            ? userProjects.length 
-            : userProjects.reduce((sum: number, p: any) => sum + (p.system_cost || 0), 0);
-          
+          const userProjects = projects.filter((p: any) =>
+            p[PROJECT_FIELDS.CLOSER_EMAIL]?.value === user.email
+          );
+          const metricValue = metric === 'sales_closed'
+            ? userProjects.length
+            : userProjects.reduce((sum: number, p: any) =>
+                sum + (parseFloat(p[PROJECT_FIELDS.SYSTEM_PRICE]?.value) || 0), 0
+              );
+
           return {
             rank: 0,
             userId: user.id,

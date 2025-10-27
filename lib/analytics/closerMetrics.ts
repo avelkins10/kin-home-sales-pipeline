@@ -1,6 +1,8 @@
 import { sql } from '@/lib/db/client';
 import { getQualityMetricsForUsers } from '@/lib/repcard/qualityMetrics';
 import type { TimeRange, CustomDateRange } from '@/lib/types/dashboard';
+import { qbClient } from '@/lib/quickbase/client';
+import { PROJECT_FIELDS, QB_TABLE_PROJECTS } from '@/lib/constants/fieldIds';
 
 /**
  * Calculate date range from TimeRange and CustomDateRange
@@ -89,27 +91,36 @@ export async function getAppointmentsSatByCloser(
     closers = await closersQuery as unknown as any[];
   }
   
-  // For each closer, count projects (appointments sat)
+  // For each closer, count projects (appointments sat) from QuickBase
   const results = await Promise.all(
     closers.map(async (closer) => {
-      const projects = await sql`
-        SELECT COUNT(*) as count
-        FROM projects
-        WHERE closer_email = ${closer.email}
-        AND date_created >= ${startDate}
-        AND date_created <= ${endDate}
-      ` as unknown as any[];
-      
-      return {
-        userId: closer.id,
-        userName: closer.name,
-        userEmail: closer.email,
-        office: closer.office,
-        appointmentsSat: parseInt(projects[0]?.count || '0')
-      };
+      try {
+        const projects = await qbClient.queryRecords({
+          from: QB_TABLE_PROJECTS,
+          select: [PROJECT_FIELDS.RECORD_ID],
+          where: `{${PROJECT_FIELDS.CLOSER_EMAIL}.EX.'${closer.email}'}AND{${PROJECT_FIELDS.SALES_DATE}.OAF.'${startDate}'}AND{${PROJECT_FIELDS.SALES_DATE}.OBF.'${endDate}'}`
+        });
+
+        return {
+          userId: closer.id,
+          userName: closer.name,
+          userEmail: closer.email,
+          office: closer.office,
+          appointmentsSat: projects.data?.length || 0
+        };
+      } catch (error) {
+        // Return zero if query fails for this closer
+        return {
+          userId: closer.id,
+          userName: closer.name,
+          userEmail: closer.email,
+          office: closer.office,
+          appointmentsSat: 0
+        };
+      }
     })
   );
-  
+
   return results;
 }
 
