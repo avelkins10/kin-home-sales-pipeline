@@ -4984,7 +4984,9 @@ export async function getPCProjectPipeline(
         PROJECT_FIELDS.NEM_INTERCONNECTION_STATUS,
         PROJECT_FIELDS.PTO_STATUS,
         PROJECT_FIELDS.PROJECT_AGE
-      ]
+      ],
+      sortBy: [{ field: PROJECT_FIELDS.DATE_CREATED, order: 'DESC' }],
+      options: { top: 500 }
     };
 
     const response = await qbClient.queryRecords(query);
@@ -5095,7 +5097,9 @@ export async function getPCActivityFeed(
         INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT,
         INSTALL_COMMUNICATION_FIELDS.COMMUNICATION_NOTE,
         INSTALL_COMMUNICATION_FIELDS.NEM_BLOCKER_OUTREACH
-      ]
+      ],
+      sortBy: [{ field: INSTALL_COMMUNICATION_FIELDS.DATE, order: 'DESC' }],
+      options: { top: 500 }
     };
 
     const response = await qbClient.queryRecords(query);
@@ -5688,7 +5692,8 @@ export async function getPCOutreachInitial(
       from: QB_TABLE_OUTREACH_RECORDS,
       where: whereClause,
       select: selectFields,
-      options: { top: 1000 }
+      sortBy: [{ field: OUTREACH_RECORD_FIELDS.DATE_CREATED, order: 'DESC' }],
+      options: { top: 500 }
     });
 
     const outreachRecords = response.data || [];
@@ -5836,7 +5841,8 @@ export async function getPCOutreachFollowups(
       from: QB_TABLE_PROJECTS,
       where: whereClause,
       select: selectFields,
-      options: { top: 1000 }
+      sortBy: [{ field: PROJECT_FIELDS.DATE_CREATED, order: 'DESC' }],
+      options: { top: 500 }
     });
 
     const projectRecords = response.data || [];
@@ -5910,7 +5916,8 @@ export async function getPCOutreachWelcome(
       from: QB_TABLE_PROJECTS,
       where: whereClause,
       select: selectFields,
-      options: { top: 1000 }
+      sortBy: [{ field: PROJECT_FIELDS.DATE_CREATED, order: 'DESC' }],
+      options: { top: 500 }
     });
 
     const projectRecords = response.data || [];
@@ -6212,7 +6219,8 @@ export async function getPCInboundRepQueue(
         SALES_AID_FIELDS.COMPLETED_DATE
       ],
       where: `{${SALES_AID_FIELDS.SALES_AID_STATUS}.EX.'Waiting for Rep'} OR {${SALES_AID_FIELDS.SALES_AID_STATUS}.EX.'Working With Rep'}`,
-      sortBy: [{ field: SALES_AID_FIELDS.DATE_CREATED, order: 'DESC' }]
+      sortBy: [{ field: SALES_AID_FIELDS.DATE_CREATED, order: 'DESC' }],
+      options: { top: 500 }
     };
 
     const salesAidResponse = await qbClient.queryRecords(salesAidQuery);
@@ -6432,7 +6440,8 @@ export async function getPCConversationHistory(
         INSTALL_COMMUNICATION_FIELDS.NEM_BLOCKER_OUTREACH
       ],
       where: whereConditions.join(' AND '),
-      sortBy: [{ field: INSTALL_COMMUNICATION_FIELDS.DATE, order: 'DESC' }]
+      sortBy: [{ field: INSTALL_COMMUNICATION_FIELDS.DATE, order: 'DESC' }],
+      options: { top: 500 }
     };
 
     const communicationsResponse = await qbClient.queryRecords(communicationsQuery);
@@ -6587,7 +6596,9 @@ export async function getPCBulkMessagingRecipients(
         PROJECT_FIELDS.CLOSER_NAME,
         PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL
       ],
-      where: whereConditions.join(' AND ')
+      where: whereConditions.join(' AND '),
+      sortBy: [{ field: PROJECT_FIELDS.DATE_CREATED, order: 'DESC' }],
+      options: { top: 500 }
     };
 
     const projectsResponse = await qbClient.queryRecords(projectsQuery);
@@ -7497,7 +7508,8 @@ export async function getPCEscalations(
       sortBy: [
         { field: SALES_AID_FIELDS.URGENCY_LEVEL, order: 'DESC' },
         { field: SALES_AID_FIELDS.TIME_WAITING, order: 'DESC' }
-      ]
+      ],
+      options: { top: 500 }
     };
 
     const response = await qbClient.queryRecords(query);
