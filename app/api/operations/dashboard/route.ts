@@ -4,11 +4,10 @@ export const runtime = 'nodejs'
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/guards';
 import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
-import { 
-  getPCDashboardMetrics, 
-  getPCPriorityQueue, 
-  getPCProjectPipeline, 
-  getPCActivityFeed 
+import {
+  getPCDashboardMetrics,
+  getPCPriorityQueue,
+  getPCProjectPipeline
 } from '@/lib/quickbase/queries';
 import type { PCDashboardData } from '@/lib/types/operations';
 
@@ -50,19 +49,17 @@ export async function GET(req: Request) {
     }
 
     // Fetch all PC dashboard data in parallel
-    const [metrics, priorityQueue, pipeline, activityFeed] = await Promise.all([
+    const [metrics, priorityQueue, pipeline] = await Promise.all([
       getPCDashboardMetrics(pcEmail, pcName, role, reqId),
       getPCPriorityQueue(pcEmail, pcName, role, 10, reqId),
-      getPCProjectPipeline(pcEmail, pcName, role, reqId),
-      getPCActivityFeed(pcEmail, pcName, role, 20, reqId)
+      getPCProjectPipeline(pcEmail, pcName, role, reqId)
     ]);
 
     // Combine into dashboard data
     const dashboardData: PCDashboardData = {
       metrics,
       priorityQueue,
-      pipeline,
-      activityFeed
+      pipeline
     };
 
     // Cache the result

@@ -11,15 +11,13 @@ import { syncUserTimezone } from '@/lib/utils/timezone';
 import { isManagerRole } from '@/lib/utils/role-helpers';
 import { getBaseUrl } from '@/lib/utils/baseUrl';
 import { useRealtimeUpdates } from '@/lib/hooks/useRealtimeUpdates';
-import { 
-  PCMetricsCards, 
+import {
+  PCMetricsCards,
   PCMetricsSkeleton,
-  PCPriorityQueue, 
+  PCPriorityQueue,
   PCPriorityQueueSkeleton,
-  PCProjectPipeline, 
-  PCProjectPipelineSkeleton,
-  PCActivityFeed, 
-  PCActivityFeedSkeleton 
+  PCProjectPipeline,
+  PCProjectPipelineSkeleton
 } from '@/components/operations';
 import type { PCDashboardData } from '@/lib/types/operations';
 
@@ -29,15 +27,12 @@ function PCDashboardSkeleton() {
     <div className="space-y-4 mobile:space-y-6">
       {/* Metrics Skeleton */}
       <PCMetricsSkeleton />
-      
+
       {/* Two Column Layout Skeleton */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mobile:gap-6">
         <PCPriorityQueueSkeleton />
         <PCProjectPipelineSkeleton />
       </div>
-      
-      {/* Activity Feed Skeleton */}
-      <PCActivityFeedSkeleton />
     </div>
   );
 }
@@ -175,11 +170,6 @@ export default function OperationsPage() {
           <PCProjectPipeline pipeline={dashboardData?.pipeline || []} />
         </Suspense>
       </div>
-
-      {/* Activity Feed */}
-      <Suspense fallback={<PCActivityFeedSkeleton />}>
-        <PCActivityFeed activityFeed={dashboardData?.activityFeed || []} />
-      </Suspense>
     </div>
   );
 }

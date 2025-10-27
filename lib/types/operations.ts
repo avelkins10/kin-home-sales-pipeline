@@ -64,7 +64,6 @@ export interface PCDashboardData {
   metrics: PCDashboardMetrics;
   priorityQueue: PCPriorityQueueItem[];
   pipeline: PCProjectPipelineStage[];
-  activityFeed: PCActivityFeedItem[];
 }
 
 // Helper Types
