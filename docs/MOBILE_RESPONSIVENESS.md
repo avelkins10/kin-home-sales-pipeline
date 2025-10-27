@@ -50,3 +50,4 @@
 - Add pull-to-refresh on mobile
 - Add card view for tables on mobile
 - Add bottom sheet for modals on mobile
+

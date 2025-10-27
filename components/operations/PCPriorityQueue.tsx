@@ -75,11 +75,11 @@ export function PCPriorityQueue({ priorityQueue }: PCPriorityQueueProps) {
 
     switch (methodStr) {
       case 'text':
-        return MessageSquare;
+        return <MessageSquare className="h-3 w-3" />;
       case 'email':
-        return Mail;
+        return <Mail className="h-3 w-3" />;
       default:
-        return Phone;
+        return <Phone className="h-3 w-3" />;
     }
   };
 
@@ -124,8 +124,6 @@ export function PCPriorityQueue({ priorityQueue }: PCPriorityQueueProps) {
       <CardContent>
         <div className="max-h-96 overflow-y-auto space-y-3">
           {priorityQueue.map((item) => {
-            const ContactIcon = getContactMethodIcon(item.preferredContactMethod);
-            
             return (
               <div 
                 key={item.recordId} 
@@ -175,7 +173,7 @@ export function PCPriorityQueue({ priorityQueue }: PCPriorityQueueProps) {
                 
                 <div className="flex items-center space-x-2 ml-4">
                   <div className="flex items-center space-x-1 text-xs text-gray-500">
-                    <ContactIcon className="h-3 w-3" />
+                    {getContactMethodIcon(item.preferredContactMethod)}
                     <span>{extractValue(item.preferredContactMethod)}</span>
                   </div>
                   

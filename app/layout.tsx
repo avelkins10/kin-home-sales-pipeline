@@ -9,6 +9,11 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'KINETIC Platform',
   description: 'Solar installation project tracking and operations management platform',
+  icons: {
+    icon: '/favicon.ico',
+    shortcut: '/icons/icon-192x192.png',
+    apple: '/icons/icon-180x180.png',
+  },
 };
 
 export default function RootLayout({

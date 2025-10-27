@@ -75,7 +75,7 @@ export function PCProjectPipeline({ pipeline }: PCProjectPipelineProps) {
 
   const getStageIcon = (stageName: string) => {
     // For now, we'll use a generic icon, but this could be customized per stage
-    return Calendar;
+    return <Calendar className="h-4 w-4 text-gray-500" />;
   };
 
   if (pipeline.length === 0) {
@@ -103,7 +103,6 @@ export function PCProjectPipeline({ pipeline }: PCProjectPipelineProps) {
         <div className="overflow-x-auto">
           <div className="flex space-x-4 min-w-max pb-4">
             {pipeline.map((stage, index) => {
-              const StageIcon = getStageIcon(stage.stageName);
               const showConnector = index < pipeline.length - 1;
               
               return (
@@ -111,7 +110,7 @@ export function PCProjectPipeline({ pipeline }: PCProjectPipelineProps) {
                   <div className="border rounded-lg p-4 bg-white">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center space-x-2">
-                        <StageIcon className="h-4 w-4 text-gray-500" />
+                        {getStageIcon(stage.stageName)}
                         <h3 className="font-medium text-gray-900">{extractValue(stage.stageName)}</h3>
                       </div>
                       <Badge
