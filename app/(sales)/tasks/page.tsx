@@ -17,15 +17,8 @@ export default function TasksPage() {
   const { data: session, status } = useSession()
   const [groupBy, setGroupBy] = useState<GroupBy>('urgency')
 
-  if (status === 'loading') {
-    return <TasksPageSkeleton />
-  }
-
-  if (!session) {
-    redirect('/login')
-  }
-
   // Fetch all tasks for current user
+  // IMPORTANT: Must call all hooks before any early returns (Rules of Hooks)
   const { data: tasks = [], isLoading, error } = useQuery({
     queryKey: ['tasks', 'all'],
     queryFn: async () => {
@@ -37,7 +30,16 @@ export default function TasksPage() {
     },
     staleTime: 60000, // 1 minute
     refetchInterval: 60000, // Auto-refresh every minute
+    enabled: status !== 'loading' && !!session, // Only run query when session is ready
   })
+
+  if (status === 'loading') {
+    return <TasksPageSkeleton />
+  }
+
+  if (!session) {
+    redirect('/login')
+  }
 
   // Calculate stats
   const totalTasks = tasks.length
