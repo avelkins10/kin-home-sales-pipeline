@@ -8189,7 +8189,7 @@ export async function getPCPersonalMetrics(
     const { startDate, endDate } = calculateDateRange(timeRange);
 
     // Query Outreach Records for PC's outreach data
-    const outreachWhere = `{${OUTREACH_RECORD_FIELDS.PC_EMAIL}}.EX.'${pcEmail}' AND {${OUTREACH_RECORD_FIELDS.DATE_CREATED}}.GTE.'${startDate}' AND {${OUTREACH_RECORD_FIELDS.DATE_CREATED}}.LTE.'${endDate}'`;
+    const outreachWhere = `{${OUTREACH_RECORD_FIELDS.PC_EMAIL}.EX.'${pcEmail}'}AND{${OUTREACH_RECORD_FIELDS.DATE_CREATED}.GTE.'${startDate}'}AND{${OUTREACH_RECORD_FIELDS.DATE_CREATED}.LTE.'${endDate}'}`;
 
     const outreachResponse = await qbClient.queryRecords({
       from: QB_TABLE_OUTREACH_RECORDS,
@@ -8221,7 +8221,7 @@ export async function getPCPersonalMetrics(
     const responseRate = outreachRecords.length > 0 ? (completedOutreach / outreachRecords.length) * 100 : 0;
     
     // Query Projects for PC's active projects
-    const projectsWhere = `{${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}}.EX.'${pcEmail}' AND {${PROJECT_FIELDS.PROJECT_STATUS}}.EX.'Active'`;
+    const projectsWhere = `{${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${pcEmail}'}AND{${PROJECT_FIELDS.PROJECT_STATUS}.EX.'Active'}`;
 
     const projectsResponse = await qbClient.queryRecords({
       from: QB_TABLE_PROJECTS,
@@ -8256,7 +8256,7 @@ export async function getPCPersonalMetrics(
       : 0;
 
     // Query Sales Aid Requests for escalations
-    const escalationsWhere = `{${SALES_AID_REQUEST_FIELDS.REQUESTED_BY_EMAIL}}.EX.'${pcEmail}' AND {${SALES_AID_REQUEST_FIELDS.DATE_CREATED}}.GTE.'${startDate}' AND {${SALES_AID_REQUEST_FIELDS.DATE_CREATED}}.LTE.'${endDate}'`;
+    const escalationsWhere = `{${SALES_AID_REQUEST_FIELDS.REQUESTED_BY_EMAIL}.EX.'${pcEmail}'}AND{${SALES_AID_REQUEST_FIELDS.DATE_CREATED}.GTE.'${startDate}'}AND{${SALES_AID_REQUEST_FIELDS.DATE_CREATED}.LTE.'${endDate}'}`;
 
     const escalationsResponse = await qbClient.queryRecords({
       from: QB_TABLE_SALES_AID_REQUESTS,
@@ -8316,7 +8316,7 @@ export async function getPCOutreachTrend(
     const endDate = new Date().toISOString().split('T')[0];
     const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-    const outreachWhere = `{${OUTREACH_RECORD_FIELDS.PC_EMAIL}}.EX.'${pcEmail}' AND {${OUTREACH_RECORD_FIELDS.DATE_CREATED}}.GTE.'${startDate}' AND {${OUTREACH_RECORD_FIELDS.DATE_CREATED}}.LTE.'${endDate}'`;
+    const outreachWhere = `{${OUTREACH_RECORD_FIELDS.PC_EMAIL}.EX.'${pcEmail}'}AND{${OUTREACH_RECORD_FIELDS.DATE_CREATED}.GTE.'${startDate}'}AND{${OUTREACH_RECORD_FIELDS.DATE_CREATED}.LTE.'${endDate}'}`;
 
     const outreachResponse = await qbClient.queryRecords({
       from: QB_TABLE_OUTREACH_RECORDS,
@@ -8383,7 +8383,7 @@ export async function getPCStageDistribution(
   try {
     logQuickbaseRequest('getPCStageDistribution', { pcEmail, pcName }, reqId);
 
-    const projectsWhere = `{${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}}.EX.'${pcEmail}' AND {${PROJECT_FIELDS.PROJECT_STATUS}}.EX.'Active'`;
+    const projectsWhere = `{${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${pcEmail}'}AND{${PROJECT_FIELDS.PROJECT_STATUS}.EX.'Active'}`;
 
     const projectsResponse = await qbClient.queryRecords({
       from: QB_TABLE_PROJECTS,
@@ -8476,7 +8476,7 @@ export async function getPCResponseBreakdown(
 
     const { startDate, endDate } = calculateDateRange(timeRange);
 
-    const outreachWhere = `{${OUTREACH_RECORD_FIELDS.PC_EMAIL}}.EX.'${pcEmail}' AND {${OUTREACH_RECORD_FIELDS.DATE_CREATED}}.GTE.'${startDate}' AND {${OUTREACH_RECORD_FIELDS.DATE_CREATED}}.LTE.'${endDate}'`;
+    const outreachWhere = `{${OUTREACH_RECORD_FIELDS.PC_EMAIL}.EX.'${pcEmail}'}AND{${OUTREACH_RECORD_FIELDS.DATE_CREATED}.GTE.'${startDate}'}AND{${OUTREACH_RECORD_FIELDS.DATE_CREATED}.LTE.'${endDate}'}`;
 
     const outreachResponse = await qbClient.queryRecords({
       from: QB_TABLE_OUTREACH_RECORDS,
@@ -8609,7 +8609,7 @@ async function identifyPCBottlenecks(reqId: string): Promise<PCBottleneck[]> {
     // Query projects by current stage and days in stage
     const projectsResponse = await qbClient.queryRecords({
       from: QB_TABLE_PROJECTS,
-      where: `{${PROJECT_FIELDS.PROJECT_STATUS}}.EX.'Active'`,
+      where: `{${PROJECT_FIELDS.PROJECT_STATUS}.EX.'Active'}`,
       select: [
         PROJECT_FIELDS.PROJECT_ID,
         PROJECT_FIELDS.CUSTOMER_NAME,
@@ -8690,7 +8690,7 @@ async function getPCHoldAnalysis(reqId: string): Promise<PCHoldAnalysis[]> {
     // Query projects on hold
     const projectsResponse = await qbClient.queryRecords({
       from: QB_TABLE_PROJECTS,
-      where: `{${PROJECT_FIELDS.PROJECT_STATUS}}.EX.'On Hold'`,
+      where: `{${PROJECT_FIELDS.PROJECT_STATUS}.EX.'On Hold'}`,
       select: [
         PROJECT_FIELDS.PROJECT_ID,
         PROJECT_FIELDS.HOLD_REASON,
@@ -8760,7 +8760,7 @@ export async function getPCTeamMetrics(
     // Get all PCs from Projects table
     const projectsResponse = await qbClient.queryRecords({
       from: QB_TABLE_PROJECTS,
-      where: `{${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}}.XEX.''`,
+      where: `{${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.XEX.''}`,
       select: [
         PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL,
         PROJECT_FIELDS.PROJECT_COORDINATOR_NAME
