@@ -499,26 +499,60 @@ export function InviteUserDialog({ open, onOpenChange }: InviteUserDialogProps) 
           </div>
           
           {inviteResult && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-3">
-              <p className="font-medium text-green-900">✅ Invite sent successfully!</p>
-              <p className="text-sm text-green-700">
-                {inviteResult.emailSent 
-                  ? `Email sent to ${formData.email}` 
-                  : 'Email not sent (email disabled or not configured)'}
-              </p>
-              <div className="flex gap-2">
-                <Input
-                  value={inviteResult.inviteLink}
-                  readOnly
-                  className="flex-1 bg-white"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => copyToClipboard(inviteResult.inviteLink)}
-                >
-                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                </Button>
+            <div className={`border rounded-lg p-4 space-y-3 ${
+              inviteResult.emailSent
+                ? 'bg-green-50 border-green-200'
+                : 'bg-amber-50 border-amber-300'
+            }`}>
+              {inviteResult.emailSent ? (
+                <>
+                  <p className="font-medium text-green-900 flex items-center gap-2">
+                    <Check className="h-5 w-5" />
+                    Invite Email Sent Successfully!
+                  </p>
+                  <p className="text-sm text-green-700">
+                    An invite email has been sent to <strong>{formData.email}</strong>.
+                    They should receive it within a few minutes.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="font-medium text-amber-900 flex items-center gap-2">
+                    <Info className="h-5 w-5" />
+                    Invite Created (Email Not Sent)
+                  </p>
+                  <p className="text-sm text-amber-800">
+                    Email is not configured on this system. Copy the invite link below and share it manually with <strong>{formData.email}</strong>.
+                  </p>
+                </>
+              )}
+              <div className="space-y-2">
+                <Label className="text-xs text-gray-600">Invite Link (valid for 7 days)</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={inviteResult.inviteLink}
+                    readOnly
+                    className="flex-1 bg-white font-mono text-sm"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => copyToClipboard(inviteResult.inviteLink)}
+                    className="shrink-0"
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="h-4 w-4 mr-2" />
+                        Copied
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
           )}

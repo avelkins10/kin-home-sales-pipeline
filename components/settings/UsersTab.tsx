@@ -57,6 +57,7 @@ import { SmartSyncDialog } from './SmartSyncDialog'
 import { DeactivateInactiveDialog } from './DeactivateInactiveDialog'
 import { HierarchyTreeView } from './HierarchyTreeView'
 import { OfficeMultiSelect } from './OfficeMultiSelect'
+import { EmailConfigBanner } from './EmailConfigBanner'
 
 export default function UsersTab() {
   const [searchQuery, setSearchQuery] = useState('')
@@ -332,6 +333,9 @@ export default function UsersTab() {
 
   return (
     <div className="space-y-6">
+      {/* Email Configuration Banner */}
+      <EmailConfigBanner />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -775,18 +779,33 @@ export default function UsersTab() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Switch
-                        checked={user.isActive}
-                        onCheckedChange={(checked) =>
-                          toggleActiveMutation.mutate({ userId: user.id, isActive: checked })
-                        }
-                      />
+                      {user.inviteToken && !user.inviteAcceptedAt ? (
+                        <Badge variant="secondary" className="bg-amber-100 text-amber-800 border-amber-300">
+                          Pending Invite
+                        </Badge>
+                      ) : user.isActive ? (
+                        <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-300">
+                          Active
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="bg-gray-100 text-gray-600 border-gray-300">
+                          Inactive
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell>
-                      {user.lastLoginAt 
-                        ? new Date(user.lastLoginAt).toLocaleDateString()
-                        : 'Never'
-                      }
+                      {user.inviteToken && !user.inviteAcceptedAt ? (
+                        <div className="text-sm">
+                          <span className="text-gray-500">Invited </span>
+                          <span className="text-gray-700">
+                            {user.invitedAt && Math.floor((Date.now() - new Date(user.invitedAt).getTime()) / (1000 * 60 * 60 * 24))} days ago
+                          </span>
+                        </div>
+                      ) : user.lastLoginAt ? (
+                        new Date(user.lastLoginAt).toLocaleDateString()
+                      ) : (
+                        <span className="text-gray-400">Never</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -922,6 +941,16 @@ export default function UsersTab() {
                   Only required for sales team members with QuickBase access
                 </p>
               </div>
+              <div className="flex items-center space-x-2 pt-2">
+                <Switch
+                  id="edit-isActive"
+                  checked={editingUser.isActive}
+                  onCheckedChange={(checked) => setEditingUser({ ...editingUser, isActive: checked })}
+                />
+                <Label htmlFor="edit-isActive" className="cursor-pointer">
+                  Active Account
+                </Label>
+              </div>
             </div>
             <DialogFooter className="flex-col sm:flex-row gap-2">
               <Button
@@ -956,6 +985,7 @@ export default function UsersTab() {
                         phone: editingUser.phone || undefined,
                         quickbaseUserId: editingUser.quickbaseUserId || undefined,
                         role: editingUser.role,
+                        isActive: editingUser.isActive,
                       },
                     })
                   }}
