@@ -297,19 +297,14 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Look up invite by token and get inviter info from audit log
+    // Look up invite by token
     const result = await sql.query(`
       SELECT
         u.id, u.email, u.name, u.role, u.sales_office,
-        u.invited_at, u.invite_accepted_at,
-        inviter.name as invited_by_name,
-        inviter.email as invited_by_email
+        u.invited_at, u.invite_accepted_at
       FROM users u
-      LEFT JOIN audit_logs al ON al.record_id = u.id::text
-        AND al.action = 'invite'
-        AND al.entity_type = 'user'
-      LEFT JOIN users inviter ON inviter.id = al.user_id
       WHERE u.invite_token = $1
+      LIMIT 1
     `, [token])
 
     if (result.rows.length === 0) {
@@ -349,6 +344,30 @@ export async function GET(request: NextRequest) {
 
     const offices = officeResult.rows.map(row => row.office_name)
 
+    // Get inviter info from audit log (optional)
+    let invitedBy = 'Administrator'
+    let invitedByName = 'Administrator'
+    try {
+      const inviterResult = await sql.query(`
+        SELECT u.name, u.email
+        FROM audit_logs al
+        JOIN users u ON u.id = al.user_id
+        WHERE al.record_id = $1::text
+          AND al.action = 'invite'
+          AND al.entity_type = 'user'
+        ORDER BY al.created_at DESC
+        LIMIT 1
+      `, [user.id])
+
+      if (inviterResult.rows.length > 0) {
+        invitedByName = inviterResult.rows[0].name
+        invitedBy = inviterResult.rows[0].email
+      }
+    } catch (error) {
+      // If audit log query fails, just use default values
+      logInfo('Could not fetch inviter info from audit log', { userId: user.id })
+    }
+
     return NextResponse.json({
       email: user.email,
       name: user.name,
@@ -356,8 +375,8 @@ export async function GET(request: NextRequest) {
       office: user.sales_office?.[0] || null, // Backward compatibility
       offices: offices, // New field with all assigned offices
       invitedAt: user.invited_at,
-      invitedBy: user.invited_by_email || 'Administrator',
-      invitedByName: user.invited_by_name || 'Administrator',
+      invitedBy: invitedBy,
+      invitedByName: invitedByName,
       accepted: !!user.invite_accepted_at
     })
   } catch (error) {
