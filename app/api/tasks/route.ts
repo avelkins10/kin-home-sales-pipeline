@@ -17,44 +17,42 @@ import { sql } from '@/lib/db/client';
 // Helper functions to avoid import issues
 async function getUserEmail(userId: string): Promise<string | null> {
   try {
-    const result = await sql`
-      SELECT email
-      FROM users
-      WHERE id = ${userId}
-      AND email IS NOT NULL
-    `;
+    const result = await sql.query(
+      'SELECT email FROM users WHERE id = $1 AND email IS NOT NULL',
+      [userId]
+    );
     return result.rows.length > 0 ? result.rows[0].email : null;
   } catch (error) {
-    logError('Failed to get user email', error as Error);
+    logError('Failed to get user email', error as Error, { userId });
     return null;
   }
 }
 
 async function getManagedUserEmails(managerId: string): Promise<string[]> {
   try {
-    const result = await sql`
+    const result = await sql.query(`
       SELECT u.email
       FROM user_hierarchies uh
       JOIN users u ON uh.user_id = u.id
-      WHERE uh.manager_id = ${managerId}
+      WHERE uh.manager_id = $1
       AND u.email IS NOT NULL
-    `;
+    `, [managerId]);
     return result.rows.map(row => row.email).filter(Boolean);
   } catch (error) {
-    logError('Failed to get managed user emails', error as Error);
+    logError('Failed to get managed user emails', error as Error, { managerId });
     return [];
   }
 }
 
 async function getAssignedOffices(userId: string): Promise<number[]> {
   try {
-    const result = await sql`
+    const result = await sql.query(`
       SELECT o.quickbase_office_id
       FROM office_assignments oa
       JOIN offices o ON oa.office_name = o.name
-      WHERE oa.user_id = ${userId}
+      WHERE oa.user_id = $1
         AND o.quickbase_office_id IS NOT NULL
-    `;
+    `, [userId]);
     return result.rows.map(row => row.quickbase_office_id);
   } catch (error) {
     logError('Failed to get assigned offices', error as Error, { userId });
