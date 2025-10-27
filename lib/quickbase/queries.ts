@@ -5077,7 +5077,10 @@ export async function getPCActivityFeed(
 
     const projectsResponse = await qbClient.queryRecords(projectsQuery);
     const projectRecords = projectsResponse.data || [];
-    const projectIds = projectRecords.map(p => p[PROJECT_FIELDS.RECORD_ID]);
+    const projectIds = projectRecords.map(p => {
+      const recordId = p[PROJECT_FIELDS.RECORD_ID];
+      return typeof recordId === 'object' && recordId?.value ? recordId.value : recordId;
+    });
 
     if (projectIds.length === 0) {
       return [];
