@@ -7,8 +7,8 @@ export async function middleware(request: NextRequest) {
   const token = await getToken({ req: request });
   const { pathname } = request.nextUrl;
 
-  // Allow unauthenticated access to login and auth routes
-  if (pathname.startsWith('/login') || pathname.startsWith('/api/auth/')) {
+  // Allow unauthenticated access to login, auth routes, and accept-invite
+  if (pathname.startsWith('/login') || pathname.startsWith('/api/auth/') || pathname.startsWith('/accept-invite')) {
     return NextResponse.next();
   }
 
