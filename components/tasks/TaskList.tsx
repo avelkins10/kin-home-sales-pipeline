@@ -2,7 +2,7 @@
 
 import { Task } from '@/lib/types/task'
 import { TaskListItem } from './TaskListItem'
-import { AlertTriangle, CheckCircle, Clock } from 'lucide-react'
+import { AlertTriangle, CheckCircle, Clock, ChevronDown, ChevronUp } from 'lucide-react'
 import { sortTasksByUrgency } from '@/lib/utils/task-urgency'
 
 interface TaskListProps {
@@ -14,6 +14,8 @@ interface TaskListProps {
     salesOffice?: string | null
   }>
   groupBy?: 'none' | 'project' | 'urgency' | 'office'
+  expandedOffices?: Set<string>
+  toggleOffice?: (officeName: string) => void
 }
 
 // Helper: Sort tasks by date (newest first)
@@ -25,7 +27,7 @@ function sortByDate(tasks: any[]) {
   })
 }
 
-export function TaskList({ tasks, groupBy = 'none' }: TaskListProps) {
+export function TaskList({ tasks, groupBy = 'none', expandedOffices, toggleOffice }: TaskListProps) {
   if (tasks.length === 0) {
     return (
       <div className="text-center py-12 bg-white rounded-lg border">
@@ -89,22 +91,37 @@ export function TaskList({ tasks, groupBy = 'none' }: TaskListProps) {
     const sortedOffices = Object.keys(tasksByOffice).sort()
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         {sortedOffices.map((officeName) => {
           const officeTasks = tasksByOffice[officeName]
+          const isExpanded = expandedOffices?.has(officeName) ?? true
           return (
-            <div key={officeName}>
-              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                <span>{officeName}</span>
-                <span className="text-xs font-normal text-gray-500">
-                  ({officeTasks.length} {officeTasks.length === 1 ? 'task' : 'tasks'})
-                </span>
-              </h3>
-              <div className="space-y-3">
-                {sortByDate(officeTasks).map((task) => (
-                  <TaskListItem key={task.recordId} task={task as any} />
-                ))}
-              </div>
+            <div key={officeName} className="bg-white rounded-lg border">
+              <button
+                onClick={() => toggleOffice?.(officeName)}
+                className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    {officeName}
+                  </h3>
+                  <span className="text-xs font-normal text-gray-500">
+                    ({officeTasks.length} {officeTasks.length === 1 ? 'task' : 'tasks'})
+                  </span>
+                </div>
+                {isExpanded ? (
+                  <ChevronUp className="w-5 h-5 text-gray-500" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-gray-500" />
+                )}
+              </button>
+              {isExpanded && (
+                <div className="px-4 pb-4 space-y-3">
+                  {sortByDate(officeTasks).map((task) => (
+                    <TaskListItem key={task.recordId} task={task as any} />
+                  ))}
+                </div>
+              )}
             </div>
           )
         })}

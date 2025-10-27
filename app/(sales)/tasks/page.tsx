@@ -17,6 +17,9 @@ export default function TasksPage() {
   const { data: session, status } = useSession()
   const [groupBy, setGroupBy] = useState<GroupBy>('urgency')
   const [selectedCloser, setSelectedCloser] = useState<string>('all')
+  const [selectedOffice, setSelectedOffice] = useState<string>('all')
+  const [selectedStatus, setSelectedStatus] = useState<string>('all')
+  const [expandedOffices, setExpandedOffices] = useState<Set<string>>(new Set())
 
   // Fetch all tasks for current user
   // IMPORTANT: Must call all hooks before any early returns (Rules of Hooks)
@@ -42,17 +45,54 @@ export default function TasksPage() {
     redirect('/login')
   }
 
-  // Extract unique closers for filter
+  // Toggle office expansion
+  const toggleOffice = (officeName: string) => {
+    setExpandedOffices(prev => {
+      const next = new Set(prev)
+      if (next.has(officeName)) {
+        next.delete(officeName)
+      } else {
+        next.add(officeName)
+      }
+      return next
+    })
+  }
+
+  // Extract unique closers and offices for filters
   const uniqueClosers = Array.from(new Set(
     tasks
       .map((t: any) => t.closerName)
       .filter((name): name is string => !!name)
   )).sort()
 
-  // Filter tasks by selected closer
-  const filteredTasks = selectedCloser === 'all'
-    ? tasks
-    : tasks.filter((t: any) => t.closerName === selectedCloser)
+  const uniqueOffices = Array.from(new Set(
+    tasks
+      .map((t: any) => t.salesOffice)
+      .filter((office): office is string => !!office)
+  )).sort()
+
+  // Filter tasks by selected closer, office, and status
+  const filteredTasks = tasks.filter((t: any) => {
+    // Filter by closer
+    if (selectedCloser !== 'all' && t.closerName !== selectedCloser) {
+      return false
+    }
+    // Filter by office
+    if (selectedOffice !== 'all' && t.salesOffice !== selectedOffice) {
+      return false
+    }
+    // Filter by status
+    if (selectedStatus !== 'all') {
+      const projectStatus = t.projectStatus?.toLowerCase() || ''
+      if (selectedStatus === 'approved' && !projectStatus.includes('approved')) {
+        return false
+      }
+      if (selectedStatus === 'not_started' && projectStatus !== 'not started') {
+        return false
+      }
+    }
+    return true
+  })
 
   // Calculate stats from filtered tasks
   const totalTasks = filteredTasks.length
@@ -126,13 +166,15 @@ export default function TasksPage() {
         </div>
 
         {/* Controls */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 bg-white rounded-lg border p-4">
-          {/* Filter by Closer */}
-          <div className="flex items-center gap-3">
+        <div className="bg-white rounded-lg border p-4 mb-6 space-y-4">
+          {/* Filters */}
+          <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
               <Filter className="w-4 h-4 text-gray-500" />
-              <span className="text-sm font-medium text-gray-700">Filter:</span>
+              <span className="text-sm font-medium text-gray-700">Filters:</span>
             </div>
+
+            {/* Filter by Closer */}
             <select
               value={selectedCloser}
               onChange={(e) => setSelectedCloser(e.target.value)}
@@ -148,10 +190,38 @@ export default function TasksPage() {
                 )
               })}
             </select>
+
+            {/* Filter by Office */}
+            <select
+              value={selectedOffice}
+              onChange={(e) => setSelectedOffice(e.target.value)}
+              className="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">All Offices ({tasks.length})</option>
+              {uniqueOffices.map((office) => {
+                const count = tasks.filter((t: any) => t.salesOffice === office).length
+                return (
+                  <option key={office} value={office}>
+                    {office} ({count})
+                  </option>
+                )
+              })}
+            </select>
+
+            {/* Filter by Status */}
+            <select
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+              className="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">All Statuses</option>
+              <option value="approved">Approved</option>
+              <option value="not_started">Not Started</option>
+            </select>
           </div>
 
           {/* Group by */}
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <span className="text-sm font-medium text-gray-700">Group by:</span>
             <div className="flex items-center gap-2">
             <Button
@@ -216,7 +286,12 @@ export default function TasksPage() {
             </p>
           </div>
         ) : (
-          <TaskList tasks={filteredTasks} groupBy={groupBy} />
+          <TaskList
+            tasks={filteredTasks}
+            groupBy={groupBy}
+            expandedOffices={expandedOffices}
+            toggleOffice={toggleOffice}
+          />
         )}
       </div>
     </div>
