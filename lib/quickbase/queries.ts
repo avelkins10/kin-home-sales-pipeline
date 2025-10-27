@@ -807,6 +807,14 @@ export function sanitizeQbLiteral(input?: string): string {
   return s;
 }
 
+// Helper function to safely extract numeric values from QuickBase wrapped objects
+function extractNumericValue(field: any): number {
+  if (typeof field === 'object' && field?.value !== undefined) {
+    return Number(field.value) || 0;
+  }
+  return Number(field) || 0;
+}
+
 // Helper function to safely parse date strings to timestamps
 export function toTimestamp(dateString: string): number {
   const date = new Date(dateString);
@@ -5022,7 +5030,7 @@ export async function getPCPriorityQueue(
       const { score, reason } = calculatePriorityScore(record, currentStage, contactData);
       
       return {
-        recordId: record[PROJECT_FIELDS.RECORD_ID],
+        recordId: extractNumericValue(record[PROJECT_FIELDS.RECORD_ID]),
         projectId: record[PROJECT_FIELDS.PROJECT_ID] || '',
         customerName: record[PROJECT_FIELDS.CUSTOMER_NAME] || '',
         customerPhone: record[PROJECT_FIELDS.CUSTOMER_PHONE] || '',
@@ -5032,9 +5040,9 @@ export async function getPCPriorityQueue(
         priorityReason: reason,
         daysSinceContact: contactData.daysSinceContact,
         contactAttempts: contactData.contactAttempts,
-        dueMilestones: record[PROJECT_FIELDS.PC_OUTREACH_DUE] || 0,
+        dueMilestones: extractNumericValue(record[PROJECT_FIELDS.PC_OUTREACH_DUE]),
         isUnresponsive: record[PROJECT_FIELDS.PC_IS_UNRESPONSIVE] === 'Yes',
-        escalationLevel: record[PROJECT_FIELDS.PC_ESCALATIONS] || 0,
+        escalationLevel: extractNumericValue(record[PROJECT_FIELDS.PC_ESCALATIONS]),
         preferredContactMethod: (typeof record[PROJECT_FIELDS.PC_OUTREACH_PREFERRED_METHOD] === 'object'
           ? record[PROJECT_FIELDS.PC_OUTREACH_PREFERRED_METHOD]?.value
           : record[PROJECT_FIELDS.PC_OUTREACH_PREFERRED_METHOD]) || 'Call',
@@ -5316,24 +5324,24 @@ function getContactDataForStage(record: any, currentStage: string): {
 
   switch (currentStage) {
     case 'Intake':
-      daysSinceContact = record[PROJECT_FIELDS.PC_DAYS_SINCE_CONTACT_INTAKE] || 0;
-      contactAttempts = record[PROJECT_FIELDS.PC_CONTACT_ATTEMPTS_INTAKE] || 0;
+      daysSinceContact = extractNumericValue(record[PROJECT_FIELDS.PC_DAYS_SINCE_CONTACT_INTAKE]);
+      contactAttempts = extractNumericValue(record[PROJECT_FIELDS.PC_CONTACT_ATTEMPTS_INTAKE]);
       break;
     case 'Install':
-      daysSinceContact = record[PROJECT_FIELDS.PC_DAYS_SINCE_CONTACT_INSTALL] || 0;
-      contactAttempts = record[PROJECT_FIELDS.PC_CONTACT_ATTEMPTS_INSTALL] || 0;
+      daysSinceContact = extractNumericValue(record[PROJECT_FIELDS.PC_DAYS_SINCE_CONTACT_INSTALL]);
+      contactAttempts = extractNumericValue(record[PROJECT_FIELDS.PC_CONTACT_ATTEMPTS_INSTALL]);
       break;
     case 'NEM':
-      daysSinceContact = record[PROJECT_FIELDS.PC_DAYS_SINCE_CONTACT_NEM] || 0;
-      contactAttempts = record[PROJECT_FIELDS.PC_CONTACT_ATTEMPTS_NEM] || 0;
+      daysSinceContact = extractNumericValue(record[PROJECT_FIELDS.PC_DAYS_SINCE_CONTACT_NEM]);
+      contactAttempts = extractNumericValue(record[PROJECT_FIELDS.PC_CONTACT_ATTEMPTS_NEM]);
       break;
     case 'PTO':
-      daysSinceContact = record[PROJECT_FIELDS.PC_DAYS_SINCE_CONTACT_PTO] || 0;
-      contactAttempts = record[PROJECT_FIELDS.PC_CONTACT_ATTEMPTS_PTO] || 0;
+      daysSinceContact = extractNumericValue(record[PROJECT_FIELDS.PC_DAYS_SINCE_CONTACT_PTO]);
+      contactAttempts = extractNumericValue(record[PROJECT_FIELDS.PC_CONTACT_ATTEMPTS_PTO]);
       break;
     default:
-      daysSinceContact = record[PROJECT_FIELDS.PC_DAYS_SINCE_CONTACT_INTAKE] || 0;
-      contactAttempts = record[PROJECT_FIELDS.PC_CONTACT_ATTEMPTS_INTAKE] || 0;
+      daysSinceContact = extractNumericValue(record[PROJECT_FIELDS.PC_DAYS_SINCE_CONTACT_INTAKE]);
+      contactAttempts = extractNumericValue(record[PROJECT_FIELDS.PC_CONTACT_ATTEMPTS_INTAKE]);
   }
 
   // Calculate days in current stage using milestone transition dates
@@ -5570,8 +5578,8 @@ function calculatePriorityScore(
   contactData: { daysSinceContact: number; contactAttempts: number; daysInStage: number }
 ): { score: number; reason: string } {
   const { daysSinceContact, contactAttempts } = contactData;
-  const dueMilestones = record[PROJECT_FIELDS.PC_OUTREACH_DUE] || 0;
-  const escalations = record[PROJECT_FIELDS.PC_ESCALATIONS] || 0;
+  const dueMilestones = extractNumericValue(record[PROJECT_FIELDS.PC_OUTREACH_DUE]);
+  const escalations = extractNumericValue(record[PROJECT_FIELDS.PC_ESCALATIONS]);
   const isUnresponsive = record[PROJECT_FIELDS.PC_IS_UNRESPONSIVE] === 'Yes';
 
   // Scoring algorithm: (Days Since Contact × 10) + (Attempts × 5) + (Due Milestones × 20) + (Escalation Level) + (Unresponsive Flag × 30)
