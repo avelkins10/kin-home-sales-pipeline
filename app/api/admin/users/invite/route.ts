@@ -20,8 +20,10 @@ import { sendInviteEmail, sendWelcomeEmail, validateEmailConfig } from '@/lib/ut
  * - If body contains { token, password } → accept invite
  */
 export async function POST(request: NextRequest) {
+  let requestBody: any
   try {
-    const body = await request.json()
+    requestBody = await request.json()
+    const body = requestBody
     
     // Check if this is an invite acceptance (has token and password)
     if (body.token && body.password) {
@@ -263,7 +265,7 @@ export async function POST(request: NextRequest) {
     logError('Failed to create user invite', error instanceof Error ? error : new Error(String(error)), {
       errorMessage,
       errorStack,
-      body: JSON.stringify(body)
+      requestBody: requestBody ? JSON.stringify(requestBody) : 'N/A'
     })
 
     return NextResponse.json(
