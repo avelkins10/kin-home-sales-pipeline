@@ -16,6 +16,15 @@ interface InboundQueueCardProps {
 
 export function InboundQueueCard({ item, onAction }: InboundQueueCardProps) {
   const [modalOpen, setModalOpen] = useState(false);
+
+  // Helper to extract value from QuickBase wrapped objects
+  const extractValue = (field: any): string => {
+    if (typeof field === 'object' && field?.value) {
+      return String(field.value);
+    }
+    return String(field || '');
+  };
+
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
       case 'critical': return 'border-l-red-500';
@@ -72,14 +81,14 @@ export function InboundQueueCard({ item, onAction }: InboundQueueCardProps) {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="font-semibold text-gray-900 truncate">
-                    {item.salesRepName}
+                    {extractValue(item.salesRepName)}
                   </span>
                   <Badge variant="outline" className="text-xs">
                     {item.projectId}
                   </Badge>
                 </div>
                 <p className="text-sm text-gray-600 truncate">
-                  {item.customerName}
+                  {extractValue(item.customerName)}
                 </p>
               </div>
               
@@ -91,7 +100,7 @@ export function InboundQueueCard({ item, onAction }: InboundQueueCardProps) {
             
             {/* Message preview */}
             <p className="text-sm text-gray-700 mb-2 line-clamp-2">
-              {item.messagePreview}
+              {extractValue(item.messagePreview)}
             </p>
             
             {/* Deadline countdown */}
