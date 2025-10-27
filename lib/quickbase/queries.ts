@@ -494,7 +494,7 @@ export async function getProjectsForUserList(userId: string, role: string, view?
 
       // Build filter for these project IDs
       const projectIds = Array.from(projectIdsWithTasks);
-      tasksFilter = projectIds.map(id => `{${PROJECT_FIELDS.RECORD_ID.EX.${id}}`).join(' OR ');
+      tasksFilter = projectIds.map(id => `{${PROJECT_FIELDS.RECORD_ID}.EX.${id}}`).join(' OR ');
       console.log('[getProjectsForUserList] Found', projectIds.length, 'projects with unapproved tasks');
     } catch (error) {
       logError('Failed to fetch projects with tasks', error as Error, { userId, role });
@@ -2362,7 +2362,7 @@ export async function getProjectById(recordId: number) {
   const result = await qbClient.queryRecords({
     from: QB_TABLE_PROJECTS,
     select: Object.values(PROJECT_FIELDS), // All 92 fields
-    where: `{${PROJECT_FIELDS.RECORD_ID.EX.${recordId}}`,
+    where: `{${PROJECT_FIELDS.RECORD_ID}.EX.${recordId}}`,
   });
 
   return result.data[0] || null;
@@ -2481,7 +2481,7 @@ export async function getAddersForProject(projectRecordId: string | number) {
   try {
     const response = await qbClient.queryRecords({
       from: QB_TABLE_ADDERS,
-      where: `{${ADDER_FIELDS.RELATED_PROJECT.EX.${projectRecordId}}`,
+      where: `{${ADDER_FIELDS.RELATED_PROJECT}.EX.${projectRecordId}}`,
       select: [
         ADDER_FIELDS.RECORD_ID,
         ADDER_FIELDS.PRODUCT_NAME,
@@ -2513,7 +2513,7 @@ export async function getNotesForProject(projectRecordId: string | number) {
   try {
     const response = await qbClient.queryRecords({
       from: QB_TABLE_NOTES,
-      where: `{${NOTE_FIELDS.RELATED_PROJECT.EX.${projectRecordId}} AND {${NOTE_FIELDS.REP_VISIBLE.EX.'Rep Visible'}`,
+      where: `{${NOTE_FIELDS.RELATED_PROJECT}.EX.${projectRecordId}} AND {${NOTE_FIELDS.REP_VISIBLE.EX.'Rep Visible'}`,
       select: [
         NOTE_FIELDS.RECORD_ID,
         NOTE_FIELDS.NOTE_CONTENT,
@@ -4007,7 +4007,7 @@ export async function getProjectTasks(projectId: number): Promise<Task[]> {
     const taskGroupsResponse = await qbClient.queryRecords({
       from: QB_TABLE_TASK_GROUPS,
       select: [TASK_GROUP_FIELDS.RECORD_ID],
-      where: `{${TASK_GROUP_FIELDS.RELATED_PROJECT.EX.${projectId}}`
+      where: `{${TASK_GROUP_FIELDS.RELATED_PROJECT}.EX.${projectId}}`
     });
 
     // Extract task group IDs
@@ -4024,7 +4024,7 @@ export async function getProjectTasks(projectId: number): Promise<Task[]> {
 
     // Step 2: Get tasks for these task groups
     // Build OR clause: {6.EX.123}OR{6.EX.456}OR{6.EX.789}
-    const whereClause = taskGroupIds.map((id: number) => `{${TASK_FIELDS.TASK_GROUP.EX.${id}}`).join('OR');
+    const whereClause = taskGroupIds.map((id: number) => `{${TASK_FIELDS.TASK_GROUP}.EX.${id}}`).join('OR');
 
     const response = await qbClient.queryRecords({
       from: QB_TABLE_TASKS,
@@ -4095,7 +4095,7 @@ export async function getTaskById(taskId: number): Promise<Task | null> {
         TASK_FIELDS.REVIEWED_BY_OPS_USER,
         TASK_FIELDS.OPS_REVIEW_NOTE
       ],
-      where: `{3.EX.${taskId}}` // Filter by record ID (field 3) = task ID
+      where: `{3}.EX.${taskId}}` // Filter by record ID (field 3) = task ID
     });
 
     if (response.data.length === 0) {
@@ -4160,7 +4160,7 @@ export async function getTaskTemplate(templateId: number): Promise<TaskTemplate 
         TASK_TEMPLATE_FIELDS.INTAKE_TASK_MISSING_ITEM,
         TASK_TEMPLATE_FIELDS.TASK_DESCRIPTION
       ],
-      where: `{3.EX.${templateId}}`
+      where: `{3}.EX.${templateId}}`
     });
 
     if (response.data.length === 0) {
@@ -4252,7 +4252,7 @@ export async function getTaskSubmissions(taskId: number): Promise<TaskSubmission
         TASK_SUBMISSION_FIELDS.OPS_REVIEW_COMPLETED_BY,
         TASK_SUBMISSION_FIELDS.OPS_REVIEW_COMPLETED_AT
       ],
-      where: `{6.EX.${taskId}}` // Filter by related task (field 6) = task ID
+      where: `{6}.EX.${taskId}}` // Filter by related task (field 6) = task ID
     });
 
     const submissions: TaskSubmission[] = response.data.map((record: any) => ({
@@ -4382,7 +4382,7 @@ export async function getTaskCountsForProjects(projectIds: number[]): Promise<Ma
     // Build array of promises for parallel execution
     const promises = batches.map(batch => {
       // Build OR clause for this batch
-      const whereClause = batch.map(id => `{${TASK_GROUP_FIELDS.RELATED_PROJECT.EX.${id}}`).join(' OR ');
+      const whereClause = batch.map(id => `{${TASK_GROUP_FIELDS.RELATED_PROJECT}.EX.${id}}`).join(' OR ');
 
       return qbClient.queryRecords({
         from: QB_TABLE_TASK_GROUPS,
@@ -4577,7 +4577,7 @@ export async function checkAllTasksComplete(projectId: number): Promise<{
         TASK_GROUP_FIELDS.TOTAL_TASKS,
         TASK_GROUP_FIELDS.UNAPPROVED_TASKS
       ],
-      where: `{${TASK_GROUP_FIELDS.RELATED_PROJECT.EX.${projectId}}`
+      where: `{${TASK_GROUP_FIELDS.RELATED_PROJECT}.EX.${projectId}}`
     });
 
     // Sum up totals across all task groups
@@ -4657,7 +4657,7 @@ export async function calculateTaskBasedResolutionTime(projectId: number): Promi
     // Step 1: Query all tasks for this project
     const tasksResponse = await qbClient.queryRecords({
       from: QB_TABLE_TASKS,
-      where: `{6.EX.${projectId}`, // Field 6 = TASK_GROUP (which links to project)
+      where: `{6}.EX.${projectId}`, // Field 6 = TASK_GROUP (which links to project)
       select: [
         TASK_FIELDS.RECORD_ID,
         TASK_FIELDS.DATE_CREATED,
@@ -4690,7 +4690,7 @@ export async function calculateTaskBasedResolutionTime(projectId: number): Promi
       return null;
     }
 
-    const submissionsWhere = taskIds.map(id => `{${TASK_SUBMISSION_FIELDS.RELATED_TASK.EX.${id}}`).join(' OR ');
+    const submissionsWhere = taskIds.map(id => `{${TASK_SUBMISSION_FIELDS.RELATED_TASK}.EX.${id}}`).join(' OR ');
 
     const submissionsResponse = await qbClient.queryRecords({
       from: QB_TABLE_TASK_SUBMISSIONS,
@@ -5626,7 +5626,7 @@ export async function getProjectsForMilestoneCheck(
     
     // Add PC filter if specified
     if (pcEmail) {
-      whereClause += `AND{${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL.EX.${pcEmail}}`;
+      whereClause += `AND{${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.${pcEmail}}`;
     }
 
     // Select fields needed for milestone checks using numeric FIDs
@@ -6886,7 +6886,7 @@ export async function getPCProjectCommunications(
   try {
     logQuickbaseRequest('getPCProjectCommunications', { projectId, recordId }, reqId);
 
-    const whereClause = `{${INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT.EX.'${projectId}'}OR{${INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT.EX.${recordId}}`;
+    const whereClause = `{${INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT.EX.'${projectId}'}OR{${INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT}.EX.${recordId}}`;
 
     const selectFields = [
       INSTALL_COMMUNICATION_FIELDS.RECORD_ID,
@@ -8001,7 +8001,7 @@ export async function getEscalationHistory(
 
     const query = {
       from: QB_TABLE_INSTALL_COMMUNICATIONS,
-      where: `{${COMMUNICATION_FIELDS.RELATED_SALES_AID_REQUEST.EX.${escalationId}}`,
+      where: `{${COMMUNICATION_FIELDS.RELATED_SALES_AID_REQUEST}.EX.${escalationId}}`,
       select: [
         COMMUNICATION_FIELDS.DATE,
         COMMUNICATION_FIELDS.COMMUNICATION_TYPE,
