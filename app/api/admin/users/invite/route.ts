@@ -490,8 +490,8 @@ async function handleInviteAcceptance(body: { token: string; password: string })
 
     // Look up invite by token
     const result = await sql.query(`
-      SELECT id, email, name, role, sales_office, invited_at, invite_accepted_at
-      FROM users 
+      SELECT id, email, name, role, sales_office, phone, invited_at, invite_accepted_at
+      FROM users
       WHERE invite_token = $1
     `, [token])
 
@@ -630,9 +630,21 @@ async function handleInviteAcceptance(body: { token: string; password: string })
       }
     })
   } catch (error) {
-    logError('Failed to accept invite', error instanceof Error ? error : new Error(String(error)))
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorStack = error instanceof Error ? error.stack : undefined
+
+    logError('Failed to accept invite', error instanceof Error ? error : new Error(String(error)), {
+      errorMessage,
+      errorStack,
+      token: body.token ? body.token.substring(0, 8) + '...' : 'N/A'
+    })
+
     return NextResponse.json(
-      { error: 'Failed to accept invite' },
+      {
+        error: 'Failed to accept invite',
+        message: errorMessage,
+        ...(process.env.NODE_ENV === 'development' && { stack: errorStack })
+      },
       { status: 500 }
     )
   }
