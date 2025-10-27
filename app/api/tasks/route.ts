@@ -95,6 +95,20 @@ export async function GET(req: Request) {
     let userEmail: string | null = null;
     if (['closer', 'setter', 'coordinator'].includes(userRole) || isManagerRole(userRole)) {
       userEmail = await getUserEmail(userId);
+
+      // Critical check: Closers and setters MUST have an email
+      if (!userEmail && ['closer', 'setter'].includes(userRole)) {
+        logError('User has no email in database', new Error('Missing email for rep role'), {
+          userId,
+          role: userRole,
+          reqId
+        });
+        return NextResponse.json({
+          error: 'User Configuration Error',
+          message: 'Your account is missing required information. Please contact an administrator.',
+          details: 'Email address is required for your role but is not configured in the database.'
+        }, { status: 500 });
+      }
     }
 
     // Get managed user emails for team leads
@@ -360,6 +374,14 @@ export async function GET(req: Request) {
     return NextResponse.json(tasksWithProject, { status: 200 });
 
   } catch (error) {
+    // CRITICAL: Console.error to ensure it shows in Vercel logs
+    console.error('[TASKS_API] CRITICAL ERROR:', {
+      message: (error as Error).message,
+      name: (error as Error).name,
+      stack: (error as Error).stack,
+      reqId
+    });
+
     // Log detailed error information for debugging
     const errorDetails: any = {
       message: (error as Error).message,
