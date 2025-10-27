@@ -24,6 +24,13 @@ export function EmailConfigBanner() {
   const checkEmailConfig = async () => {
     try {
       const response = await fetch(`${getBaseUrl()}/api/test-email`)
+
+      // If endpoint doesn't exist yet or returns error, fail silently
+      if (!response.ok) {
+        setLoading(false)
+        return
+      }
+
       const data = await response.json()
 
       setStatus({
@@ -33,6 +40,7 @@ export function EmailConfigBanner() {
       })
     } catch (error) {
       console.error('Failed to check email config:', error)
+      // Fail silently - don't show banner if check fails
     } finally {
       setLoading(false)
     }
