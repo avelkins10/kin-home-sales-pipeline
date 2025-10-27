@@ -5072,7 +5072,7 @@ export async function getPCActivityFeed(
       where: projectsWhere,
       select: [PROJECT_FIELDS.RECORD_ID, PROJECT_FIELDS.PROJECT_ID, PROJECT_FIELDS.CUSTOMER_NAME],
       sortBy: [{ field: PROJECT_FIELDS.DATE_CREATED, order: 'DESC' }],
-      options: { top: 5000 }
+      options: { top: 500 }
     };
 
     const projectsResponse = await qbClient.queryRecords(projectsQuery);
