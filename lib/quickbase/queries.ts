@@ -4901,16 +4901,19 @@ export async function getPCDashboardMetrics(
 
     // Calculate metrics
     const totalProjects = records.length;
-    const pendingOutreach = records.filter(r => (r[PROJECT_FIELDS.PC_OUTREACH_DUE] || 0) > 0).length;
-    const unresponsiveCustomers = records.filter(r => 
-      r[PROJECT_FIELDS.PC_IS_UNRESPONSIVE] === 'Yes' || 
-      (r[PROJECT_FIELDS.PC_UNRESPONSIVE_COUNT] || 0) > 0
-    ).length;
-    const activeEscalations = records.filter(r => (r[PROJECT_FIELDS.PC_ESCALATIONS] || 0) > 0).length;
+    const pendingOutreach = records.filter(r => extractNumericValue(r[PROJECT_FIELDS.PC_OUTREACH_DUE]) > 0).length;
+    const unresponsiveCustomers = records.filter(r => {
+      const isUnresponsive = r[PROJECT_FIELDS.PC_IS_UNRESPONSIVE];
+      const isUnresponsiveValue = typeof isUnresponsive === 'object' ? isUnresponsive?.value : isUnresponsive;
+      return isUnresponsiveValue === 'Yes' || extractNumericValue(r[PROJECT_FIELDS.PC_UNRESPONSIVE_COUNT]) > 0;
+    }).length;
+    const activeEscalations = records.filter(r => extractNumericValue(r[PROJECT_FIELDS.PC_ESCALATIONS]) > 0).length;
     const todaysInstalls = records.filter(r => {
       const installDate = r[PROJECT_FIELDS.INSTALL_COMPLETED_DATE];
       if (!installDate) return false;
-      const dateStr = typeof installDate === 'string' ? installDate : String(installDate);
+      // Extract value from wrapped object if needed
+      const dateValue = typeof installDate === 'object' && installDate?.value ? installDate.value : installDate;
+      const dateStr = String(dateValue);
       return dateStr.startsWith(today);
     }).length;
     
@@ -5295,12 +5298,20 @@ export async function getPCActivityFeed(
  * Determine current project stage based on milestone statuses
  */
 function determineCurrentStage(record: any): string {
-  const intakeStatus = record[PROJECT_FIELDS.INTAKE_STATUS];
-  const surveyStatus = record[PROJECT_FIELDS.SURVEY_STATUS];
-  const designStatus = record[PROJECT_FIELDS.DESIGN_STATUS];
-  const permitStatus = record[PROJECT_FIELDS.PERMIT_STATUS];
-  const nemStatus = record[PROJECT_FIELDS.NEM_INTERCONNECTION_STATUS];
-  const ptoStatus = record[PROJECT_FIELDS.PTO_STATUS];
+  // Helper to extract string values from QuickBase wrapped objects
+  const extractStringValue = (field: any): string => {
+    if (typeof field === 'object' && field?.value !== undefined) {
+      return String(field.value);
+    }
+    return String(field || '');
+  };
+
+  const intakeStatus = extractStringValue(record[PROJECT_FIELDS.INTAKE_STATUS]);
+  const surveyStatus = extractStringValue(record[PROJECT_FIELDS.SURVEY_STATUS]);
+  const designStatus = extractStringValue(record[PROJECT_FIELDS.DESIGN_STATUS]);
+  const permitStatus = extractStringValue(record[PROJECT_FIELDS.PERMIT_STATUS]);
+  const nemStatus = extractStringValue(record[PROJECT_FIELDS.NEM_INTERCONNECTION_STATUS]);
+  const ptoStatus = extractStringValue(record[PROJECT_FIELDS.PTO_STATUS]);
 
   if (ptoStatus === 'Approved') return 'PTO';
   if (nemStatus === 'Approved') return 'Install';
@@ -5360,6 +5371,15 @@ function getContactDataForStage(record: any, currentStage: string): {
 function calculateComprehensiveSLACompliance(records: any[]): number {
   if (records.length === 0) return 100;
 
+  // Helper to extract date value from wrapped object
+  const extractDateValue = (field: any): string | null => {
+    if (!field) return null;
+    if (typeof field === 'object' && field?.value !== undefined) {
+      return String(field.value);
+    }
+    return String(field);
+  };
+
   let totalSLAs = 0;
   let metSLAs = 0;
 
@@ -5376,10 +5396,10 @@ function calculateComprehensiveSLACompliance(records: any[]): number {
       pto: 56        // 56 days for PTO approval
     };
 
-    const salesDate = record[PROJECT_FIELDS.SALES_DATE];
-    if (!salesDate) return; // Skip if no sales date
+    const salesDateValue = extractDateValue(record[PROJECT_FIELDS.SALES_DATE]);
+    if (!salesDateValue) return; // Skip if no sales date
 
-    const salesDateObj = new Date(salesDate);
+    const salesDateObj = new Date(salesDateValue);
     const today = new Date();
 
     // Check each milestone SLA
@@ -5397,65 +5417,65 @@ function calculateComprehensiveSLACompliance(records: any[]): number {
         // Check if milestone was completed on time
         switch (milestone) {
           case 'intake':
-            const intakeCompleted = record[PROJECT_FIELDS.INTAKE_COMPLETED_DATE];
-            if (intakeCompleted) {
-              completionDate = new Date(intakeCompleted);
+            const intakeCompletedValue = extractDateValue(record[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]);
+            if (intakeCompletedValue) {
+              completionDate = new Date(intakeCompletedValue);
               milestoneCompleted = completionDate <= deadlineDate;
             }
             break;
-          
+
           case 'survey':
-            const surveyApproved = record[PROJECT_FIELDS.SURVEY_APPROVED];
-            if (surveyApproved) {
-              completionDate = new Date(surveyApproved);
+            const surveyApprovedValue = extractDateValue(record[PROJECT_FIELDS.SURVEY_APPROVED]);
+            if (surveyApprovedValue) {
+              completionDate = new Date(surveyApprovedValue);
               milestoneCompleted = completionDate <= deadlineDate;
             }
             break;
-          
+
           case 'design':
-            const designCompleted = record[PROJECT_FIELDS.DESIGN_COMPLETED];
-            if (designCompleted) {
-              completionDate = new Date(designCompleted);
+            const designCompletedValue = extractDateValue(record[PROJECT_FIELDS.DESIGN_COMPLETED]);
+            if (designCompletedValue) {
+              completionDate = new Date(designCompletedValue);
               milestoneCompleted = completionDate <= deadlineDate;
             }
             break;
-          
+
           case 'permit':
-            const permitApproved = record[PROJECT_FIELDS.PERMIT_APPROVED];
-            if (permitApproved) {
-              completionDate = new Date(permitApproved);
+            const permitApprovedValue = extractDateValue(record[PROJECT_FIELDS.PERMIT_APPROVED]);
+            if (permitApprovedValue) {
+              completionDate = new Date(permitApprovedValue);
               milestoneCompleted = completionDate <= deadlineDate;
             }
             break;
-          
+
           case 'nem':
-            const nemSubmitted = record[PROJECT_FIELDS.NEM_SUBMITTED];
-            if (nemSubmitted) {
-              completionDate = new Date(nemSubmitted);
+            const nemSubmittedValue = extractDateValue(record[PROJECT_FIELDS.NEM_SUBMITTED]);
+            if (nemSubmittedValue) {
+              completionDate = new Date(nemSubmittedValue);
               milestoneCompleted = completionDate <= deadlineDate;
             }
             break;
-          
+
           case 'install':
-            const installCompleted = record[PROJECT_FIELDS.INSTALL_COMPLETED_DATE];
-            if (installCompleted) {
-              completionDate = new Date(installCompleted);
+            const installCompletedValue = extractDateValue(record[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]);
+            if (installCompletedValue) {
+              completionDate = new Date(installCompletedValue);
               milestoneCompleted = completionDate <= deadlineDate;
             }
             break;
-          
+
           case 'inspection':
-            const inspectionCompleted = record[PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED];
-            if (inspectionCompleted) {
-              completionDate = new Date(inspectionCompleted);
+            const inspectionCompletedValue = extractDateValue(record[PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED]);
+            if (inspectionCompletedValue) {
+              completionDate = new Date(inspectionCompletedValue);
               milestoneCompleted = completionDate <= deadlineDate;
             }
             break;
-          
+
           case 'pto':
-            const ptoApproved = record[PROJECT_FIELDS.PTO_APPROVED];
-            if (ptoApproved) {
-              completionDate = new Date(ptoApproved);
+            const ptoApprovedValue = extractDateValue(record[PROJECT_FIELDS.PTO_APPROVED]);
+            if (ptoApprovedValue) {
+              completionDate = new Date(ptoApprovedValue);
               milestoneCompleted = completionDate <= deadlineDate;
             }
             break;
@@ -5478,88 +5498,97 @@ function calculateDaysInCurrentStage(record: any, currentStage: string): number 
   const today = new Date();
   let stageStartDate: Date | null = null;
 
+  // Helper to extract date value from wrapped object
+  const extractDateValue = (field: any): string | null => {
+    if (!field) return null;
+    if (typeof field === 'object' && field?.value !== undefined) {
+      return String(field.value);
+    }
+    return String(field);
+  };
+
   // Determine when the current stage began based on milestone completion dates
   switch (currentStage) {
     case 'Intake':
       // Intake stage starts at sales date
-      const salesDate = record[PROJECT_FIELDS.SALES_DATE];
-      if (salesDate) {
-        stageStartDate = new Date(salesDate);
+      const salesDateValue = extractDateValue(record[PROJECT_FIELDS.SALES_DATE]);
+      if (salesDateValue) {
+        stageStartDate = new Date(salesDateValue);
       }
       break;
     
     case 'Survey':
       // Survey stage starts when intake is completed
-      const intakeCompleted = record[PROJECT_FIELDS.INTAKE_COMPLETED_DATE];
-      if (intakeCompleted) {
-        stageStartDate = new Date(intakeCompleted);
+      const intakeCompletedValue = extractDateValue(record[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]);
+      if (intakeCompletedValue) {
+        stageStartDate = new Date(intakeCompletedValue);
       } else {
         // Fallback to sales date if intake completion not available
-        const salesDate = record[PROJECT_FIELDS.SALES_DATE];
-        if (salesDate) {
-          stageStartDate = new Date(salesDate);
+        const salesDateValue2 = extractDateValue(record[PROJECT_FIELDS.SALES_DATE]);
+        if (salesDateValue2) {
+          stageStartDate = new Date(salesDateValue2);
         }
       }
       break;
     
     case 'Design':
       // Design stage starts when survey is approved
-      const surveyApproved = record[PROJECT_FIELDS.SURVEY_APPROVED];
-      if (surveyApproved) {
-        stageStartDate = new Date(surveyApproved);
+      const surveyApprovedValue = extractDateValue(record[PROJECT_FIELDS.SURVEY_APPROVED]);
+      if (surveyApprovedValue) {
+        stageStartDate = new Date(surveyApprovedValue);
       } else {
         // Fallback to survey submitted if approved not available
-        const surveySubmitted = record[PROJECT_FIELDS.SURVEY_SUBMITTED];
-        if (surveySubmitted) {
-          stageStartDate = new Date(surveySubmitted);
+        const surveySubmittedValue = extractDateValue(record[PROJECT_FIELDS.SURVEY_SUBMITTED]);
+        if (surveySubmittedValue) {
+          stageStartDate = new Date(surveySubmittedValue);
         }
       }
       break;
-    
+
     case 'NEM':
       // NEM stage starts when design is completed
-      const designCompleted = record[PROJECT_FIELDS.DESIGN_COMPLETED];
-      if (designCompleted) {
-        stageStartDate = new Date(designCompleted);
+      const designCompletedValue = extractDateValue(record[PROJECT_FIELDS.DESIGN_COMPLETED]);
+      if (designCompletedValue) {
+        stageStartDate = new Date(designCompletedValue);
       }
       break;
-    
+
     case 'Permit':
       // Permit stage starts when NEM is submitted
-      const nemSubmitted = record[PROJECT_FIELDS.NEM_SUBMITTED];
-      if (nemSubmitted) {
-        stageStartDate = new Date(nemSubmitted);
+      const nemSubmittedValue = extractDateValue(record[PROJECT_FIELDS.NEM_SUBMITTED]);
+      if (nemSubmittedValue) {
+        stageStartDate = new Date(nemSubmittedValue);
       }
       break;
-    
+
     case 'Install':
       // Install stage starts when permit is approved
-      const permitApproved = record[PROJECT_FIELDS.PERMIT_APPROVED];
-      if (permitApproved) {
-        stageStartDate = new Date(permitApproved);
+      const permitApprovedValue = extractDateValue(record[PROJECT_FIELDS.PERMIT_APPROVED]);
+      if (permitApprovedValue) {
+        stageStartDate = new Date(permitApprovedValue);
       }
       break;
-    
+
     case 'Inspection':
       // Inspection stage starts when install is completed
-      const installCompleted = record[PROJECT_FIELDS.INSTALL_COMPLETED_DATE];
-      if (installCompleted) {
-        stageStartDate = new Date(installCompleted);
+      const installCompletedValue = extractDateValue(record[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]);
+      if (installCompletedValue) {
+        stageStartDate = new Date(installCompletedValue);
       }
       break;
-    
+
     case 'PTO':
       // PTO stage starts when inspection is completed
-      const inspectionCompleted = record[PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED];
-      if (inspectionCompleted) {
-        stageStartDate = new Date(inspectionCompleted);
+      const inspectionCompletedValue = extractDateValue(record[PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED]);
+      if (inspectionCompletedValue) {
+        stageStartDate = new Date(inspectionCompletedValue);
       }
       break;
   }
 
   // If no stage start date found, fall back to project age
   if (!stageStartDate || isNaN(stageStartDate.getTime())) {
-    return record[PROJECT_FIELDS.PROJECT_AGE] || 0;
+    return extractNumericValue(record[PROJECT_FIELDS.PROJECT_AGE]) || 0;
   }
 
   // Calculate days between stage start and today
