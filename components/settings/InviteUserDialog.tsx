@@ -404,15 +404,19 @@ export function InviteUserDialog({ open, onOpenChange }: InviteUserDialogProps) 
           {isIndividualRole(formData.role) && (
             <div>
               <Label htmlFor="invite-office">Office (Optional)</Label>
-              <Select 
-                value={formData.office} 
-                onValueChange={(value) => setFormData(prev => ({ ...prev, office: value, offices: [] }))}
+              <Select
+                value={formData.office || '__none__'}
+                onValueChange={(value) => setFormData(prev => ({
+                  ...prev,
+                  office: value === '__none__' ? '' : value,
+                  offices: []
+                }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select office" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No office</SelectItem>
+                  <SelectItem value="__none__">No office</SelectItem>
                   {availableOffices.map((office: string) => (
                     <SelectItem key={office} value={office}>
                       {office}
