@@ -6406,7 +6406,7 @@ export async function getPCInboundRepQueue(
         PROJECT_FIELDS.CLOSER_EMAIL,
         PROJECT_FIELDS.PROJECT_COORDINATOR
       ],
-      where: `{${PROJECT_FIELDS.RECORD_ID.IN.${projectIds.join(',')}} AND (${pcFilterClause})`
+      where: `{${PROJECT_FIELDS.RECORD_ID}.IN.${projectIds.join(',')}} AND (${pcFilterClause})`
     };
 
     const projectsResponse = await qbClient.queryRecords(projectsQuery);
@@ -6613,7 +6613,7 @@ export async function getPCConversationHistory(
         PROJECT_FIELDS.CUSTOMER_PHONE,
         PROJECT_FIELDS.PROJECT_STAGE
       ],
-      where: `{${PROJECT_FIELDS.RECORD_ID.IN.${communicationProjectIds.join(',')}}`
+      where: `{${PROJECT_FIELDS.RECORD_ID}.IN.${communicationProjectIds.join(',')}}`
     };
 
     const communicationProjectsResponse = await qbClient.queryRecords(communicationProjectsQuery);
@@ -7627,7 +7627,7 @@ export async function getPCEscalations(
 
       // Filter by accessible projects
       const projectIdsStr = projectIds.join(',');
-      whereClause = `(${escalationStatusClause})AND{${SALES_AID_FIELDS.RELATED_PROJECT.IN.${projectIdsStr}}`;
+      whereClause = `(${escalationStatusClause})AND{${SALES_AID_FIELDS.RELATED_PROJECT}.IN.${projectIdsStr}}`;
     }
 
     const query = {
@@ -7671,7 +7671,7 @@ export async function getPCEscalations(
       try {
         const projectQuery = {
           from: QB_TABLE_PROJECTS,
-          where: `{${PROJECT_FIELDS.RECORD_ID.IN.${escalationProjectIds.join(',')}}`,
+          where: `{${PROJECT_FIELDS.RECORD_ID}.IN.${escalationProjectIds.join(',')}}`,
           select: [
             PROJECT_FIELDS.RECORD_ID,
             PROJECT_FIELDS.PROJECT_ID,
