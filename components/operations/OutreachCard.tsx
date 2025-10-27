@@ -28,6 +28,15 @@ interface OutreachCardProps {
 
 export function OutreachCard({ item, selected, onSelect, onAction }: OutreachCardProps) {
   const [modalOpen, setModalOpen] = useState(false);
+
+  // Helper to extract value from QuickBase wrapped objects
+  const extractValue = (field: any): string => {
+    if (typeof field === 'object' && field?.value) {
+      return String(field.value);
+    }
+    return String(field || '');
+  };
+
   const getDaysOverdueColor = (days: number) => {
     if (days >= 8) return 'text-red-600 bg-red-50 border-red-200';
     if (days >= 4) return 'text-orange-600 bg-orange-50 border-orange-200';
@@ -35,8 +44,9 @@ export function OutreachCard({ item, selected, onSelect, onAction }: OutreachCar
     return 'text-gray-600 bg-gray-50 border-gray-200';
   };
 
-  const getContactMethodIcon = (method: string) => {
-    switch (method.toLowerCase()) {
+  const getContactMethodIcon = (method: any) => {
+    const methodStr = extractValue(method).toLowerCase();
+    switch (methodStr) {
       case 'phone':
       case 'call':
         return <Phone className="h-4 w-4" />;
@@ -92,7 +102,7 @@ export function OutreachCard({ item, selected, onSelect, onAction }: OutreachCar
               {/* Customer info */}
               <div className="flex items-center gap-2 mb-2">
                 <h3 className="font-semibold text-gray-900 truncate">
-                  {item.customerName}
+                  {extractValue(item.customerName)}
                 </h3>
                 <span className="text-sm text-gray-500">
                   {item.projectId}
@@ -101,7 +111,7 @@ export function OutreachCard({ item, selected, onSelect, onAction }: OutreachCar
 
               {/* Project details */}
               <div className="flex items-center gap-4 mb-2 text-sm text-gray-600">
-                <span>{item.projectStage}</span>
+                <span>{extractValue(item.projectStage)}</span>
                 {item.daysInStage && (
                   <span>{item.daysInStage} days in stage</span>
                 )}
@@ -126,7 +136,7 @@ export function OutreachCard({ item, selected, onSelect, onAction }: OutreachCar
                 {item.preferredContactMethod && (
                   <div className="flex items-center gap-1">
                     {getContactMethodIcon(item.preferredContactMethod)}
-                    <span className="capitalize">{item.preferredContactMethod}</span>
+                    <span className="capitalize">{extractValue(item.preferredContactMethod)}</span>
                   </div>
                 )}
               </div>
@@ -136,13 +146,13 @@ export function OutreachCard({ item, selected, onSelect, onAction }: OutreachCar
                 {item.salesRepName && (
                   <div className="flex items-center gap-1">
                     <User className="h-3 w-3" />
-                    <span>{item.salesRepName}</span>
+                    <span>{extractValue(item.salesRepName)}</span>
                   </div>
                 )}
                 {item.lenderName && (
                   <div className="flex items-center gap-1">
                     <Building className="h-3 w-3" />
-                    <span>{item.lenderName}</span>
+                    <span>{extractValue(item.lenderName)}</span>
                   </div>
                 )}
               </div>
