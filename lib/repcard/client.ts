@@ -237,8 +237,16 @@ export class RepCardClient {
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined) {
-          // Convert camelCase to snake_case for API
-          const apiKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+          // Map parameter names to RepCard API format
+          let apiKey: string;
+          if (key === 'startDate') {
+            apiKey = 'last_created_from';
+          } else if (key === 'endDate') {
+            apiKey = 'last_created_to';
+          } else {
+            // Convert camelCase to snake_case for other params
+            apiKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+          }
           searchParams.append(apiKey, value.toString());
         }
       });
