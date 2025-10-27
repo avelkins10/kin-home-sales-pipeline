@@ -9107,6 +9107,10 @@ export async function getInspectionProjects(
         PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED,
         PROJECT_FIELDS.NOTE,
         PROJECT_FIELDS.BLOCK_REASON,
+        PROJECT_FIELDS.HOLD_REASON,
+        PROJECT_FIELDS.ON_HOLD,
+        PROJECT_FIELDS.AS_BUILT_SUBMITTED_TO_AHJ,
+        PROJECT_FIELDS.PERMIT_STATUS,
         PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL,
         PROJECT_FIELDS.CLOSER_NAME,
         PROJECT_FIELDS.CLOSER_EMAIL,
@@ -9133,6 +9137,65 @@ export async function getInspectionProjects(
         return String(field.value);
       }
       return String(field);
+    };
+
+    // Helper function to categorize failure reasons
+    const categorizeFailure = (reason: string | null): import('@/lib/types/operations').PCInspectionFailureCategory | null => {
+      if (!reason) return null;
+      const lowerReason = reason.toLowerCase();
+
+      if (lowerReason.match(/electric|electrical|wiring|circuit|panel|breaker|conduit/)) {
+        return 'electrical';
+      } else if (lowerReason.match(/struct|roof|truss|beam|foundation|framing|load/)) {
+        return 'structural';
+      } else if (lowerReason.match(/code|violation|nec|irc|ibc|compliance|standard/)) {
+        return 'code_violation';
+      } else if (lowerReason.match(/document|paperwork|permit|form|label|sign|as-built|asbuilt/)) {
+        return 'documentation';
+      }
+      return 'other';
+    };
+
+    // Helper function to detect blockers
+    const detectBlockers = (
+      asBuilt: any,
+      permitStatus: string | null,
+      onHold: any,
+      blockReason: string | null
+    ): import('@/lib/types/operations').PCInspectionBlocker[] => {
+      const blockers: import('@/lib/types/operations').PCInspectionBlocker[] = [];
+
+      // Check if on hold
+      const isOnHold = onHold === true || onHold === 1 || onHold === '1' ||
+                       (typeof onHold === 'object' && (onHold?.value === true || onHold?.value === 1));
+      if (isOnHold) {
+        blockers.push('on_hold');
+      }
+
+      // Check if blocked
+      if (blockReason && blockReason.trim()) {
+        blockers.push('blocked');
+      }
+
+      // Check as-builts status
+      const hasAsBuilt = asBuilt === true || asBuilt === 1 || asBuilt === '1' ||
+                         (typeof asBuilt === 'object' && (asBuilt?.value === true || asBuilt?.value === 1)) ||
+                         (typeof asBuilt === 'string' && asBuilt.trim() !== '');
+      if (!hasAsBuilt) {
+        blockers.push('as_builts_pending');
+      }
+
+      // Check permit status
+      if (permitStatus && permitStatus.toLowerCase().match(/pending|submitted|review|revision/)) {
+        blockers.push('permit_pending');
+      }
+
+      // If no blockers, mark as ready
+      if (blockers.length === 0) {
+        blockers.push('ready');
+      }
+
+      return blockers;
     };
 
     // Categorize projects by inspection status
@@ -9172,6 +9235,8 @@ export async function getInspectionProjects(
 
       // Get failure reason (if failed)
       let failureReason: string | null = null;
+      let failureCategory: import('@/lib/types/operations').PCInspectionFailureCategory | null = null;
+
       if (inspectionStatus === 'inspection_failed') {
         const blockReason = extractStringValue(project[PROJECT_FIELDS.BLOCK_REASON]);
         const note = extractStringValue(project[PROJECT_FIELDS.NOTE]);
@@ -9187,7 +9252,27 @@ export async function getInspectionProjects(
         } else {
           failureReason = blockReason || null;
         }
+
+        // Categorize the failure
+        failureCategory = categorizeFailure(failureReason);
       }
+
+      // Extract new fields
+      const blockReasonValue = extractStringValue(project[PROJECT_FIELDS.BLOCK_REASON]);
+      const holdReasonValue = extractStringValue(project[PROJECT_FIELDS.HOLD_REASON]);
+      const permitStatusValue = extractStringValue(project[PROJECT_FIELDS.PERMIT_STATUS]);
+      const asBuiltValue = project[PROJECT_FIELDS.AS_BUILT_SUBMITTED_TO_AHJ];
+      const onHoldValue = project[PROJECT_FIELDS.ON_HOLD];
+
+      // Determine as-built status
+      const asBuiltSubmitted = asBuiltValue === true || asBuiltValue === 1 || asBuiltValue === '1' ||
+                                (typeof asBuiltValue === 'object' && (asBuiltValue?.value === true || asBuiltValue?.value === 1)) ||
+                                (typeof asBuiltValue === 'string' && asBuiltValue.trim() !== '');
+
+      // Detect blockers for waiting inspections
+      const blockers = inspectionStatus === 'waiting_for_inspection'
+        ? detectBlockers(asBuiltValue, permitStatusValue, onHoldValue, blockReasonValue)
+        : [];
 
       const inspectionProject = {
         recordId: project[PROJECT_FIELDS.RECORD_ID],
@@ -9202,6 +9287,12 @@ export async function getInspectionProjects(
         inspectionPassedDate: passedDate,
         daysInStatus,
         failureReason,
+        failureCategory,
+        asBuiltSubmitted,
+        permitStatus: permitStatusValue,
+        holdReason: holdReasonValue,
+        blockReason: blockReasonValue,
+        blockers,
         coordinatorEmail: extractStringValue(project[PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL]),
         salesRepName: extractStringValue(project[PROJECT_FIELDS.CLOSER_NAME]),
         salesRepEmail: extractStringValue(project[PROJECT_FIELDS.CLOSER_EMAIL]),

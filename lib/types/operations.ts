@@ -723,6 +723,22 @@ export type PCInspectionStatus =
   | 'inspection_failed'        // Inspection failed, needs remediation
   | 'inspection_passed';       // Inspection passed, waiting for PTO
 
+// Inspection failure category type
+export type PCInspectionFailureCategory =
+  | 'electrical'
+  | 'structural'
+  | 'code_violation'
+  | 'documentation'
+  | 'other';
+
+// Inspection blocker type
+export type PCInspectionBlocker =
+  | 'as_builts_pending'
+  | 'permit_pending'
+  | 'on_hold'
+  | 'blocked'
+  | 'ready';
+
 // PC Inspection Project
 export interface PCInspectionProject {
   recordId: number;
@@ -737,6 +753,12 @@ export interface PCInspectionProject {
   inspectionPassedDate: string | null;
   daysInStatus: number; // days since entering current status
   failureReason: string | null; // from NOTE or BLOCK_REASON field
+  failureCategory: PCInspectionFailureCategory | null; // categorized failure type
+  asBuiltSubmitted: boolean; // whether as-built documents are submitted
+  permitStatus: string | null; // current permit status
+  holdReason: string | null; // reason project is on hold
+  blockReason: string | null; // reason project is blocked
+  blockers: PCInspectionBlocker[]; // active blockers for inspection scheduling
   coordinatorEmail: string;
   salesRepName: string;
   salesRepEmail: string;
