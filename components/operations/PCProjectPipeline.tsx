@@ -45,6 +45,14 @@ function PCProjectPipelineSkeleton() {
 }
 
 export function PCProjectPipeline({ pipeline }: PCProjectPipelineProps) {
+  // Helper to extract value from QuickBase wrapped objects
+  const extractValue = (field: any): string => {
+    if (typeof field === 'object' && field?.value) {
+      return String(field.value);
+    }
+    return String(field || '');
+  };
+
   const getStageColor = (stageName: string) => {
     switch (stageName) {
       case 'Intake':
@@ -104,11 +112,11 @@ export function PCProjectPipeline({ pipeline }: PCProjectPipelineProps) {
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center space-x-2">
                         <StageIcon className="h-4 w-4 text-gray-500" />
-                        <h3 className="font-medium text-gray-900">{stage.stageName}</h3>
+                        <h3 className="font-medium text-gray-900">{extractValue(stage.stageName)}</h3>
                       </div>
-                      <Badge 
-                        variant="outline" 
-                        className={`${getStageColor(stage.stageName)} font-semibold`}
+                      <Badge
+                        variant="outline"
+                        className={`${getStageColor(extractValue(stage.stageName))} font-semibold`}
                       >
                         {stage.projectCount}
                       </Badge>
@@ -123,7 +131,7 @@ export function PCProjectPipeline({ pipeline }: PCProjectPipelineProps) {
                           <div className="flex items-center space-x-2 mb-1">
                             <User className="h-3 w-3 text-gray-500" />
                             <span className="text-sm font-medium text-gray-900 truncate">
-                              {project.customerName}
+                              {extractValue(project.customerName)}
                             </span>
                           </div>
                           <div className="flex items-center justify-between text-xs text-gray-500">
