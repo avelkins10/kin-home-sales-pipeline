@@ -1,13 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useQuery } from '@tanstack/react-query';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
 import { AlertCircle, Calendar, XCircle, CheckCircle, Clock, Search } from 'lucide-react';
 import { getBaseUrl } from '@/lib/utils/baseUrl';
-import { InspectionCard } from '@/components/operations/InspectionCard';
+import { InspectionsTable } from '@/components/operations/InspectionsTable';
 import type { PCInspectionData, PCInspectionFilters, PCInspectionStatus, PCInspectionProject } from '@/lib/types/operations';
 
 export default function ProjectsPage() {
@@ -18,7 +19,8 @@ export default function ProjectsPage() {
     office: 'all',
     salesRep: 'all',
     search: '',
-    dateRange: 'all'
+    dateRange: 'all',
+    state: 'all'
   });
 
   // Fetch inspection data
@@ -50,25 +52,66 @@ export default function ProjectsPage() {
     staleTime: 15000 // 15 seconds
   });
 
-  // Get projects for the active tab
+  // Get projects for the active tab with client-side filtering
   const getActiveProjects = (): PCInspectionProject[] => {
     if (!inspectionData?.data) return [];
 
+    let projects: PCInspectionProject[] = [];
     switch (activeTab) {
       case 'inspection_failed':
-        return inspectionData.data.inspectionFailed;
+        projects = inspectionData.data.inspectionFailed;
+        break;
       case 'waiting_for_inspection':
-        return inspectionData.data.waitingForInspection;
+        projects = inspectionData.data.waitingForInspection;
+        break;
       case 'inspection_scheduled':
-        return inspectionData.data.inspectionScheduled;
+        projects = inspectionData.data.inspectionScheduled;
+        break;
       case 'inspection_passed':
-        return inspectionData.data.inspectionPassed;
+        projects = inspectionData.data.inspectionPassed;
+        break;
       default:
         return [];
     }
+
+    // Apply state filter if selected
+    if (filters.state && filters.state !== 'all') {
+      projects = projects.filter(project => {
+        if (!project.salesOffice) return false;
+        const match = project.salesOffice.match(/[-\s]([A-Z]{2}|\w+)\s*(?:20\d{2})?$/);
+        if (match && match[1]) {
+          return match[1].toUpperCase() === filters.state?.toUpperCase();
+        }
+        return false;
+      });
+    }
+
+    return projects;
   };
 
   const activeProjects = getActiveProjects();
+
+  // Extract unique states from office names (e.g., "Molina - KC 2025" -> "KC")
+  const uniqueStates = useMemo(() => {
+    if (!inspectionData?.data) return [];
+    const allProjects = [
+      ...inspectionData.data.waitingForInspection,
+      ...inspectionData.data.inspectionScheduled,
+      ...inspectionData.data.inspectionFailed,
+      ...inspectionData.data.inspectionPassed
+    ];
+    const states = new Set<string>();
+    allProjects.forEach(project => {
+      if (project.salesOffice) {
+        // Extract state abbreviation from office name patterns like "Molina - KC 2025" or "Stevens - Iowa 2025"
+        const match = project.salesOffice.match(/[-\s]([A-Z]{2}|\w+)\s*(?:20\d{2})?$/);
+        if (match && match[1]) {
+          states.add(match[1].toUpperCase());
+        }
+      }
+    });
+    return Array.from(states).sort();
+  }, [inspectionData]);
 
   if (status === 'loading') {
     return (
@@ -78,15 +121,15 @@ export default function ProjectsPage() {
             <div className="h-8 w-48 bg-gray-200 rounded animate-pulse mb-2" />
             <div className="h-4 w-96 bg-gray-200 rounded animate-pulse" />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="bg-white rounded-lg border p-4 animate-pulse">
-                <div className="h-6 w-32 bg-gray-200 rounded mb-3" />
-                <div className="h-4 w-full bg-gray-200 rounded mb-2" />
-                <div className="h-4 w-3/4 bg-gray-200 rounded" />
+          <Card>
+            <CardContent className="p-6">
+              <div className="animate-pulse space-y-4">
+                <div className="h-10 bg-gray-200 rounded" />
+                <div className="h-10 bg-gray-200 rounded" />
+                <div className="h-10 bg-gray-200 rounded" />
               </div>
-            ))}
-          </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
@@ -145,203 +188,171 @@ export default function ProjectsPage() {
           </TabsList>
 
           {/* Search and Filters - Common for all tabs */}
-          <div className="bg-white rounded-lg border p-4">
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex-1 min-w-[200px] relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search by project ID or customer name..."
-                  value={filters.search}
-                  onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                  className="pl-10"
-                />
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex-1 min-w-[200px] relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search by project ID or customer name..."
+                    value={filters.search}
+                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                    className="pl-10"
+                  />
+                </div>
+                <select
+                  value={filters.dateRange}
+                  onChange={(e) => setFilters({ ...filters, dateRange: e.target.value as any })}
+                  className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">All Dates</option>
+                  <option value="7days">Last 7 Days</option>
+                  <option value="30days">Last 30 Days</option>
+                  <option value="90days">Last 90 Days</option>
+                </select>
+                <select
+                  value={filters.state || 'all'}
+                  onChange={(e) => setFilters({ ...filters, state: e.target.value })}
+                  className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">All States</option>
+                  {uniqueStates.map(state => (
+                    <option key={state} value={state}>{state}</option>
+                  ))}
+                </select>
+                <select
+                  value={filters.office}
+                  onChange={(e) => setFilters({ ...filters, office: e.target.value })}
+                  className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">All Offices</option>
+                </select>
+                <select
+                  value={filters.salesRep}
+                  onChange={(e) => setFilters({ ...filters, salesRep: e.target.value })}
+                  className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">All Sales Reps</option>
+                </select>
               </div>
-              <select
-                value={filters.dateRange}
-                onChange={(e) => setFilters({ ...filters, dateRange: e.target.value as any })}
-                className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="all">All Dates</option>
-                <option value="7days">Last 7 Days</option>
-                <option value="30days">Last 30 Days</option>
-                <option value="90days">Last 90 Days</option>
-              </select>
-              <select
-                value={filters.office}
-                onChange={(e) => setFilters({ ...filters, office: e.target.value })}
-                className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="all">All Offices</option>
-              </select>
-              <select
-                value={filters.salesRep}
-                onChange={(e) => setFilters({ ...filters, salesRep: e.target.value })}
-                className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="all">All Sales Reps</option>
-              </select>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
           {/* Tab Content */}
           <TabsContent value="inspection_failed" className="space-y-4">
-            {isLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="bg-white rounded-lg border p-4 animate-pulse">
-                    <div className="h-6 w-32 bg-gray-200 rounded mb-3" />
-                    <div className="h-4 w-full bg-gray-200 rounded mb-2" />
-                    <div className="h-4 w-3/4 bg-gray-200 rounded" />
+            <Card>
+              <CardContent className="p-6">
+                {isLoading ? (
+                  <div className="animate-pulse space-y-4">
+                    <div className="h-10 bg-gray-200 rounded" />
+                    <div className="h-10 bg-gray-200 rounded" />
+                    <div className="h-10 bg-gray-200 rounded" />
                   </div>
-                ))}
-              </div>
-            ) : error ? (
-              <div className="bg-white rounded-lg border p-6 text-center">
-                <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                  Failed to Load Data
-                </h3>
-                <p className="text-sm text-gray-500">
-                  {(error as Error).message || 'Please try again later.'}
-                </p>
-              </div>
-            ) : activeProjects.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {activeProjects.map((project) => (
-                  <InspectionCard key={project.recordId} project={project} />
-                ))}
-              </div>
-            ) : (
-              <div className="bg-white rounded-lg border p-6 text-center">
-                <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                  No Failed Inspections
-                </h3>
-                <p className="text-sm text-gray-500">
-                  There are no failed inspections at this time.
-                </p>
-              </div>
-            )}
+                ) : error ? (
+                  <div className="text-center py-8">
+                    <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                      Failed to Load Data
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      {(error as Error).message || 'Please try again later.'}
+                    </p>
+                  </div>
+                ) : (
+                  <InspectionsTable
+                    projects={activeProjects}
+                    status="inspection_failed"
+                  />
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="waiting_for_inspection" className="space-y-4">
-            {isLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="bg-white rounded-lg border p-4 animate-pulse">
-                    <div className="h-6 w-32 bg-gray-200 rounded mb-3" />
-                    <div className="h-4 w-full bg-gray-200 rounded mb-2" />
-                    <div className="h-4 w-3/4 bg-gray-200 rounded" />
+            <Card>
+              <CardContent className="p-6">
+                {isLoading ? (
+                  <div className="animate-pulse space-y-4">
+                    <div className="h-10 bg-gray-200 rounded" />
+                    <div className="h-10 bg-gray-200 rounded" />
+                    <div className="h-10 bg-gray-200 rounded" />
                   </div>
-                ))}
-              </div>
-            ) : error ? (
-              <div className="bg-white rounded-lg border p-6 text-center">
-                <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                  Failed to Load Data
-                </h3>
-                <p className="text-sm text-gray-500">
-                  {(error as Error).message || 'Please try again later.'}
-                </p>
-              </div>
-            ) : activeProjects.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {activeProjects.map((project) => (
-                  <InspectionCard key={project.recordId} project={project} />
-                ))}
-              </div>
-            ) : (
-              <div className="bg-white rounded-lg border p-6 text-center">
-                <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                  No Projects Waiting
-                </h3>
-                <p className="text-sm text-gray-500">
-                  There are no projects waiting for inspection.
-                </p>
-              </div>
-            )}
+                ) : error ? (
+                  <div className="text-center py-8">
+                    <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                      Failed to Load Data
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      {(error as Error).message || 'Please try again later.'}
+                    </p>
+                  </div>
+                ) : (
+                  <InspectionsTable
+                    projects={activeProjects}
+                    status="waiting_for_inspection"
+                  />
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="inspection_scheduled" className="space-y-4">
-            {isLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="bg-white rounded-lg border p-4 animate-pulse">
-                    <div className="h-6 w-32 bg-gray-200 rounded mb-3" />
-                    <div className="h-4 w-full bg-gray-200 rounded mb-2" />
-                    <div className="h-4 w-3/4 bg-gray-200 rounded" />
+            <Card>
+              <CardContent className="p-6">
+                {isLoading ? (
+                  <div className="animate-pulse space-y-4">
+                    <div className="h-10 bg-gray-200 rounded" />
+                    <div className="h-10 bg-gray-200 rounded" />
+                    <div className="h-10 bg-gray-200 rounded" />
                   </div>
-                ))}
-              </div>
-            ) : error ? (
-              <div className="bg-white rounded-lg border p-6 text-center">
-                <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                  Failed to Load Data
-                </h3>
-                <p className="text-sm text-gray-500">
-                  {(error as Error).message || 'Please try again later.'}
-                </p>
-              </div>
-            ) : activeProjects.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {activeProjects.map((project) => (
-                  <InspectionCard key={project.recordId} project={project} />
-                ))}
-              </div>
-            ) : (
-              <div className="bg-white rounded-lg border p-6 text-center">
-                <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                  No Scheduled Inspections
-                </h3>
-                <p className="text-sm text-gray-500">
-                  There are no scheduled inspections at this time.
-                </p>
-              </div>
-            )}
+                ) : error ? (
+                  <div className="text-center py-8">
+                    <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                      Failed to Load Data
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      {(error as Error).message || 'Please try again later.'}
+                    </p>
+                  </div>
+                ) : (
+                  <InspectionsTable
+                    projects={activeProjects}
+                    status="inspection_scheduled"
+                  />
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="inspection_passed" className="space-y-4">
-            {isLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="bg-white rounded-lg border p-4 animate-pulse">
-                    <div className="h-6 w-32 bg-gray-200 rounded mb-3" />
-                    <div className="h-4 w-full bg-gray-200 rounded mb-2" />
-                    <div className="h-4 w-3/4 bg-gray-200 rounded" />
+            <Card>
+              <CardContent className="p-6">
+                {isLoading ? (
+                  <div className="animate-pulse space-y-4">
+                    <div className="h-10 bg-gray-200 rounded" />
+                    <div className="h-10 bg-gray-200 rounded" />
+                    <div className="h-10 bg-gray-200 rounded" />
                   </div>
-                ))}
-              </div>
-            ) : error ? (
-              <div className="bg-white rounded-lg border p-6 text-center">
-                <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                  Failed to Load Data
-                </h3>
-                <p className="text-sm text-gray-500">
-                  {(error as Error).message || 'Please try again later.'}
-                </p>
-              </div>
-            ) : activeProjects.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {activeProjects.map((project) => (
-                  <InspectionCard key={project.recordId} project={project} />
-                ))}
-              </div>
-            ) : (
-              <div className="bg-white rounded-lg border p-6 text-center">
-                <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                  No Passed Inspections
-                </h3>
-                <p className="text-sm text-gray-500">
-                  There are no passed inspections at this time.
-                </p>
-              </div>
-            )}
+                ) : error ? (
+                  <div className="text-center py-8">
+                    <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                      Failed to Load Data
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      {(error as Error).message || 'Please try again later.'}
+                    </p>
+                  </div>
+                ) : (
+                  <InspectionsTable
+                    projects={activeProjects}
+                    status="inspection_passed"
+                  />
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

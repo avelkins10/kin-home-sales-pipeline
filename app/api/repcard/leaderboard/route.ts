@@ -13,7 +13,7 @@ export const runtime = 'nodejs';
 // NOTE: In-memory cache won't persist across serverless invocations
 // For production, consider using Redis (Upstash) for cache persistence
 const leaderboardCache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL = 900000; // 15 minutes in milliseconds
+const CACHE_TTL = 1800000; // 30 minutes in milliseconds (reduced API calls to avoid rate limiting)
 const MAX_CACHE_ENTRIES = 100;
 
 // Type definitions are now imported from lib/repcard/types

@@ -8,7 +8,7 @@ export const runtime = 'nodejs';
 
 // Cache implementation
 const trendsCache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL = 900000; // 15 minutes
+const CACHE_TTL = 1800000; // 30 minutes (reduced API calls to avoid rate limiting)
 const MAX_CACHE_ENTRIES = 100;
 
 function cleanCache() {

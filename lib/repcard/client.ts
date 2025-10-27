@@ -119,7 +119,8 @@ export class RepCardClient {
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    retryCount = 0
   ): Promise<RepCardApiResponse<T>> {
     this.checkApiKey(); // Check API key before making request
 
@@ -135,6 +136,14 @@ export class RepCardClient {
       ...options,
       headers,
     });
+
+    // Handle rate limiting with exponential backoff
+    if (response.status === 429 && retryCount < 3) {
+      const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+      console.log(`[RepCard] Rate limited, retrying in ${delay}ms (attempt ${retryCount + 1}/3)`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return this.request<T>(endpoint, options, retryCount + 1);
+    }
 
     if (!response.ok) {
       const errorText = await response.text();

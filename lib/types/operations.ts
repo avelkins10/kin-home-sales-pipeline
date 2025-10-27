@@ -788,4 +788,5 @@ export interface PCInspectionFilters {
   dateRange: '7days' | '30days' | '90days' | 'custom' | 'all';
   customStartDate?: string; // ISO date string for custom range
   customEndDate?: string; // ISO date string for custom range
+  state?: string | 'all'; // State filtering
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,10 @@ import {
   Zap,
   Home,
   FileWarning,
-  HelpCircle
+  HelpCircle,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 import type {
   PCInspectionProject,
@@ -35,9 +38,10 @@ import type {
 interface InspectionsTableProps {
   projects: PCInspectionProject[];
   status: PCInspectionStatus;
-  title: string;
-  icon: React.ReactNode;
 }
+
+type SortField = 'projectId' | 'customerName' | 'office' | 'date' | 'daysInStatus';
+type SortDirection = 'asc' | 'desc';
 
 function InspectionTableSkeleton() {
   return (
@@ -65,10 +69,12 @@ function InspectionTableSkeleton() {
   );
 }
 
-export function InspectionsTable({ projects, status, title, icon }: InspectionsTableProps) {
+export function InspectionsTable({ projects, status }: InspectionsTableProps) {
   const [selectedRecordId, setSelectedRecordId] = useState<number | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+  const [sortField, setSortField] = useState<SortField>('daysInStatus');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   const toggleRow = (recordId: number) => {
     setExpandedRows(prev => {
@@ -80,6 +86,75 @@ export function InspectionsTable({ projects, status, title, icon }: InspectionsT
       }
       return next;
     });
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+
+  const sortedProjects = useMemo(() => {
+    const sorted = [...projects].sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+
+      switch (sortField) {
+        case 'projectId':
+          aValue = a.projectId;
+          bValue = b.projectId;
+          break;
+        case 'customerName':
+          aValue = a.customerName.toLowerCase();
+          bValue = b.customerName.toLowerCase();
+          break;
+        case 'office':
+          aValue = a.salesOffice?.toLowerCase() || '';
+          bValue = b.salesOffice?.toLowerCase() || '';
+          break;
+        case 'date':
+          if (status === 'waiting_for_inspection') {
+            aValue = new Date(a.installCompletedDate || 0).getTime();
+            bValue = new Date(b.installCompletedDate || 0).getTime();
+          } else if (status === 'inspection_scheduled') {
+            aValue = new Date(a.inspectionScheduledDate || 0).getTime();
+            bValue = new Date(b.inspectionScheduledDate || 0).getTime();
+          } else if (status === 'inspection_failed') {
+            aValue = new Date(a.inspectionFailedDate || 0).getTime();
+            bValue = new Date(b.inspectionFailedDate || 0).getTime();
+          } else {
+            aValue = new Date(a.inspectionPassedDate || 0).getTime();
+            bValue = new Date(b.inspectionPassedDate || 0).getTime();
+          }
+          break;
+        case 'daysInStatus':
+          aValue = a.daysInStatus;
+          bValue = b.daysInStatus;
+          break;
+        default:
+          return 0;
+      }
+
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return sorted;
+  }, [projects, sortField, sortDirection, status]);
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="h-3 w-3 ml-1 opacity-50" />;
+    }
+    return sortDirection === 'asc' ? (
+      <ArrowUp className="h-3 w-3 ml-1" />
+    ) : (
+      <ArrowDown className="h-3 w-3 ml-1" />
+    );
   };
 
   const getStatusBadge = (inspectionStatus: PCInspectionStatus) => {
@@ -166,56 +241,77 @@ export function InspectionsTable({ projects, status, title, icon }: InspectionsT
 
   if (projects.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <div className="flex items-center space-x-2">
-            {icon}
-            <CardTitle>{title}</CardTitle>
-            <Badge variant="outline" className="ml-2">0</Badge>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8 text-gray-500">
-            <CheckCircle className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-            <p>No projects in this status</p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="text-center py-8 text-gray-500">
+        <CheckCircle className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+        <p>No projects in this status</p>
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center space-x-2">
-          {icon}
-          <CardTitle>{title}</CardTitle>
-          <Badge variant="outline" className="ml-2">{projects.length}</Badge>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b text-left text-sm text-gray-600">
-                <th className="pb-3 pr-2 w-8"></th>
-                <th className="pb-3 pr-4">Project</th>
-                <th className="pb-3 pr-4">Customer</th>
-                <th className="pb-3 pr-4">Office</th>
-                <th className="pb-3 pr-4">Date</th>
-                <th className="pb-3 pr-4">Days</th>
-                {status === 'waiting_for_inspection' && (
-                  <th className="pb-3 pr-4">Blockers</th>
-                )}
-                {status === 'inspection_failed' && (
-                  <th className="pb-3 pr-4">Category</th>
-                )}
-                <th className="pb-3 pr-4">Rep</th>
-                <th className="pb-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {projects.map((project) => {
+    <>
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b text-left text-sm text-gray-600">
+              <th className="pb-3 pr-2 w-8"></th>
+              <th className="pb-3 pr-4">
+                <button
+                  onClick={() => handleSort('projectId')}
+                  className="flex items-center hover:text-gray-900 font-semibold"
+                >
+                  Project
+                  <SortIcon field="projectId" />
+                </button>
+              </th>
+              <th className="pb-3 pr-4">
+                <button
+                  onClick={() => handleSort('customerName')}
+                  className="flex items-center hover:text-gray-900 font-semibold"
+                >
+                  Customer
+                  <SortIcon field="customerName" />
+                </button>
+              </th>
+              <th className="pb-3 pr-4">
+                <button
+                  onClick={() => handleSort('office')}
+                  className="flex items-center hover:text-gray-900 font-semibold"
+                >
+                  Office
+                  <SortIcon field="office" />
+                </button>
+              </th>
+              <th className="pb-3 pr-4">
+                <button
+                  onClick={() => handleSort('date')}
+                  className="flex items-center hover:text-gray-900 font-semibold"
+                >
+                  Date
+                  <SortIcon field="date" />
+                </button>
+              </th>
+              <th className="pb-3 pr-4">
+                <button
+                  onClick={() => handleSort('daysInStatus')}
+                  className="flex items-center hover:text-gray-900 font-semibold"
+                >
+                  Days
+                  <SortIcon field="daysInStatus" />
+                </button>
+              </th>
+              {status === 'waiting_for_inspection' && (
+                <th className="pb-3 pr-4 font-semibold">Blockers</th>
+              )}
+              {status === 'inspection_failed' && (
+                <th className="pb-3 pr-4 font-semibold">Category</th>
+              )}
+              <th className="pb-3 pr-4 font-semibold">Rep</th>
+              <th className="pb-3 font-semibold">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sortedProjects.map((project) => {
                 const isExpanded = expandedRows.has(project.recordId);
                 return (
                   <React.Fragment key={project.recordId}>
@@ -400,7 +496,6 @@ export function InspectionsTable({ projects, status, title, icon }: InspectionsT
             </tbody>
           </table>
         </div>
-      </CardContent>
 
       <ProjectDetailModal
         recordId={selectedRecordId}
@@ -410,7 +505,7 @@ export function InspectionsTable({ projects, status, title, icon }: InspectionsT
           setSelectedRecordId(null);
         }}
       />
-    </Card>
+    </>
   );
 }
 

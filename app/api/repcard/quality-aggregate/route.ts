@@ -8,7 +8,7 @@ export const runtime = 'nodejs';
 
 // Cache implementation
 const qualityCache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL = 900000; // 15 minutes
+const CACHE_TTL = 3600000; // 60 minutes (quality metrics change less frequently)
 const MAX_CACHE_ENTRIES = 100;
 
 function cleanCache() {
