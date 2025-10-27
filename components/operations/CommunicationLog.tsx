@@ -12,21 +12,29 @@ interface CommunicationLogProps {
   onSendSms?: (projectId: string, customerPhone: string, customerName: string) => void;
 }
 
-export function CommunicationLog({ 
-  conversations, 
-  onCallCustomer, 
-  onSendSms 
+export function CommunicationLog({
+  conversations,
+  onCallCustomer,
+  onSendSms
 }: CommunicationLogProps) {
+  // Helper to extract value from QuickBase wrapped objects
+  const extractValue = (field: any): string => {
+    if (typeof field === 'object' && field?.value) {
+      return String(field.value);
+    }
+    return String(field || '');
+  };
+
   const formatRelativeTime = (date: string) => {
     const now = new Date();
     const messageDate = new Date(date);
     const diffInHours = (now.getTime() - messageDate.getTime()) / (1000 * 60 * 60);
-    
+
     if (diffInHours < 1) return 'Just now';
     if (diffInHours < 24) return `${Math.floor(diffInHours)}h ago`;
     if (diffInHours < 48) return 'Yesterday';
     if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d ago`;
-    
+
     return messageDate.toLocaleDateString();
   };
 
@@ -48,10 +56,12 @@ export function CommunicationLog({
     }
   };
 
-  const truncateContent = (content: string, maxLines: number = 3) => {
-    const lines = content.split('\n');
-    if (lines.length <= maxLines) return content;
-    
+  const truncateContent = (content: any, maxLines: number = 3) => {
+    // Extract value from wrapped object if needed
+    const contentStr = extractValue(content);
+    const lines = contentStr.split('\n');
+    if (lines.length <= maxLines) return contentStr;
+
     return lines.slice(0, maxLines).join('\n') + '...';
   };
 
@@ -129,10 +139,10 @@ export function CommunicationLog({
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-medium text-gray-900">
-                              {conversation.noteBy}
+                              {extractValue(conversation.noteBy)}
                             </span>
-                            <Badge 
-                              variant="outline" 
+                            <Badge
+                              variant="outline"
                               className={`text-xs ${getCommunicationColor(conversation.communicationType)}`}
                             >
                               {conversation.communicationType.toUpperCase()}
@@ -148,13 +158,13 @@ export function CommunicationLog({
                             {formatRelativeTime(conversation.date)}
                           </div>
                         </div>
-                        
+
                         <div className="mb-2">
                           <span className="text-sm font-medium text-gray-700">
-                            {conversation.projectId}
+                            {extractValue(conversation.projectId)}
                           </span>
                           <span className="text-sm text-gray-600 ml-2">
-                            {conversation.customerName}
+                            {extractValue(conversation.customerName)}
                           </span>
                         </div>
                         
