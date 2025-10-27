@@ -6282,10 +6282,10 @@ export async function getPCInboundRepQueue(
     const projectMap = new Map();
     projectsResponse.data.forEach((project: any) => {
       projectMap.set(project[PROJECT_FIELDS.RECORD_ID], {
-        projectId: project[PROJECT_FIELDS.PROJECT_ID],
-        customerName: project[PROJECT_FIELDS.CUSTOMER_NAME],
-        salesRepName: project[PROJECT_FIELDS.CLOSER_NAME],
-        salesRepEmail: project[PROJECT_FIELDS.CLOSER_EMAIL]
+        projectId: project[PROJECT_FIELDS.PROJECT_ID]?.value || project[PROJECT_FIELDS.PROJECT_ID] || '',
+        customerName: project[PROJECT_FIELDS.CUSTOMER_NAME]?.value || project[PROJECT_FIELDS.CUSTOMER_NAME] || '',
+        salesRepName: project[PROJECT_FIELDS.CLOSER_NAME]?.value || project[PROJECT_FIELDS.CLOSER_NAME] || '',
+        salesRepEmail: project[PROJECT_FIELDS.CLOSER_EMAIL]?.value || project[PROJECT_FIELDS.CLOSER_EMAIL] || ''
       });
     });
 
@@ -6301,7 +6301,10 @@ export async function getPCInboundRepQueue(
         // Calculate urgency and time waiting
         const urgency = calculateSalesAidUrgency(deadline);
         const timeWaiting = Math.floor((Date.now() - new Date(dateCreated).getTime()) / (1000 * 60 * 60 * 24));
-        const messagePreview = record[SALES_AID_FIELDS.SALES_AID_REASON]?.substring(0, 100) || '';
+
+        // Extract wrapped values from Sales Aid fields
+        const salesAidReason = record[SALES_AID_FIELDS.SALES_AID_REASON]?.value || record[SALES_AID_FIELDS.SALES_AID_REASON] || '';
+        const messagePreview = String(salesAidReason).substring(0, 100);
 
         return {
           recordId: record[SALES_AID_FIELDS.RECORD_ID],
@@ -6311,11 +6314,11 @@ export async function getPCInboundRepQueue(
           customerName: projectData.customerName,
           salesRepName: projectData.salesRepName,
           salesRepEmail: projectData.salesRepEmail,
-          salesAidStatus: record[SALES_AID_FIELDS.SALES_AID_STATUS],
-          salesAidReason: record[SALES_AID_FIELDS.SALES_AID_REASON] || '',
+          salesAidStatus: record[SALES_AID_FIELDS.SALES_AID_STATUS]?.value || record[SALES_AID_FIELDS.SALES_AID_STATUS] || '',
+          salesAidReason,
           escalateToSalesAid: record[SALES_AID_FIELDS.ESCALATE_TO_SALES_AID] || false,
           escalatedDateTime: record[SALES_AID_FIELDS.ESCALATED_DATETIME],
-          assignedEscalationRep: record[SALES_AID_FIELDS.ASSIGNED_ESCALATION_REP] || '',
+          assignedEscalationRep: record[SALES_AID_FIELDS.ASSIGNED_ESCALATION_REP]?.value || record[SALES_AID_FIELDS.ASSIGNED_ESCALATION_REP] || '',
           rep72HourDeadline: deadline,
           completedDate: record[SALES_AID_FIELDS.COMPLETED_DATE],
           urgency,
@@ -6479,10 +6482,10 @@ export async function getPCConversationHistory(
     const projectMap = new Map();
     communicationProjectsResponse.data?.forEach((project: any) => {
       projectMap.set(project[PROJECT_FIELDS.RECORD_ID], {
-        projectId: project[PROJECT_FIELDS.PROJECT_ID],
-        customerName: project[PROJECT_FIELDS.CUSTOMER_NAME],
-        customerPhone: project[PROJECT_FIELDS.CUSTOMER_PHONE],
-        projectStage: project[PROJECT_FIELDS.PROJECT_STAGE]
+        projectId: project[PROJECT_FIELDS.PROJECT_ID]?.value || project[PROJECT_FIELDS.PROJECT_ID] || '',
+        customerName: project[PROJECT_FIELDS.CUSTOMER_NAME]?.value || project[PROJECT_FIELDS.CUSTOMER_NAME] || '',
+        customerPhone: project[PROJECT_FIELDS.CUSTOMER_PHONE]?.value || project[PROJECT_FIELDS.CUSTOMER_PHONE] || '',
+        projectStage: project[PROJECT_FIELDS.PROJECT_STAGE]?.value || project[PROJECT_FIELDS.PROJECT_STAGE] || ''
       });
     });
 
@@ -6492,7 +6495,8 @@ export async function getPCConversationHistory(
         const projectData = projectMap.get(record[INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT]);
         if (!projectData) return null;
 
-        const content = record[INSTALL_COMMUNICATION_FIELDS.COMMUNICATION_NOTE] || '';
+        // Extract wrapped values from communication fields
+        const content = record[INSTALL_COMMUNICATION_FIELDS.COMMUNICATION_NOTE]?.value || record[INSTALL_COMMUNICATION_FIELDS.COMMUNICATION_NOTE] || '';
         const communicationType = detectCommunicationType(content);
         const twilioSid = extractTwilioSidFromNote(content);
         const isNemBlocker = record[INSTALL_COMMUNICATION_FIELDS.NEM_BLOCKER_OUTREACH] === 'Yes';
@@ -6500,7 +6504,7 @@ export async function getPCConversationHistory(
         return {
           recordId: record[INSTALL_COMMUNICATION_FIELDS.RECORD_ID],
           date: record[INSTALL_COMMUNICATION_FIELDS.DATE],
-          noteBy: record[INSTALL_COMMUNICATION_FIELDS.NOTE_BY],
+          noteBy: record[INSTALL_COMMUNICATION_FIELDS.NOTE_BY]?.value || record[INSTALL_COMMUNICATION_FIELDS.NOTE_BY] || '',
           projectId: projectData.projectId,
           customerName: projectData.customerName,
           customerPhone: projectData.customerPhone,
@@ -7561,16 +7565,19 @@ export async function getPCEscalations(
 
     // Transform to PCEscalation format
     const escalations: PCEscalation[] = response.data.map((record: any) => {
-      const category = categorizeEscalationReason(record[SALES_AID_FIELDS.SALES_AID_REASON]);
+      // Extract wrapped values from Sales Aid fields
+      const salesAidReason = record[SALES_AID_FIELDS.SALES_AID_REASON]?.value || record[SALES_AID_FIELDS.SALES_AID_REASON] || '';
+      const category = categorizeEscalationReason(salesAidReason);
       const urgency = calculateSalesAidUrgency(record[SALES_AID_FIELDS.REP_72_HOUR_DEADLINE]);
-      
-      // Get project details
+
+      // Get project details and extract wrapped values
       const projectDetail = projectDetails.get(record[SALES_AID_FIELDS.RELATED_PROJECT]);
-      const projectId = projectDetail?.[PROJECT_FIELDS.PROJECT_ID] || '';
-      const customerName = projectDetail?.[PROJECT_FIELDS.CUSTOMER_NAME] || '';
-      const salesRepName = projectDetail?.[PROJECT_FIELDS.CLOSER_NAME] || projectDetail?.[PROJECT_FIELDS.SETTER_NAME] || '';
-      const salesRepEmail = projectDetail?.[PROJECT_FIELDS.CLOSER_EMAIL] || projectDetail?.[PROJECT_FIELDS.SETTER_EMAIL] || '';
-      
+      const projectId = projectDetail?.[PROJECT_FIELDS.PROJECT_ID]?.value || projectDetail?.[PROJECT_FIELDS.PROJECT_ID] || '';
+      const customerName = projectDetail?.[PROJECT_FIELDS.CUSTOMER_NAME]?.value || projectDetail?.[PROJECT_FIELDS.CUSTOMER_NAME] || '';
+      const salesRepName = projectDetail?.[PROJECT_FIELDS.CLOSER_NAME]?.value || projectDetail?.[PROJECT_FIELDS.CLOSER_NAME] || projectDetail?.[PROJECT_FIELDS.SETTER_NAME]?.value || projectDetail?.[PROJECT_FIELDS.SETTER_NAME] || '';
+      const salesRepEmail = projectDetail?.[PROJECT_FIELDS.CLOSER_EMAIL]?.value || projectDetail?.[PROJECT_FIELDS.CLOSER_EMAIL] || projectDetail?.[PROJECT_FIELDS.SETTER_EMAIL]?.value || projectDetail?.[PROJECT_FIELDS.SETTER_EMAIL] || '';
+      const messagePreview = String(salesAidReason).substring(0, 100);
+
       return {
         recordId: record[SALES_AID_FIELDS.RECORD_ID],
         dateCreated: record[SALES_AID_FIELDS.DATE_CREATED],
@@ -7579,16 +7586,16 @@ export async function getPCEscalations(
         customerName,
         salesRepName,
         salesRepEmail,
-        salesAidStatus: record[SALES_AID_FIELDS.SALES_AID_STATUS],
-        salesAidReason: record[SALES_AID_FIELDS.SALES_AID_REASON],
+        salesAidStatus: record[SALES_AID_FIELDS.SALES_AID_STATUS]?.value || record[SALES_AID_FIELDS.SALES_AID_STATUS] || '',
+        salesAidReason,
         escalateToSalesAid: record[SALES_AID_FIELDS.ESCALATE_TO_SALES_AID],
         escalatedDateTime: record[SALES_AID_FIELDS.ESCALATED_DATETIME],
-        assignedEscalationRep: record[SALES_AID_FIELDS.ASSIGNED_ESCALATION_REP],
+        assignedEscalationRep: record[SALES_AID_FIELDS.ASSIGNED_ESCALATION_REP]?.value || record[SALES_AID_FIELDS.ASSIGNED_ESCALATION_REP] || '',
         rep72HourDeadline: record[SALES_AID_FIELDS.REP_72_HOUR_DEADLINE],
         completedDate: record[SALES_AID_FIELDS.COMPLETED_DATE],
         urgency,
         timeWaiting: record[SALES_AID_FIELDS.TIME_WAITING],
-        messagePreview: record[SALES_AID_FIELDS.SALES_AID_REASON]?.substring(0, 100) || '',
+        messagePreview,
         category,
         gracePeriodEnd: record[SALES_AID_FIELDS.REP_72_HOUR_DEADLINE],
         gracePeriodExtended: false, // TODO: Calculate from history
