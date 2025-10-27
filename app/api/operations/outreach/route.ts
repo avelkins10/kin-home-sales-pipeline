@@ -165,23 +165,24 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch data from QuickBase
+    const role = session.user.role;
     let outreachData: PCOutreachRecord[] | PCOutreachTabData;
 
     if (tab === 'all') {
-      outreachData = await getPCOutreachTabData(pcEmail, pcName, reqId);
+      outreachData = await getPCOutreachTabData(pcEmail, pcName, role, reqId);
     } else {
       switch (tab) {
         case 'initial':
-          outreachData = await getPCOutreachInitial(pcEmail, pcName, reqId);
+          outreachData = await getPCOutreachInitial(pcEmail, pcName, role, reqId);
           break;
         case 'followups':
-          outreachData = await getPCOutreachFollowups(pcEmail, pcName, reqId);
+          outreachData = await getPCOutreachFollowups(pcEmail, pcName, role, reqId);
           break;
         case 'welcome':
-          outreachData = await getPCOutreachWelcome(pcEmail, pcName, reqId);
+          outreachData = await getPCOutreachWelcome(pcEmail, pcName, role, reqId);
           break;
         default:
-          outreachData = await getPCOutreachInitial(pcEmail, pcName, reqId);
+          outreachData = await getPCOutreachInitial(pcEmail, pcName, role, reqId);
       }
     }
 

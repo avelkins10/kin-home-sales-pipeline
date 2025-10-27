@@ -4715,17 +4715,30 @@ export async function calculateTaskBasedResolutionTime(projectId: number): Promi
 export async function getPCDashboardMetrics(
   pcEmail: string,
   pcName: string,
+  role: string,
   reqId: string
 ): Promise<PCDashboardMetrics> {
   try {
-    logQuickbaseRequest('getPCDashboardMetrics', { pcEmail, pcName, reqId });
+    logQuickbaseRequest('getPCDashboardMetrics', { pcEmail, pcName, role, reqId });
 
-    // Use PROJECT_COORDINATOR_EMAIL (822) with EX operator for exact match
-    // Fall back to PROJECT_COORDINATOR (820) with EX operator for name match
+    // Build WHERE clause based on role
     const sanitizedEmail = sanitizeQbLiteral(pcEmail);
     const sanitizedName = sanitizeQbLiteral(pcName);
-    const whereClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
-    
+
+    let whereClause: string;
+    const { hasOperationsUnrestrictedAccess, isOperationsManager } = await import('@/lib/utils/role-helpers');
+
+    if (hasOperationsUnrestrictedAccess(role)) {
+      // Super admin, regional, office leaders see ALL projects
+      whereClause = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}`;
+    } else if (isOperationsManager(role)) {
+      // Operations managers see all operations projects (any project with a PC)
+      whereClause = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+    } else {
+      // Operations coordinators see only their assigned projects
+      whereClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+    }
+
     const query = {
       from: 'br9kwm8na', // Projects table
       where: whereClause,
@@ -4796,18 +4809,33 @@ export async function getPCDashboardMetrics(
 export async function getPCPriorityQueue(
   pcEmail: string,
   pcName: string,
+  role: string,
   limit: number = 10,
   reqId: string
 ): Promise<PCPriorityQueueItem[]> {
   try {
-    logQuickbaseRequest('getPCPriorityQueue', { pcEmail, pcName, limit, reqId });
+    logQuickbaseRequest('getPCPriorityQueue', { pcEmail, pcName, role, limit, reqId });
 
-    // Use PROJECT_COORDINATOR_EMAIL (822) with EX operator for exact match
-    // Fall back to PROJECT_COORDINATOR (820) with EX operator for name match
+    // Build WHERE clause based on role
     const sanitizedEmail = sanitizeQbLiteral(pcEmail);
     const sanitizedName = sanitizeQbLiteral(pcName);
-    const whereClause = `(({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'}))AND{${PROJECT_FIELDS.PROJECT_STATUS}.CT.'Active'}`;
-    
+
+    let pcFilter: string;
+    const { hasOperationsUnrestrictedAccess, isOperationsManager } = await import('@/lib/utils/role-helpers');
+
+    if (hasOperationsUnrestrictedAccess(role)) {
+      // Super admin, regional, office leaders see ALL projects
+      pcFilter = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}`;
+    } else if (isOperationsManager(role)) {
+      // Operations managers see all operations projects (any project with a PC)
+      pcFilter = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+    } else {
+      // Operations coordinators see only their assigned projects
+      pcFilter = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+    }
+
+    const whereClause = `(${pcFilter})AND{${PROJECT_FIELDS.PROJECT_STATUS}.CT.'Active'}`;
+
     const query = {
       from: 'br9kwm8na', // Projects table
       where: whereClause,
@@ -4894,17 +4922,29 @@ export async function getPCPriorityQueue(
 export async function getPCProjectPipeline(
   pcEmail: string,
   pcName: string,
+  role: string,
   reqId: string
 ): Promise<PCProjectPipelineStage[]> {
   try {
-    logQuickbaseRequest('getPCProjectPipeline', { pcEmail, pcName, reqId });
+    logQuickbaseRequest('getPCProjectPipeline', { pcEmail, pcName, role, reqId });
 
-    // Use PROJECT_COORDINATOR_EMAIL (822) with EX operator for exact match
-    // Fall back to PROJECT_COORDINATOR (820) with EX operator for name match
+    // Build WHERE clause based on role
     const sanitizedEmail = sanitizeQbLiteral(pcEmail);
     const sanitizedName = sanitizeQbLiteral(pcName);
-    const whereClause = `(({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'}))AND{${PROJECT_FIELDS.PROJECT_STATUS}.CT.'Active'}`;
-    
+
+    let pcFilter: string;
+    const { hasOperationsUnrestrictedAccess, isOperationsManager } = await import('@/lib/utils/role-helpers');
+
+    if (hasOperationsUnrestrictedAccess(role)) {
+      pcFilter = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}`;
+    } else if (isOperationsManager(role)) {
+      pcFilter = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+    } else {
+      pcFilter = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+    }
+
+    const whereClause = `(${pcFilter})AND{${PROJECT_FIELDS.PROJECT_STATUS}.CT.'Active'}`;
+
     const query = {
       from: 'br9kwm8na', // Projects table
       where: whereClause,
@@ -4974,18 +5014,35 @@ export async function getPCProjectPipeline(
 export async function getPCActivityFeed(
   pcEmail: string,
   pcName: string,
+  role: string,
   limit: number = 20,
   reqId: string
 ): Promise<PCActivityFeedItem[]> {
   try {
-    logQuickbaseRequest('getPCActivityFeed', { pcEmail, pcName, limit, reqId });
+    logQuickbaseRequest('getPCActivityFeed', { pcEmail, pcName, role, limit, reqId });
 
-    // Get projects for this PC first
+    // Import role helpers
+    const { hasOperationsUnrestrictedAccess, isOperationsManager } = await import('@/lib/utils/role-helpers');
+
+    // Get projects based on role
     const sanitizedEmail = sanitizeQbLiteral(pcEmail);
     const sanitizedName = sanitizeQbLiteral(pcName);
+
+    let projectsWhere: string;
+    if (hasOperationsUnrestrictedAccess(role)) {
+      // Super admin, regional, office leaders see ALL projects
+      projectsWhere = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}`;
+    } else if (isOperationsManager(role)) {
+      // Operations managers see all operations projects (any project with a PC)
+      projectsWhere = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+    } else {
+      // Operations coordinators see only their assigned projects
+      projectsWhere = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+    }
+
     const projectsQuery = {
       from: 'br9kwm8na', // Projects table
-      where: `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`,
+      where: projectsWhere,
       select: [PROJECT_FIELDS.RECORD_ID, PROJECT_FIELDS.PROJECT_ID, PROJECT_FIELDS.CUSTOMER_NAME]
     };
 
@@ -5542,14 +5599,44 @@ export async function logNotificationToQuickBase(
 export async function getPCOutreachInitial(
   pcEmail: string,
   pcName: string,
+  role: string,
   reqId: string
 ): Promise<PCOutreachRecord[]> {
   try {
-    logQuickbaseRequest('getPCOutreachInitial', 'btvik5kwi', { pcEmail, pcName, reqId });
+    logQuickbaseRequest('getPCOutreachInitial', 'btvik5kwi', { pcEmail, pcName, role, reqId });
 
-    // Query Outreach Records table for initial outreach
+    // Import role helpers
+    const { hasOperationsUnrestrictedAccess, isOperationsManager } = await import('@/lib/utils/role-helpers');
+
+    const sanitizedEmail = sanitizeQbLiteral(pcEmail);
     const sanitizedName = sanitizeQbLiteral(pcName);
-    const whereClause = `{${OUTREACH_RECORD_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'} AND {${OUTREACH_RECORD_FIELDS.REPORTING_DUE_DATE}.OBF.TODAY} AND {${OUTREACH_RECORD_FIELDS.OUTREACH_STATUS}.XEX.'Complete'}`;
+
+    // First, get the projects based on role
+    let projectsWhere: string;
+    if (hasOperationsUnrestrictedAccess(role)) {
+      projectsWhere = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}`;
+    } else if (isOperationsManager(role)) {
+      projectsWhere = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+    } else {
+      projectsWhere = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+    }
+
+    const projectsQuery = {
+      from: QB_TABLE_PROJECTS,
+      where: projectsWhere,
+      select: [PROJECT_FIELDS.RECORD_ID]
+    };
+
+    const projectsResponse = await qbClient.queryRecords(projectsQuery);
+    const projectIds = (projectsResponse.data || []).map((p: any) => p[PROJECT_FIELDS.RECORD_ID]);
+
+    if (projectIds.length === 0) {
+      return [];
+    }
+
+    // Query Outreach Records table for initial outreach, filtered by accessible projects
+    const projectIdsStr = projectIds.join(',');
+    const whereClause = `{${OUTREACH_RECORD_FIELDS.RELATED_PROJECT}.XIN.${projectIdsStr}} AND {${OUTREACH_RECORD_FIELDS.REPORTING_DUE_DATE}.OBF.TODAY} AND {${OUTREACH_RECORD_FIELDS.OUTREACH_STATUS}.XEX.'Complete'}`;
     const selectFields = [
       OUTREACH_RECORD_FIELDS.RECORD_ID,
       OUTREACH_RECORD_FIELDS.DATE_CREATED,
@@ -5665,14 +5752,30 @@ export async function getPCOutreachInitial(
 export async function getPCOutreachFollowups(
   pcEmail: string,
   pcName: string,
+  role: string,
   reqId: string
 ): Promise<PCOutreachRecord[]> {
   try {
-    logQuickbaseRequest('getPCOutreachFollowups', 'bqj8x8k8n', { pcEmail, pcName, reqId });
+    logQuickbaseRequest('getPCOutreachFollowups', 'bqj8x8k8n', { pcEmail, pcName, role, reqId });
+
+    // Import role helpers
+    const { hasOperationsUnrestrictedAccess, isOperationsManager } = await import('@/lib/utils/role-helpers');
+
+    const sanitizedEmail = sanitizeQbLiteral(pcEmail);
+    const sanitizedName = sanitizeQbLiteral(pcName);
+
+    // Build WHERE clause based on role
+    let pcFilterClause: string;
+    if (hasOperationsUnrestrictedAccess(role)) {
+      pcFilterClause = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}`;
+    } else if (isOperationsManager(role)) {
+      pcFilterClause = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+    } else {
+      pcFilterClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+    }
 
     // Query Projects table for unresponsive customers
-    const sanitizedName = sanitizeQbLiteral(pcName);
-    const whereClause = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'} AND {${PROJECT_FIELDS.PROJECT_STATUS}.EX.'Active'} AND {${PROJECT_FIELDS.PC_IS_UNRESPONSIVE}.EX.'Yes'}`;
+    const whereClause = `(${pcFilterClause}) AND {${PROJECT_FIELDS.PROJECT_STATUS}.EX.'Active'} AND {${PROJECT_FIELDS.PC_IS_UNRESPONSIVE}.EX.'Yes'}`;
     const selectFields = [
       PROJECT_FIELDS.RECORD_ID,
       PROJECT_FIELDS.PROJECT_ID,
@@ -5732,14 +5835,30 @@ export async function getPCOutreachFollowups(
 export async function getPCOutreachWelcome(
   pcEmail: string,
   pcName: string,
+  role: string,
   reqId: string
 ): Promise<PCOutreachRecord[]> {
   try {
-    logQuickbaseRequest('getPCOutreachWelcome', 'bqj8x8k8n', { pcEmail, pcName, reqId });
+    logQuickbaseRequest('getPCOutreachWelcome', 'bqj8x8k8n', { pcEmail, pcName, role, reqId });
+
+    // Import role helpers
+    const { hasOperationsUnrestrictedAccess, isOperationsManager } = await import('@/lib/utils/role-helpers');
+
+    const sanitizedEmail = sanitizeQbLiteral(pcEmail);
+    const sanitizedName = sanitizeQbLiteral(pcName);
+
+    // Build WHERE clause based on role
+    let pcFilterClause: string;
+    if (hasOperationsUnrestrictedAccess(role)) {
+      pcFilterClause = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}`;
+    } else if (isOperationsManager(role)) {
+      pcFilterClause = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+    } else {
+      pcFilterClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+    }
 
     // Query Projects table for welcome call candidates
-    const sanitizedName = sanitizeQbLiteral(pcName);
-    const whereClause = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'} AND {${PROJECT_FIELDS.PROJECT_STATUS}.EX.'Active'} AND {${PROJECT_FIELDS.PC_OUTREACH_CREATE_CHECKIN}.EX.true}`;
+    const whereClause = `(${pcFilterClause}) AND {${PROJECT_FIELDS.PROJECT_STATUS}.EX.'Active'} AND {${PROJECT_FIELDS.PC_OUTREACH_CREATE_CHECKIN}.EX.true}`;
     const selectFields = [
       PROJECT_FIELDS.RECORD_ID,
       PROJECT_FIELDS.PROJECT_ID,
@@ -5790,18 +5909,19 @@ export async function getPCOutreachWelcome(
 export async function getPCOutreachTabData(
   pcEmail: string,
   pcName: string,
+  role: string,
   reqId: string
 ): Promise<PCOutreachTabData> {
   const t0 = Date.now();
-  
+
   try {
-    logQuickbaseRequest('getPCOutreachTabData', 'aggregate', { pcEmail, pcName, reqId });
+    logQuickbaseRequest('getPCOutreachTabData', 'aggregate', { pcEmail, pcName, role, reqId });
 
     // Fetch all tab data in parallel
     const [initial, followups, welcome] = await Promise.all([
-      getPCOutreachInitial(pcEmail, pcName, reqId),
-      getPCOutreachFollowups(pcEmail, pcName, reqId),
-      getPCOutreachWelcome(pcEmail, pcName, reqId)
+      getPCOutreachInitial(pcEmail, pcName, role, reqId),
+      getPCOutreachFollowups(pcEmail, pcName, role, reqId),
+      getPCOutreachWelcome(pcEmail, pcName, role, reqId)
     ]);
 
     const tabData: PCOutreachTabData = {
@@ -6031,15 +6151,20 @@ function transformProjectToOutreachRecord(record: any, source: 'followups' | 'we
 export async function getPCInboundRepQueue(
   pcEmail: string,
   pcName: string,
+  role: string,
   reqId: string
 ): Promise<PCSalesAidRequest[]> {
   const startTime = Date.now();
-  
-  try {
-    logQuickbaseRequest('getPCInboundRepQueue', { pcEmail, pcName }, reqId);
 
+  try {
+    logQuickbaseRequest('getPCInboundRepQueue', { pcEmail, pcName, role }, reqId);
+
+    // Import role helpers
+    const { hasOperationsUnrestrictedAccess, isOperationsManager } = await import('@/lib/utils/role-helpers');
+
+    const sanitizedEmail = sanitizeQbLiteral(pcEmail);
     const sanitizedName = sanitizeQuickbaseValue(pcName);
-    
+
     // Query Sales Aid Requests table
     const salesAidQuery = {
       from: QB_TABLE_SALES_AID_REQUESTS,
@@ -6060,7 +6185,7 @@ export async function getPCInboundRepQueue(
     };
 
     const salesAidResponse = await qbClient.queryRecords(salesAidQuery);
-    
+
     if (!salesAidResponse.data || salesAidResponse.data.length === 0) {
       logQuickbaseResponse('getPCInboundRepQueue', { count: 0 }, reqId, Date.now() - startTime);
       return [];
@@ -6076,6 +6201,16 @@ export async function getPCInboundRepQueue(
       return [];
     }
 
+    // Build role-based filter
+    let pcFilterClause: string;
+    if (hasOperationsUnrestrictedAccess(role)) {
+      pcFilterClause = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}`;
+    } else if (isOperationsManager(role)) {
+      pcFilterClause = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+    } else {
+      pcFilterClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+    }
+
     // Query Projects table to get PC's projects and customer data
     const projectsQuery = {
       from: QB_TABLE_PROJECTS,
@@ -6087,7 +6222,7 @@ export async function getPCInboundRepQueue(
         PROJECT_FIELDS.CLOSER_EMAIL,
         PROJECT_FIELDS.PROJECT_COORDINATOR
       ],
-      where: `{${PROJECT_FIELDS.RECORD_ID}.IN.${projectIds.join(',')}} AND {${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'}`
+      where: `{${PROJECT_FIELDS.RECORD_ID}.IN.${projectIds.join(',')}} AND (${pcFilterClause})`
     };
 
     const projectsResponse = await qbClient.queryRecords(projectsQuery);
@@ -6166,16 +6301,44 @@ export async function getPCInboundRepQueue(
 export async function getPCConversationHistory(
   pcEmail: string,
   pcName: string,
+  role: string,
   filters: PCConversationFilters,
   reqId: string
 ): Promise<PCConversationItem[]> {
   const startTime = Date.now();
-  
-  try {
-    logQuickbaseRequest('getPCConversationHistory', { pcEmail, pcName, filters }, reqId);
 
+  try {
+    logQuickbaseRequest('getPCConversationHistory', { pcEmail, pcName, role, filters }, reqId);
+
+    // Import role helpers
+    const { hasOperationsUnrestrictedAccess, isOperationsManager } = await import('@/lib/utils/role-helpers');
+
+    const sanitizedEmail = sanitizeQbLiteral(pcEmail);
     const sanitizedName = sanitizeQuickbaseValue(pcName);
-    
+
+    // First, get the projects based on role
+    let projectsWhere: string;
+    if (hasOperationsUnrestrictedAccess(role)) {
+      projectsWhere = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}`;
+    } else if (isOperationsManager(role)) {
+      projectsWhere = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+    } else {
+      projectsWhere = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+    }
+
+    const projectsQuery = {
+      from: QB_TABLE_PROJECTS,
+      where: projectsWhere,
+      select: [PROJECT_FIELDS.RECORD_ID]
+    };
+
+    const projectsResponse = await qbClient.queryRecords(projectsQuery);
+    const projectIds = (projectsResponse.data || []).map((p: any) => p[PROJECT_FIELDS.RECORD_ID]);
+
+    if (projectIds.length === 0) {
+      return [];
+    }
+
     // Build date range filter
     let dateFilter = '';
     const now = new Date();
@@ -6212,9 +6375,13 @@ export async function getPCConversationHistory(
       searchFilter = `{${INSTALL_COMMUNICATION_FIELDS.COMMUNICATION_NOTE}.CT.'${searchTerm}'}`;
     }
 
+    // Build project filter from accessible projects
+    const projectIdsStr = projectIds.join(',');
+    const projectFilter = `{${INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT}.XIN.${projectIdsStr}}`;
+
     // Combine filters
     const whereConditions = [
-      `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'}`,
+      projectFilter,
       dateFilter,
       tabFilter,
       searchFilter
@@ -6333,19 +6500,34 @@ export async function getPCConversationHistory(
 export async function getPCBulkMessagingRecipients(
   pcEmail: string,
   pcName: string,
+  role: string,
   filters: { projectStage?: string; lender?: string; salesRep?: string },
   reqId: string
 ): Promise<PCBulkMessagingRecipient[]> {
   const startTime = Date.now();
-  
-  try {
-    logQuickbaseRequest('getPCBulkMessagingRecipients', { pcEmail, pcName, filters }, reqId);
 
+  try {
+    logQuickbaseRequest('getPCBulkMessagingRecipients', { pcEmail, pcName, role, filters }, reqId);
+
+    // Import role helpers
+    const { hasOperationsUnrestrictedAccess, isOperationsManager } = await import('@/lib/utils/role-helpers');
+
+    const sanitizedEmail = sanitizeQbLiteral(pcEmail);
     const sanitizedName = sanitizeQuickbaseValue(pcName);
-    
+
+    // Build role-based filter
+    let pcFilterClause: string;
+    if (hasOperationsUnrestrictedAccess(role)) {
+      pcFilterClause = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}`;
+    } else if (isOperationsManager(role)) {
+      pcFilterClause = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+    } else {
+      pcFilterClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+    }
+
     // Build filter conditions
     const whereConditions = [
-      `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'}`,
+      `(${pcFilterClause})`,
       `{${PROJECT_FIELDS.PROJECT_STATUS}.EX.'Active'}`
     ];
 
@@ -7208,23 +7390,55 @@ function extractMentions(content: string): string[] {
 export async function getPCEscalations(
   pcEmail: string,
   pcName: string,
+  role: string,
   filters: PCEscalationFilters,
   reqId: string
 ): Promise<PCEscalation[]> {
   try {
-    logQuickbaseRequest('getPCEscalations', { pcEmail, pcName, filters }, reqId);
+    logQuickbaseRequest('getPCEscalations', { pcEmail, pcName, role, filters }, reqId);
 
+    // Import role helpers
+    const { hasOperationsUnrestrictedAccess, isOperationsManager } = await import('@/lib/utils/role-helpers');
+
+    const sanitizedEmail = sanitizeQbLiteral(pcEmail);
     const sanitizedName = sanitizeQuickbaseValue(pcName);
-    
+
+    // First, get the projects based on role
+    let projectsWhere: string;
+    if (hasOperationsUnrestrictedAccess(role)) {
+      // Super admin, regional, office leaders see ALL projects
+      projectsWhere = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}`;
+    } else if (isOperationsManager(role)) {
+      // Operations managers see all operations projects (any project with a PC)
+      projectsWhere = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+    } else {
+      // Operations coordinators see only their assigned projects
+      projectsWhere = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+    }
+
+    const projectsQuery = {
+      from: QB_TABLE_PROJECTS,
+      where: projectsWhere,
+      select: [PROJECT_FIELDS.RECORD_ID]
+    };
+
+    const projectsResponse = await qbClient.queryRecords(projectsQuery);
+    const projectIds = (projectsResponse.data || []).map((p: any) => p[PROJECT_FIELDS.RECORD_ID]);
+
+    if (projectIds.length === 0) {
+      return [];
+    }
+
     // Build WHERE clause for escalation status
-    const whereClause = `{${SALES_AID_FIELDS.SALES_AID_STATUS}.EX.'Escalated to Sales Aid'}OR{${SALES_AID_FIELDS.ESCALATE_TO_SALES_AID}.EX.true}AND{${SALES_AID_FIELDS.SALES_AID_STATUS}.NE.'Resolved by Rep'}AND{${SALES_AID_FIELDS.SALES_AID_STATUS}.NE.'Task Completed'}`;
-    
-    // Join with Projects table to filter by PC's projects
-    const projectFilter = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'}`;
-    
+    const escalationStatusClause = `{${SALES_AID_FIELDS.SALES_AID_STATUS}.EX.'Escalated to Sales Aid'}OR{${SALES_AID_FIELDS.ESCALATE_TO_SALES_AID}.EX.true}AND{${SALES_AID_FIELDS.SALES_AID_STATUS}.NE.'Resolved by Rep'}AND{${SALES_AID_FIELDS.SALES_AID_STATUS}.NE.'Task Completed'}`;
+
+    // Filter by projects this PC has access to
+    const projectIdsStr = projectIds.join(',');
+    const whereClause = `(${escalationStatusClause})AND{${SALES_AID_FIELDS.RELATED_PROJECT}.IN.${projectIdsStr}}`;
+
     const query = {
       from: QB_TABLE_SALES_AID_REQUESTS,
-      where: `${whereClause}AND${projectFilter}`,
+      where: whereClause,
       select: [
         SALES_AID_FIELDS.RECORD_ID,
         SALES_AID_FIELDS.DATE_CREATED,

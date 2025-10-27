@@ -51,10 +51,10 @@ export async function GET(req: Request) {
 
     // Fetch all PC dashboard data in parallel
     const [metrics, priorityQueue, pipeline, activityFeed] = await Promise.all([
-      getPCDashboardMetrics(pcEmail, pcName, reqId),
-      getPCPriorityQueue(pcEmail, pcName, 10, reqId),
-      getPCProjectPipeline(pcEmail, pcName, reqId),
-      getPCActivityFeed(pcEmail, pcName, 20, reqId)
+      getPCDashboardMetrics(pcEmail, pcName, role, reqId),
+      getPCPriorityQueue(pcEmail, pcName, role, 10, reqId),
+      getPCProjectPipeline(pcEmail, pcName, role, reqId),
+      getPCActivityFeed(pcEmail, pcName, role, 20, reqId)
     ]);
 
     // Combine into dashboard data

@@ -57,7 +57,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch fresh data
-    const conversations = await getPCConversationHistory(pcEmail, pcName, filters, reqId);
+    const role = session.user.role;
+    const conversations = await getPCConversationHistory(pcEmail, pcName, role, filters, reqId);
     
     // Calculate needs response count
     const needsResponseCount = conversations.filter(c => c.needsResponse).length;

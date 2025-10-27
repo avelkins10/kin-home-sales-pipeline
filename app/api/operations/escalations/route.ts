@@ -93,7 +93,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch from QuickBase
-    const escalations = await getPCEscalations(pcEmail, pcName, filters, reqId);
+    const role = session.user.role;
+    const escalations = await getPCEscalations(pcEmail, pcName, role, filters, reqId);
 
     // Calculate stats
     const stats: PCEscalationStats = {

@@ -41,10 +41,12 @@ export async function GET(request: NextRequest) {
     };
 
     // Fetch recipients
+    const role = session.user.role;
     const recipients: PCBulkMessagingRecipient[] = await getPCBulkMessagingRecipients(
-      pcEmail, 
-      pcName, 
-      filters, 
+      pcEmail,
+      pcName,
+      role,
+      filters,
       reqId
     );
 

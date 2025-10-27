@@ -41,7 +41,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch fresh data
-    const requests = await getPCInboundRepQueue(pcEmail, pcName, reqId);
+    const role = session.user.role;
+    const requests = await getPCInboundRepQueue(pcEmail, pcName, role, reqId);
     
     // Calculate counts
     const criticalCount = requests.filter(r => r.urgency === 'critical').length;

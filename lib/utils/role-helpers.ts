@@ -109,3 +109,24 @@ export function isManagerRole(role: string): boolean {
   const managerRoles = ['team_lead', 'office_leader', 'area_director', 'divisional', 'regional', 'super_admin', 'operations_manager'];
   return managerRoles.includes(role);
 }
+
+/**
+ * Check if role is operations_manager
+ * Operations managers can see all operations projects (any project with a PC assigned)
+ * @param role - User role string
+ * @returns True if role is operations_manager
+ */
+export function isOperationsManager(role: string): boolean {
+  return role === 'operations_manager';
+}
+
+/**
+ * Check if role has unrestricted access to operations data
+ * Unrestricted roles: super_admin, regional, office_leader, area_director, divisional
+ * These roles can see ALL projects regardless of PC assignment
+ * @param role - User role string
+ * @returns True if role has unrestricted operations access
+ */
+export function hasOperationsUnrestrictedAccess(role: string): boolean {
+  return ['super_admin', 'regional', 'office_leader', 'area_director', 'divisional'].includes(role);
+}
