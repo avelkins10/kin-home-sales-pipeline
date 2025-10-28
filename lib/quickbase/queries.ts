@@ -10473,6 +10473,41 @@ export async function getProjectsForPC(
       const isOnHold = holdStatus === 'On Hold';
       const isBlocked = blockStatus === 'Project Blocked';
 
+      // Calculate milestone-specific status (for status tabs)
+      let milestoneStatus = 'unknown';
+
+      if (currentMilestone === 'inspection') {
+        const inspectionScheduled = parseQuickbaseDate(record[PROJECT_FIELDS.INSPECTION_SCHEDULED_DATE]);
+        const inspectionFailed = parseQuickbaseDate(record[PROJECT_FIELDS.INSPECTION_FAILED_DATE]);
+        const inspectionPassed = parseQuickbaseDate(record[PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED]);
+
+        if (isOnHold) {
+          milestoneStatus = 'on_hold';
+        } else if (inspectionFailed && !inspectionPassed) {
+          if (inspectionScheduled && inspectionScheduled > inspectionFailed) {
+            milestoneStatus = 'reinspection_scheduled';
+          } else {
+            milestoneStatus = 'inspection_failed';
+          }
+        } else if (inspectionScheduled) {
+          milestoneStatus = 'inspection_scheduled';
+        } else {
+          milestoneStatus = 'waiting_for_inspection';
+        }
+      } else if (currentMilestone === 'pto') {
+        const ptoSubmittedDate = parseQuickbaseDate(record[PROJECT_FIELDS.PTO_SUBMITTED]);
+
+        if (isOnHold) {
+          milestoneStatus = 'on_hold';
+        } else if (ptoSubmittedDate) {
+          milestoneStatus = 'pto_submitted';
+        } else {
+          milestoneStatus = 'ready_for_pto';
+        }
+      } else if (isOnHold) {
+        milestoneStatus = 'on_hold';
+      }
+
       const project = {
         recordId: extractValue(record[PROJECT_FIELDS.RECORD_ID]),
         projectId: extractValue(record[PROJECT_FIELDS.PROJECT_ID]),
@@ -10486,6 +10521,7 @@ export async function getProjectsForPC(
         projectStatus: extractValue(record[PROJECT_FIELDS.PROJECT_STATUS]),
         currentStage: extractValue(record[PROJECT_FIELDS.CURRENT_STAGE]),
         currentMilestone,
+        milestoneStatus,
         daysInMilestone,
         dateCreated: record[PROJECT_FIELDS.DATE_CREATED],
         isBlocked,
@@ -10575,6 +10611,33 @@ export async function getProjectsForPC(
 
     const duration = Date.now() - startTime;
     console.log(`[getProjectsForPC] Found ${filteredProjects.length} projects (${duration}ms)`);
+
+    // If milestone filter is active, group projects by status for tab display
+    if (filters?.milestone) {
+      const projectsByStatus: Record<string, any[]> = {};
+      const statusCounts: Record<string, number> = {};
+      const availableStatuses: string[] = [];
+
+      // Group projects by status
+      filteredProjects.forEach(project => {
+        const status = project.milestoneStatus;
+        if (!projectsByStatus[status]) {
+          projectsByStatus[status] = [];
+          statusCounts[status] = 0;
+          availableStatuses.push(status);
+        }
+        projectsByStatus[status].push(project);
+        statusCounts[status]++;
+      });
+
+      return {
+        projects: filteredProjects,
+        projectsByStatus,
+        statusCounts,
+        availableStatuses,
+        total: filteredProjects.length
+      };
+    }
 
     return filteredProjects;
 

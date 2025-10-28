@@ -12,6 +12,7 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Package,
   MapPin,
@@ -50,6 +51,7 @@ export default function OperationsProjectsPage() {
 
   // Get filters from URL (milestone is now optional)
   const currentMilestone = searchParams.get('milestone') as OperationsMilestone | null;
+  const currentStatus = searchParams.get('status') || 'all';
   const searchQuery = searchParams.get('search') || '';
   const officeFilter = searchParams.get('office') || 'all';
   const repFilter = searchParams.get('rep') || 'all';
@@ -60,6 +62,7 @@ export default function OperationsProjectsPage() {
   const [office, setOffice] = useState(officeFilter);
   const [rep, setRep] = useState(repFilter);
   const [sort, setSort] = useState(sortFilter);
+  const [status, setStatus] = useState(currentStatus);
 
   // Fetch all projects with optional milestone filter
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
@@ -72,7 +75,7 @@ export default function OperationsProjectsPage() {
 
   const endpoint = `${baseUrl}/api/operations/projects?${params}`;
 
-  const { data: projectsData, isLoading, error, refetch, isFetching } = useQuery<{ success: boolean; data: any[] }>({
+  const { data: projectsData, isLoading, error, refetch, isFetching } = useQuery<{ success: boolean; data: any }>({
     queryKey: ['operations-projects', currentMilestone, search, office, rep, sort],
     queryFn: async () => {
       const response = await fetch(endpoint);
@@ -83,12 +86,37 @@ export default function OperationsProjectsPage() {
     staleTime: 10000
   });
 
-  const projects = projectsData?.data || [];
+  // Handle both grouped (milestone filtered) and flat array responses
+  const responseData = projectsData?.data;
+  const isGroupedResponse = currentMilestone && responseData && typeof responseData === 'object' && 'projects' in responseData;
+
+  const projects = isGroupedResponse
+    ? (status === 'all' ? responseData.projects : responseData.projectsByStatus?.[status] || [])
+    : (Array.isArray(responseData) ? responseData : []);
+
+  const availableStatuses = isGroupedResponse ? responseData.availableStatuses || [] : [];
+  const statusCounts = isGroupedResponse ? responseData.statusCounts || {} : {};
+  const totalProjects = isGroupedResponse ? responseData.total || 0 : projects.length;
 
   // Handle milestone filter
   const handleMilestoneFilter = (milestone: OperationsMilestone | null) => {
     const newParams = new URLSearchParams();
     if (milestone) newParams.set('milestone', milestone);
+    if (search) newParams.set('search', search);
+    if (office !== 'all') newParams.set('office', office);
+    if (rep !== 'all') newParams.set('rep', rep);
+    if (sort !== 'newest') newParams.set('sort', sort);
+    // Reset status when changing milestone
+    setStatus('all');
+    router.push(`/operations/projects?${newParams.toString()}`);
+  };
+
+  // Handle status filter (for milestone tabs)
+  const handleStatusChange = (newStatus: string) => {
+    setStatus(newStatus);
+    const newParams = new URLSearchParams();
+    if (currentMilestone) newParams.set('milestone', currentMilestone);
+    if (newStatus !== 'all') newParams.set('status', newStatus);
     if (search) newParams.set('search', search);
     if (office !== 'all') newParams.set('office', office);
     if (rep !== 'all') newParams.set('rep', rep);
@@ -124,6 +152,14 @@ export default function OperationsProjectsPage() {
   const uniqueReps = useMemo(() => {
     return Array.from(new Set(projects.map(p => p.salesRepName).filter(Boolean))).sort();
   }, [projects]);
+
+  // Format status labels for display
+  const formatStatusLabel = (status: string) => {
+    return status
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
 
   // Active filters count
   const activeFiltersCount = [
@@ -267,6 +303,33 @@ export default function OperationsProjectsPage() {
             )}
           </div>
         </div>
+
+        {/* Status Tabs (only show when milestone is selected) */}
+        {currentMilestone && availableStatuses.length > 0 ? (
+          <Tabs value={status} onValueChange={handleStatusChange} className="w-full mb-6">
+            <TabsList className="w-full flex-wrap h-auto gap-2 bg-white border p-2 rounded-lg">
+              <TabsTrigger value="all" className="flex items-center gap-2">
+                All
+                <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-slate-100 rounded-full">
+                  {totalProjects}
+                </span>
+              </TabsTrigger>
+              {availableStatuses.map((statusValue) => {
+                const count = statusCounts[statusValue] || 0;
+                if (count === 0) return null;
+
+                return (
+                  <TabsTrigger key={statusValue} value={statusValue} className="flex items-center gap-2">
+                    {formatStatusLabel(statusValue)}
+                    <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700 rounded-full">
+                      {count}
+                    </span>
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+          </Tabs>
+        ) : null}
 
         {/* Project Table */}
         {isLoading ? (

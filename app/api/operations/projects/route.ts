@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch projects
-    const projects = await getProjectsForPC(
+    const result = await getProjectsForPC(
       pcEmail,
       pcName,
       role,
@@ -76,16 +76,20 @@ export async function GET(request: NextRequest) {
       reqId
     );
 
+    // Handle different return formats (grouped vs. flat array)
+    const isGrouped = milestone && typeof result === 'object' && 'projects' in result;
+    const projects = isGrouped ? (result as any).projects : result;
+
     const duration = Date.now() - startTime;
     logApiResponse('GET', '/api/operations/projects', duration, {
       reqId,
-      count: projects.length,
+      count: Array.isArray(projects) ? projects.length : (result as any).total || 0,
       milestone: milestone || 'all'
     });
 
     return NextResponse.json({
       success: true,
-      data: projects
+      data: result
     });
 
   } catch (error) {
