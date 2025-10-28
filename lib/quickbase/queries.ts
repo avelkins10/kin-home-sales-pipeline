@@ -9743,7 +9743,7 @@ export async function getMilestoneProjects(
       case 'intake':
         // Projects in intake: Sold but intake not completed
         whereClause += `AND{${PROJECT_FIELDS.SALES_DATE}.XEX.''}`;
-        whereClause += `AND({${PROJECT_FIELDS.INTAKE_COMPLETED_DATE}.EX.''})OR({${PROJECT_FIELDS.INTAKE_STATUS}.XEX.''})`;
+        whereClause += `AND{${PROJECT_FIELDS.INTAKE_COMPLETED_DATE}.EX.''}`;
 
         selectFields.push(
           PROJECT_FIELDS.INTAKE_STATUS,
@@ -9757,7 +9757,7 @@ export async function getMilestoneProjects(
       case 'survey':
         // Projects in survey: Intake complete, survey not complete
         whereClause += `AND{${PROJECT_FIELDS.INTAKE_COMPLETED_DATE}.XEX.''}`;
-        whereClause += `AND({${PROJECT_FIELDS.SURVEY_APPROVED}.EX.''})OR({${PROJECT_FIELDS.SURVEY_STATUS}.XEX.''})`;
+        whereClause += `AND{${PROJECT_FIELDS.SURVEY_APPROVED}.EX.''}`;
 
         selectFields.push(
           PROJECT_FIELDS.SURVEY_STATUS,
@@ -9771,7 +9771,7 @@ export async function getMilestoneProjects(
       case 'design':
         // Projects in design: Survey complete, design not complete
         whereClause += `AND{${PROJECT_FIELDS.SURVEY_APPROVED}.XEX.''}`;
-        whereClause += `AND({${PROJECT_FIELDS.DESIGN_COMPLETED}.EX.''})OR({${PROJECT_FIELDS.DESIGN_STATUS}.XEX.''})`;
+        whereClause += `AND{${PROJECT_FIELDS.DESIGN_COMPLETED}.EX.''}`;
 
         selectFields.push(
           PROJECT_FIELDS.DESIGN_STATUS,
@@ -9786,7 +9786,7 @@ export async function getMilestoneProjects(
       case 'permitting':
         // Projects in permitting: Design complete, permits not all approved
         whereClause += `AND{${PROJECT_FIELDS.DESIGN_COMPLETED}.XEX.''}`;
-        whereClause += `AND(({${PROJECT_FIELDS.PERMIT_APPROVED}.EX.''})OR({${PROJECT_FIELDS.NEM_APPROVED}.EX.''})OR({${PROJECT_FIELDS.HOA_APPLICATION_APPROVED}.EX.''}))`;
+        whereClause += `AND{${PROJECT_FIELDS.PERMIT_APPROVED}.EX.''}`;
 
         selectFields.push(
           PROJECT_FIELDS.PERMIT_STATUS,
@@ -9805,7 +9805,7 @@ export async function getMilestoneProjects(
       case 'install':
         // Projects in install: Permits complete, install not complete
         whereClause += `AND{${PROJECT_FIELDS.PERMIT_APPROVED}.XEX.''}`;
-        whereClause += `AND({${PROJECT_FIELDS.INSTALL_COMPLETED_DATE}.EX.''})`;
+        whereClause += `AND{${PROJECT_FIELDS.INSTALL_COMPLETED_DATE}.EX.''}`;
 
         selectFields.push(
           PROJECT_FIELDS.INSTALL_SCHEDULED_DATE_CAPTURE,
@@ -9819,7 +9819,7 @@ export async function getMilestoneProjects(
       case 'inspection':
         // Projects in inspection: Install complete, inspection not passed
         whereClause += `AND{${PROJECT_FIELDS.INSTALL_COMPLETED_DATE}.XEX.''}`;
-        whereClause += `AND({${PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED}.EX.''})`;
+        whereClause += `AND{${PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED}.EX.''}`;
 
         selectFields.push(
           PROJECT_FIELDS.INSTALL_COMPLETED_DATE,
@@ -9835,7 +9835,7 @@ export async function getMilestoneProjects(
       case 'pto':
         // Projects in PTO: Inspection passed, PTO not approved
         whereClause += `AND{${PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED}.XEX.''}`;
-        whereClause += `AND({${PROJECT_FIELDS.PTO_APPROVED}.EX.''})`;
+        whereClause += `AND{${PROJECT_FIELDS.PTO_APPROVED}.EX.''}`;
 
         selectFields.push(
           PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED,
