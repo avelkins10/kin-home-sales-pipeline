@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -12,7 +13,10 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { OperationsProjectCard } from '@/components/operations/OperationsProjectCard';
+import { operationsProjectsListKey } from '@/lib/queryKeys';
+import { formatMilestoneStatus } from '@/lib/utils/operations-milestones';
 import {
   Package,
   MapPin,
@@ -23,67 +27,77 @@ import {
   Zap,
   Search,
   RefreshCw,
-  X
+  X,
+  Loader2
 } from 'lucide-react';
 import type { OperationsMilestone } from '@/lib/types/operations';
-import Link from 'next/link';
 
-// Milestone configuration
+// 7-milestone configuration
 const milestoneConfig: Record<OperationsMilestone, {
   icon: React.ComponentType<any>;
   label: string;
   color: string;
 }> = {
   intake: { icon: Package, label: 'Intake', color: 'bg-orange-100 text-orange-700 border-orange-300' },
-  survey: { icon: MapPin, label: 'Survey', color: 'bg-yellow-100 text-yellow-700 border-yellow-300' },
+  survey: { icon: MapPin, label: 'Survey', color: 'bg-purple-100 text-purple-700 border-purple-300' },
   design: { icon: PenTool, label: 'Design', color: 'bg-blue-100 text-blue-700 border-blue-300' },
-  permitting: { icon: FileText, label: 'Permitting', color: 'bg-purple-100 text-purple-700 border-purple-300' },
+  permitting: { icon: FileText, label: 'Permitting', color: 'bg-teal-100 text-teal-700 border-teal-300' },
   install: { icon: Hammer, label: 'Install', color: 'bg-indigo-100 text-indigo-700 border-indigo-300' },
-  inspection: { icon: ClipboardCheck, label: 'Inspection', color: 'bg-teal-100 text-teal-700 border-teal-300' },
-  pto: { icon: Zap, label: 'PTO', color: 'bg-green-100 text-green-700 border-green-300' }
+  inspections: { icon: ClipboardCheck, label: 'Inspections', color: 'bg-amber-100 text-amber-700 border-amber-300' },
+  pto: { icon: Zap, label: 'PTO', color: 'bg-emerald-100 text-emerald-700 border-emerald-300' }
 };
 
-const allMilestones: OperationsMilestone[] = ['intake', 'survey', 'design', 'permitting', 'install', 'inspection', 'pto'];
+const allMilestones: OperationsMilestone[] = ['intake', 'survey', 'design', 'permitting', 'install', 'inspections', 'pto'];
 
 export default function OperationsProjectsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
 
-  // Get filters from URL (milestone is now optional)
+  // Get filters from URL
   const currentMilestone = searchParams.get('milestone') as OperationsMilestone | null;
   const currentStatus = searchParams.get('status') || 'all';
   const searchQuery = searchParams.get('search') || '';
-  const officeFilter = searchParams.get('office') || 'all';
-  const repFilter = searchParams.get('rep') || 'all';
+  const officeFilter = searchParams.get('office') || '';
+  const repFilter = searchParams.get('rep') || '';
   const sortFilter = searchParams.get('sort') || 'newest';
 
-  // Local state for filters
+  // Local state for filters (before applying)
   const [search, setSearch] = useState(searchQuery);
   const [office, setOffice] = useState(officeFilter);
   const [rep, setRep] = useState(repFilter);
   const [sort, setSort] = useState(sortFilter);
-  const [status, setStatus] = useState(currentStatus);
 
-  // Fetch all projects with optional milestone filter
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-  const params = new URLSearchParams();
-  if (search) params.append('search', search);
-  if (office !== 'all') params.append('office', office);
-  if (rep !== 'all') params.append('salesRep', rep);
-  if (currentMilestone) params.append('milestone', currentMilestone);
-  if (sort) params.append('sort', sort);
+  // Fetch projects using the new query key
+  const userId = session?.user?.id || '';
+  const userRole = session?.user?.role || '';
 
-  const endpoint = `${baseUrl}/api/operations/projects?${params}`;
-
-  const { data: projectsData, isLoading, error, refetch, isFetching } = useQuery<{ success: boolean; data: any }>({
-    queryKey: ['operations-projects', currentMilestone, search, office, rep, sort],
+  const { data: projectsData, isLoading, error, refetch, isFetching } = useQuery({
+    queryKey: operationsProjectsListKey(
+      userId,
+      userRole,
+      currentMilestone || 'all',
+      currentStatus,
+      searchQuery,
+      sortFilter,
+      officeFilter,
+      repFilter
+    ),
     queryFn: async () => {
-      const response = await fetch(endpoint);
+      const params = new URLSearchParams();
+      if (currentMilestone) params.append('milestone', currentMilestone);
+      if (currentStatus !== 'all') params.append('status', currentStatus);
+      if (searchQuery) params.append('search', searchQuery);
+      if (sortFilter) params.append('sort', sortFilter);
+      if (officeFilter) params.append('office', officeFilter);
+      if (repFilter) params.append('salesRep', repFilter);
+
+      const response = await fetch(`/api/operations/projects?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch projects');
       return response.json();
     },
-    refetchInterval: 30000,
-    staleTime: 10000
+    staleTime: 300000, // 5 minutes
+    enabled: !!userId && !!userRole
   });
 
   // Handle both grouped (milestone filtered) and flat array responses
@@ -91,36 +105,44 @@ export default function OperationsProjectsPage() {
   const isGroupedResponse = currentMilestone && responseData && typeof responseData === 'object' && 'projects' in responseData;
 
   const projects = isGroupedResponse
-    ? (status === 'all' ? responseData.projects : responseData.projectsByStatus?.[status] || [])
+    ? responseData.projects
     : (Array.isArray(responseData) ? responseData : []);
 
   const availableStatuses = isGroupedResponse ? responseData.availableStatuses || [] : [];
   const statusCounts = isGroupedResponse ? responseData.statusCounts || {} : {};
   const totalProjects = isGroupedResponse ? responseData.total || 0 : projects.length;
 
+  // Get unique values for filters from current projects
+  const uniqueOffices = useMemo(() => {
+    const offices = projects.map((p: any) => p.salesOffice).filter(Boolean);
+    return Array.from(new Set(offices)).sort();
+  }, [projects]);
+
+  const uniqueReps = useMemo(() => {
+    const reps = projects.flatMap((p: any) => [p.closerName, p.setterName]).filter(Boolean);
+    return Array.from(new Set(reps)).sort();
+  }, [projects]);
+
   // Handle milestone filter
   const handleMilestoneFilter = (milestone: OperationsMilestone | null) => {
     const newParams = new URLSearchParams();
     if (milestone) newParams.set('milestone', milestone);
-    if (search) newParams.set('search', search);
-    if (office !== 'all') newParams.set('office', office);
-    if (rep !== 'all') newParams.set('rep', rep);
-    if (sort !== 'newest') newParams.set('sort', sort);
-    // Reset status when changing milestone
-    setStatus('all');
+    if (searchQuery) newParams.set('search', searchQuery);
+    if (sortFilter) newParams.set('sort', sortFilter);
+    if (officeFilter) newParams.set('office', officeFilter);
+    if (repFilter) newParams.set('rep', repFilter);
     router.push(`/operations/projects?${newParams.toString()}`);
   };
 
-  // Handle status filter (for milestone tabs)
+  // Handle status filter (tabs within milestone)
   const handleStatusChange = (newStatus: string) => {
-    setStatus(newStatus);
     const newParams = new URLSearchParams();
     if (currentMilestone) newParams.set('milestone', currentMilestone);
     if (newStatus !== 'all') newParams.set('status', newStatus);
-    if (search) newParams.set('search', search);
-    if (office !== 'all') newParams.set('office', office);
-    if (rep !== 'all') newParams.set('rep', rep);
-    if (sort !== 'newest') newParams.set('sort', sort);
+    if (searchQuery) newParams.set('search', searchQuery);
+    if (sortFilter) newParams.set('sort', sortFilter);
+    if (officeFilter) newParams.set('office', officeFilter);
+    if (repFilter) newParams.set('rep', repFilter);
     router.push(`/operations/projects?${newParams.toString()}`);
   };
 
@@ -128,58 +150,30 @@ export default function OperationsProjectsPage() {
   const applyFilters = () => {
     const newParams = new URLSearchParams();
     if (currentMilestone) newParams.set('milestone', currentMilestone);
+    if (currentStatus !== 'all') newParams.set('status', currentStatus);
     if (search) newParams.set('search', search);
-    if (office !== 'all') newParams.set('office', office);
-    if (rep !== 'all') newParams.set('rep', rep);
-    if (sort !== 'newest') newParams.set('sort', sort);
+    if (sort) newParams.set('sort', sort);
+    if (office) newParams.set('office', office);
+    if (rep) newParams.set('rep', rep);
     router.push(`/operations/projects?${newParams.toString()}`);
   };
 
   // Clear filters
   const clearFilters = () => {
     setSearch('');
-    setOffice('all');
-    setRep('all');
+    setOffice('');
+    setRep('');
     setSort('newest');
-    router.push(`/operations/projects${currentMilestone ? `?milestone=${currentMilestone}` : ''}`);
-  };
-
-  // Get unique values for filters
-  const uniqueOffices = useMemo(() => {
-    return Array.from(new Set(projects.map(p => p.salesOffice).filter(Boolean))).sort();
-  }, [projects]);
-
-  const uniqueReps = useMemo(() => {
-    return Array.from(new Set(projects.map(p => p.salesRepName).filter(Boolean))).sort();
-  }, [projects]);
-
-  // Format status labels for display
-  const formatStatusLabel = (status: string) => {
-    return status
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
-
-  // Format date for display
-  const formatDate = (dateField: any) => {
-    if (!dateField) return null;
-    try {
-      const value = typeof dateField === 'object' && dateField.value ? dateField.value : dateField;
-      if (!value) return null;
-      const date = new Date(value);
-      if (isNaN(date.getTime())) return null;
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    } catch {
-      return null;
-    }
+    const newParams = new URLSearchParams();
+    if (currentMilestone) newParams.set('milestone', currentMilestone);
+    router.push(`/operations/projects?${newParams.toString()}`);
   };
 
   // Active filters count
   const activeFiltersCount = [
-    search ? 1 : 0,
-    office !== 'all' ? 1 : 0,
-    rep !== 'all' ? 1 : 0
+    searchQuery ? 1 : 0,
+    officeFilter ? 1 : 0,
+    repFilter ? 1 : 0
   ].reduce((a, b) => a + b, 0);
 
   return (
@@ -187,38 +181,38 @@ export default function OperationsProjectsPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-900">Projects</h1>
+          <h1 className="text-3xl font-bold text-slate-900">Projects</h1>
           <p className="mt-1 text-sm text-slate-600">
             {currentMilestone
-              ? `Viewing ${milestoneConfig[currentMilestone].label} milestone projects`
+              ? `${milestoneConfig[currentMilestone].label} milestone`
               : 'All projects assigned to you'}
           </p>
         </div>
 
         {/* Milestone Filter Buttons */}
-        <div className="mb-6 bg-white rounded-lg border p-4">
+        <div className="mb-6 bg-white rounded-lg border border-slate-200 p-4 shadow-sm">
           <div className="flex items-center gap-2 flex-wrap">
             {/* All Projects Button */}
             <button
               onClick={() => handleMilestoneFilter(null)}
               className={`
-                flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all font-medium text-sm
+                flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all font-medium text-sm
                 ${!currentMilestone
-                  ? 'bg-slate-100 text-slate-900 border-slate-400 shadow-sm'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                  ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                  : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                 }
               `}
             >
               <Package className="h-4 w-4" />
               All Projects
-              {!currentMilestone && (
-                <span className="ml-1 px-1.5 py-0.5 text-xs font-semibold bg-white rounded">
-                  {projects.length}
+              {!currentMilestone && totalProjects > 0 && (
+                <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-white text-slate-900 rounded-full">
+                  {totalProjects}
                 </span>
               )}
             </button>
 
-            {/* Milestone Filter Buttons */}
+            {/* Milestone Buttons */}
             {allMilestones.map((milestone) => {
               const config = milestoneConfig[milestone];
               const Icon = config.icon;
@@ -229,10 +223,10 @@ export default function OperationsProjectsPage() {
                   key={milestone}
                   onClick={() => handleMilestoneFilter(milestone)}
                   className={`
-                    flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all font-medium text-sm
+                    flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all font-medium text-sm
                     ${isActive
                       ? `${config.color} border-current shadow-sm`
-                      : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                     }
                   `}
                 >
@@ -244,22 +238,22 @@ export default function OperationsProjectsPage() {
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="mb-4 space-y-3">
+        {/* Filters Section */}
+        <div className="mb-6 space-y-3 bg-white rounded-lg border border-slate-200 p-4 shadow-sm">
           {/* Search and Sort Row */}
           <div className="flex gap-3">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
-                placeholder="Search by project ID or customer name..."
+                placeholder="Search by project ID, customer name, or address..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
-                className="pl-10"
+                className="pl-10 border-slate-300"
               />
             </div>
             <Select value={sort} onValueChange={setSort}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[180px] border-slate-300">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -272,14 +266,14 @@ export default function OperationsProjectsPage() {
             </Select>
           </div>
 
-          {/* Office, Rep Filters */}
-          <div className="flex gap-3">
+          {/* Office, Rep Filters + Action Buttons */}
+          <div className="flex gap-3 items-center">
             <Select value={office} onValueChange={setOffice}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-[200px] border-slate-300">
                 <SelectValue placeholder="All Offices" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Offices</SelectItem>
+                <SelectItem value="">All Offices</SelectItem>
                 {uniqueOffices.map(o => (
                   <SelectItem key={o} value={o}>{o}</SelectItem>
                 ))}
@@ -287,44 +281,50 @@ export default function OperationsProjectsPage() {
             </Select>
 
             <Select value={rep} onValueChange={setRep}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-[200px] border-slate-300">
                 <SelectValue placeholder="All Reps" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Sales Reps</SelectItem>
+                <SelectItem value="">All Sales Reps</SelectItem>
                 {uniqueReps.map(r => (
                   <SelectItem key={r} value={r}>{r}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
 
-            <Button onClick={applyFilters} disabled={isFetching}>
-              {isFetching ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Loading...
-                </>
-              ) : (
-                'Apply'
-              )}
-            </Button>
-
-            {activeFiltersCount > 0 && (
-              <Button variant="outline" onClick={clearFilters}>
-                <X className="h-4 w-4 mr-2" />
-                Clear ({activeFiltersCount})
+            <div className="flex gap-2 ml-auto">
+              <Button onClick={applyFilters} disabled={isFetching} className="bg-blue-600 hover:bg-blue-700">
+                {isFetching ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Loading
+                  </>
+                ) : (
+                  'Apply'
+                )}
               </Button>
-            )}
+
+              {activeFiltersCount > 0 && (
+                <Button variant="outline" onClick={clearFilters} className="border-slate-300">
+                  <X className="h-4 w-4 mr-2" />
+                  Clear ({activeFiltersCount})
+                </Button>
+              )}
+
+              <Button variant="outline" onClick={() => refetch()} disabled={isFetching} className="border-slate-300">
+                <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
           </div>
         </div>
 
-        {/* Status Tabs (only show when milestone is selected) */}
-        {currentMilestone && availableStatuses.length > 0 ? (
-          <Tabs value={status} onValueChange={handleStatusChange} className="w-full mb-6">
-            <TabsList className="w-full flex-wrap h-auto gap-2 bg-white border p-2 rounded-lg">
-              <TabsTrigger value="all" className="flex items-center gap-2">
+        {/* Status Tabs (only when milestone is selected) */}
+        {currentMilestone && availableStatuses.length > 0 && (
+          <Tabs value={currentStatus} onValueChange={handleStatusChange} className="w-full mb-6">
+            <TabsList className="w-full flex-wrap h-auto gap-2 bg-white border border-slate-200 p-2 rounded-lg shadow-sm">
+              <TabsTrigger value="all" className="data-[state=active]:bg-slate-900 data-[state=active]:text-white">
                 All
-                <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-slate-100 rounded-full">
+                <span className="ml-2 px-2 py-0.5 text-xs font-semibold bg-slate-100 text-slate-700 rounded-full">
                   {totalProjects}
                 </span>
               </TabsTrigger>
@@ -333,9 +333,13 @@ export default function OperationsProjectsPage() {
                 if (count === 0) return null;
 
                 return (
-                  <TabsTrigger key={statusValue} value={statusValue} className="flex items-center gap-2">
-                    {formatStatusLabel(statusValue)}
-                    <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700 rounded-full">
+                  <TabsTrigger
+                    key={statusValue}
+                    value={statusValue}
+                    className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+                  >
+                    {formatMilestoneStatus(statusValue)}
+                    <span className="ml-2 px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700 rounded-full">
                       {count}
                     </span>
                   </TabsTrigger>
@@ -343,189 +347,60 @@ export default function OperationsProjectsPage() {
               })}
             </TabsList>
           </Tabs>
-        ) : null}
+        )}
 
-        {/* Project Table */}
+        {/* Project Grid */}
         {isLoading ? (
-          <div className="space-y-4">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="bg-white rounded-lg border p-4 animate-pulse">
-                <div className="h-4 bg-gray-200 rounded w-1/4 mb-3"></div>
-                <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
-                <div className="h-3 bg-gray-200 rounded w-1/3"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-lg border border-slate-200 p-6 animate-pulse">
+                <div className="h-4 bg-slate-200 rounded w-1/2 mb-3"></div>
+                <div className="h-3 bg-slate-200 rounded w-3/4 mb-2"></div>
+                <div className="h-3 bg-slate-200 rounded w-1/2 mb-4"></div>
+                <div className="h-20 bg-slate-100 rounded"></div>
               </div>
             ))}
           </div>
         ) : error ? (
-          <div className="bg-white rounded-lg border p-8 text-center">
+          <div className="bg-white rounded-lg border border-slate-200 p-12 text-center shadow-sm">
             <p className="text-red-600 mb-4">Failed to load projects</p>
             <Button onClick={() => refetch()} variant="outline">
+              <RefreshCw className="h-4 w-4 mr-2" />
               Try Again
             </Button>
           </div>
         ) : projects.length === 0 ? (
-          <div className="bg-white rounded-lg border p-8 text-center">
-            <Package className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-600">
+          <div className="bg-white rounded-lg border border-slate-200 p-12 text-center shadow-sm">
+            <Package className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-slate-900 mb-2">No projects found</h3>
+            <p className="text-slate-600 mb-4">
               {currentMilestone
-                ? `No projects found in ${milestoneConfig[currentMilestone].label} milestone`
-                : 'No projects found'}
+                ? `No projects in ${milestoneConfig[currentMilestone].label} milestone`
+                : activeFiltersCount > 0
+                ? 'Try adjusting your filters'
+                : 'No projects assigned to you'}
             </p>
             {activeFiltersCount > 0 && (
-              <Button onClick={clearFilters} variant="outline" className="mt-4">
+              <Button onClick={clearFilters} variant="outline">
                 Clear Filters
               </Button>
             )}
           </div>
         ) : (
-          <div className="space-y-3">
-            {projects.map((project) => {
-              const milestoneInfo = milestoneConfig[project.currentMilestone as OperationsMilestone];
-              const MilestoneIcon = milestoneInfo?.icon || Package;
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {projects.map((project: any) => (
+                <OperationsProjectCard key={project.recordId} project={project} />
+              ))}
+            </div>
 
-              return (
-                <Link
-                  key={project.recordId}
-                  href={`/operations/projects/${project.recordId}`}
-                  className="block bg-white rounded-lg border hover:shadow-md transition-shadow"
-                >
-                  <div className="p-4">
-                    {/* Project Header */}
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-lg text-gray-900">{project.projectId}</h3>
-                          <span className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded ${milestoneInfo?.color || 'bg-gray-100 text-gray-700'}`}>
-                            <MilestoneIcon className="h-3 w-3" />
-                            {milestoneInfo?.label || 'Unknown'}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-600">{project.customerName}</p>
-                        <p className="text-xs text-gray-500">{project.salesOffice}</p>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-blue-600">{project.daysInMilestone}</div>
-                        <div className="text-xs text-gray-500">days in stage</div>
-                      </div>
-                    </div>
-
-                    {/* Milestone Status Badge */}
-                    {project.milestoneStatus && project.milestoneStatus !== 'unknown' && (
-                      <div className="mb-3">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                          project.milestoneStatus === 'inspection_failed' ? 'bg-red-100 text-red-800' :
-                          project.milestoneStatus === 'reinspection_scheduled' ? 'bg-yellow-100 text-yellow-800' :
-                          project.milestoneStatus === 'inspection_scheduled' ? 'bg-blue-100 text-blue-800' :
-                          project.milestoneStatus === 'pto_submitted' ? 'bg-green-100 text-green-800' :
-                          project.milestoneStatus === 'on_hold' ? 'bg-gray-100 text-gray-800' :
-                          'bg-purple-100 text-purple-800'
-                        }`}>
-                          {formatStatusLabel(project.milestoneStatus)}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Milestone-Specific Details */}
-                    {project.currentMilestone === 'inspection' && (
-                      <div className="mb-3 p-3 bg-teal-50 rounded-lg border border-teal-200">
-                        <div className="text-sm font-medium text-teal-900 mb-2">Inspection Details</div>
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          {formatDate(project.inspectionScheduledDate) && (
-                            <div>
-                              <div className="text-teal-700 text-xs">Scheduled</div>
-                              <div className="font-medium text-teal-900">{formatDate(project.inspectionScheduledDate)}</div>
-                            </div>
-                          )}
-                          {formatDate(project.inspectionFailedDate) && (
-                            <div>
-                              <div className="text-red-700 text-xs">Failed Date</div>
-                              <div className="font-medium text-red-900">{formatDate(project.inspectionFailedDate)}</div>
-                            </div>
-                          )}
-                          {project.failureReason?.value && (
-                            <div className="col-span-2">
-                              <div className="text-red-700 text-xs">Failure Reason</div>
-                              <div className="font-medium text-red-900">{project.failureReason.value}</div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {project.currentMilestone === 'pto' && (
-                      <div className="mb-3 p-3 bg-green-50 rounded-lg border border-green-200">
-                        <div className="text-sm font-medium text-green-900 mb-2">PTO Details</div>
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          {formatDate(project.ptoSubmitted) && (
-                            <div>
-                              <div className="text-green-700 text-xs">Submitted</div>
-                              <div className="font-medium text-green-900">{formatDate(project.ptoSubmitted)}</div>
-                            </div>
-                          )}
-                          {formatDate(project.utilityApprovalDate) && (
-                            <div>
-                              <div className="text-green-700 text-xs">Utility Approved</div>
-                              <div className="font-medium text-green-900">{formatDate(project.utilityApprovalDate)}</div>
-                            </div>
-                          )}
-                          {project.ptoStatus?.value && (
-                            <div className="col-span-2">
-                              <div className="text-green-700 text-xs">Status</div>
-                              <div className="font-medium text-green-900">{project.ptoStatus.value}</div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Project Details */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <div className="text-gray-500 text-xs">Sales Rep</div>
-                        <div className="font-medium">{project.salesRepName || 'N/A'}</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500 text-xs">Coordinator</div>
-                        <div className="font-medium text-xs truncate">{project.coordinatorEmail || 'N/A'}</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500 text-xs">Lender</div>
-                        <div className="font-medium">{project.lenderName || 'N/A'}</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500 text-xs">Office</div>
-                        <div className="font-medium">{project.salesOffice || 'N/A'}</div>
-                      </div>
-                    </div>
-
-                    {/* Blockers/Holds */}
-                    {(project.isBlocked || project.isOnHold) && (
-                      <div className="mt-3 flex gap-2">
-                        {project.isBlocked && (
-                          <div className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded">
-                            ⚠ Blocked: {project.blockReason}
-                          </div>
-                        )}
-                        {project.isOnHold && (
-                          <div className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded">
-                            ⏸ On Hold: {project.holdReason}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Results Summary */}
-        {!isLoading && !error && projects.length > 0 && (
-          <div className="mt-4 text-sm text-gray-600 text-center">
-            Showing {projects.length} project{projects.length !== 1 ? 's' : ''}
-            {currentMilestone && ` in ${milestoneConfig[currentMilestone].label} milestone`}
-          </div>
+            {/* Results Summary */}
+            <div className="mt-6 text-sm text-slate-600 text-center">
+              Showing <span className="font-semibold">{projects.length}</span> project{projects.length !== 1 ? 's' : ''}
+              {currentMilestone && ` in ${milestoneConfig[currentMilestone].label}`}
+              {currentStatus !== 'all' && ` with status "${formatMilestoneStatus(currentStatus)}"`}
+            </div>
+          </>
         )}
       </div>
     </div>

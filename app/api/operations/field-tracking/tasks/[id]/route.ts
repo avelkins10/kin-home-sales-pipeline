@@ -12,6 +12,7 @@ import {
   getArrivyEventsForTask,
   deleteArrivyTask,
   upsertArrivyTask,
+  getArrivyEntityById,
 } from '@/lib/db/arrivy';
 
 /**
@@ -62,12 +63,31 @@ export async function GET(
     // Fetch events
     const events = await getArrivyEventsForTask(task.arrivy_task_id, 20);
 
+    // Fetch entity names for assigned crew members
+    const entityNames: string[] = [];
+    if (task.assigned_entity_ids && task.assigned_entity_ids.length > 0) {
+      for (const entityId of task.assigned_entity_ids) {
+        try {
+          const entity = await getArrivyEntityById(entityId);
+          if (entity) {
+            entityNames.push(entity.name);
+          }
+        } catch (error) {
+          // Log but continue if entity fetch fails
+          logError('Failed to fetch entity name', error as Error, { entityId });
+        }
+      }
+    }
+
     logApiResponse('GET', `/api/operations/field-tracking/tasks/${taskId}`, Date.now() - startedAt, { 
       found: true,
     }, reqId);
 
     return NextResponse.json({ 
-      task,
+      task: {
+        ...task,
+        entity_names: entityNames,
+      },
       statusHistory,
       events,
     }, { status: 200 });
