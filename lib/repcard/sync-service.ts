@@ -35,8 +35,9 @@ async function getLastSyncTimestamp(entityType: string): Promise<Date | null> {
       LIMIT 1
     `;
 
-    if (result.length > 0 && result[0].last_record_date) {
-      return new Date(result[0].last_record_date);
+    const rows = result.rows || result;
+    if (rows.length > 0 && rows[0].last_record_date) {
+      return new Date(rows[0].last_record_date);
     }
     return null;
   } catch (error) {
@@ -54,7 +55,13 @@ async function createSyncLog(entityType: string, syncType: 'full' | 'incremental
     VALUES (${entityType}, ${syncType}, 'running', NOW())
     RETURNING id
   `;
-  return result[0].id;
+
+  // @vercel/postgres returns rows in a rows array
+  const row = result.rows?.[0] || result[0];
+  if (!row || !row.id) {
+    throw new Error('Failed to create sync log entry - no ID returned');
+  }
+  return row.id;
 }
 
 /**
@@ -202,7 +209,8 @@ export async function syncCustomers(options: {
               RETURNING (xmax = 0) AS inserted
             `;
 
-            if (result[0]?.inserted) {
+            const row = result.rows?.[0] || result[0];
+            if (row?.inserted) {
               recordsInserted++;
             } else {
               recordsUpdated++;
@@ -332,7 +340,8 @@ export async function syncAppointments(options: {
               LIMIT 1
             `;
 
-            const customerId = customerResult.length > 0 ? customerResult[0].id : null;
+            const customerRows = customerResult.rows || customerResult;
+            const customerId = customerRows.length > 0 ? customerRows[0].id : null;
 
             // Extract disposition from status
             const disposition = appointment.status?.title || appointment.status?.category?.title || null;
@@ -385,7 +394,8 @@ export async function syncAppointments(options: {
               RETURNING (xmax = 0) AS inserted
             `;
 
-            if (result[0]?.inserted) {
+            const row = result.rows?.[0] || result[0];
+            if (row?.inserted) {
               recordsInserted++;
             } else {
               recordsUpdated++;
@@ -512,7 +522,8 @@ export async function syncStatusLogs(options: {
               LIMIT 1
             `;
 
-            const customerId = customerResult.length > 0 ? customerResult[0].id : null;
+            const customerRows = customerResult.rows || customerResult;
+            const customerId = customerRows.length > 0 ? customerRows[0].id : null;
 
             const result = await sql`
               INSERT INTO repcard_status_logs (
@@ -547,7 +558,8 @@ export async function syncStatusLogs(options: {
               RETURNING (xmax = 0) AS inserted
             `;
 
-            if (result[0]?.inserted) {
+            const row = result.rows?.[0] || result[0];
+            if (row?.inserted) {
               recordsInserted++;
             } else {
               recordsUpdated++;
