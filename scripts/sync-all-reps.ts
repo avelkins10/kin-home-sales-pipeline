@@ -24,6 +24,12 @@ import { config } from 'dotenv';
 config({ path: path.join(__dirname, '../.env.local') });
 
 import { sql } from '@vercel/postgres';
+
+// Protected system accounts that should NEVER be synced
+const PROTECTED_EMAILS = [
+  'admin@kinhome.com',
+  // Add other system accounts here as needed
+];
 import { RepCardClient } from '../lib/repcard/client.js';
 import type { RepCardUser } from '../lib/repcard/types.js';
 
@@ -310,6 +316,13 @@ class ComprehensiveRepSync {
 
     for (const [email, rep] of Array.from(this.repsMap.entries())) {
       try {
+        // Skip protected system accounts (admin, etc.)
+        if (PROTECTED_EMAILS.includes(email)) {
+          console.log(`🔒 Skipping protected system account: ${email}`);
+          this.stats.skipped++;
+          continue;
+        }
+
         if (this.dryRun) {
           console.log(`[DRY RUN] Would upsert: ${rep.name} (${email}) - RepCard ID: ${rep.repcardUserId || 'N/A'}`);
           continue;

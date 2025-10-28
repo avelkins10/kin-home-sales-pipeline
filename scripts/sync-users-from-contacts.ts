@@ -18,6 +18,12 @@
 import path from 'path';
 import { sql } from '@vercel/postgres';
 
+// Protected system accounts that should NEVER be synced
+const PROTECTED_EMAILS = [
+  'admin@kinhome.com',
+  // Add other system accounts here as needed
+];
+
 interface SyncOptions {
   dryRun: boolean;
   verbose: boolean;
@@ -142,6 +148,14 @@ class ContactsSyncService {
 
   private async syncUser(user: User, options: SyncOptions): Promise<void> {
     try {
+      // Skip protected system accounts (admin, etc.)
+      if (PROTECTED_EMAILS.includes(user.email)) {
+        if (options.verbose) {
+          console.log(`🔒 Skipping protected system account: ${user.email}`);
+        }
+        return;
+      }
+
       // Skip test users unless includeTest flag is set
       if (!options.includeTest && user.email.includes('@test.com')) {
         if (options.verbose) {
