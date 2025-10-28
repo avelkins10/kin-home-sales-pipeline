@@ -72,7 +72,9 @@ export async function upsertArrivyTask(taskData: ArrivyTaskData): Promise<Arrivy
         ${taskData.task_type},
         ${taskData.scheduled_start},
         ${taskData.scheduled_end},
-        ${taskData.assigned_entity_ids || []},
+        ${(taskData.assigned_entity_ids && taskData.assigned_entity_ids.length > 0) 
+          ? sql`ARRAY[${sql.join(taskData.assigned_entity_ids.map(id => sql`${id}`), sql`, `)}]::bigint[]`
+          : sql`ARRAY[]::bigint[]`},
         ${taskData.current_status},
         ${taskData.tracker_url},
         ${taskData.template_id},
@@ -321,8 +323,9 @@ export interface ArrivyEventRecord extends ArrivyEventData {
 
 /**
  * Insert a new Arrivy event from webhook
+ * Returns null if event already exists (duplicate webhook delivery)
  */
-export async function insertArrivyEvent(eventData: ArrivyEventData): Promise<ArrivyEventRecord> {
+export async function insertArrivyEvent(eventData: ArrivyEventData): Promise<ArrivyEventRecord | null> {
   try {
     const result = await sql<ArrivyEventRecord>`
       INSERT INTO arrivy_events (
@@ -356,7 +359,7 @@ export async function insertArrivyEvent(eventData: ArrivyEventData): Promise<Arr
       RETURNING *
     `;
 
-    return result.rows[0];
+    return result.rows[0] || null;
   } catch (error) {
     logError('Failed to insert Arrivy event', error as Error, {
       event_id: eventData.event_id,
@@ -617,8 +620,8 @@ export async function getFieldTrackingTasks(filters: {
         ORDER BY reported_at DESC
         LIMIT 1
       ) s ON true
-      LEFT JOIN unnest(t.assigned_entity_ids) entity_id ON true
-      LEFT JOIN arrivy_entities e ON e.arrivy_entity_id = entity_id
+      LEFT JOIN LATERAL unnest(t.assigned_entity_ids) AS eid(id) ON true
+      LEFT JOIN arrivy_entities e ON e.arrivy_entity_id = eid.id
       WHERE 1=1
     `;
 

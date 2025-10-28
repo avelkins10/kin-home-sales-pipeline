@@ -72,6 +72,7 @@ export async function GET(req: Request) {
         completed_today: metrics.completedToday,
         delayed: metrics.delayed,
         crews_active: entities.filter(e => e.extra_fields?.status === 'active').length,
+        avg_completion_time: metrics.avgCompletionTime,
       },
     };
 

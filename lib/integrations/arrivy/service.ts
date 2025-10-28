@@ -72,8 +72,40 @@ export async function syncProjectToArrivy(
     // Check if task already exists
     const existingTask = await getArrivyTaskByProjectId(projectId);
     
+    // Look up or create entity for coordinator if email provided
+    let coordinatorEntityId: number | undefined;
+    if (projectData.coordinatorEmail) {
+      try {
+        let entity = await getArrivyEntityByEmail(projectData.coordinatorEmail);
+        
+        if (!entity) {
+          // Create entity if it doesn't exist
+          const entityResult = await syncEntityFromQuickBase(
+            projectData.coordinatorEmail,
+            projectData.coordinatorEmail.split('@')[0], // Use email prefix as name
+            undefined,
+            undefined
+          );
+          entity = entityResult.entity;
+        }
+        
+        coordinatorEntityId = entity.arrivy_entity_id;
+        logInfo(`[Arrivy] Assigned coordinator entity ${coordinatorEntityId} to task`);
+      } catch (error) {
+        logError('Failed to sync coordinator entity', error as Error, {
+          coordinatorEmail: projectData.coordinatorEmail,
+        });
+        // Continue without entity assignment if it fails
+      }
+    }
+    
     // Map QuickBase data to Arrivy task parameters
     const taskParams = mapQuickBaseToArrivyTask(projectId, recordId, projectData);
+    
+    // Add coordinator entity to assigned entities if available
+    if (coordinatorEntityId) {
+      taskParams.entity_ids = [coordinatorEntityId];
+    }
 
     let arrivyTask: ArrivyTask;
     let isNewTask = false;
@@ -293,6 +325,7 @@ export async function processWebhookEvent(
   success: boolean;
   eventId: number;
   notificationCreated?: boolean;
+  duplicate?: boolean;
 }> {
   try {
     const {
@@ -319,7 +352,7 @@ export async function processWebhookEvent(
       payload,
     });
 
-    // Store event in database
+    // Store event in database - returns null if duplicate
     const eventData: ArrivyEventData = {
       event_id: EVENT_ID,
       event_type: EVENT_TYPE,
@@ -335,7 +368,17 @@ export async function processWebhookEvent(
       is_transient: IS_TRANSIENT_STATUS || false,
     };
 
-    await insertArrivyEvent(eventData);
+    const insertedEvent = await insertArrivyEvent(eventData);
+
+    // If null, this is a duplicate webhook delivery - skip processing
+    if (!insertedEvent) {
+      logInfo(`[Arrivy] Skipping duplicate webhook event ${EVENT_ID}`);
+      return {
+        success: true,
+        eventId: EVENT_ID,
+        duplicate: true,
+      };
+    }
 
     // Handle different event types
     let notificationCreated = false;
@@ -429,12 +472,22 @@ async function handleCrewAssignedEvent(payload: ArrivyWebhookPayload): Promise<v
 async function handleCriticalEvent(payload: ArrivyWebhookPayload): Promise<void> {
   const { EVENT_TYPE, OBJECT_ID, EVENT_SUB_TYPE } = payload;
 
-  // Update task status
-  await updateArrivyTaskStatus(OBJECT_ID, EVENT_TYPE);
+  // Normalize ARRIVING to ENROUTE for task progress tracking
+  // Keep LATE and NOSHOW as-is since they're exception conditions
+  let normalizedStatus: string;
+  if (EVENT_TYPE === 'ARRIVING') {
+    normalizedStatus = 'ENROUTE';
+  } else {
+    normalizedStatus = EVENT_TYPE; // LATE or NOSHOW
+  }
 
-  logInfo(`[Arrivy] Handled critical event: ${EVENT_TYPE}`, {
+  // Update task status with normalized value
+  await updateArrivyTaskStatus(OBJECT_ID, normalizedStatus);
+
+  logInfo(`[Arrivy] Handled critical event: ${EVENT_TYPE} -> ${normalizedStatus}`, {
     arrivy_task_id: OBJECT_ID,
     event_sub_type: EVENT_SUB_TYPE,
+    normalized_status: normalizedStatus,
   });
 }
 
@@ -539,6 +592,7 @@ export async function getFieldTrackingData(
     inProgress: number;
     completedToday: number;
     delayed: number;
+    avgCompletionTime?: number;
   };
 }> {
   try {
@@ -551,6 +605,30 @@ export async function getFieldTrackingData(
     // Calculate metrics
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // Calculate average completion time from completed tasks
+    let avgCompletionTime: number | undefined;
+    const completedTasks = tasks.filter(t => 
+      t.current_status === 'COMPLETE' && 
+      t.scheduled_start && 
+      t.latest_status_time
+    );
+
+    if (completedTasks.length > 0) {
+      const completionTimes = completedTasks
+        .map(t => {
+          const start = new Date(t.scheduled_start!).getTime();
+          const complete = new Date(t.latest_status_time!).getTime();
+          return (complete - start) / (1000 * 60); // Convert to minutes
+        })
+        .filter(time => time > 0 && time < 24 * 60); // Filter out invalid times
+      
+      if (completionTimes.length > 0) {
+        avgCompletionTime = Math.round(
+          completionTimes.reduce((sum, time) => sum + time, 0) / completionTimes.length
+        );
+      }
+    }
 
     const metrics = {
       total: tasks.length,
@@ -565,6 +643,7 @@ export async function getFieldTrackingData(
         new Date(t.scheduled_start) < now && 
         !['COMPLETE', 'CANCELLED'].includes(t.current_status || '')
       ).length,
+      avgCompletionTime,
     };
 
     return {

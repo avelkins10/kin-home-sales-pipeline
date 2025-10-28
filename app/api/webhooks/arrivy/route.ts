@@ -15,8 +15,59 @@ export async function POST(request: NextRequest) {
   const requestId = crypto.randomUUID();
   
   try {
-    // Parse webhook payload
-    const payload: ArrivyWebhookPayload = await request.json();
+    // Read raw body for signature verification
+    const rawBody = await request.text();
+
+    // Verify webhook signature if configured (before parsing JSON)
+    const webhookSecret = process.env.ARRIVY_WEBHOOK_SECRET;
+    if (webhookSecret) {
+      const signature = request.headers.get('x-arrivy-signature');
+      
+      if (!signature) {
+        logWarn('[Arrivy Webhook] Missing signature header', { requestId });
+        return NextResponse.json(
+          { error: 'Missing webhook signature' },
+          { status: 401 }
+        );
+      }
+
+      // Compute HMAC-SHA256 over raw body
+      const expectedSignature = crypto
+        .createHmac('sha256', webhookSecret)
+        .update(rawBody)
+        .digest('hex');
+      
+      // Support both formats: "hex" or "sha256=hex"
+      const providedSignature = signature.startsWith('sha256=') 
+        ? signature.substring(7) 
+        : signature;
+      
+      // Constant-time comparison to prevent timing attacks
+      const isValid = crypto.timingSafeEqual(
+        Buffer.from(expectedSignature, 'hex'),
+        Buffer.from(providedSignature, 'hex')
+      );
+      
+      if (!isValid) {
+        logWarn('[Arrivy Webhook] Invalid signature', { requestId });
+        return NextResponse.json(
+          { error: 'Invalid webhook signature' },
+          { status: 401 }
+        );
+      }
+    }
+
+    // Parse webhook payload after signature verification
+    let payload: ArrivyWebhookPayload;
+    try {
+      payload = JSON.parse(rawBody);
+    } catch (parseError) {
+      logError('[Arrivy Webhook] Invalid JSON payload', parseError as Error, { requestId });
+      return NextResponse.json(
+        { error: 'Invalid JSON payload' },
+        { status: 400 }
+      );
+    }
 
     // Validate required fields
     if (!payload.EVENT_ID || !payload.EVENT_TYPE || !payload.OBJECT_ID || !payload.EVENT_TIME) {
@@ -32,19 +83,6 @@ export async function POST(request: NextRequest) {
         { error: 'Invalid webhook payload - missing required fields' },
         { status: 400 }
       );
-    }
-
-    // Optional: Verify webhook signature if configured
-    const webhookSecret = process.env.ARRIVY_WEBHOOK_SECRET;
-    if (webhookSecret) {
-      const signature = request.headers.get('x-arrivy-signature');
-      if (signature) {
-        // Verify signature (if Arrivy provides this feature)
-        // const isValid = verifySignature(payload, signature, webhookSecret);
-        // if (!isValid) {
-        //   return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
-        // }
-      }
     }
 
     // Log webhook event
@@ -63,7 +101,17 @@ export async function POST(request: NextRequest) {
     // Process webhook event
     const result = await processWebhookEvent(payload);
 
-    // Return 200 OK within 30 seconds (per Arrivy requirements)
+    // Return 200 for successful processing or duplicates
+    if (result.duplicate) {
+      return NextResponse.json({
+        success: true,
+        requestId,
+        eventId: result.eventId,
+        duplicate: true,
+        message: 'Duplicate event, already processed',
+      }, { status: 200 });
+    }
+
     return NextResponse.json({
       success: true,
       requestId,
@@ -77,8 +125,7 @@ export async function POST(request: NextRequest) {
       requestId,
     });
 
-    // Still return 200 to prevent retry storm if it's a processing error
-    // Only return 500 for truly unrecoverable errors
+    // Return 400 for bad request/payload errors
     if (error instanceof SyntaxError) {
       return NextResponse.json(
         { error: 'Invalid JSON payload' },
@@ -86,11 +133,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Return 500 for processing failures to trigger Arrivy retries
     return NextResponse.json({
       success: false,
       requestId,
       error: 'Internal server error',
-    }, { status: 200 }); // Return 200 to acknowledge receipt
+      message: error instanceof Error ? error.message : 'Unknown error',
+    }, { status: 500 });
   }
 }
 

@@ -10279,6 +10279,7 @@ export async function getProjectsForPC(
   role: string,
   filters?: {
     milestone?: import('@/lib/types/operations').OperationsMilestone;
+    status?: string;
     search?: string;
     sort?: string;
     office?: string;
@@ -10289,17 +10290,9 @@ export async function getProjectsForPC(
   const startTime = Date.now();
   console.log('[getProjectsForPC] Fetching projects for PC:', { pcEmail, role, filters, reqId });
 
-  // Helper function to extract values from QuickBase field objects
-  const extractValue = (field: any): string => {
-    if (!field) return '';
-    if (typeof field === 'object') {
-      if (field.value !== undefined && field.value !== null) {
-        return String(field.value);
-      }
-      return ''; // Empty object
-    }
-    return String(field);
-  };
+  // Import utilities
+  const { extractFieldValue, extractBooleanField, extractNumericField } = await import('@/lib/utils/quickbase-field-helpers');
+  const { getProjectMilestoneData } = await import('@/lib/utils/operations-milestones');
 
   try {
     // Build WHERE clause based on role
@@ -10307,8 +10300,8 @@ export async function getProjectsForPC(
     const sanitizedEmail = pcEmail.replace(/'/g, "\\'");
     const sanitizedName = pcName.replace(/'/g, "\\'");
 
-    // Exclude Lost and Cancelled projects
-    const statusExclusion = `AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Lost'}AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Cancelled'}`;
+    // Exclude Lost, Cancelled, and Completed (PTO Approved) projects
+    const statusExclusion = `AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Lost'}AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Cancelled'}AND{${PROJECT_FIELDS.PTO_APPROVED}.EX.''}`;
 
     if (role === 'operations_coordinator') {
       // Coordinators see only their own projects
@@ -10322,31 +10315,37 @@ export async function getProjectsForPC(
       return [];
     }
 
-    // Add milestone filter if provided
+    // Add milestone filter if provided (7 milestones)
     if (filters?.milestone) {
       const { milestone } = filters;
 
-      // Add milestone-specific conditions
       switch (milestone) {
         case 'intake':
+          // In intake: no intake completed date yet
           whereClause += `AND{${PROJECT_FIELDS.INTAKE_COMPLETED_DATE}.EX.''}`;
           break;
         case 'survey':
-          whereClause += `AND{${PROJECT_FIELDS.INTAKE_COMPLETED_DATE}.XEX.''}AND{${PROJECT_FIELDS.SURVEY_COMPLETED}.EX.''}`;
+          // In survey: intake done, survey not approved yet
+          whereClause += `AND{${PROJECT_FIELDS.INTAKE_COMPLETED_DATE}.XEX.''}AND{${PROJECT_FIELDS.SURVEY_APPROVED}.EX.''}`;
           break;
         case 'design':
-          whereClause += `AND{${PROJECT_FIELDS.SURVEY_COMPLETED}.XEX.''}AND{${PROJECT_FIELDS.DESIGN_COMPLETED}.EX.''}`;
+          // In design: survey done, design not completed yet
+          whereClause += `AND{${PROJECT_FIELDS.SURVEY_APPROVED}.XEX.''}AND{${PROJECT_FIELDS.DESIGN_COMPLETED}.EX.''}`;
           break;
         case 'permitting':
+          // In permitting: design done, permit not approved yet
           whereClause += `AND{${PROJECT_FIELDS.DESIGN_COMPLETED}.XEX.''}AND{${PROJECT_FIELDS.PERMIT_APPROVED}.EX.''}`;
           break;
         case 'install':
+          // In install: permit done, install not completed yet
           whereClause += `AND{${PROJECT_FIELDS.PERMIT_APPROVED}.XEX.''}AND{${PROJECT_FIELDS.INSTALL_COMPLETED_DATE}.EX.''}`;
           break;
-        case 'inspection':
+        case 'inspections':
+          // In inspections: install done, inspection not passed yet
           whereClause += `AND{${PROJECT_FIELDS.INSTALL_COMPLETED_DATE}.XEX.''}AND{${PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED}.EX.''}`;
           break;
         case 'pto':
+          // In PTO: inspection passed, PTO not approved yet
           whereClause += `AND{${PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED}.XEX.''}AND{${PROJECT_FIELDS.PTO_APPROVED}.EX.''}`;
           break;
       }
@@ -10354,70 +10353,86 @@ export async function getProjectsForPC(
 
     console.log(`[getProjectsForPC] Milestone: ${filters?.milestone || 'all'}, Role: ${role}`);
 
-    // Query QuickBase
+    // Query QuickBase with comprehensive field selection
     const query = {
       from: QB_TABLE_PROJECTS,
       select: [
+        // Core fields
         PROJECT_FIELDS.RECORD_ID,
         PROJECT_FIELDS.PROJECT_ID,
         PROJECT_FIELDS.CUSTOMER_NAME,
+        PROJECT_FIELDS.CUSTOMER_ADDRESS,
         PROJECT_FIELDS.CUSTOMER_PHONE,
+        PROJECT_FIELDS.CUSTOMER_EMAIL,
         PROJECT_FIELDS.SALES_OFFICE,
-        PROJECT_FIELDS.SALES_REP_NAME,
-        PROJECT_FIELDS.SALES_REP_EMAIL,
         PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL,
         PROJECT_FIELDS.PROJECT_COORDINATOR,
         PROJECT_FIELDS.LENDER_NAME,
         PROJECT_FIELDS.PROJECT_STATUS,
-        PROJECT_FIELDS.DATE_CREATED,
-        PROJECT_FIELDS.CURRENT_STAGE,
+        PROJECT_FIELDS.SALES_DATE,
+        PROJECT_FIELDS.PROJECT_AGE,
+        PROJECT_FIELDS.AHJ,
+        // System specs
+        PROJECT_FIELDS.SYSTEM_SIZE_KW,
+        PROJECT_FIELDS.SYSTEM_PRICE,
+        // Team
+        PROJECT_FIELDS.CLOSER_NAME,
+        PROJECT_FIELDS.CLOSER_EMAIL,
+        PROJECT_FIELDS.SETTER_NAME,
+        PROJECT_FIELDS.SETTER_EMAIL,
+        // Hold/block fields
         PROJECT_FIELDS.ON_HOLD,
         PROJECT_FIELDS.HOLD_REASON,
         PROJECT_FIELDS.BLOCK_REASON,
-        // Milestone dates for determining current milestone
+        PROJECT_FIELDS.DATE_ON_HOLD,
+        // Intake milestone
+        PROJECT_FIELDS.INTAKE_STATUS,
         PROJECT_FIELDS.INTAKE_COMPLETED_DATE,
-        PROJECT_FIELDS.SURVEY_COMPLETED,
-        PROJECT_FIELDS.DESIGN_COMPLETED,
-        PROJECT_FIELDS.PERMIT_APPROVED,
-        PROJECT_FIELDS.INSTALL_COMPLETED_DATE,
-        PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED,
-        PROJECT_FIELDS.PTO_APPROVED,
-        // Milestone-specific fields (for detailed views)
-        // Survey
+        // Survey milestone
         PROJECT_FIELDS.SURVEY_STATUS,
         PROJECT_FIELDS.SITE_SURVEY_ARRIVY_SCHEDULED,
         PROJECT_FIELDS.SURVEY_SUBMITTED,
         PROJECT_FIELDS.SURVEY_APPROVED,
-        // Design
+        // Design milestone
         PROJECT_FIELDS.DESIGN_STATUS,
         PROJECT_FIELDS.PREDESIGN_APPROVED,
+        PROJECT_FIELDS.CAD_DESIGN_SUBMITTED,
         PROJECT_FIELDS.CAD_DESIGN_APPROVED,
+        PROJECT_FIELDS.ENGINEERING_SUBMITTED,
         PROJECT_FIELDS.ENGINEERING_COMPLETED,
-        // Permitting
+        PROJECT_FIELDS.DESIGN_COMPLETED,
+        // Permitting milestone
         PROJECT_FIELDS.PERMIT_STATUS,
         PROJECT_FIELDS.PERMIT_SUBMITTED,
+        PROJECT_FIELDS.PERMIT_APPROVED,
+        // NEM (part of permitting)
         PROJECT_FIELDS.NEM_INTERCONNECTION_STATUS,
         PROJECT_FIELDS.NEM_SUBMITTED,
         PROJECT_FIELDS.NEM_APPROVED,
+        // HOA (conditional, part of permitting)
         PROJECT_FIELDS.HOA_STATUS,
         PROJECT_FIELDS.HOA_APPLICATION_SUBMITTED,
         PROJECT_FIELDS.HOA_APPLICATION_APPROVED,
-        // Install
+        // Install milestone
         PROJECT_FIELDS.INSTALL_SCHEDULED_DATE_CAPTURE,
         PROJECT_FIELDS.INSTALL_STARTED_DATE,
+        PROJECT_FIELDS.INSTALL_COMPLETED_DATE,
         PROJECT_FIELDS.ESTIMATED_INSTALL_DATE,
-        // Inspection
+        PROJECT_FIELDS.READY_FOR_COMMISSION,
+        // Inspection milestone
         PROJECT_FIELDS.INSPECTION_SCHEDULED_DATE,
         PROJECT_FIELDS.INSPECTION_FAILED_DATE,
-        PROJECT_FIELDS.NOTE,
+        PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED,
         PROJECT_FIELDS.AS_BUILT_SUBMITTED_TO_AHJ,
-        // PTO
+        // PTO milestone
         PROJECT_FIELDS.PTO_STATUS,
         PROJECT_FIELDS.PTO_SUBMITTED,
-        PROJECT_FIELDS.UTILITY_APPROVAL_DATE
+        PROJECT_FIELDS.PTO_APPROVED,
+        PROJECT_FIELDS.UTILITY_APPROVAL_DATE,
+        PROJECT_FIELDS.LENDER_FUNDING_RECEIVED_DATE
       ],
       where: whereClause,
-      sortBy: [{ fieldId: PROJECT_FIELDS.DATE_CREATED, order: 'DESC' as 'DESC' }], // Newest first
+      sortBy: [{ fieldId: PROJECT_FIELDS.SALES_DATE, order: 'DESC' as 'DESC' }], // Newest first
       options: {
         skip: 0,
         top: 1000 // Limit to 1000 records to prevent timeout
@@ -10425,144 +10440,103 @@ export async function getProjectsForPC(
     };
 
     const response = await qbClient.queryRecords(query);
-    const now = new Date();
 
     console.log(`[getProjectsForPC] QB returned ${response.data.length} records for milestone: ${filters?.milestone || 'all'}`);
 
-    // Log first record to debug
-    if (response.data.length > 0) {
-      const first = response.data[0];
-      console.log('[getProjectsForPC] First record field sample:', {
-        projectId: first[PROJECT_FIELDS.PROJECT_ID],
-        intake: first[PROJECT_FIELDS.INTAKE_COMPLETED_DATE],
-        install: first[PROJECT_FIELDS.INSTALL_COMPLETED_DATE],
-        inspection: first[PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED],
-        onHold: first[PROJECT_FIELDS.ON_HOLD],
-        holdReason: first[PROJECT_FIELDS.HOLD_REASON],
-        blockReason: first[PROJECT_FIELDS.BLOCK_REASON]
-      });
-    }
-
-    // Process projects
+    // Process projects using new utilities
     const projects: any[] = [];
 
     for (const record of response.data) {
-      // Extract dates
-      const dateCreated = parseQuickbaseDate(record[PROJECT_FIELDS.DATE_CREATED]);
-      const intakeCompleted = parseQuickbaseDate(record[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]);
-      const surveyCompleted = parseQuickbaseDate(record[PROJECT_FIELDS.SURVEY_COMPLETED]);
-      const designCompleted = parseQuickbaseDate(record[PROJECT_FIELDS.DESIGN_COMPLETED]);
-      const permitApproved = parseQuickbaseDate(record[PROJECT_FIELDS.PERMIT_APPROVED]);
-      const installCompleted = parseQuickbaseDate(record[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]);
-      const inspectionCompleted = parseQuickbaseDate(record[PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED]);
-      const ptoApproved = parseQuickbaseDate(record[PROJECT_FIELDS.PTO_APPROVED]);
+      // Build field object for milestone determination
+      const milestoneFields = {
+        intakeCompletedDate: record[PROJECT_FIELDS.INTAKE_COMPLETED_DATE],
+        surveyApproved: record[PROJECT_FIELDS.SURVEY_APPROVED],
+        designCompleted: record[PROJECT_FIELDS.DESIGN_COMPLETED],
+        permitApproved: record[PROJECT_FIELDS.PERMIT_APPROVED],
+        installCompletedDate: record[PROJECT_FIELDS.INSTALL_COMPLETED_DATE],
+        passingInspectionCompleted: record[PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED],
+        ptoApproved: record[PROJECT_FIELDS.PTO_APPROVED],
+        // Status fields
+        intakeStatus: record[PROJECT_FIELDS.INTAKE_STATUS],
+        surveyStatus: record[PROJECT_FIELDS.SURVEY_STATUS],
+        designStatus: record[PROJECT_FIELDS.DESIGN_STATUS],
+        permitStatus: record[PROJECT_FIELDS.PERMIT_STATUS],
+        nemInterconnectionStatus: record[PROJECT_FIELDS.NEM_INTERCONNECTION_STATUS],
+        ptoStatus: record[PROJECT_FIELDS.PTO_STATUS],
+        // Schedule fields
+        surveyScheduledDate: record[PROJECT_FIELDS.SITE_SURVEY_ARRIVY_SCHEDULED],
+        surveySubmitted: record[PROJECT_FIELDS.SURVEY_SUBMITTED],
+        designInProgress: record[PROJECT_FIELDS.CAD_DESIGN_SUBMITTED],
+        cadDesignSubmitted: record[PROJECT_FIELDS.CAD_DESIGN_SUBMITTED],
+        permitSubmitted: record[PROJECT_FIELDS.PERMIT_SUBMITTED],
+        installScheduledDate: record[PROJECT_FIELDS.INSTALL_SCHEDULED_DATE_CAPTURE],
+        installStartedDate: record[PROJECT_FIELDS.INSTALL_STARTED_DATE],
+        inspectionScheduledDate: record[PROJECT_FIELDS.INSPECTION_SCHEDULED_DATE],
+        inspectionFailedDate: record[PROJECT_FIELDS.INSPECTION_FAILED_DATE],
+        ptoSubmitted: record[PROJECT_FIELDS.PTO_SUBMITTED],
+        // Hold/block fields
+        onHold: record[PROJECT_FIELDS.ON_HOLD],
+        holdReason: record[PROJECT_FIELDS.HOLD_REASON],
+        blockReason: record[PROJECT_FIELDS.BLOCK_REASON],
+        // Sales date
+        salesDate: record[PROJECT_FIELDS.SALES_DATE]
+      };
 
-      // Determine current milestone
-      let currentMilestone: import('@/lib/types/operations').OperationsMilestone = 'intake';
-      let milestoneStartDate = dateCreated;
+      // Get milestone data using centralized utility
+      const milestoneData = getProjectMilestoneData(milestoneFields);
 
-      if (ptoApproved) {
-        // Project complete - skip
-        continue;
-      } else if (inspectionCompleted) {
-        currentMilestone = 'pto';
-        milestoneStartDate = inspectionCompleted;
-      } else if (installCompleted) {
-        currentMilestone = 'inspection';
-        milestoneStartDate = installCompleted;
-      } else if (permitApproved) {
-        currentMilestone = 'install';
-        milestoneStartDate = permitApproved;
-      } else if (designCompleted) {
-        currentMilestone = 'permitting';
-        milestoneStartDate = designCompleted;
-      } else if (surveyCompleted) {
-        currentMilestone = 'design';
-        milestoneStartDate = surveyCompleted;
-      } else if (intakeCompleted) {
-        currentMilestone = 'survey';
-        milestoneStartDate = intakeCompleted;
-      }
-
-      // Calculate days in milestone
-      const daysInMilestone = milestoneStartDate
-        ? Math.floor((now.getTime() - milestoneStartDate.getTime()) / (1000 * 60 * 60 * 24))
-        : 0;
-
-      // Determine block/hold status
-      const onHoldField = record[PROJECT_FIELDS.ON_HOLD];
-      const isOnHold = onHoldField === true || onHoldField === 1 || onHoldField === '1';
-      const blockReasonText = extractValue(record[PROJECT_FIELDS.BLOCK_REASON]);
-      const holdReasonText = extractValue(record[PROJECT_FIELDS.HOLD_REASON]);
-      const isBlocked = !!blockReasonText && blockReasonText.trim().length > 0;
-
-      // Calculate milestone-specific status (for status tabs)
-      let milestoneStatus = 'unknown';
-
-      if (currentMilestone === 'inspection') {
-        const inspectionScheduled = parseQuickbaseDate(record[PROJECT_FIELDS.INSPECTION_SCHEDULED_DATE]);
-        const inspectionFailed = parseQuickbaseDate(record[PROJECT_FIELDS.INSPECTION_FAILED_DATE]);
-        const inspectionPassed = parseQuickbaseDate(record[PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED]);
-
-        if (isOnHold) {
-          milestoneStatus = 'on_hold';
-        } else if (inspectionFailed && !inspectionPassed) {
-          if (inspectionScheduled && inspectionScheduled > inspectionFailed) {
-            milestoneStatus = 'reinspection_scheduled';
-          } else {
-            milestoneStatus = 'inspection_failed';
-          }
-        } else if (inspectionScheduled) {
-          milestoneStatus = 'inspection_scheduled';
-        } else {
-          milestoneStatus = 'waiting_for_inspection';
-        }
-      } else if (currentMilestone === 'pto') {
-        const ptoSubmittedDate = parseQuickbaseDate(record[PROJECT_FIELDS.PTO_SUBMITTED]);
-
-        if (isOnHold) {
-          milestoneStatus = 'on_hold';
-        } else if (ptoSubmittedDate) {
-          milestoneStatus = 'pto_submitted';
-        } else {
-          milestoneStatus = 'ready_for_pto';
-        }
-      } else if (isOnHold) {
-        milestoneStatus = 'on_hold';
-      }
-
+      // Build project object with properly extracted fields
       const project = {
-        recordId: extractValue(record[PROJECT_FIELDS.RECORD_ID]),
-        projectId: extractValue(record[PROJECT_FIELDS.PROJECT_ID]),
-        customerName: extractValue(record[PROJECT_FIELDS.CUSTOMER_NAME]),
-        customerPhone: extractValue(record[PROJECT_FIELDS.CUSTOMER_PHONE]),
-        salesOffice: extractValue(record[PROJECT_FIELDS.SALES_OFFICE]),
-        salesRepName: extractValue(record[PROJECT_FIELDS.SALES_REP_NAME]),
-        salesRepEmail: extractValue(record[PROJECT_FIELDS.SALES_REP_EMAIL]),
-        coordinatorEmail: extractValue(record[PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL]),
-        lenderName: extractValue(record[PROJECT_FIELDS.LENDER_NAME]),
-        projectStatus: extractValue(record[PROJECT_FIELDS.PROJECT_STATUS]),
-        currentStage: extractValue(record[PROJECT_FIELDS.CURRENT_STAGE]),
-        currentMilestone,
-        milestoneStatus,
-        daysInMilestone,
-        dateCreated: record[PROJECT_FIELDS.DATE_CREATED],
-        isBlocked,
-        blockReason: blockReasonText || null,
-        isOnHold,
-        holdReason: holdReasonText || null,
-        // Milestone-specific fields (included for all projects)
+        recordId: extractFieldValue(record[PROJECT_FIELDS.RECORD_ID]),
+        projectId: extractFieldValue(record[PROJECT_FIELDS.PROJECT_ID]),
+        customerName: extractFieldValue(record[PROJECT_FIELDS.CUSTOMER_NAME]),
+        customerAddress: extractFieldValue(record[PROJECT_FIELDS.CUSTOMER_ADDRESS]),
+        customerPhone: extractFieldValue(record[PROJECT_FIELDS.CUSTOMER_PHONE]),
+        customerEmail: extractFieldValue(record[PROJECT_FIELDS.CUSTOMER_EMAIL]),
+        salesOffice: extractFieldValue(record[PROJECT_FIELDS.SALES_OFFICE]),
+        coordinatorName: extractFieldValue(record[PROJECT_FIELDS.PROJECT_COORDINATOR]),
+        coordinatorEmail: extractFieldValue(record[PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL]),
+        lenderName: extractFieldValue(record[PROJECT_FIELDS.LENDER_NAME]),
+        projectStatus: extractFieldValue(record[PROJECT_FIELDS.PROJECT_STATUS]),
+        salesDate: record[PROJECT_FIELDS.SALES_DATE],
+        projectAge: extractNumericField(record[PROJECT_FIELDS.PROJECT_AGE]) || 0,
+        ahj: extractFieldValue(record[PROJECT_FIELDS.AHJ]),
+        // System specs
+        systemSizeKW: extractNumericField(record[PROJECT_FIELDS.SYSTEM_SIZE_KW]),
+        systemPrice: extractNumericField(record[PROJECT_FIELDS.SYSTEM_PRICE]),
+        // Team
+        closerName: extractFieldValue(record[PROJECT_FIELDS.CLOSER_NAME]),
+        closerEmail: extractFieldValue(record[PROJECT_FIELDS.CLOSER_EMAIL]),
+        setterName: extractFieldValue(record[PROJECT_FIELDS.SETTER_NAME]),
+        setterEmail: extractFieldValue(record[PROJECT_FIELDS.SETTER_EMAIL]),
+        // Milestone data from utility
+        currentMilestone: milestoneData.currentMilestone,
+        milestoneStatus: milestoneData.milestoneStatus,
+        daysInStage: milestoneData.daysInStage,
+        milestoneStartDate: milestoneData.milestoneStartDate,
+        // Hold/block status
+        isOnHold: extractBooleanField(record[PROJECT_FIELDS.ON_HOLD]),
+        holdReason: extractFieldValue(record[PROJECT_FIELDS.HOLD_REASON]) || null,
+        isBlocked: !!extractFieldValue(record[PROJECT_FIELDS.BLOCK_REASON]),
+        blockReason: extractFieldValue(record[PROJECT_FIELDS.BLOCK_REASON]) || null,
+        dateOnHold: record[PROJECT_FIELDS.DATE_ON_HOLD],
+        // Milestone-specific fields (raw for display)
+        // Intake
+        intakeStatus: record[PROJECT_FIELDS.INTAKE_STATUS],
+        intakeCompletedDate: record[PROJECT_FIELDS.INTAKE_COMPLETED_DATE],
         // Survey
         surveyStatus: record[PROJECT_FIELDS.SURVEY_STATUS],
         surveyScheduledDate: record[PROJECT_FIELDS.SITE_SURVEY_ARRIVY_SCHEDULED],
         surveySubmittedDate: record[PROJECT_FIELDS.SURVEY_SUBMITTED],
-        surveyCompletedDate: record[PROJECT_FIELDS.SURVEY_APPROVED],
+        surveyApprovedDate: record[PROJECT_FIELDS.SURVEY_APPROVED],
         // Design
         designStatus: record[PROJECT_FIELDS.DESIGN_STATUS],
         predesignApproved: record[PROJECT_FIELDS.PREDESIGN_APPROVED],
+        cadDesignSubmitted: record[PROJECT_FIELDS.CAD_DESIGN_SUBMITTED],
         cadDesignApproved: record[PROJECT_FIELDS.CAD_DESIGN_APPROVED],
+        engineeringSubmitted: record[PROJECT_FIELDS.ENGINEERING_SUBMITTED],
         engineeringCompleted: record[PROJECT_FIELDS.ENGINEERING_COMPLETED],
-        designApprovedDate: record[PROJECT_FIELDS.DESIGN_COMPLETED],
+        designCompletedDate: record[PROJECT_FIELDS.DESIGN_COMPLETED],
         // Permitting
         permitStatus: record[PROJECT_FIELDS.PERMIT_STATUS],
         permitSubmitted: record[PROJECT_FIELDS.PERMIT_SUBMITTED],
@@ -10578,17 +10552,18 @@ export async function getProjectsForPC(
         installStartedDate: record[PROJECT_FIELDS.INSTALL_STARTED_DATE],
         installCompletedDate: record[PROJECT_FIELDS.INSTALL_COMPLETED_DATE],
         estimatedInstallDate: record[PROJECT_FIELDS.ESTIMATED_INSTALL_DATE],
+        readyForCommission: record[PROJECT_FIELDS.READY_FOR_COMMISSION],
         // Inspection
         inspectionScheduledDate: record[PROJECT_FIELDS.INSPECTION_SCHEDULED_DATE],
-        inspectionPassedDate: record[PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED],
         inspectionFailedDate: record[PROJECT_FIELDS.INSPECTION_FAILED_DATE],
-        asBuiltSubmittedToAHJ: record[PROJECT_FIELDS.AS_BUILT_SUBMITTED_TO_AHJ],
-        failureReason: record[PROJECT_FIELDS.NOTE],
+        inspectionPassedDate: record[PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED],
+        asBuiltSubmitted: record[PROJECT_FIELDS.AS_BUILT_SUBMITTED_TO_AHJ],
         // PTO
         ptoStatus: record[PROJECT_FIELDS.PTO_STATUS],
         ptoSubmitted: record[PROJECT_FIELDS.PTO_SUBMITTED],
         ptoApproved: record[PROJECT_FIELDS.PTO_APPROVED],
-        utilityApprovalDate: record[PROJECT_FIELDS.UTILITY_APPROVAL_DATE]
+        utilityApprovalDate: record[PROJECT_FIELDS.UTILITY_APPROVAL_DATE],
+        lenderFundingReceived: record[PROJECT_FIELDS.LENDER_FUNDING_RECEIVED_DATE]
       };
 
       projects.push(project);
@@ -10597,12 +10572,18 @@ export async function getProjectsForPC(
     // Apply client-side filters
     let filteredProjects = projects;
 
+    // Status filter (if milestone is selected)
+    if (filters?.milestone && filters?.status && filters.status !== 'all') {
+      filteredProjects = filteredProjects.filter(p => p.milestoneStatus === filters.status);
+    }
+
     // Search filter
     if (filters?.search) {
       const searchLower = filters.search.toLowerCase();
       filteredProjects = filteredProjects.filter(p =>
         p.projectId.toLowerCase().includes(searchLower) ||
-        p.customerName.toLowerCase().includes(searchLower)
+        p.customerName.toLowerCase().includes(searchLower) ||
+        p.customerAddress.toLowerCase().includes(searchLower)
       );
     }
 
@@ -10613,22 +10594,20 @@ export async function getProjectsForPC(
 
     // Sales rep filter
     if (filters?.salesRep) {
-      filteredProjects = filteredProjects.filter(p => p.salesRepName === filters.salesRep);
+      filteredProjects = filteredProjects.filter(p =>
+        p.closerName === filters.salesRep || p.setterName === filters.salesRep
+      );
     }
 
     // Sort
     if (filters?.sort === 'oldest') {
-      filteredProjects.sort((a, b) => {
-        const dateA = parseQuickbaseDate(a.dateCreated)?.getTime() || 0;
-        const dateB = parseQuickbaseDate(b.dateCreated)?.getTime() || 0;
-        return dateA - dateB;
-      });
+      filteredProjects.sort((a, b) => a.projectAge - b.projectAge);
     } else if (filters?.sort === 'projectId') {
       filteredProjects.sort((a, b) => a.projectId.localeCompare(b.projectId));
     } else if (filters?.sort === 'customer') {
       filteredProjects.sort((a, b) => a.customerName.localeCompare(b.customerName));
     } else if (filters?.sort === 'daysDesc') {
-      filteredProjects.sort((a, b) => b.daysInMilestone - a.daysInMilestone);
+      filteredProjects.sort((a, b) => b.daysInStage - a.daysInStage);
     }
     // Default is already newest first from QB query
 

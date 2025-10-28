@@ -823,15 +823,15 @@ export interface PCInspectionFilters {
 // MILESTONE DASHBOARD TYPES
 // =============================================================================
 
-// Operations milestone type (project lifecycle stages)
+// Operations milestone type (project lifecycle stages) - 7 milestones
 export type OperationsMilestone =
-  | 'intake'      // Initial customer onboarding
-  | 'survey'      // Site survey scheduling and completion
-  | 'design'      // Design creation and approval
-  | 'permitting'  // AHJ, NEM, and HOA permit processing
-  | 'install'     // Installation scheduling and completion
-  | 'inspection'  // Inspection scheduling and completion
-  | 'pto';        // Permission to Operate submission and approval
+  | 'intake'       // Initial customer onboarding
+  | 'survey'       // Site survey scheduling and completion
+  | 'design'       // Design creation and approval
+  | 'permitting'   // AHJ, NEM, and HOA permit processing
+  | 'install'      // Installation scheduling and completion
+  | 'inspections'  // Inspection scheduling and completion (plural form)
+  | 'pto';         // Permission to Operate submission and approval
 
 // Milestone-specific status types (mapped by milestone)
 export type MilestoneStatus = {

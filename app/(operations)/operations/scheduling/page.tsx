@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { FieldTrackingDashboard } from '@/components/operations';
 import type { FieldTrackingDashboardData } from '@/lib/types/operations';
@@ -19,10 +20,12 @@ export default function SchedulingPage() {
     refetchInterval: 30000, // Refetch every 30 seconds for real-time updates
   });
 
-  // Handle error state
-  if (error) {
-    toast.error('Failed to load field operations dashboard');
-  }
+  // Handle error state (wrapped in useEffect to prevent multiple toasts)
+  useEffect(() => {
+    if (error) {
+      toast.error('Failed to load field operations dashboard');
+    }
+  }, [error]);
 
   return (
     <div className="space-y-4 mobile:space-y-6">
@@ -48,6 +51,7 @@ export default function SchedulingPage() {
             completed_today: 0,
             delayed: 0,
             crews_active: 0,
+            avg_completion_time: 0,
           },
         }}
         isLoading={isLoading}

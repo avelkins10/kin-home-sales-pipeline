@@ -43,12 +43,37 @@ export const projectsListKey = (
 export const calendarEventsKey = (params?: Record<string, string | undefined>) => {
   const baseKey = ['calendar', 'events'] as const;
   if (!params) return baseKey;
-  
+
   // Create a stable key by sorting params
   const sortedParams = Object.entries(params)
     .filter(([_, value]) => value !== undefined)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, value]) => `${key}:${value}`);
-  
+
   return [...baseKey, ...sortedParams] as const;
 };
+
+/**
+ * Query key for operations projects list
+ * Used by operations coordinators to view their assigned projects
+ */
+export const operationsProjectsListKey = (
+  userId: string,
+  role: string,
+  milestone?: string,
+  status?: string,
+  search?: string,
+  sort?: string,
+  office?: string,
+  salesRep?: string
+) => [
+  'operations-projects',
+  userId,
+  role,
+  milestone || 'all',
+  status || 'all',
+  search || '',
+  sort || 'default',
+  office || '',
+  salesRep || ''
+] as const;
