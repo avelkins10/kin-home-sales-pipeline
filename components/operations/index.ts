@@ -42,3 +42,9 @@ export { PCCalendar } from './PCCalendar';
 
 // PC Inspections Components
 export { InspectionsTable, InspectionTableSkeleton } from './InspectionsTable';
+
+// Field Tracking Components (Arrivy Integration)
+export { FieldTrackingDashboard } from './FieldTrackingDashboard';
+export { FieldTrackingTaskCard } from './FieldTrackingTaskCard';
+export { FieldTrackingActivityFeed } from './FieldTrackingActivityFeed';
+export { FieldTrackingDetailModal } from './FieldTrackingDetailModal';

@@ -948,3 +948,159 @@ export interface MilestoneDashboardFilters {
   showBlocked: boolean; // Include blocked projects
   showOnHold: boolean; // Include on-hold projects
 }
+
+// =============================================================================
+// FIELD TRACKING TYPES (Arrivy Integration)
+// =============================================================================
+
+// Field tracking task types
+export type FieldTrackingTaskType = 'survey' | 'install' | 'inspection' | 'service' | 'other';
+export type FieldTrackingTaskStatus = 
+  | 'NOT_STARTED'
+  | 'ENROUTE'
+  | 'STARTED'
+  | 'COMPLETE'
+  | 'CANCELLED'
+  | 'EXCEPTION'
+  | 'LATE'
+  | 'NOSHOW';
+
+// Field tracking task with Arrivy data for dashboard display
+export interface FieldTrackingTask {
+  id: number;
+  arrivy_task_id: number;
+  url_safe_id: string;
+  quickbase_project_id: string;
+  quickbase_record_id: number;
+  customer_name: string | null;
+  customer_phone: string | null;
+  customer_email: string | null;
+  customer_address: string | null;
+  task_type: FieldTrackingTaskType | null;
+  scheduled_start: Date | null;
+  scheduled_end: Date | null;
+  assigned_entity_ids: number[] | null;
+  current_status: FieldTrackingTaskStatus | null;
+  tracker_url: string | null;
+  template_id: string | null;
+  latest_status?: string | null;
+  latest_status_time?: Date | null;
+  entity_names?: string[] | null;
+  created_at: Date;
+  updated_at: Date;
+  synced_at: Date | null;
+}
+
+// Crew member with location and status
+export interface FieldTrackingEntity {
+  id: number;
+  arrivy_entity_id: number;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  entity_type: string | null;
+  quickbase_user_id: string | null;
+  current_location?: FieldTrackingLocation | null;
+  last_update?: Date | null;
+  assigned_tasks_count?: number;
+  status?: 'active' | 'inactive' | 'offline';
+  created_at: Date;
+  updated_at: Date;
+}
+
+// Event timeline item for activity feed
+export interface FieldTrackingEvent {
+  id: number;
+  event_id: number;
+  event_type: string;
+  event_sub_type: string | null;
+  timestamp: Date;
+  reporter_id: number | null;
+  reporter_name: string | null;
+  message: string | null;
+  title: string | null;
+  arrivy_task_id: number | null;
+  quickbase_project_id?: string | null;
+  object_fields?: Record<string, any> | null;
+  extra_fields?: Record<string, any> | null;
+  is_transient: boolean;
+  created_at: Date;
+}
+
+// Task status with details
+export interface FieldTrackingStatus {
+  id: number;
+  arrivy_task_id: number;
+  status_type: string;
+  reported_at: Date;
+  reporter_id: number | null;
+  reporter_name: string | null;
+  notes: string | null;
+  has_attachments: boolean;
+  visible_to_customer: boolean;
+  source: string | null;
+  created_at: Date;
+}
+
+// Location data
+export interface FieldTrackingLocation {
+  lat: number;
+  lng: number;
+  timestamp: Date;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  accuracy?: number;
+  heading?: number;
+  speed?: number;
+}
+
+// Main dashboard data structure
+export interface FieldTrackingDashboardData {
+  tasks: FieldTrackingTask[];
+  entities: FieldTrackingEntity[];
+  events: FieldTrackingEvent[];
+  metrics: FieldTrackingMetrics;
+}
+
+// Dashboard metrics
+export interface FieldTrackingMetrics {
+  total_tasks: number;
+  in_progress: number;
+  completed_today: number;
+  delayed: number;
+  crews_active: number;
+  avg_completion_time?: number; // in minutes
+}
+
+// Filter options for field tracking dashboard
+export interface FieldTrackingFilters {
+  task_type?: FieldTrackingTaskType | 'all';
+  status?: FieldTrackingTaskStatus | 'all';
+  date_range?: 'today' | 'this_week' | 'this_month' | 'custom';
+  start_date?: string;
+  end_date?: string;
+  crew?: string; // entity email or ID
+  search?: string; // customer name or project ID
+}
+
+// Arrivy sync result
+export interface ArrivySyncResult {
+  success: boolean;
+  tasks_synced: number;
+  entities_synced: number;
+  errors: Array<{
+    project_id: string;
+    error: string;
+  }>;
+}
+
+// Arrivy task mapping between QuickBase and Arrivy
+export interface ArrivyTaskMapping {
+  quickbase_project_id: string;
+  quickbase_record_id: number;
+  arrivy_task_id: number;
+  url_safe_id: string;
+  synced_at: Date;
+  tracker_url: string;
+}

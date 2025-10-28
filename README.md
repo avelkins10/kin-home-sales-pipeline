@@ -1914,6 +1914,112 @@ npm run migrate:sync-runs
 - User Enrichment: See "Self-Enriching User Database" section
 - QuickBase Integration: See "QuickBase API" section
 - Admin Dashboard: See "Admin Features" section
+- Arrivy Integration: See "Arrivy Integration" section
+
+## Arrivy Integration
+
+This application integrates with Arrivy for real-time field operations tracking and crew management.
+
+### Features
+- Real-time task status updates (ENROUTE, STARTED, COMPLETE)
+- Field crew location tracking
+- Customer-facing live tracker URLs
+- Automated notifications for delays and exceptions
+- Activity feed for field events
+- Two-way sync between QuickBase and Arrivy
+
+### Setup
+
+1. **Arrivy Account**: Sign up at [arrivy.com](https://www.arrivy.com/) and obtain API credentials from your Arrivy dashboard settings.
+
+2. **Environment Variables**: Add to `.env.local`:
+   ```
+   ARRIVY_AUTH_KEY=your_auth_key
+   ARRIVY_AUTH_TOKEN=your_auth_token
+   ARRIVY_COMPANY_NAME=your_company_name
+   ARRIVY_WEBHOOK_SECRET=your_webhook_secret
+   ARRIVY_BASE_URL=https://app.arrivy.com/api
+   ARRIVY_RATE_LIMIT=30
+   ```
+
+3. **Database Migration**: Run the Arrivy tables migration:
+   ```bash
+   psql $DATABASE_URL -f lib/db/migrations/014_create_arrivy_tables.sql
+   ```
+
+4. **Webhook Configuration**: In Arrivy dashboard, configure webhook URL:
+   ```
+   https://your-domain.com/api/webhooks/arrivy
+   ```
+   Select event types: TASK_STATUS, CREW_ASSIGNED, ARRIVING, LATE, NOSHOW
+
+5. **Sync Entities**: Create Arrivy entities for your field crew members via the API or Arrivy dashboard.
+
+### Usage
+
+**Field Tracking Dashboard**: Navigate to Operations → Scheduling to view real-time field operations.
+
+**Create Task**: Sync a QuickBase project to Arrivy:
+```typescript
+import { syncProjectToArrivy } from '@/lib/integrations/arrivy/service';
+
+const result = await syncProjectToArrivy(projectId, recordId, {
+  customerName: 'John Doe',
+  customerPhone: '+1234567890',
+  customerEmail: 'john@example.com',
+  customerAddress: '123 Main St',
+  city: 'San Francisco',
+  state: 'CA',
+  zipCode: '94105',
+  taskType: 'install',
+  scheduledStart: new Date('2025-11-01T09:00:00'),
+  scheduledEnd: new Date('2025-11-01T17:00:00'),
+  coordinatorEmail: 'coordinator@example.com',
+  details: 'Standard solar installation',
+});
+
+console.log('Tracker URL:', result.trackerUrl);
+```
+
+**Customer Tracker**: Share the tracker URL with customers for real-time updates on crew arrival and task progress.
+
+### API Endpoints
+
+- `GET /api/operations/field-tracking/dashboard` - Dashboard data with tasks, entities, events, and metrics
+- `GET /api/operations/field-tracking/tasks` - List tasks with filters
+- `POST /api/operations/field-tracking/tasks` - Create/sync task from QuickBase project
+- `GET /api/operations/field-tracking/tasks/[id]` - Get task details with status history
+- `PUT /api/operations/field-tracking/tasks/[id]` - Update task
+- `DELETE /api/operations/field-tracking/tasks/[id]` - Cancel/delete task
+- `GET /api/operations/field-tracking/entities` - List crew members
+- `POST /api/operations/field-tracking/entities` - Create/sync entity
+- `GET /api/operations/field-tracking/events` - Query field events
+- `POST /api/webhooks/arrivy` - Webhook receiver for Arrivy events
+
+### Database Tables
+
+- `arrivy_tasks` - Tasks synced from QuickBase to Arrivy
+- `arrivy_entities` - Field crew members and technicians
+- `arrivy_events` - Webhook events for audit trail and activity feed
+- `arrivy_task_status` - Status updates for tasks (ENROUTE, STARTED, COMPLETE, etc.)
+
+### Webhook Events
+
+Arrivy sends webhook notifications for:
+- Task created, updated, deleted
+- Status updates (ENROUTE, START, COMPLETE, EXCEPTION, etc.)
+- Crew assigned/removed
+- Delays and no-shows
+- Customer ratings and notes
+
+### Troubleshooting
+
+- **Webhook not receiving events**: Check webhook URL in Arrivy dashboard and verify HTTPS is configured
+- **Tasks not syncing**: Verify API credentials (`ARRIVY_AUTH_KEY` and `ARRIVY_AUTH_TOKEN`) and check logs for errors
+- **Location not updating**: Ensure crew members have Arrivy mobile app installed with location permissions enabled
+- **Rate limiting**: Arrivy allows 30 requests per minute. The client automatically queues and rate-limits requests.
+
+For more details, see [Arrivy API Documentation](https://app.arrivy.com/developer-portal).
 
 ## Success Metrics
 

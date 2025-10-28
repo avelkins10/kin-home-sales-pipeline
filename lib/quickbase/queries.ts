@@ -10348,8 +10348,7 @@ export async function getProjectsForPC(
       }
     }
 
-    console.log(`[getProjectsForPC] WHERE clause:`, whereClause);
-    console.log(`[getProjectsForPC] Milestone filter:`, filters?.milestone);
+    console.log(`[getProjectsForPC] Milestone: ${filters?.milestone || 'all'}, Role: ${role}`);
 
     // Query QuickBase
     const query = {
@@ -10417,31 +10416,17 @@ export async function getProjectsForPC(
       sortBy: [{ fieldId: PROJECT_FIELDS.DATE_CREATED, order: 'DESC' as 'DESC' }], // Newest first
       options: {
         skip: 0,
-        top: 0 // fetch all
+        top: 1000 // Limit to 1000 records to prevent timeout
       }
     };
 
     const response = await qbClient.queryRecords(query);
     const now = new Date();
 
-    console.log(`[getProjectsForPC] QB returned ${response.data.length} records`);
-
-    // Log first record for debugging
-    if (response.data.length > 0) {
-      const firstRecord = response.data[0];
-      console.log('[getProjectsForPC] First record milestone dates:', {
-        intake: firstRecord[PROJECT_FIELDS.INTAKE_COMPLETED_DATE],
-        survey: firstRecord[PROJECT_FIELDS.SURVEY_COMPLETED],
-        design: firstRecord[PROJECT_FIELDS.DESIGN_COMPLETED],
-        permit: firstRecord[PROJECT_FIELDS.PERMIT_APPROVED],
-        install: firstRecord[PROJECT_FIELDS.INSTALL_COMPLETED_DATE],
-        inspection: firstRecord[PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED],
-      });
-    }
+    console.log(`[getProjectsForPC] QB returned ${response.data.length} records for milestone: ${filters?.milestone || 'all'}`);
 
     // Process projects
     const projects: any[] = [];
-    let firstProjectLogged = false;
 
     for (const record of response.data) {
       // Extract dates
@@ -10453,13 +10438,6 @@ export async function getProjectsForPC(
       const installCompleted = parseQuickbaseDate(record[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]);
       const inspectionCompleted = parseQuickbaseDate(record[PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED]);
       const ptoApproved = parseQuickbaseDate(record[PROJECT_FIELDS.PTO_APPROVED]);
-
-      if (!firstProjectLogged) {
-        console.log('[getProjectsForPC] First record parsed dates:', {
-          dateCreated, intakeCompleted, surveyCompleted, designCompleted,
-          permitApproved, installCompleted, inspectionCompleted, ptoApproved
-        });
-      }
 
       // Determine current milestone
       let currentMilestone: import('@/lib/types/operations').OperationsMilestone = 'intake';
@@ -10488,11 +10466,6 @@ export async function getProjectsForPC(
         milestoneStartDate = intakeCompleted;
       }
 
-      if (!firstProjectLogged) {
-        console.log('[getProjectsForPC] First record currentMilestone:', currentMilestone);
-        firstProjectLogged = true;
-      }
-
       // Calculate days in milestone
       const daysInMilestone = milestoneStartDate
         ? Math.floor((now.getTime() - milestoneStartDate.getTime()) / (1000 * 60 * 60 * 24))
@@ -10511,15 +10484,6 @@ export async function getProjectsForPC(
         const inspectionFailed = parseQuickbaseDate(record[PROJECT_FIELDS.INSPECTION_FAILED_DATE]);
         const inspectionPassed = parseQuickbaseDate(record[PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED]);
 
-        if (!firstProjectLogged) {
-          console.log('[getProjectsForPC] First record inspection dates:', {
-            scheduled: inspectionScheduled,
-            failed: inspectionFailed,
-            passed: inspectionPassed,
-            isOnHold
-          });
-        }
-
         if (isOnHold) {
           milestoneStatus = 'on_hold';
         } else if (inspectionFailed && !inspectionPassed) {
@@ -10532,10 +10496,6 @@ export async function getProjectsForPC(
           milestoneStatus = 'inspection_scheduled';
         } else {
           milestoneStatus = 'waiting_for_inspection';
-        }
-
-        if (!firstProjectLogged) {
-          console.log('[getProjectsForPC] First record inspection status:', milestoneStatus);
         }
       } else if (currentMilestone === 'pto') {
         const ptoSubmittedDate = parseQuickbaseDate(record[PROJECT_FIELDS.PTO_SUBMITTED]);
