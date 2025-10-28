@@ -73,11 +73,64 @@ export async function POST(request: NextRequest) {
         break;
 
       case 'status_logs':
-        results = [await syncStatusLogs({
-          fromDate: startDate,
-          toDate: endDate,
-          incremental: false
-        })];
+        // Auto-chunk status logs into weekly periods to avoid timeouts
+        if (startDate && endDate) {
+          const start = new Date(startDate);
+          const end = new Date(endDate);
+          const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+
+          // If date range > 7 days, chunk it into 7-day periods
+          if (diffDays > 7) {
+            console.log(`[Admin Sync] Chunking status_logs sync into ~7 day periods (${diffDays} days total)`);
+            results = [];
+
+            let currentStart = new Date(start);
+            let chunkNum = 1;
+
+            while (currentStart <= end) {
+              let currentEnd = new Date(currentStart);
+              currentEnd.setDate(currentEnd.getDate() + 6); // 7 days (inclusive)
+
+              if (currentEnd > end) {
+                currentEnd = end;
+              }
+
+              const chunkStartStr = currentStart.toISOString().split('T')[0];
+              const chunkEndStr = currentEnd.toISOString().split('T')[0];
+
+              console.log(`[Admin Sync] Processing chunk ${chunkNum}: ${chunkStartStr} to ${chunkEndStr}`);
+
+              const chunkResult = await syncStatusLogs({
+                fromDate: chunkStartStr,
+                toDate: chunkEndStr,
+                incremental: false
+              });
+
+              results.push(chunkResult);
+              chunkNum++;
+
+              // Move to next chunk
+              currentStart = new Date(currentEnd);
+              currentStart.setDate(currentStart.getDate() + 1);
+            }
+
+            console.log(`[Admin Sync] Completed ${results.length} chunks for status_logs`);
+          } else {
+            // Small date range, sync in one call
+            results = [await syncStatusLogs({
+              fromDate: startDate,
+              toDate: endDate,
+              incremental: false
+            })];
+          }
+        } else {
+          // No date range specified, use default behavior
+          results = [await syncStatusLogs({
+            fromDate: startDate,
+            toDate: endDate,
+            incremental: false
+          })];
+        }
         break;
 
       default:

@@ -95,8 +95,10 @@ export default function RepCardSyncPage() {
       results.push(appointmentsData);
       queryClient.invalidateQueries({ queryKey: ['repcard-sync-status'] });
 
-      // Step 3: Sync status logs
-      toast.info('Syncing status logs...', { description: 'Step 3 of 3' });
+      // Step 3: Sync status logs (may be auto-chunked into smaller periods)
+      toast.info('Syncing status logs...', {
+        description: 'Step 3 of 3 - This may take a few minutes for large date ranges'
+      });
       const statusLogsRes = await fetch(
         `/api/admin/repcard/sync?type=status_logs&startDate=${startDate}&endDate=${endDate}`,
         { method: 'POST' }
