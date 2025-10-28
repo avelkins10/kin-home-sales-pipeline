@@ -309,7 +309,16 @@ export async function syncEntityFromQuickBase(
  */
 export function getCustomerTrackerUrl(taskId: number, urlSafeId: string): string {
   const companyName = process.env.ARRIVY_COMPANY_NAME || 'company';
-  return `https://app.arrivy.com/live/track/${companyName}/${urlSafeId}`;
+  return `https://app.arrivy.com/live/track/${encodeURIComponent(companyName)}/${urlSafeId}`;
+}
+
+/**
+ * Check if a task has QuickBase association
+ */
+export function hasQuickBaseAssociation(task: { quickbase_project_id?: string | null; quickbase_record_id?: number | null }): boolean {
+  return !!task.quickbase_project_id && 
+         task.quickbase_project_id !== '' && 
+         !task.quickbase_project_id.startsWith('ARRIVY-');
 }
 
 // =============================================================================
@@ -384,6 +393,10 @@ export async function processWebhookEvent(
     let notificationCreated = false;
 
     switch (EVENT_TYPE) {
+      case 'TASK_CREATED':
+        await handleTaskCreatedEvent(payload);
+        break;
+
       case 'TASK_STATUS':
         await handleTaskStatusEvent(payload);
         notificationCreated = await createNotificationForStatusEvent(payload);
@@ -452,6 +465,154 @@ async function handleTaskStatusEvent(payload: ArrivyWebhookPayload): Promise<voi
     arrivy_task_id: OBJECT_ID,
     status_type: EVENT_SUB_TYPE,
   });
+}
+
+/**
+ * Handle TASK_CREATED webhook event
+ * 
+ * When a new task is created in Arrivy (via web, mobile app, or API),
+ * this handler fetches the complete task details and stores them in
+ * the local database for dashboard visibility.
+ * 
+ * @param payload - Webhook payload from Arrivy
+ * 
+ * @remarks
+ * - Fetches full task details via API (webhook payload is minimal)
+ * - Generates customer tracker URL for immediate use
+ * - Uses upsert to handle duplicate webhook deliveries
+ * - Sets QuickBase IDs to null for Arrivy-originated tasks
+ * - Does not create notifications (informational event only)
+ * 
+ * @example
+ * // Webhook payload structure:
+ * {
+ *   EVENT_TYPE: 'TASK_CREATED',
+ *   OBJECT_ID: 5678633960079360,
+ *   OBJECT_EXTERNAL_ID: 'PROJECT-123',
+ *   REPORTER_NAME: 'John Smith',
+ *   EVENT_TIME: '2025-10-28T14:30:00Z'
+ * }
+ */
+async function handleTaskCreatedEvent(payload: ArrivyWebhookPayload): Promise<void> {
+  const { OBJECT_ID, OBJECT_EXTERNAL_ID, REPORTER_NAME } = payload;
+
+  try {
+    // Check if Arrivy client is configured
+    if (!arrivyClient) {
+      logInfo('[Arrivy] Arrivy client not configured, skipping TASK_CREATED event processing', {
+        arrivy_task_id: OBJECT_ID,
+      });
+      return;
+    }
+
+    // Fetch full task details from Arrivy API with retry for eventual consistency
+    logInfo('[Arrivy] Fetching task details for TASK_CREATED event', {
+      arrivy_task_id: OBJECT_ID,
+      external_id: OBJECT_EXTERNAL_ID,
+    });
+
+    let task: ArrivyTask | null = null;
+    const maxAttempts = 3;
+    const retryDelayMs = 400; // 400ms backoff between attempts
+    
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        task = await arrivyClient.getTask(OBJECT_ID);
+        if (attempt > 1) {
+          logInfo('[Arrivy] Successfully fetched task details on retry', {
+            arrivy_task_id: OBJECT_ID,
+            attempt,
+          });
+        }
+        break; // Success - exit retry loop
+      } catch (error) {
+        if (attempt === maxAttempts) {
+          // Final attempt failed - log and propagate
+          logError(`Failed to fetch task details after ${maxAttempts} attempts`, error as Error, {
+            arrivy_task_id: OBJECT_ID,
+            external_id: OBJECT_EXTERNAL_ID,
+          });
+          throw error; // Will be caught by outer catch block
+        }
+        // Not final attempt - log and retry
+        logInfo(`[Arrivy] Fetch attempt ${attempt} failed, retrying...`, {
+          arrivy_task_id: OBJECT_ID,
+          attempt,
+          next_attempt_in_ms: retryDelayMs,
+        });
+        await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+      }
+    }
+
+    if (!task) {
+      throw new Error('Failed to fetch task details - no task returned');
+    }
+
+    // Helper function to format address
+    const formatAddress = (task: ArrivyTask): string | undefined => {
+      const parts = [
+        task.customer_address_line_1,
+        task.customer_city,
+        task.customer_state,
+        task.customer_zipcode
+      ].filter(Boolean);
+      return parts.length > 0 ? parts.join(', ') : undefined;
+    };
+
+    // Helper function to extract task type
+    const extractTaskType = (task: ArrivyTask): string => {
+      if (task.extra_fields?.task_type) {
+        return task.extra_fields.task_type;
+      }
+      // Try to infer from title
+      const title = task.title?.toLowerCase() || '';
+      if (title.includes('survey')) return 'survey';
+      if (title.includes('install')) return 'install';
+      if (title.includes('inspection')) return 'inspection';
+      return 'service'; // default
+    };
+
+    // Generate tracker URL
+    const trackerUrl = getCustomerTrackerUrl(task.id, task.url_safe_id);
+
+    // Map task data to database schema
+    const taskData: ArrivyTaskData = {
+      arrivy_task_id: task.id,
+      url_safe_id: task.url_safe_id,
+      quickbase_project_id: task.external_id ?? OBJECT_EXTERNAL_ID ?? null,
+      quickbase_record_id: null, // Arrivy-originated tasks don't have QB record IDs
+      customer_name: task.customer_name,
+      customer_phone: task.customer_phone,
+      customer_email: task.customer_email,
+      customer_address: formatAddress(task),
+      task_type: extractTaskType(task),
+      scheduled_start: task.start_datetime ? new Date(task.start_datetime) : undefined,
+      scheduled_end: task.end_datetime ? new Date(task.end_datetime) : undefined,
+      assigned_entity_ids: task.entity_ids || [],
+      current_status: task.status || 'NOT_STARTED',
+      tracker_url: trackerUrl,
+      template_id: task.template_id?.toString(),
+      extra_fields: task.extra_fields,
+      synced_at: new Date(),
+    };
+
+    // Store in database (upsert handles duplicates)
+    await upsertArrivyTask(taskData);
+
+    logInfo('[Arrivy] Handled TASK_CREATED event', {
+      arrivy_task_id: task.id,
+      external_id: task.external_id || 'none',
+      customer_name: task.customer_name,
+      task_type: taskData.task_type,
+    });
+  } catch (error) {
+    logError('Failed to handle TASK_CREATED event', error as Error, {
+      arrivy_task_id: OBJECT_ID,
+      external_id: OBJECT_EXTERNAL_ID,
+      reporter_name: REPORTER_NAME,
+    });
+    // Don't throw - prevents webhook retries on non-critical errors
+  }
 }
 
 /**
@@ -530,7 +691,7 @@ async function createNotificationForStatusEvent(payload: ArrivyWebhookPayload): 
     logInfo(`[Arrivy] Would create notification for status event`, {
       arrivy_task_id: OBJECT_ID,
       status_type: EVENT_SUB_TYPE,
-      project_id: task.quickbase_project_id,
+      project_id: task.quickbase_project_id || 'none',
     });
 
     return false; // Set to true when coordinator mapping is implemented
@@ -562,7 +723,7 @@ async function createNotificationForCriticalEvent(payload: ArrivyWebhookPayload)
     logInfo(`[Arrivy] Would create notification for critical event`, {
       arrivy_task_id: OBJECT_ID,
       event_type: EVENT_TYPE,
-      project_id: task.quickbase_project_id,
+      project_id: task.quickbase_project_id || 'none',
     });
 
     return false; // Set to true when coordinator mapping is implemented
@@ -644,6 +805,7 @@ export async function getFieldTrackingData(
         !['COMPLETE', 'CANCELLED'].includes(t.current_status || '')
       ).length,
       avgCompletionTime,
+      linkedToQuickBase: tasks.filter(t => hasQuickBaseAssociation(t)).length,
     };
 
     return {

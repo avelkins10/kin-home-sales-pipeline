@@ -10,6 +10,11 @@
     "sync:contacts": "tsx scripts/sync-users-from-contacts.ts",
     "sync:contacts:dry-run": "tsx scripts/sync-users-from-contacts.ts --dry-run",
     "sync:contacts:verbose": "tsx scripts/sync-users-from-contacts.ts --verbose",
+    "sync:arrivy": "tsx scripts/sync-arrivy-tasks.ts",
+    "sync:arrivy:dry-run": "tsx scripts/sync-arrivy-tasks.ts --dry-run",
+    "sync:arrivy:verbose": "tsx scripts/sync-arrivy-tasks.ts --verbose",
+    "sync:arrivy:entities": "tsx scripts/sync-arrivy-tasks.ts --sync-entities",
+    "sync:arrivy:recent": "tsx scripts/sync-arrivy-tasks.ts --start-date=$(date -v-30d +%Y-%m-%d)",
     "migrate:sync-runs": "node scripts/run-user-sync-runs-migration.js",
     "migrate:repcard": "node scripts/run-repcard-migration.js"
   },

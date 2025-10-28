@@ -13,8 +13,8 @@ import { logError } from '@/lib/logging/logger';
 export interface ArrivyTaskData {
   arrivy_task_id: number;
   url_safe_id: string;
-  quickbase_project_id: string;
-  quickbase_record_id: number;
+  quickbase_project_id?: string | null;
+  quickbase_record_id?: number | null;
   customer_name?: string | null;
   customer_phone?: string | null;
   customer_email?: string | null;
@@ -32,6 +32,8 @@ export interface ArrivyTaskData {
 
 export interface ArrivyTaskRecord extends ArrivyTaskData {
   id: number;
+  quickbase_project_id: string | null;
+  quickbase_record_id: number | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -63,40 +65,42 @@ export async function upsertArrivyTask(taskData: ArrivyTaskData): Promise<Arrivy
       ) VALUES (
         ${taskData.arrivy_task_id},
         ${taskData.url_safe_id},
-        ${taskData.quickbase_project_id},
-        ${taskData.quickbase_record_id},
-        ${taskData.customer_name},
-        ${taskData.customer_phone},
-        ${taskData.customer_email},
-        ${taskData.customer_address},
-        ${taskData.task_type},
-        ${taskData.scheduled_start},
-        ${taskData.scheduled_end},
-        ${(taskData.assigned_entity_ids && taskData.assigned_entity_ids.length > 0) 
+        ${taskData.quickbase_project_id ?? null},
+        ${taskData.quickbase_record_id ?? null},
+        ${taskData.customer_name ?? null},
+        ${taskData.customer_phone ?? null},
+        ${taskData.customer_email ?? null},
+        ${taskData.customer_address ?? null},
+        ${taskData.task_type ?? null},
+        ${taskData.scheduled_start ?? null},
+        ${taskData.scheduled_end ?? null},
+        ${taskData.assigned_entity_ids && taskData.assigned_entity_ids.length > 0
           ? sql`ARRAY[${sql.join(taskData.assigned_entity_ids.map(id => sql`${id}`), sql`, `)}]::bigint[]`
-          : sql`ARRAY[]::bigint[]`},
-        ${taskData.current_status},
-        ${taskData.tracker_url},
-        ${taskData.template_id},
-        ${JSON.stringify(taskData.extra_fields || {})},
-        ${taskData.synced_at || new Date()}
+          : null},
+        ${taskData.current_status ?? null},
+        ${taskData.tracker_url ?? null},
+        ${taskData.template_id ?? null},
+        ${taskData.extra_fields ? JSON.stringify(taskData.extra_fields) : null},
+        ${taskData.synced_at ?? new Date()}
       )
       ON CONFLICT (arrivy_task_id)
       DO UPDATE SET
-        url_safe_id = EXCLUDED.url_safe_id,
-        customer_name = EXCLUDED.customer_name,
-        customer_phone = EXCLUDED.customer_phone,
-        customer_email = EXCLUDED.customer_email,
-        customer_address = EXCLUDED.customer_address,
-        task_type = EXCLUDED.task_type,
-        scheduled_start = EXCLUDED.scheduled_start,
-        scheduled_end = EXCLUDED.scheduled_end,
-        assigned_entity_ids = EXCLUDED.assigned_entity_ids,
-        current_status = EXCLUDED.current_status,
-        tracker_url = EXCLUDED.tracker_url,
-        template_id = EXCLUDED.template_id,
-        extra_fields = EXCLUDED.extra_fields,
-        synced_at = EXCLUDED.synced_at,
+        url_safe_id = COALESCE(EXCLUDED.url_safe_id, arrivy_tasks.url_safe_id),
+        quickbase_project_id = COALESCE(EXCLUDED.quickbase_project_id, arrivy_tasks.quickbase_project_id),
+        quickbase_record_id = COALESCE(EXCLUDED.quickbase_record_id, arrivy_tasks.quickbase_record_id),
+        customer_name = COALESCE(EXCLUDED.customer_name, arrivy_tasks.customer_name),
+        customer_phone = COALESCE(EXCLUDED.customer_phone, arrivy_tasks.customer_phone),
+        customer_email = COALESCE(EXCLUDED.customer_email, arrivy_tasks.customer_email),
+        customer_address = COALESCE(EXCLUDED.customer_address, arrivy_tasks.customer_address),
+        task_type = COALESCE(EXCLUDED.task_type, arrivy_tasks.task_type),
+        scheduled_start = COALESCE(EXCLUDED.scheduled_start, arrivy_tasks.scheduled_start),
+        scheduled_end = COALESCE(EXCLUDED.scheduled_end, arrivy_tasks.scheduled_end),
+        assigned_entity_ids = COALESCE(EXCLUDED.assigned_entity_ids, arrivy_tasks.assigned_entity_ids),
+        current_status = COALESCE(EXCLUDED.current_status, arrivy_tasks.current_status),
+        tracker_url = COALESCE(EXCLUDED.tracker_url, arrivy_tasks.tracker_url),
+        template_id = COALESCE(EXCLUDED.template_id, arrivy_tasks.template_id),
+        extra_fields = COALESCE(EXCLUDED.extra_fields, arrivy_tasks.extra_fields),
+        synced_at = COALESCE(EXCLUDED.synced_at, arrivy_tasks.synced_at),
         updated_at = NOW()
       RETURNING *
     `;
@@ -659,7 +663,7 @@ export async function getFieldTrackingTasks(filters: {
     if (search) {
       query += ` AND (
         t.customer_name ILIKE $${paramIndex}
-        OR t.quickbase_project_id ILIKE $${paramIndex}
+        OR (t.quickbase_project_id IS NOT NULL AND t.quickbase_project_id ILIKE $${paramIndex})
         OR t.customer_phone ILIKE $${paramIndex}
       )`;
       params.push(`%${search}%`);

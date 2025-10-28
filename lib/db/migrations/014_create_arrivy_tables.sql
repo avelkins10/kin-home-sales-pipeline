@@ -13,13 +13,13 @@ END;
 $$ language 'plpgsql';
 
 -- Arrivy Tasks Table
--- Stores tasks synced from QuickBase to Arrivy
+-- Stores tasks from Arrivy field operations (may be linked to QuickBase)
 CREATE TABLE IF NOT EXISTS arrivy_tasks (
   id SERIAL PRIMARY KEY,
   arrivy_task_id BIGINT UNIQUE NOT NULL,
   url_safe_id TEXT NOT NULL,
-  quickbase_project_id TEXT NOT NULL,
-  quickbase_record_id INTEGER NOT NULL,
+  quickbase_project_id TEXT,
+  quickbase_record_id INTEGER,
   customer_name TEXT,
   customer_phone TEXT,
   customer_email TEXT,
@@ -118,14 +118,15 @@ CREATE TRIGGER update_arrivy_entities_updated_at
   EXECUTE FUNCTION update_updated_at_column();
 
 -- Add comments for documentation
-COMMENT ON TABLE arrivy_tasks IS 'Tasks synced from QuickBase to Arrivy for field operations tracking';
+COMMENT ON TABLE arrivy_tasks IS 'Tasks from Arrivy field operations. May be linked to QuickBase projects via quickbase_project_id.';
 COMMENT ON TABLE arrivy_entities IS 'Field crew members and technicians in Arrivy';
 COMMENT ON TABLE arrivy_events IS 'Webhook events from Arrivy for audit trail and activity feed';
 COMMENT ON TABLE arrivy_task_status IS 'Status updates for Arrivy tasks (ENROUTE, STARTED, COMPLETE, etc.)';
 
 COMMENT ON COLUMN arrivy_tasks.arrivy_task_id IS 'Unique task ID from Arrivy API';
 COMMENT ON COLUMN arrivy_tasks.url_safe_id IS 'URL-safe ID for customer tracker links';
-COMMENT ON COLUMN arrivy_tasks.quickbase_project_id IS 'Project ID from QuickBase (external_id in Arrivy)';
+COMMENT ON COLUMN arrivy_tasks.quickbase_project_id IS 'Optional link to QuickBase project (external_id in Arrivy). NULL for tasks originating in Arrivy.';
+COMMENT ON COLUMN arrivy_tasks.quickbase_record_id IS 'Optional QuickBase record ID. NULL for tasks originating in Arrivy.';
 COMMENT ON COLUMN arrivy_tasks.tracker_url IS 'Customer-facing live tracker URL';
 COMMENT ON COLUMN arrivy_tasks.assigned_entity_ids IS 'Array of Arrivy entity IDs assigned to this task';
 

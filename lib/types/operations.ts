@@ -970,8 +970,8 @@ export interface FieldTrackingTask {
   id: number;
   arrivy_task_id: number;
   url_safe_id: string;
-  quickbase_project_id: string;
-  quickbase_record_id: number;
+  quickbase_project_id: string | null;
+  quickbase_record_id: number | null;
   customer_name: string | null;
   customer_phone: string | null;
   customer_email: string | null;
@@ -1096,9 +1096,10 @@ export interface ArrivySyncResult {
 }
 
 // Arrivy task mapping between QuickBase and Arrivy
+// QuickBase fields are null for tasks originating in Arrivy
 export interface ArrivyTaskMapping {
-  quickbase_project_id: string;
-  quickbase_record_id: number;
+  quickbase_project_id: string | null;
+  quickbase_record_id: number | null;
   arrivy_task_id: number;
   url_safe_id: string;
   synced_at: Date;

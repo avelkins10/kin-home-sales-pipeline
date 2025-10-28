@@ -273,6 +273,11 @@ export class ArrivyClient {
 
   /**
    * List all tasks with optional filters
+   * 
+   * NOTE: Arrivy API does not explicitly document pagination parameters.
+   * If the API enforces an implicit limit (suspected ~1000 tasks per call),
+   * the caller should implement adaptive date range sub-chunking to ensure
+   * complete data retrieval.
    */
   async listTasks(filters?: {
     external_id?: string;

@@ -87,6 +87,7 @@ export async function GET(
       task: {
         ...task,
         entity_names: entityNames,
+        hasQuickBaseLink: task.quickbase_project_id != null,
       },
       statusHistory,
       events,
@@ -151,16 +152,25 @@ export async function PUT(
     // Update task in Arrivy
     const updatedTask = await arrivyClient.updateTask(task.arrivy_task_id, body);
 
-    // Update local database
+    // Merge existing task data with updated task data
+    // COALESCE logic in upsertArrivyTask will preserve fields when new values are undefined/null
     await upsertArrivyTask({
       arrivy_task_id: updatedTask.id,
       url_safe_id: updatedTask.url_safe_id,
-      quickbase_project_id: task.quickbase_project_id,
+      quickbase_project_id: updatedTask.external_id || task.quickbase_project_id,
       quickbase_record_id: task.quickbase_record_id,
-      customer_name: updatedTask.customer_name,
-      customer_phone: updatedTask.customer_phone,
-      customer_email: updatedTask.customer_email,
-      current_status: updatedTask.status,
+      customer_name: updatedTask.customer_name || task.customer_name,
+      customer_phone: updatedTask.customer_phone || task.customer_phone,
+      customer_email: updatedTask.customer_email || task.customer_email,
+      customer_address: task.customer_address,
+      task_type: task.task_type,
+      scheduled_start: updatedTask.start_datetime ? new Date(updatedTask.start_datetime) : task.scheduled_start,
+      scheduled_end: updatedTask.end_datetime ? new Date(updatedTask.end_datetime) : task.scheduled_end,
+      assigned_entity_ids: updatedTask.entity_ids || task.assigned_entity_ids,
+      current_status: updatedTask.status || task.current_status,
+      tracker_url: task.tracker_url,
+      template_id: updatedTask.template_id?.toString() || task.template_id,
+      extra_fields: updatedTask.extra_fields || task.extra_fields,
       synced_at: new Date(),
     });
 
