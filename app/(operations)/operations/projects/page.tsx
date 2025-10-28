@@ -161,6 +161,20 @@ export default function OperationsProjectsPage() {
       .join(' ');
   };
 
+  // Format date for display
+  const formatDate = (dateField: any) => {
+    if (!dateField) return null;
+    try {
+      const value = typeof dateField === 'object' && dateField.value ? dateField.value : dateField;
+      if (!value) return null;
+      const date = new Date(value);
+      if (isNaN(date.getTime())) return null;
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch {
+      return null;
+    }
+  };
+
   // Active filters count
   const activeFiltersCount = [
     search ? 1 : 0,
@@ -395,14 +409,77 @@ export default function OperationsProjectsPage() {
                       </div>
                     </div>
 
-                    {/* Project Details */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <div className="text-gray-500 text-xs">Status</div>
-                        <div className="font-medium capitalize">
-                          {project.currentStage || 'N/A'}
+                    {/* Milestone Status Badge */}
+                    {project.milestoneStatus && project.milestoneStatus !== 'unknown' && (
+                      <div className="mb-3">
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                          project.milestoneStatus === 'inspection_failed' ? 'bg-red-100 text-red-800' :
+                          project.milestoneStatus === 'reinspection_scheduled' ? 'bg-yellow-100 text-yellow-800' :
+                          project.milestoneStatus === 'inspection_scheduled' ? 'bg-blue-100 text-blue-800' :
+                          project.milestoneStatus === 'pto_submitted' ? 'bg-green-100 text-green-800' :
+                          project.milestoneStatus === 'on_hold' ? 'bg-gray-100 text-gray-800' :
+                          'bg-purple-100 text-purple-800'
+                        }`}>
+                          {formatStatusLabel(project.milestoneStatus)}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Milestone-Specific Details */}
+                    {project.currentMilestone === 'inspection' && (
+                      <div className="mb-3 p-3 bg-teal-50 rounded-lg border border-teal-200">
+                        <div className="text-sm font-medium text-teal-900 mb-2">Inspection Details</div>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          {formatDate(project.inspectionScheduledDate) && (
+                            <div>
+                              <div className="text-teal-700 text-xs">Scheduled</div>
+                              <div className="font-medium text-teal-900">{formatDate(project.inspectionScheduledDate)}</div>
+                            </div>
+                          )}
+                          {formatDate(project.inspectionFailedDate) && (
+                            <div>
+                              <div className="text-red-700 text-xs">Failed Date</div>
+                              <div className="font-medium text-red-900">{formatDate(project.inspectionFailedDate)}</div>
+                            </div>
+                          )}
+                          {project.failureReason?.value && (
+                            <div className="col-span-2">
+                              <div className="text-red-700 text-xs">Failure Reason</div>
+                              <div className="font-medium text-red-900">{project.failureReason.value}</div>
+                            </div>
+                          )}
                         </div>
                       </div>
+                    )}
+
+                    {project.currentMilestone === 'pto' && (
+                      <div className="mb-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                        <div className="text-sm font-medium text-green-900 mb-2">PTO Details</div>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          {formatDate(project.ptoSubmitted) && (
+                            <div>
+                              <div className="text-green-700 text-xs">Submitted</div>
+                              <div className="font-medium text-green-900">{formatDate(project.ptoSubmitted)}</div>
+                            </div>
+                          )}
+                          {formatDate(project.utilityApprovalDate) && (
+                            <div>
+                              <div className="text-green-700 text-xs">Utility Approved</div>
+                              <div className="font-medium text-green-900">{formatDate(project.utilityApprovalDate)}</div>
+                            </div>
+                          )}
+                          {project.ptoStatus?.value && (
+                            <div className="col-span-2">
+                              <div className="text-green-700 text-xs">Status</div>
+                              <div className="font-medium text-green-900">{project.ptoStatus.value}</div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Project Details */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>
                         <div className="text-gray-500 text-xs">Sales Rep</div>
                         <div className="font-medium">{project.salesRepName || 'N/A'}</div>
@@ -414,6 +491,10 @@ export default function OperationsProjectsPage() {
                       <div>
                         <div className="text-gray-500 text-xs">Lender</div>
                         <div className="font-medium">{project.lenderName || 'N/A'}</div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500 text-xs">Office</div>
+                        <div className="font-medium">{project.salesOffice || 'N/A'}</div>
                       </div>
                     </div>
 

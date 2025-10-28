@@ -10303,12 +10303,15 @@ export async function getProjectsForPC(
     const sanitizedEmail = pcEmail.replace(/'/g, "\\'");
     const sanitizedName = pcName.replace(/'/g, "\\'");
 
+    // Exclude Lost and Cancelled projects
+    const statusExclusion = `AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Lost'}AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Cancelled'}`;
+
     if (role === 'operations_coordinator') {
       // Coordinators see only their own projects
-      whereClause = `(({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'}))`;
+      whereClause = `(({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'}))${statusExclusion}`;
     } else if (['operations_manager', 'office_leader', 'regional', 'super_admin'].includes(role)) {
       // Managers/admins see all projects
-      whereClause = `{${PROJECT_FIELDS.RECORD_ID}.XEX.''}`;
+      whereClause = `{${PROJECT_FIELDS.RECORD_ID}.XEX.''}${statusExclusion}`;
     } else {
       // Default: no access
       console.log('[getProjectsForPC] Role not authorized:', role);
@@ -10508,6 +10511,15 @@ export async function getProjectsForPC(
         const inspectionFailed = parseQuickbaseDate(record[PROJECT_FIELDS.INSPECTION_FAILED_DATE]);
         const inspectionPassed = parseQuickbaseDate(record[PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED]);
 
+        if (!firstProjectLogged) {
+          console.log('[getProjectsForPC] First record inspection dates:', {
+            scheduled: inspectionScheduled,
+            failed: inspectionFailed,
+            passed: inspectionPassed,
+            isOnHold
+          });
+        }
+
         if (isOnHold) {
           milestoneStatus = 'on_hold';
         } else if (inspectionFailed && !inspectionPassed) {
@@ -10520,6 +10532,10 @@ export async function getProjectsForPC(
           milestoneStatus = 'inspection_scheduled';
         } else {
           milestoneStatus = 'waiting_for_inspection';
+        }
+
+        if (!firstProjectLogged) {
+          console.log('[getProjectsForPC] First record inspection status:', milestoneStatus);
         }
       } else if (currentMilestone === 'pto') {
         const ptoSubmittedDate = parseQuickbaseDate(record[PROJECT_FIELDS.PTO_SUBMITTED]);

@@ -355,6 +355,111 @@ export function logTwilioWebhook(
   }
 }
 
+/**
+ * Log Arrivy API requests
+ * @param method - HTTP method
+ * @param endpoint - API endpoint
+ * @param params - Request parameters (sanitized in production)
+ */
+export function logArrivyRequest(method: string, endpoint: string, params?: any): void {
+  const baseContext = {
+    service: 'arrivy',
+    method,
+    endpoint,
+  };
+
+  if (process.env.NODE_ENV === 'development') {
+    // In development, log full params
+    logInfo(`[ARRIVY] ${method} ${endpoint}`, { ...baseContext, params: redactSensitive(params) });
+  } else {
+    // In production, only log method and endpoint (no sensitive data)
+    logInfo(`[ARRIVY] ${method} ${endpoint}`, baseContext);
+  }
+}
+
+/**
+ * Log Arrivy API responses with timing
+ * @param method - HTTP method
+ * @param endpoint - API endpoint
+ * @param duration - Request duration in milliseconds
+ * @param recordCount - Number of records returned
+ */
+export function logArrivyResponse(method: string, endpoint: string, duration: number, recordCount?: number): void {
+  const baseContext = {
+    service: 'arrivy',
+    method,
+    endpoint,
+    duration,
+  };
+
+  const message = `[ARRIVY] ${method} ${endpoint} - ${duration}ms${recordCount !== undefined ? ` - ${recordCount} records` : ''}`;
+  
+  if (duration > 2000) {
+    // Log slow queries as warnings
+    logWarn(`Slow Arrivy request: ${message}`, baseContext);
+  } else {
+    logInfo(message, baseContext);
+  }
+}
+
+/**
+ * Log Arrivy API errors
+ * @param method - HTTP method
+ * @param endpoint - API endpoint
+ * @param error - Error object
+ */
+export function logArrivyError(method: string, endpoint: string, error: Error): void {
+  const context = {
+    service: 'arrivy',
+    method,
+    endpoint,
+  };
+  
+  logError(`Arrivy API error: ${method} ${endpoint}`, error, context);
+}
+
+/**
+ * Log Arrivy webhook events
+ * @param eventType - Arrivy event type
+ * @param eventSubType - Arrivy event sub-type
+ * @param context - Event context (EVENT_ID, OBJECT_ID, REPORTER_ID, etc.)
+ */
+export function logArrivyWebhook(
+  eventType: string,
+  eventSubType: string | null | undefined,
+  context: {
+    EVENT_ID: number;
+    OBJECT_ID: number;
+    REPORTER_ID?: number;
+    REPORTER_NAME?: string;
+    payload?: any;
+  }
+): void {
+  const baseContext = {
+    service: 'arrivy_webhook',
+    eventType,
+    eventSubType,
+    eventId: context.EVENT_ID,
+    objectId: context.OBJECT_ID,
+    reporterId: context.REPORTER_ID,
+    reporterName: context.REPORTER_NAME,
+  };
+
+  if (process.env.NODE_ENV === 'development') {
+    // In development, log full payload
+    logInfo(`[ARRIVY_WEBHOOK] ${eventType}${eventSubType ? ` - ${eventSubType}` : ''}`, {
+      ...baseContext,
+      payload: redactSensitive(context.payload),
+    });
+  } else {
+    // In production, log only event type and IDs for audit trail
+    logInfo(
+      `[ARRIVY_WEBHOOK] ${eventType}${eventSubType ? ` - ${eventSubType}` : ''} - Event ID: ${context.EVENT_ID} - Object ID: ${context.OBJECT_ID}`,
+      baseContext
+    );
+  }
+}
+
 export async function logAudit(
   action: string,
   resource: string,
