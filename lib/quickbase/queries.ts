@@ -10375,7 +10375,40 @@ export async function getProjectsForPC(
         PROJECT_FIELDS.PERMIT_APPROVED,
         PROJECT_FIELDS.INSTALL_COMPLETED_DATE,
         PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED,
-        PROJECT_FIELDS.PTO_APPROVED
+        PROJECT_FIELDS.PTO_APPROVED,
+        // Milestone-specific fields (for detailed views)
+        // Survey
+        PROJECT_FIELDS.SURVEY_STATUS,
+        PROJECT_FIELDS.SITE_SURVEY_ARRIVY_SCHEDULED,
+        PROJECT_FIELDS.SURVEY_SUBMITTED,
+        PROJECT_FIELDS.SURVEY_APPROVED,
+        // Design
+        PROJECT_FIELDS.DESIGN_STATUS,
+        PROJECT_FIELDS.PREDESIGN_APPROVED,
+        PROJECT_FIELDS.CAD_DESIGN_APPROVED,
+        PROJECT_FIELDS.ENGINEERING_COMPLETED,
+        // Permitting
+        PROJECT_FIELDS.PERMIT_STATUS,
+        PROJECT_FIELDS.PERMIT_SUBMITTED,
+        PROJECT_FIELDS.NEM_INTERCONNECTION_STATUS,
+        PROJECT_FIELDS.NEM_SUBMITTED,
+        PROJECT_FIELDS.NEM_APPROVED,
+        PROJECT_FIELDS.HOA_STATUS,
+        PROJECT_FIELDS.HOA_APPLICATION_SUBMITTED,
+        PROJECT_FIELDS.HOA_APPLICATION_APPROVED,
+        // Install
+        PROJECT_FIELDS.INSTALL_SCHEDULED_DATE_CAPTURE,
+        PROJECT_FIELDS.INSTALL_STARTED_DATE,
+        PROJECT_FIELDS.ESTIMATED_INSTALL_DATE,
+        // Inspection
+        PROJECT_FIELDS.INSPECTION_SCHEDULED_DATE,
+        PROJECT_FIELDS.INSPECTION_FAILED_DATE,
+        PROJECT_FIELDS.NOTE,
+        PROJECT_FIELDS.AS_BUILT_SUBMITTED_TO_AHJ,
+        // PTO
+        PROJECT_FIELDS.PTO_STATUS,
+        PROJECT_FIELDS.PTO_SUBMITTED,
+        PROJECT_FIELDS.UTILITY_APPROVAL_DATE
       ],
       where: whereClause,
       sortBy: [{ fieldId: PROJECT_FIELDS.DATE_CREATED, order: 'DESC' as 'DESC' }], // Newest first
@@ -10458,7 +10491,45 @@ export async function getProjectsForPC(
         isBlocked,
         blockReason: isBlocked ? extractValue(record[PROJECT_FIELDS.BLOCK_REASON]) : null,
         isOnHold,
-        holdReason: isOnHold ? extractValue(record[PROJECT_FIELDS.HOLD_REASON]) : null
+        holdReason: isOnHold ? extractValue(record[PROJECT_FIELDS.HOLD_REASON]) : null,
+        // Milestone-specific fields (included for all projects)
+        // Survey
+        surveyStatus: record[PROJECT_FIELDS.SURVEY_STATUS],
+        surveyScheduledDate: record[PROJECT_FIELDS.SITE_SURVEY_ARRIVY_SCHEDULED],
+        surveySubmittedDate: record[PROJECT_FIELDS.SURVEY_SUBMITTED],
+        surveyCompletedDate: record[PROJECT_FIELDS.SURVEY_APPROVED],
+        // Design
+        designStatus: record[PROJECT_FIELDS.DESIGN_STATUS],
+        predesignApproved: record[PROJECT_FIELDS.PREDESIGN_APPROVED],
+        cadDesignApproved: record[PROJECT_FIELDS.CAD_DESIGN_APPROVED],
+        engineeringCompleted: record[PROJECT_FIELDS.ENGINEERING_COMPLETED],
+        designApprovedDate: record[PROJECT_FIELDS.DESIGN_COMPLETED],
+        // Permitting
+        permitStatus: record[PROJECT_FIELDS.PERMIT_STATUS],
+        permitSubmitted: record[PROJECT_FIELDS.PERMIT_SUBMITTED],
+        permitApproved: record[PROJECT_FIELDS.PERMIT_APPROVED],
+        nemStatus: record[PROJECT_FIELDS.NEM_INTERCONNECTION_STATUS],
+        nemSubmitted: record[PROJECT_FIELDS.NEM_SUBMITTED],
+        nemApproved: record[PROJECT_FIELDS.NEM_APPROVED],
+        hoaStatus: record[PROJECT_FIELDS.HOA_STATUS],
+        hoaSubmitted: record[PROJECT_FIELDS.HOA_APPLICATION_SUBMITTED],
+        hoaApproved: record[PROJECT_FIELDS.HOA_APPLICATION_APPROVED],
+        // Install
+        installScheduledDate: record[PROJECT_FIELDS.INSTALL_SCHEDULED_DATE_CAPTURE],
+        installStartedDate: record[PROJECT_FIELDS.INSTALL_STARTED_DATE],
+        installCompletedDate: record[PROJECT_FIELDS.INSTALL_COMPLETED_DATE],
+        estimatedInstallDate: record[PROJECT_FIELDS.ESTIMATED_INSTALL_DATE],
+        // Inspection
+        inspectionScheduledDate: record[PROJECT_FIELDS.INSPECTION_SCHEDULED_DATE],
+        inspectionPassedDate: record[PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED],
+        inspectionFailedDate: record[PROJECT_FIELDS.INSPECTION_FAILED_DATE],
+        asBuiltSubmittedToAHJ: record[PROJECT_FIELDS.AS_BUILT_SUBMITTED_TO_AHJ],
+        failureReason: record[PROJECT_FIELDS.NOTE],
+        // PTO
+        ptoStatus: record[PROJECT_FIELDS.PTO_STATUS],
+        ptoSubmitted: record[PROJECT_FIELDS.PTO_SUBMITTED],
+        ptoApproved: record[PROJECT_FIELDS.PTO_APPROVED],
+        utilityApprovalDate: record[PROJECT_FIELDS.UTILITY_APPROVAL_DATE]
       };
 
       projects.push(project);
