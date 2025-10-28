@@ -95,18 +95,18 @@ export default function RepCardSyncPage() {
       results.push(appointmentsData);
       queryClient.invalidateQueries({ queryKey: ['repcard-sync-status'] });
 
-      // Step 3: Sync status logs - chunked into 7-day periods on frontend
+      // Step 3: Sync status logs - chunked into 3-day periods on frontend (status logs are VERY large)
       const start = new Date(startDate);
       const end = new Date(endDate);
       const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
 
-      // Split into 7-day chunks
+      // Split into 3-day chunks (status logs have massive amounts of data)
       const chunks: Array<{ startDate: string; endDate: string }> = [];
       let currentStart = new Date(start);
 
       while (currentStart <= end) {
         let currentEnd = new Date(currentStart);
-        currentEnd.setDate(currentEnd.getDate() + 6); // 7 days (inclusive)
+        currentEnd.setDate(currentEnd.getDate() + 2); // 3 days (inclusive)
 
         if (currentEnd > end) {
           currentEnd = new Date(end);
