@@ -8,7 +8,8 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Allow unauthenticated access to login, auth routes, and accept-invite
-  if (pathname.startsWith('/login') || pathname.startsWith('/api/auth/') || pathname.startsWith('/accept-invite')) {
+  // Also skip middleware for ALL API routes (they handle their own auth)
+  if (pathname.startsWith('/login') || pathname.startsWith('/api/') || pathname.startsWith('/accept-invite')) {
     return NextResponse.next();
   }
 
