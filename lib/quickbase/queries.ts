@@ -10291,10 +10291,14 @@ export async function getProjectsForPC(
 
   // Helper function to extract values from QuickBase field objects
   const extractValue = (field: any): string => {
-    if (typeof field === 'object' && field?.value) {
-      return String(field.value);
+    if (!field) return '';
+    if (typeof field === 'object') {
+      if (field.value !== undefined && field.value !== null) {
+        return String(field.value);
+      }
+      return ''; // Empty object
     }
-    return String(field || '');
+    return String(field);
   };
 
   try {
@@ -10425,6 +10429,20 @@ export async function getProjectsForPC(
 
     console.log(`[getProjectsForPC] QB returned ${response.data.length} records for milestone: ${filters?.milestone || 'all'}`);
 
+    // Log first record to debug
+    if (response.data.length > 0) {
+      const first = response.data[0];
+      console.log('[getProjectsForPC] First record field sample:', {
+        projectId: first[PROJECT_FIELDS.PROJECT_ID],
+        intake: first[PROJECT_FIELDS.INTAKE_COMPLETED_DATE],
+        install: first[PROJECT_FIELDS.INSTALL_COMPLETED_DATE],
+        inspection: first[PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED],
+        onHold: first[PROJECT_FIELDS.ON_HOLD],
+        holdReason: first[PROJECT_FIELDS.HOLD_REASON],
+        blockReason: first[PROJECT_FIELDS.BLOCK_REASON]
+      });
+    }
+
     // Process projects
     const projects: any[] = [];
 
@@ -10472,9 +10490,11 @@ export async function getProjectsForPC(
         : 0;
 
       // Determine block/hold status
-      const isOnHold = !!record[PROJECT_FIELDS.ON_HOLD]; // Checkbox field
-      const blockReason = extractValue(record[PROJECT_FIELDS.BLOCK_REASON]);
-      const isBlocked = !!blockReason;
+      const onHoldField = record[PROJECT_FIELDS.ON_HOLD];
+      const isOnHold = onHoldField === true || onHoldField === 1 || onHoldField === '1';
+      const blockReasonText = extractValue(record[PROJECT_FIELDS.BLOCK_REASON]);
+      const holdReasonText = extractValue(record[PROJECT_FIELDS.HOLD_REASON]);
+      const isBlocked = !!blockReasonText && blockReasonText.trim().length > 0;
 
       // Calculate milestone-specific status (for status tabs)
       let milestoneStatus = 'unknown';
@@ -10528,9 +10548,9 @@ export async function getProjectsForPC(
         daysInMilestone,
         dateCreated: record[PROJECT_FIELDS.DATE_CREATED],
         isBlocked,
-        blockReason: isBlocked ? extractValue(record[PROJECT_FIELDS.BLOCK_REASON]) : null,
+        blockReason: blockReasonText || null,
         isOnHold,
-        holdReason: isOnHold ? extractValue(record[PROJECT_FIELDS.HOLD_REASON]) : null,
+        holdReason: holdReasonText || null,
         // Milestone-specific fields (included for all projects)
         // Survey
         surveyStatus: record[PROJECT_FIELDS.SURVEY_STATUS],
