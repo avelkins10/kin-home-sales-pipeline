@@ -24,9 +24,14 @@ export const maxDuration = 300; // 5 minutes for full sync
  */
 export async function POST(request: NextRequest) {
   try {
+    console.log('[Admin Sync] POST request received');
+
     // Authentication - only super_admin can trigger sync
     const session = await getServerSession(authOptions);
+    console.log('[Admin Sync] Session:', session?.user?.email, session?.user?.role);
+
     if (!session || session.user.role !== 'super_admin') {
+      console.log('[Admin Sync] Unauthorized access attempt');
       return NextResponse.json(
         { error: 'Unauthorized', message: 'Only super_admin can trigger sync' },
         { status: 403 }
@@ -38,7 +43,7 @@ export async function POST(request: NextRequest) {
     const startDate = searchParams.get('startDate') || undefined;
     const endDate = searchParams.get('endDate') || undefined;
 
-    console.log(`[Admin Sync] Starting ${syncType} sync requested by ${session.user.email}`);
+    console.log(`[Admin Sync] Starting ${syncType} sync requested by ${session.user.email}`, { startDate, endDate });
 
     let results;
 
@@ -106,10 +111,12 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('[Admin Sync] Error:', error);
+    console.error('[Admin Sync] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     return NextResponse.json(
       {
         error: 'Sync failed',
-        message: error instanceof Error ? error.message : 'Unknown error'
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
       },
       { status: 500 }
     );
