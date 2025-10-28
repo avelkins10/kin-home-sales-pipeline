@@ -95,18 +95,18 @@ export default function RepCardSyncPage() {
       results.push(appointmentsData);
       queryClient.invalidateQueries({ queryKey: ['repcard-sync-status'] });
 
-      // Step 3: Sync status logs - chunked into 3-day periods on frontend (status logs are VERY large)
+      // Step 3: Sync status logs - chunked into 1-day periods on frontend (status logs are VERY large)
       const start = new Date(startDate);
       const end = new Date(endDate);
       const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
 
-      // Split into 3-day chunks (status logs have massive amounts of data)
+      // Split into 1-day chunks (most reliable - each day completes in 30-60s)
       const chunks: Array<{ startDate: string; endDate: string }> = [];
       let currentStart = new Date(start);
 
       while (currentStart <= end) {
         let currentEnd = new Date(currentStart);
-        currentEnd.setDate(currentEnd.getDate() + 2); // 3 days (inclusive)
+        // Single day chunk (no need to add days)
 
         if (currentEnd > end) {
           currentEnd = new Date(end);
@@ -117,8 +117,7 @@ export default function RepCardSyncPage() {
           endDate: currentEnd.toISOString().split('T')[0]
         });
 
-        // Move to next chunk
-        currentStart = new Date(currentEnd);
+        // Move to next day
         currentStart.setDate(currentStart.getDate() + 1);
       }
 
@@ -331,11 +330,50 @@ export default function RepCardSyncPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Full Sync */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-medium">Full Sync</h3>
+          {/* Quick Sync - Last 7 Days */}
+          <div className="space-y-3 p-4 border rounded-lg bg-blue-50 dark:bg-blue-950">
+            <h3 className="text-sm font-medium flex items-center gap-2">
+              <PlayCircle className="h-4 w-4 text-blue-600" />
+              Quick Sync (Last 7 Days)
+            </h3>
             <p className="text-sm text-muted-foreground">
-              Sync all data for a specific date range. Use this for initial setup or to backfill data.
+              Recommended for initial setup. Syncs the most recent 7 days of data to get you started quickly (~5-8 minutes).
+            </p>
+            <Button
+              onClick={() => {
+                const today = new Date();
+                const sevenDaysAgo = new Date(today);
+                sevenDaysAgo.setDate(today.getDate() - 7);
+
+                const endDateStr = today.toISOString().split('T')[0];
+                const startDateStr = sevenDaysAgo.toISOString().split('T')[0];
+
+                setStartDate(startDateStr);
+                setEndDate(endDateStr);
+                fullSyncMutation.mutate({ startDate: startDateStr, endDate: endDateStr });
+              }}
+              disabled={fullSyncMutation.isPending || incrementalSyncMutation.isPending}
+              className="w-full bg-blue-600 hover:bg-blue-700"
+            >
+              {fullSyncMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Syncing...
+                </>
+              ) : (
+                <>
+                  <PlayCircle className="mr-2 h-4 w-4" />
+                  Start Quick Sync
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* Full Sync */}
+          <div className="space-y-3 pt-4 border-t">
+            <h3 className="text-sm font-medium">Custom Date Range Sync</h3>
+            <p className="text-sm text-muted-foreground">
+              Sync specific date range for backfilling historical data or custom periods.
             </p>
             <div className="flex gap-3 items-end">
               <div className="flex-1">
