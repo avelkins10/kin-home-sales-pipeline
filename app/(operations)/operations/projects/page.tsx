@@ -1,15 +1,8 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams, useRouter } from 'next/navigation';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -19,7 +12,6 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Package,
   MapPin,
@@ -29,471 +21,366 @@ import {
   ClipboardCheck,
   Zap,
   Search,
-  Filter,
-  TrendingUp,
-  Clock,
-  AlertTriangle,
-  PauseCircle
+  RefreshCw,
+  X
 } from 'lucide-react';
 import type { OperationsMilestone, MilestoneDashboardData } from '@/lib/types/operations';
 
-// Milestone configuration with icons and colors
+// Milestone configuration
 const milestoneConfig: Record<OperationsMilestone, {
   icon: React.ComponentType<any>;
   label: string;
   color: string;
-  description: string;
 }> = {
-  intake: {
-    icon: Package,
-    label: 'Intake',
-    color: 'text-orange-600 bg-orange-100',
-    description: 'Initial customer onboarding and document collection'
-  },
-  survey: {
-    icon: MapPin,
-    label: 'Survey',
-    color: 'text-yellow-600 bg-yellow-100',
-    description: 'Site survey scheduling and completion'
-  },
-  design: {
-    icon: PenTool,
-    label: 'Design',
-    color: 'text-blue-600 bg-blue-100',
-    description: 'System design and engineering'
-  },
-  permitting: {
-    icon: FileText,
-    label: 'Permitting',
-    color: 'text-purple-600 bg-purple-100',
-    description: 'AHJ, NEM, and HOA permit processing'
-  },
-  install: {
-    icon: Hammer,
-    label: 'Install',
-    color: 'text-indigo-600 bg-indigo-100',
-    description: 'Installation scheduling and completion'
-  },
-  inspection: {
-    icon: ClipboardCheck,
-    label: 'Inspection',
-    color: 'text-teal-600 bg-teal-100',
-    description: 'Inspection scheduling and approval'
-  },
-  pto: {
-    icon: Zap,
-    label: 'PTO',
-    color: 'text-green-600 bg-green-100',
-    description: 'Permission to Operate submission'
-  }
+  intake: { icon: Package, label: 'Intake', color: 'bg-orange-100 text-orange-700 border-orange-300' },
+  survey: { icon: MapPin, label: 'Survey', color: 'bg-yellow-100 text-yellow-700 border-yellow-300' },
+  design: { icon: PenTool, label: 'Design', color: 'bg-blue-100 text-blue-700 border-blue-300' },
+  permitting: { icon: FileText, label: 'Permitting', color: 'bg-purple-100 text-purple-700 border-purple-300' },
+  install: { icon: Hammer, label: 'Install', color: 'bg-indigo-100 text-indigo-700 border-indigo-300' },
+  inspection: { icon: ClipboardCheck, label: 'Inspection', color: 'bg-teal-100 text-teal-700 border-teal-300' },
+  pto: { icon: Zap, label: 'PTO', color: 'bg-green-100 text-green-700 border-green-300' }
 };
 
-// Milestone groupings
-const milestoneGroups = {
-  preInstall: ['intake', 'survey', 'design', 'permitting'] as OperationsMilestone[],
-  postInstall: ['install', 'inspection', 'pto'] as OperationsMilestone[]
-};
+const allMilestones: OperationsMilestone[] = ['intake', 'survey', 'design', 'permitting', 'install', 'inspection', 'pto'];
 
 export default function ProjectsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Get current milestone from URL or default to 'intake'
+  // Get filters from URL
   const currentMilestone = (searchParams.get('milestone') || 'intake') as OperationsMilestone;
-  const currentStatus = searchParams.get('status') || 'all';
   const searchQuery = searchParams.get('search') || '';
   const officeFilter = searchParams.get('office') || 'all';
   const repFilter = searchParams.get('rep') || 'all';
   const dateRangeFilter = searchParams.get('dateRange') || 'all';
+  const sortFilter = searchParams.get('sort') || 'daysDesc';
 
   // Local state for filters
   const [search, setSearch] = useState(searchQuery);
   const [office, setOffice] = useState(officeFilter);
   const [rep, setRep] = useState(repFilter);
   const [dateRange, setDateRange] = useState(dateRangeFilter);
-  const [status, setStatus] = useState(currentStatus);
+  const [sort, setSort] = useState(sortFilter);
 
   // Fetch milestone data
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
   const params = new URLSearchParams();
-  if (status !== 'all') params.append('status', status);
+  if (search) params.append('search', search);
   if (office !== 'all') params.append('office', office);
   if (rep !== 'all') params.append('rep', rep);
-  if (search) params.append('search', search);
   if (dateRange !== 'all') params.append('dateRange', dateRange);
   params.append('showBlocked', 'true');
   params.append('showOnHold', 'true');
 
   const endpoint = `${baseUrl}/api/operations/milestones/${currentMilestone}?${params}`;
 
-  const { data: milestoneData, isLoading, error, refetch } = useQuery<{ success: boolean; data: MilestoneDashboardData }>({
-    queryKey: ['milestone', currentMilestone, status, office, rep, search, dateRange],
+  const { data: milestoneData, isLoading, error, refetch, isFetching } = useQuery<{ success: boolean; data: MilestoneDashboardData }>({
+    queryKey: ['milestone', currentMilestone, search, office, rep, dateRange],
     queryFn: async () => {
       const response = await fetch(endpoint);
       if (!response.ok) throw new Error('Failed to fetch milestone data');
       return response.json();
     },
-    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchInterval: 30000,
     staleTime: 10000
   });
 
   // Update URL when milestone changes
   const handleMilestoneChange = (milestone: OperationsMilestone) => {
-    const params = new URLSearchParams(searchParams);
-    params.set('milestone', milestone);
-    params.set('status', 'all'); // Reset status when changing milestone
-    router.push(`/operations/projects?${params.toString()}`);
-    setStatus('all');
+    const newParams = new URLSearchParams();
+    newParams.set('milestone', milestone);
+    if (search) newParams.set('search', search);
+    if (office !== 'all') newParams.set('office', office);
+    if (rep !== 'all') newParams.set('rep', rep);
+    if (dateRange !== 'all') newParams.set('dateRange', dateRange);
+    if (sort !== 'daysDesc') newParams.set('sort', sort);
+    router.push(`/operations/projects?${newParams.toString()}`);
   };
 
-  // Update URL when filters change
-  const updateFilters = () => {
-    const params = new URLSearchParams();
-    params.set('milestone', currentMilestone);
-    if (status !== 'all') params.set('status', status);
-    if (office !== 'all') params.set('office', office);
-    if (rep !== 'all') params.set('rep', rep);
-    if (search) params.set('search', search);
-    if (dateRange !== 'all') params.set('dateRange', dateRange);
-    router.push(`/operations/projects?${params.toString()}`);
+  // Apply filters
+  const applyFilters = () => {
+    const newParams = new URLSearchParams();
+    newParams.set('milestone', currentMilestone);
+    if (search) newParams.set('search', search);
+    if (office !== 'all') newParams.set('office', office);
+    if (rep !== 'all') newParams.set('rep', rep);
+    if (dateRange !== 'all') newParams.set('dateRange', dateRange);
+    if (sort !== 'daysDesc') newParams.set('sort', sort);
+    router.push(`/operations/projects?${newParams.toString()}`);
+  };
+
+  // Clear filters
+  const clearFilters = () => {
+    setSearch('');
+    setOffice('all');
+    setRep('all');
+    setDateRange('all');
+    setSort('daysDesc');
+    router.push(`/operations/projects?milestone=${currentMilestone}`);
   };
 
   // Get unique values for filters
   const uniqueOffices = useMemo(() => {
     if (!milestoneData?.data?.projects) return [];
-    return Array.from(new Set(milestoneData.data.projects.map(p => p.salesOffice))).sort();
+    return Array.from(new Set(milestoneData.data.projects.map(p => p.salesOffice).filter(Boolean))).sort();
   }, [milestoneData]);
 
   const uniqueReps = useMemo(() => {
     if (!milestoneData?.data?.projects) return [];
-    return Array.from(new Set(milestoneData.data.projects.map(p => p.salesRepName))).sort();
+    return Array.from(new Set(milestoneData.data.projects.map(p => p.salesRepName).filter(Boolean))).sort();
   }, [milestoneData]);
 
-  const config = milestoneConfig[currentMilestone];
-  const MilestoneIcon = config.icon;
+  // Sort projects
+  const sortedProjects = useMemo(() => {
+    if (!milestoneData?.data?.projects) return [];
+    const projects = [...milestoneData.data.projects];
+
+    switch (sort) {
+      case 'daysDesc':
+        return projects.sort((a, b) => b.daysInMilestone - a.daysInMilestone);
+      case 'daysAsc':
+        return projects.sort((a, b) => a.daysInMilestone - b.daysInMilestone);
+      case 'projectId':
+        return projects.sort((a, b) => a.projectId.localeCompare(b.projectId));
+      case 'customer':
+        return projects.sort((a, b) => a.customerName.localeCompare(b.customerName));
+      default:
+        return projects;
+    }
+  }, [milestoneData, sort]);
+
+  // Active filters count
+  const activeFiltersCount = [
+    search ? 1 : 0,
+    office !== 'all' ? 1 : 0,
+    rep !== 'all' ? 1 : 0,
+    dateRange !== 'all' ? 1 : 0
+  ].reduce((a, b) => a + b, 0);
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {/* Page Header */}
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
-        <p className="text-muted-foreground">
-          Track projects through each stage of the operations lifecycle
-        </p>
-      </div>
+    <div className="min-h-screen bg-slate-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Page Header */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-slate-900">Projects</h1>
+          <p className="mt-1 text-sm text-slate-600">Track projects through each stage of the operations lifecycle</p>
+        </div>
 
-      {/* Milestone Navigation */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Select Milestone</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Pre-Install Group */}
-          <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Pre-Install</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {milestoneGroups.preInstall.map((milestone) => {
-                const config = milestoneConfig[milestone];
-                const Icon = config.icon;
-                const isActive = currentMilestone === milestone;
+        {/* Milestone Filter Buttons */}
+        <div className="mb-6 bg-white rounded-lg border p-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            {allMilestones.map((milestone) => {
+              const config = milestoneConfig[milestone];
+              const Icon = config.icon;
+              const isActive = currentMilestone === milestone;
+              const count = milestone === currentMilestone ? milestoneData?.data?.metrics?.total : undefined;
 
-                return (
-                  <button
-                    key={milestone}
-                    onClick={() => handleMilestoneChange(milestone)}
-                    className={`
-                      flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all
-                      ${isActive
-                        ? 'border-blue-500 bg-blue-50 shadow-md'
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                      }
-                    `}
-                  >
-                    <div className={`p-2 rounded-full ${config.color}`}>
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <span className="text-sm font-semibold">{config.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Post-Install Group */}
-          <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Post-Install</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {milestoneGroups.postInstall.map((milestone) => {
-                const config = milestoneConfig[milestone];
-                const Icon = config.icon;
-                const isActive = currentMilestone === milestone;
-
-                return (
-                  <button
-                    key={milestone}
-                    onClick={() => handleMilestoneChange(milestone)}
-                    className={`
-                      flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all
-                      ${isActive
-                        ? 'border-blue-500 bg-blue-50 shadow-md'
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                      }
-                    `}
-                  >
-                    <div className={`p-2 rounded-full ${config.color}`}>
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <span className="text-sm font-semibold">{config.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Current Milestone Dashboard */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className={`p-3 rounded-lg ${config.color}`}>
-              <MilestoneIcon className="h-6 w-6" />
-            </div>
-            <div>
-              <CardTitle>{config.label} Milestone</CardTitle>
-              <CardDescription>{config.description}</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="text-center space-y-3">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto" />
-                <p className="text-sm text-gray-500">Loading milestone data...</p>
-              </div>
-            </div>
-          ) : error ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="text-center space-y-3">
-                <AlertTriangle className="h-12 w-12 text-red-500 mx-auto" />
-                <p className="text-sm text-gray-700">Failed to load milestone data</p>
-                <Button onClick={() => refetch()} variant="outline" size="sm">
-                  Try Again
-                </Button>
-              </div>
-            </div>
-          ) : milestoneData?.data ? (
-            <div className="space-y-6">
-              {/* Summary Metrics */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-gray-600">
-                      Total Projects
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-blue-600" />
-                      <span className="text-2xl font-bold">{milestoneData.data.metrics.total}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-gray-600">
-                      Avg Days in Milestone
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-amber-600" />
-                      <span className="text-2xl font-bold">{milestoneData.data.metrics.avgDaysInMilestone}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-gray-600">
-                      Blocked Projects
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4 text-red-600" />
-                      <span className="text-2xl font-bold">{milestoneData.data.metrics.blockedCount}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-gray-600">
-                      On Hold
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-2">
-                      <PauseCircle className="h-4 w-4 text-gray-600" />
-                      <span className="text-2xl font-bold">{milestoneData.data.metrics.onHoldCount}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Filters */}
-              <div className="flex flex-wrap gap-3 items-end">
-                <div className="flex-1 min-w-[200px]">
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">
-                    Search
-                  </label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      placeholder="Project ID or customer name..."
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && updateFilters()}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-
-                <div className="w-[180px]">
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">
-                    Office
-                  </label>
-                  <Select value={office} onValueChange={setOffice}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Offices</SelectItem>
-                      {uniqueOffices.map(o => (
-                        <SelectItem key={o} value={o}>{o}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="w-[180px]">
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">
-                    Sales Rep
-                  </label>
-                  <Select value={rep} onValueChange={setRep}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Reps</SelectItem>
-                      {uniqueReps.map(r => (
-                        <SelectItem key={r} value={r}>{r}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="w-[180px]">
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">
-                    Date Range
-                  </label>
-                  <Select value={dateRange} onValueChange={setDateRange}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Time</SelectItem>
-                      <SelectItem value="7days">Last 7 Days</SelectItem>
-                      <SelectItem value="30days">Last 30 Days</SelectItem>
-                      <SelectItem value="90days">Last 90 Days</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <Button onClick={updateFilters} className="gap-2">
-                  <Filter className="h-4 w-4" />
-                  Apply Filters
-                </Button>
-              </div>
-
-              {/* Status Tabs */}
-              <Tabs value={status} onValueChange={setStatus} className="w-full">
-                <TabsList className="w-full flex-wrap h-auto gap-2">
-                  <TabsTrigger value="all" className="flex items-center gap-2">
-                    All
-                    <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-gray-100 rounded-full">
-                      {milestoneData.data.metrics.total}
+              return (
+                <button
+                  key={milestone}
+                  onClick={() => handleMilestoneChange(milestone)}
+                  className={`
+                    flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all font-medium text-sm
+                    ${isActive
+                      ? `${config.color} border-current shadow-sm`
+                      : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }
+                  `}
+                >
+                  <Icon className="h-4 w-4" />
+                  {config.label}
+                  {count !== undefined && (
+                    <span className="ml-1 px-1.5 py-0.5 text-xs font-semibold bg-white/80 rounded">
+                      {count}
                     </span>
-                  </TabsTrigger>
-                  {milestoneData.data.availableStatuses.map((statusValue) => {
-                    const count = milestoneData.data.metrics.byStatus[statusValue] || 0;
-                    if (count === 0) return null;
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
-                    // Format status label
-                    const label = statusValue
-                      .split('_')
-                      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                      .join(' ');
+        {/* Filters */}
+        <div className="mb-4 space-y-3">
+          {/* Search and Sort Row */}
+          <div className="flex gap-3">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search by project ID or customer name..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
+                className="pl-10"
+              />
+            </div>
+            <Select value={sort} onValueChange={setSort}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="daysDesc">Days (High to Low)</SelectItem>
+                <SelectItem value="daysAsc">Days (Low to High)</SelectItem>
+                <SelectItem value="projectId">Project ID</SelectItem>
+                <SelectItem value="customer">Customer Name</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-                    return (
-                      <TabsTrigger key={statusValue} value={statusValue} className="flex items-center gap-2">
-                        {label}
-                        <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700 rounded-full">
-                          {count}
-                        </span>
-                      </TabsTrigger>
-                    );
-                  })}
-                </TabsList>
+          {/* Office, Rep, Date Filters */}
+          <div className="flex gap-3">
+            <Select value={office} onValueChange={setOffice}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="All Offices" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Offices</SelectItem>
+                {uniqueOffices.map(o => (
+                  <SelectItem key={o} value={o}>{o}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-                <TabsContent value={status} className="mt-6">
-                  {/* Projects Table */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">
-                        {status === 'all' ? 'All Projects' : status.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {status === 'all' && milestoneData.data.projects.length === 0 ? (
-                        <div className="text-center py-12">
-                          <Package className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                          <p className="text-gray-500">No projects in this milestone</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          {/* Simple project list */}
-                          {(status === 'all'
-                            ? milestoneData.data.projects
-                            : milestoneData.data.projectsByStatus[status] || []
-                          ).map((project: any) => (
-                            <div key={project.recordId} className="p-4 border rounded-lg hover:bg-gray-50">
-                              <div className="flex justify-between items-start">
-                                <div>
-                                  <h4 className="font-semibold">{project.projectId}</h4>
-                                  <p className="text-sm text-gray-600">{project.customerName}</p>
-                                  <p className="text-xs text-gray-500">{project.salesOffice}</p>
-                                </div>
-                                <div className="text-right">
-                                  <p className="text-sm font-medium">{project.daysInMilestone} days</p>
-                                  <p className="text-xs text-gray-500">in milestone</p>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
+            <Select value={rep} onValueChange={setRep}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="All Reps" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sales Reps</SelectItem>
+                {uniqueReps.map(r => (
+                  <SelectItem key={r} value={r}>{r}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={dateRange} onValueChange={setDateRange}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="All Time" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Time</SelectItem>
+                <SelectItem value="7days">Last 7 Days</SelectItem>
+                <SelectItem value="30days">Last 30 Days</SelectItem>
+                <SelectItem value="90days">Last 90 Days</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Button onClick={applyFilters} disabled={isFetching}>
+              {isFetching ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                'Apply'
+              )}
+            </Button>
+
+            {activeFiltersCount > 0 && (
+              <Button variant="outline" onClick={clearFilters}>
+                <X className="h-4 w-4 mr-2" />
+                Clear ({activeFiltersCount})
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Project Table */}
+        {isLoading ? (
+          <div className="space-y-4">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-lg border p-4 animate-pulse">
+                <div className="h-4 bg-gray-200 rounded w-1/4 mb-3"></div>
+                <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
+                <div className="h-3 bg-gray-200 rounded w-1/3"></div>
+              </div>
+            ))}
+          </div>
+        ) : error ? (
+          <div className="bg-white rounded-lg border p-8 text-center">
+            <p className="text-red-600 mb-4">Failed to load projects</p>
+            <Button onClick={() => refetch()} variant="outline">
+              Try Again
+            </Button>
+          </div>
+        ) : sortedProjects.length === 0 ? (
+          <div className="bg-white rounded-lg border p-8 text-center">
+            <Package className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-600">No projects found in {milestoneConfig[currentMilestone].label} milestone</p>
+            {activeFiltersCount > 0 && (
+              <Button onClick={clearFilters} variant="outline" className="mt-4">
+                Clear Filters
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {sortedProjects.map((project) => (
+              <div key={project.recordId} className="bg-white rounded-lg border hover:shadow-md transition-shadow">
+                <div className="p-4">
+                  {/* Project Header */}
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <h3 className="font-semibold text-lg text-gray-900">{project.projectId}</h3>
+                      <p className="text-sm text-gray-600">{project.customerName}</p>
+                      <p className="text-xs text-gray-500">{project.salesOffice}</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-blue-600">{project.daysInMilestone}</div>
+                      <div className="text-xs text-gray-500">days in milestone</div>
+                    </div>
+                  </div>
+
+                  {/* Project Details */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <div className="text-gray-500 text-xs">Status</div>
+                      <div className="font-medium capitalize">
+                        {project.milestoneStatus.replace(/_/g, ' ')}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500 text-xs">Days in Status</div>
+                      <div className="font-medium">{project.daysInStatus} days</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500 text-xs">Sales Rep</div>
+                      <div className="font-medium">{project.salesRepName || 'N/A'}</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500 text-xs">Lender</div>
+                      <div className="font-medium">{project.lenderName || 'N/A'}</div>
+                    </div>
+                  </div>
+
+                  {/* Blockers/Holds */}
+                  {(project.isBlocked || project.isOnHold) && (
+                    <div className="mt-3 flex gap-2">
+                      {project.isBlocked && (
+                        <div className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded">
+                          ⚠️ Blocked: {project.blockReason}
                         </div>
                       )}
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              </Tabs>
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
+                      {project.isOnHold && (
+                        <div className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded">
+                          ⏸️ On Hold: {project.holdReason}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Results Summary */}
+        {!isLoading && !error && sortedProjects.length > 0 && (
+          <div className="mt-4 text-sm text-gray-600 text-center">
+            Showing {sortedProjects.length} project{sortedProjects.length !== 1 ? 's' : ''} in {milestoneConfig[currentMilestone].label} milestone
+          </div>
+        )}
+      </div>
     </div>
   );
 }
