@@ -58,8 +58,8 @@ export default function OperationsProjectsPage() {
   const currentMilestone = searchParams.get('milestone') as OperationsMilestone | null;
   const currentStatus = searchParams.get('status') || 'all';
   const searchQuery = searchParams.get('search') || '';
-  const officeFilter = searchParams.get('office') || '';
-  const repFilter = searchParams.get('rep') || '';
+  const officeFilter = searchParams.get('office') || 'all';
+  const repFilter = searchParams.get('rep') || 'all';
   const sortFilter = searchParams.get('sort') || 'newest';
 
   // Local state for filters (before applying)
@@ -88,9 +88,9 @@ export default function OperationsProjectsPage() {
       if (currentMilestone) params.append('milestone', currentMilestone);
       if (currentStatus !== 'all') params.append('status', currentStatus);
       if (searchQuery) params.append('search', searchQuery);
-      if (sortFilter) params.append('sort', sortFilter);
-      if (officeFilter) params.append('office', officeFilter);
-      if (repFilter) params.append('salesRep', repFilter);
+      if (sortFilter && sortFilter !== 'newest') params.append('sort', sortFilter);
+      if (officeFilter && officeFilter !== 'all') params.append('office', officeFilter);
+      if (repFilter && repFilter !== 'all') params.append('salesRep', repFilter);
 
       const response = await fetch(`/api/operations/projects?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch projects');
@@ -128,9 +128,9 @@ export default function OperationsProjectsPage() {
     const newParams = new URLSearchParams();
     if (milestone) newParams.set('milestone', milestone);
     if (searchQuery) newParams.set('search', searchQuery);
-    if (sortFilter) newParams.set('sort', sortFilter);
-    if (officeFilter) newParams.set('office', officeFilter);
-    if (repFilter) newParams.set('rep', repFilter);
+    if (sortFilter && sortFilter !== 'newest') newParams.set('sort', sortFilter);
+    if (officeFilter && officeFilter !== 'all') newParams.set('office', officeFilter);
+    if (repFilter && repFilter !== 'all') newParams.set('rep', repFilter);
     router.push(`/operations/projects?${newParams.toString()}`);
   };
 
@@ -140,9 +140,9 @@ export default function OperationsProjectsPage() {
     if (currentMilestone) newParams.set('milestone', currentMilestone);
     if (newStatus !== 'all') newParams.set('status', newStatus);
     if (searchQuery) newParams.set('search', searchQuery);
-    if (sortFilter) newParams.set('sort', sortFilter);
-    if (officeFilter) newParams.set('office', officeFilter);
-    if (repFilter) newParams.set('rep', repFilter);
+    if (sortFilter && sortFilter !== 'newest') newParams.set('sort', sortFilter);
+    if (officeFilter && officeFilter !== 'all') newParams.set('office', officeFilter);
+    if (repFilter && repFilter !== 'all') newParams.set('rep', repFilter);
     router.push(`/operations/projects?${newParams.toString()}`);
   };
 
@@ -152,17 +152,17 @@ export default function OperationsProjectsPage() {
     if (currentMilestone) newParams.set('milestone', currentMilestone);
     if (currentStatus !== 'all') newParams.set('status', currentStatus);
     if (search) newParams.set('search', search);
-    if (sort) newParams.set('sort', sort);
-    if (office) newParams.set('office', office);
-    if (rep) newParams.set('rep', rep);
+    if (sort && sort !== 'newest') newParams.set('sort', sort);
+    if (office && office !== 'all') newParams.set('office', office);
+    if (rep && rep !== 'all') newParams.set('rep', rep);
     router.push(`/operations/projects?${newParams.toString()}`);
   };
 
   // Clear filters
   const clearFilters = () => {
     setSearch('');
-    setOffice('');
-    setRep('');
+    setOffice('all');
+    setRep('all');
     setSort('newest');
     const newParams = new URLSearchParams();
     if (currentMilestone) newParams.set('milestone', currentMilestone);
@@ -172,8 +172,8 @@ export default function OperationsProjectsPage() {
   // Active filters count
   const activeFiltersCount = [
     searchQuery ? 1 : 0,
-    officeFilter ? 1 : 0,
-    repFilter ? 1 : 0
+    officeFilter && officeFilter !== 'all' ? 1 : 0,
+    repFilter && repFilter !== 'all' ? 1 : 0
   ].reduce((a, b) => a + b, 0);
 
   return (
@@ -273,7 +273,7 @@ export default function OperationsProjectsPage() {
                 <SelectValue placeholder="All Offices" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Offices</SelectItem>
+                <SelectItem value="all">All Offices</SelectItem>
                 {uniqueOffices.map(o => (
                   <SelectItem key={o} value={o}>{o}</SelectItem>
                 ))}
@@ -285,7 +285,7 @@ export default function OperationsProjectsPage() {
                 <SelectValue placeholder="All Reps" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Sales Reps</SelectItem>
+                <SelectItem value="all">All Sales Reps</SelectItem>
                 {uniqueReps.map(r => (
                   <SelectItem key={r} value={r}>{r}</SelectItem>
                 ))}
