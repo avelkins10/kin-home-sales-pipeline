@@ -153,14 +153,14 @@ export async function GET(request: NextRequest) {
         WHERE u.repcard_user_id IS NOT NULL
           AND o.quickbase_office_id = ANY(${officeIds}::int[])
       `;
-      repcardUserIds = result.map((r: any) => parseInt(r.repcard_user_id)).filter(id => !isNaN(id));
+      repcardUserIds = Array.from(result).map((r: any) => parseInt(r.repcard_user_id)).filter(id => !isNaN(id));
     } else {
       const result = await sql`
         SELECT DISTINCT repcard_user_id
         FROM users
         WHERE repcard_user_id IS NOT NULL
       `;
-      repcardUserIds = result.map((r: any) => parseInt(r.repcard_user_id)).filter(id => !isNaN(id));
+      repcardUserIds = Array.from(result).map((r: any) => parseInt(r.repcard_user_id)).filter(id => !isNaN(id));
     }
 
     if (repcardUserIds.length === 0) {
@@ -195,12 +195,12 @@ export async function GET(request: NextRequest) {
     console.log(`[Canvassing Trends] Found ${trendingData.length} days with data`);
 
     // Format data for chart
-    const trendData = trendingData.map((row: any) => ({
+    const trendData = Array.from(trendingData).map((row: any) => ({
       date: new Date(row.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       doors: parseInt(row.doors)
     }));
 
-    const totalDoors = trendingData.reduce((sum: number, row: any) => sum + parseInt(row.doors), 0);
+    const totalDoors = Array.from(trendingData).reduce((sum: number, row: any) => sum + parseInt(row.doors), 0);
 
     const response = {
       data: trendData,

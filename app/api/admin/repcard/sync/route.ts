@@ -192,9 +192,9 @@ export async function GET(request: NextRequest) {
       latestSyncs,
       syncHistory: Array.from(syncHistory),
       recordCounts: {
-        customers: Number(customerCountResult[0]?.count || 0),
-        appointments: Number(appointmentCountResult[0]?.count || 0),
-        statusLogs: Number(statusLogCountResult[0]?.count || 0)
+        customers: Number(Array.from(customerCountResult)[0]?.count || 0),
+        appointments: Number(Array.from(appointmentCountResult)[0]?.count || 0),
+        statusLogs: Number(Array.from(statusLogCountResult)[0]?.count || 0)
       }
     });
 
