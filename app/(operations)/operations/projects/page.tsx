@@ -52,7 +52,7 @@ const allMilestones: OperationsMilestone[] = ['intake', 'survey', 'design', 'per
 export default function OperationsProjectsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
 
   // Get filters from URL
   const currentMilestone = searchParams.get('milestone') as OperationsMilestone | null;
@@ -175,6 +175,29 @@ export default function OperationsProjectsPage() {
     officeFilter && officeFilter !== 'all' ? 1 : 0,
     repFilter && repFilter !== 'all' ? 1 : 0
   ].reduce((a, b) => a + b, 0);
+
+  // Show loading state while session is loading to prevent hydration mismatch
+  if (sessionStatus === 'loading') {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 text-slate-400 animate-spin mx-auto mb-4" />
+          <p className="text-slate-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if not authenticated
+  if (sessionStatus === 'unauthenticated') {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">You must be logged in to view this page</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50">
