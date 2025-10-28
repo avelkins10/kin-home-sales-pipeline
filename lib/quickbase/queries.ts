@@ -9082,7 +9082,7 @@ export async function getInspectionProjects(
       whereClause = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
     } else {
       // Operations coordinators see only their assigned projects
-      whereClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+      whereClause = `(({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'}))`;
     }
 
     // Add filters: must have install completed, exclude Lost/Cancelled, exclude already PTO'd
@@ -9379,7 +9379,7 @@ export async function getPTOProjects(
       whereClause = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
     } else {
       // Operations coordinators see only their assigned projects
-      whereClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+      whereClause = `(({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'}))`;
     }
 
     // Add filters: must have install completed, exclude Lost/Cancelled, exclude already PTO'd
@@ -9712,7 +9712,7 @@ export async function getMilestoneProjects(
       whereClause = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
     } else {
       // Operations coordinators see only their assigned projects
-      whereClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+      whereClause = `(({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'}))`;
     }
 
     // Add milestone-specific filtering and exclude Lost/Cancelled
@@ -9858,6 +9858,9 @@ export async function getMilestoneProjects(
         top: 0 // fetch all
       }
     };
+
+    // Log WHERE clause for debugging
+    console.log(`[getMilestoneProjects] WHERE clause for ${milestone}:`, whereClause);
 
     const response = await qbClient.query(query);
     const now = new Date();
