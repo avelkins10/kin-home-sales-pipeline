@@ -158,7 +158,7 @@ export async function GET(request: NextRequest) {
     const syncHistory = await query;
 
     // Get latest sync for each entity type
-    const latestSyncs = await sql`
+    const latestSyncsRaw = await sql`
       SELECT DISTINCT ON (entity_type)
         entity_type,
         sync_type,
@@ -174,19 +174,20 @@ export async function GET(request: NextRequest) {
       WHERE status = 'completed'
       ORDER BY entity_type, completed_at DESC
     `;
+    const latestSyncs = Array.from(latestSyncsRaw);
 
     // Get record counts from tables
-    const customerCount = await sql`SELECT COUNT(*) as count FROM repcard_customers`;
-    const appointmentCount = await sql`SELECT COUNT(*) as count FROM repcard_appointments`;
-    const statusLogCount = await sql`SELECT COUNT(*) as count FROM repcard_status_logs`;
+    const customerCountResult = await sql`SELECT COUNT(*) as count FROM repcard_customers`;
+    const appointmentCountResult = await sql`SELECT COUNT(*) as count FROM repcard_appointments`;
+    const statusLogCountResult = await sql`SELECT COUNT(*) as count FROM repcard_status_logs`;
 
     return NextResponse.json({
       latestSyncs,
-      syncHistory,
+      syncHistory: Array.from(syncHistory),
       recordCounts: {
-        customers: parseInt(customerCount[0].count),
-        appointments: parseInt(appointmentCount[0].count),
-        statusLogs: parseInt(statusLogCount[0].count)
+        customers: Number(customerCountResult[0]?.count || 0),
+        appointments: Number(appointmentCountResult[0]?.count || 0),
+        statusLogs: Number(statusLogCountResult[0]?.count || 0)
       }
     });
 
