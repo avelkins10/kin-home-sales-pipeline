@@ -446,40 +446,88 @@ export function InspectionsTable({ projects, status }: InspectionsTableProps) {
 
                         {/* Blocker Details (for waiting inspections) */}
                         {status === 'waiting_for_inspection' && (
-                          <div className="grid grid-cols-2 gap-4">
-                            {project.blockReason && (
-                              <div>
-                                <div className="text-xs font-semibold text-gray-700 mb-1">Block Reason:</div>
-                                <div className="text-sm text-gray-900">{project.blockReason}</div>
-                              </div>
-                            )}
-                            {project.holdReason && (
-                              <div>
-                                <div className="text-xs font-semibold text-gray-700 mb-1">Hold Reason:</div>
-                                <div className="text-sm text-gray-900">{project.holdReason}</div>
-                              </div>
-                            )}
-                            {project.permitStatus && (
-                              <div>
-                                <div className="text-xs font-semibold text-gray-700 mb-1">Permit Status:</div>
-                                <div className="text-sm text-gray-900">{project.permitStatus}</div>
-                              </div>
-                            )}
-                            <div>
-                              <div className="text-xs font-semibold text-gray-700 mb-1">As-Builts:</div>
-                              <div className="text-sm">
-                                {project.asBuiltSubmitted ? (
-                                  <span className="text-green-600 flex items-center">
-                                    <CheckCircle className="h-4 w-4 mr-1" />
-                                    Submitted
-                                  </span>
-                                ) : (
-                                  <span className="text-yellow-600 flex items-center">
-                                    <AlertTriangle className="h-4 w-4 mr-1" />
-                                    Pending
-                                  </span>
+                          <div className="space-y-3">
+                            {/* Permit Workflow */}
+                            <div className="bg-white p-3 rounded border border-gray-200">
+                              <div className="text-xs font-semibold text-gray-700 mb-2">Permit Workflow:</div>
+                              <div className="grid grid-cols-2 gap-3">
+                                {project.permitStatus && (
+                                  <div>
+                                    <div className="text-xs text-gray-500">Current Status:</div>
+                                    <div className="text-sm font-medium text-gray-900">{project.permitStatus}</div>
+                                  </div>
+                                )}
+                                {project.permitSubmitted && (
+                                  <div>
+                                    <div className="text-xs text-gray-500">Submitted:</div>
+                                    <div className="text-sm text-gray-900">{new Date(project.permitSubmitted).toLocaleDateString()}</div>
+                                  </div>
+                                )}
+                                {project.permitApproved && (
+                                  <div>
+                                    <div className="text-xs text-gray-500">Approved:</div>
+                                    <div className="text-sm text-green-600 font-medium flex items-center">
+                                      <CheckCircle className="h-3 w-3 mr-1" />
+                                      {new Date(project.permitApproved).toLocaleDateString()}
+                                    </div>
+                                  </div>
+                                )}
+                                {project.permitRejected && (
+                                  <div>
+                                    <div className="text-xs text-gray-500">Rejected/Needs Revisions:</div>
+                                    <div className="text-sm text-orange-600 font-medium flex items-center">
+                                      <AlertTriangle className="h-3 w-3 mr-1" />
+                                      {project.permitRejected}
+                                    </div>
+                                  </div>
+                                )}
+                                {project.permitResubmitted && (
+                                  <div>
+                                    <div className="text-xs text-gray-500">Most Recent Resubmission:</div>
+                                    <div className="text-sm text-blue-600 font-medium">
+                                      {new Date(project.permitResubmitted).toLocaleDateString()}
+                                    </div>
+                                  </div>
                                 )}
                               </div>
+                            </div>
+
+                            {/* As-Builts and Other Details */}
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <div className="text-xs font-semibold text-gray-700 mb-1">As-Builts:</div>
+                                <div className="text-sm">
+                                  {project.asBuiltSubmitted ? (
+                                    <span className="text-green-600 flex items-center">
+                                      <CheckCircle className="h-4 w-4 mr-1" />
+                                      Submitted
+                                    </span>
+                                  ) : (
+                                    <span className="text-yellow-600 flex items-center">
+                                      <AlertTriangle className="h-4 w-4 mr-1" />
+                                      Pending
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              {project.recentNoteCategory && (
+                                <div>
+                                  <div className="text-xs font-semibold text-gray-700 mb-1">Recent Note Category:</div>
+                                  <div className="text-sm text-gray-900">{project.recentNoteCategory}</div>
+                                </div>
+                              )}
+                              {project.blockReason && (
+                                <div>
+                                  <div className="text-xs font-semibold text-gray-700 mb-1">Block Reason:</div>
+                                  <div className="text-sm text-gray-900">{project.blockReason}</div>
+                                </div>
+                              )}
+                              {project.holdReason && (
+                                <div>
+                                  <div className="text-xs font-semibold text-gray-700 mb-1">Hold Reason:</div>
+                                  <div className="text-sm text-gray-900">{project.holdReason}</div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         )}

@@ -756,6 +756,11 @@ export interface PCInspectionProject {
   failureCategory: PCInspectionFailureCategory | null; // categorized failure type
   asBuiltSubmitted: boolean; // whether as-built documents are submitted
   permitStatus: string | null; // current permit status
+  permitApproved: string | null; // permit approval date
+  permitSubmitted: string | null; // permit submission date
+  permitRejected: string | null; // permit rejected/needs revisions
+  permitResubmitted: string | null; // permit resubmitted date
+  recentNoteCategory: string | null; // category of most recent note
   holdReason: string | null; // reason project is on hold
   blockReason: string | null; // reason project is blocked
   blockers: PCInspectionBlocker[]; // active blockers for inspection scheduling
