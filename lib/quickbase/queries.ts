@@ -2547,6 +2547,40 @@ export async function getNotesForProject(projectRecordId: string | number) {
 }
 
 /**
+ * Get ALL notes for a specific project (for Operations view)
+ * Unlike getNotesForProject, this returns ALL notes regardless of rep visibility
+ */
+export async function getAllNotesForProject(projectRecordId: string | number) {
+  const { NOTE_FIELDS } = await import('@/lib/constants/noteFieldIds');
+  const QB_TABLE_NOTES = (process.env.QUICKBASE_TABLE_NOTES || 'bsb6bqt3b').trim();
+
+  console.log('[getAllNotesForProject] Fetching ALL notes for project:', projectRecordId);
+
+  try {
+    const response = await qbClient.queryRecords({
+      from: QB_TABLE_NOTES,
+      where: `{${NOTE_FIELDS.RELATED_PROJECT}.EX.${projectRecordId}}`,
+      select: [
+        NOTE_FIELDS.RECORD_ID,
+        NOTE_FIELDS.NOTE_CONTENT,
+        NOTE_FIELDS.CATEGORY,
+        NOTE_FIELDS.CREATED_BY,
+        NOTE_FIELDS.DATE_CREATED,
+        NOTE_FIELDS.REP_VISIBLE,
+      ],
+      sortBy: [{ fieldId: NOTE_FIELDS.DATE_CREATED, order: 'DESC' }],
+    });
+
+    console.log('[getAllNotesForProject] Found notes:', response.data?.length || 0);
+
+    return response.data || [];
+  } catch (error) {
+    logError('Failed to fetch all notes for project', error as Error, { projectRecordId });
+    return [];
+  }
+}
+
+/**
  * Create a new note for a project (auto-tagged as Sales/Rep Visible)
  */
 export async function createNoteForProject(projectRecordId: string | number, noteContent: string, createdBy: string) {
@@ -10224,6 +10258,249 @@ export async function getMilestoneProjects(
 
   } catch (error) {
     logQuickbaseError('getMilestoneProjects', error as Error, { milestone, pcEmail, reqId });
+    throw error;
+  }
+}
+
+/**
+ * Get all projects for a Project Coordinator with optional filters
+ * Used by the Operations Projects list view (default: show all projects)
+ *
+ * @param pcEmail - Project coordinator email
+ * @param pcName - Project coordinator name
+ * @param role - User role for access control
+ * @param filters - Optional filters (milestone, search, sort, office, rep)
+ * @param reqId - Request ID for logging
+ * @returns Array of projects assigned to the PC
+ */
+export async function getProjectsForPC(
+  pcEmail: string,
+  pcName: string,
+  role: string,
+  filters?: {
+    milestone?: import('@/lib/types/operations').OperationsMilestone;
+    search?: string;
+    sort?: string;
+    office?: string;
+    salesRep?: string;
+  },
+  reqId?: string
+): Promise<any[]> {
+  const startTime = Date.now();
+  console.log('[getProjectsForPC] Fetching projects for PC:', { pcEmail, role, filters, reqId });
+
+  try {
+    // Build WHERE clause based on role
+    let whereClause = '';
+    const sanitizedEmail = pcEmail.replace(/'/g, "\\'");
+    const sanitizedName = pcName.replace(/'/g, "\\'");
+
+    if (role === 'operations_coordinator') {
+      // Coordinators see only their own projects
+      whereClause = `(({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'}))`;
+    } else if (['operations_manager', 'office_leader', 'regional', 'super_admin'].includes(role)) {
+      // Managers/admins see all projects
+      whereClause = `{${PROJECT_FIELDS.RECORD_ID}.XEX.''}`;
+    } else {
+      // Default: no access
+      console.log('[getProjectsForPC] Role not authorized:', role);
+      return [];
+    }
+
+    // Add milestone filter if provided
+    if (filters?.milestone) {
+      const { milestone } = filters;
+
+      // Add milestone-specific conditions
+      switch (milestone) {
+        case 'intake':
+          whereClause += `AND{${PROJECT_FIELDS.INTAKE_COMPLETED_DATE}.EX.''}`;
+          break;
+        case 'survey':
+          whereClause += `AND{${PROJECT_FIELDS.INTAKE_COMPLETED_DATE}.XEX.''}AND{${PROJECT_FIELDS.SURVEY_COMPLETED}.EX.''}`;
+          break;
+        case 'design':
+          whereClause += `AND{${PROJECT_FIELDS.SURVEY_COMPLETED}.XEX.''}AND{${PROJECT_FIELDS.DESIGN_COMPLETED}.EX.''}`;
+          break;
+        case 'permitting':
+          whereClause += `AND{${PROJECT_FIELDS.DESIGN_COMPLETED}.XEX.''}AND{${PROJECT_FIELDS.PERMIT_APPROVED}.EX.''}`;
+          break;
+        case 'install':
+          whereClause += `AND{${PROJECT_FIELDS.PERMIT_APPROVED}.XEX.''}AND{${PROJECT_FIELDS.INSTALL_COMPLETED_DATE}.EX.''}`;
+          break;
+        case 'inspection':
+          whereClause += `AND{${PROJECT_FIELDS.INSTALL_COMPLETED_DATE}.XEX.''}AND{${PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED}.EX.''}`;
+          break;
+        case 'pto':
+          whereClause += `AND{${PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED}.XEX.''}AND{${PROJECT_FIELDS.PTO_APPROVED}.EX.''}`;
+          break;
+      }
+    }
+
+    console.log(`[getProjectsForPC] WHERE clause:`, whereClause);
+
+    // Query QuickBase
+    const query = {
+      from: QB_TABLE_PROJECTS,
+      select: [
+        PROJECT_FIELDS.RECORD_ID,
+        PROJECT_FIELDS.PROJECT_ID,
+        PROJECT_FIELDS.CUSTOMER_NAME,
+        PROJECT_FIELDS.CUSTOMER_PHONE,
+        PROJECT_FIELDS.SALES_OFFICE,
+        PROJECT_FIELDS.SALES_REP_NAME,
+        PROJECT_FIELDS.SALES_REP_EMAIL,
+        PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL,
+        PROJECT_FIELDS.PROJECT_COORDINATOR,
+        PROJECT_FIELDS.LENDER_NAME,
+        PROJECT_FIELDS.PROJECT_STATUS,
+        PROJECT_FIELDS.DATE_CREATED,
+        PROJECT_FIELDS.CURRENT_STAGE,
+        PROJECT_FIELDS.HOLD_STATUS,
+        PROJECT_FIELDS.HOLD_REASON,
+        PROJECT_FIELDS.BLOCK_STATUS,
+        PROJECT_FIELDS.BLOCK_REASON,
+        // Milestone dates for determining current milestone
+        PROJECT_FIELDS.INTAKE_COMPLETED_DATE,
+        PROJECT_FIELDS.SURVEY_COMPLETED,
+        PROJECT_FIELDS.DESIGN_COMPLETED,
+        PROJECT_FIELDS.PERMIT_APPROVED,
+        PROJECT_FIELDS.INSTALL_COMPLETED_DATE,
+        PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED,
+        PROJECT_FIELDS.PTO_APPROVED
+      ],
+      where: whereClause,
+      sortBy: [{ fieldId: PROJECT_FIELDS.DATE_CREATED, order: 'DESC' as 'DESC' }], // Newest first
+      options: {
+        skip: 0,
+        top: 0 // fetch all
+      }
+    };
+
+    const response = await qbClient.queryRecords(query);
+    const now = new Date();
+
+    // Process projects
+    const projects: any[] = [];
+
+    for (const record of response.data) {
+      // Extract dates
+      const dateCreated = parseQuickbaseDate(record[PROJECT_FIELDS.DATE_CREATED]);
+      const intakeCompleted = parseQuickbaseDate(record[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]);
+      const surveyCompleted = parseQuickbaseDate(record[PROJECT_FIELDS.SURVEY_COMPLETED]);
+      const designCompleted = parseQuickbaseDate(record[PROJECT_FIELDS.DESIGN_COMPLETED]);
+      const permitApproved = parseQuickbaseDate(record[PROJECT_FIELDS.PERMIT_APPROVED]);
+      const installCompleted = parseQuickbaseDate(record[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]);
+      const inspectionCompleted = parseQuickbaseDate(record[PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED]);
+      const ptoApproved = parseQuickbaseDate(record[PROJECT_FIELDS.PTO_APPROVED]);
+
+      // Determine current milestone
+      let currentMilestone: import('@/lib/types/operations').OperationsMilestone = 'intake';
+      let milestoneStartDate = dateCreated;
+
+      if (ptoApproved) {
+        // Project complete - skip
+        continue;
+      } else if (inspectionCompleted) {
+        currentMilestone = 'pto';
+        milestoneStartDate = inspectionCompleted;
+      } else if (installCompleted) {
+        currentMilestone = 'inspection';
+        milestoneStartDate = installCompleted;
+      } else if (permitApproved) {
+        currentMilestone = 'install';
+        milestoneStartDate = permitApproved;
+      } else if (designCompleted) {
+        currentMilestone = 'permitting';
+        milestoneStartDate = designCompleted;
+      } else if (surveyCompleted) {
+        currentMilestone = 'design';
+        milestoneStartDate = surveyCompleted;
+      } else if (intakeCompleted) {
+        currentMilestone = 'survey';
+        milestoneStartDate = intakeCompleted;
+      }
+
+      // Calculate days in milestone
+      const daysInMilestone = milestoneStartDate
+        ? Math.floor((now.getTime() - milestoneStartDate.getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
+
+      // Determine block/hold status
+      const holdStatus = extractValue(record[PROJECT_FIELDS.HOLD_STATUS]);
+      const blockStatus = extractValue(record[PROJECT_FIELDS.BLOCK_STATUS]);
+      const isOnHold = holdStatus === 'On Hold';
+      const isBlocked = blockStatus === 'Project Blocked';
+
+      const project = {
+        recordId: extractValue(record[PROJECT_FIELDS.RECORD_ID]),
+        projectId: extractValue(record[PROJECT_FIELDS.PROJECT_ID]),
+        customerName: extractValue(record[PROJECT_FIELDS.CUSTOMER_NAME]),
+        customerPhone: extractValue(record[PROJECT_FIELDS.CUSTOMER_PHONE]),
+        salesOffice: extractValue(record[PROJECT_FIELDS.SALES_OFFICE]),
+        salesRepName: extractValue(record[PROJECT_FIELDS.SALES_REP_NAME]),
+        salesRepEmail: extractValue(record[PROJECT_FIELDS.SALES_REP_EMAIL]),
+        coordinatorEmail: extractValue(record[PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL]),
+        lenderName: extractValue(record[PROJECT_FIELDS.LENDER_NAME]),
+        projectStatus: extractValue(record[PROJECT_FIELDS.PROJECT_STATUS]),
+        currentStage: extractValue(record[PROJECT_FIELDS.CURRENT_STAGE]),
+        currentMilestone,
+        daysInMilestone,
+        dateCreated: record[PROJECT_FIELDS.DATE_CREATED],
+        isBlocked,
+        blockReason: isBlocked ? extractValue(record[PROJECT_FIELDS.BLOCK_REASON]) : null,
+        isOnHold,
+        holdReason: isOnHold ? extractValue(record[PROJECT_FIELDS.HOLD_REASON]) : null
+      };
+
+      projects.push(project);
+    }
+
+    // Apply client-side filters
+    let filteredProjects = projects;
+
+    // Search filter
+    if (filters?.search) {
+      const searchLower = filters.search.toLowerCase();
+      filteredProjects = filteredProjects.filter(p =>
+        p.projectId.toLowerCase().includes(searchLower) ||
+        p.customerName.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Office filter
+    if (filters?.office) {
+      filteredProjects = filteredProjects.filter(p => p.salesOffice === filters.office);
+    }
+
+    // Sales rep filter
+    if (filters?.salesRep) {
+      filteredProjects = filteredProjects.filter(p => p.salesRepName === filters.salesRep);
+    }
+
+    // Sort
+    if (filters?.sort === 'oldest') {
+      filteredProjects.sort((a, b) => {
+        const dateA = parseQuickbaseDate(a.dateCreated)?.getTime() || 0;
+        const dateB = parseQuickbaseDate(b.dateCreated)?.getTime() || 0;
+        return dateA - dateB;
+      });
+    } else if (filters?.sort === 'projectId') {
+      filteredProjects.sort((a, b) => a.projectId.localeCompare(b.projectId));
+    } else if (filters?.sort === 'customer') {
+      filteredProjects.sort((a, b) => a.customerName.localeCompare(b.customerName));
+    } else if (filters?.sort === 'daysDesc') {
+      filteredProjects.sort((a, b) => b.daysInMilestone - a.daysInMilestone);
+    }
+    // Default is already newest first from QB query
+
+    const duration = Date.now() - startTime;
+    console.log(`[getProjectsForPC] Found ${filteredProjects.length} projects (${duration}ms)`);
+
+    return filteredProjects;
+
+  } catch (error) {
+    logQuickbaseError('getProjectsForPC', error as Error, { pcEmail, reqId });
     throw error;
   }
 }

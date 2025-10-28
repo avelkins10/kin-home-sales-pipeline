@@ -24,7 +24,8 @@ import {
   RefreshCw,
   X
 } from 'lucide-react';
-import type { OperationsMilestone, MilestoneDashboardData } from '@/lib/types/operations';
+import type { OperationsMilestone } from '@/lib/types/operations';
+import Link from 'next/link';
 
 // Milestone configuration
 const milestoneConfig: Record<OperationsMilestone, {
@@ -43,69 +44,66 @@ const milestoneConfig: Record<OperationsMilestone, {
 
 const allMilestones: OperationsMilestone[] = ['intake', 'survey', 'design', 'permitting', 'install', 'inspection', 'pto'];
 
-export default function ProjectsPage() {
+export default function OperationsProjectsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Get filters from URL
-  const currentMilestone = (searchParams.get('milestone') || 'intake') as OperationsMilestone;
+  // Get filters from URL (milestone is now optional)
+  const currentMilestone = searchParams.get('milestone') as OperationsMilestone | null;
   const searchQuery = searchParams.get('search') || '';
   const officeFilter = searchParams.get('office') || 'all';
   const repFilter = searchParams.get('rep') || 'all';
-  const dateRangeFilter = searchParams.get('dateRange') || 'all';
-  const sortFilter = searchParams.get('sort') || 'daysDesc';
+  const sortFilter = searchParams.get('sort') || 'newest';
 
   // Local state for filters
   const [search, setSearch] = useState(searchQuery);
   const [office, setOffice] = useState(officeFilter);
   const [rep, setRep] = useState(repFilter);
-  const [dateRange, setDateRange] = useState(dateRangeFilter);
   const [sort, setSort] = useState(sortFilter);
 
-  // Fetch milestone data
+  // Fetch all projects with optional milestone filter
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
   const params = new URLSearchParams();
   if (search) params.append('search', search);
   if (office !== 'all') params.append('office', office);
-  if (rep !== 'all') params.append('rep', rep);
-  if (dateRange !== 'all') params.append('dateRange', dateRange);
-  params.append('showBlocked', 'true');
-  params.append('showOnHold', 'true');
+  if (rep !== 'all') params.append('salesRep', rep);
+  if (currentMilestone) params.append('milestone', currentMilestone);
+  if (sort) params.append('sort', sort);
 
-  const endpoint = `${baseUrl}/api/operations/milestones/${currentMilestone}?${params}`;
+  const endpoint = `${baseUrl}/api/operations/projects?${params}`;
 
-  const { data: milestoneData, isLoading, error, refetch, isFetching } = useQuery<{ success: boolean; data: MilestoneDashboardData }>({
-    queryKey: ['milestone', currentMilestone, search, office, rep, dateRange],
+  const { data: projectsData, isLoading, error, refetch, isFetching } = useQuery<{ success: boolean; data: any[] }>({
+    queryKey: ['operations-projects', currentMilestone, search, office, rep, sort],
     queryFn: async () => {
       const response = await fetch(endpoint);
-      if (!response.ok) throw new Error('Failed to fetch milestone data');
+      if (!response.ok) throw new Error('Failed to fetch projects');
       return response.json();
     },
     refetchInterval: 30000,
     staleTime: 10000
   });
 
-  // Update URL when milestone changes
-  const handleMilestoneChange = (milestone: OperationsMilestone) => {
+  const projects = projectsData?.data || [];
+
+  // Handle milestone filter
+  const handleMilestoneFilter = (milestone: OperationsMilestone | null) => {
     const newParams = new URLSearchParams();
-    newParams.set('milestone', milestone);
+    if (milestone) newParams.set('milestone', milestone);
     if (search) newParams.set('search', search);
     if (office !== 'all') newParams.set('office', office);
     if (rep !== 'all') newParams.set('rep', rep);
-    if (dateRange !== 'all') newParams.set('dateRange', dateRange);
-    if (sort !== 'daysDesc') newParams.set('sort', sort);
+    if (sort !== 'newest') newParams.set('sort', sort);
     router.push(`/operations/projects?${newParams.toString()}`);
   };
 
   // Apply filters
   const applyFilters = () => {
     const newParams = new URLSearchParams();
-    newParams.set('milestone', currentMilestone);
+    if (currentMilestone) newParams.set('milestone', currentMilestone);
     if (search) newParams.set('search', search);
     if (office !== 'all') newParams.set('office', office);
     if (rep !== 'all') newParams.set('rep', rep);
-    if (dateRange !== 'all') newParams.set('dateRange', dateRange);
-    if (sort !== 'daysDesc') newParams.set('sort', sort);
+    if (sort !== 'newest') newParams.set('sort', sort);
     router.push(`/operations/projects?${newParams.toString()}`);
   };
 
@@ -114,47 +112,24 @@ export default function ProjectsPage() {
     setSearch('');
     setOffice('all');
     setRep('all');
-    setDateRange('all');
-    setSort('daysDesc');
-    router.push(`/operations/projects?milestone=${currentMilestone}`);
+    setSort('newest');
+    router.push(`/operations/projects${currentMilestone ? `?milestone=${currentMilestone}` : ''}`);
   };
 
   // Get unique values for filters
   const uniqueOffices = useMemo(() => {
-    if (!milestoneData?.data?.projects) return [];
-    return Array.from(new Set(milestoneData.data.projects.map(p => p.salesOffice).filter(Boolean))).sort();
-  }, [milestoneData]);
+    return Array.from(new Set(projects.map(p => p.salesOffice).filter(Boolean))).sort();
+  }, [projects]);
 
   const uniqueReps = useMemo(() => {
-    if (!milestoneData?.data?.projects) return [];
-    return Array.from(new Set(milestoneData.data.projects.map(p => p.salesRepName).filter(Boolean))).sort();
-  }, [milestoneData]);
-
-  // Sort projects
-  const sortedProjects = useMemo(() => {
-    if (!milestoneData?.data?.projects) return [];
-    const projects = [...milestoneData.data.projects];
-
-    switch (sort) {
-      case 'daysDesc':
-        return projects.sort((a, b) => b.daysInMilestone - a.daysInMilestone);
-      case 'daysAsc':
-        return projects.sort((a, b) => a.daysInMilestone - b.daysInMilestone);
-      case 'projectId':
-        return projects.sort((a, b) => a.projectId.localeCompare(b.projectId));
-      case 'customer':
-        return projects.sort((a, b) => a.customerName.localeCompare(b.customerName));
-      default:
-        return projects;
-    }
-  }, [milestoneData, sort]);
+    return Array.from(new Set(projects.map(p => p.salesRepName).filter(Boolean))).sort();
+  }, [projects]);
 
   // Active filters count
   const activeFiltersCount = [
     search ? 1 : 0,
     office !== 'all' ? 1 : 0,
-    rep !== 'all' ? 1 : 0,
-    dateRange !== 'all' ? 1 : 0
+    rep !== 'all' ? 1 : 0
   ].reduce((a, b) => a + b, 0);
 
   return (
@@ -163,22 +138,46 @@ export default function ProjectsPage() {
         {/* Page Header */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-slate-900">Projects</h1>
-          <p className="mt-1 text-sm text-slate-600">Track projects through each stage of the operations lifecycle</p>
+          <p className="mt-1 text-sm text-slate-600">
+            {currentMilestone
+              ? `Viewing ${milestoneConfig[currentMilestone].label} milestone projects`
+              : 'All projects assigned to you'}
+          </p>
         </div>
 
         {/* Milestone Filter Buttons */}
         <div className="mb-6 bg-white rounded-lg border p-4">
           <div className="flex items-center gap-2 flex-wrap">
+            {/* All Projects Button */}
+            <button
+              onClick={() => handleMilestoneFilter(null)}
+              className={`
+                flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all font-medium text-sm
+                ${!currentMilestone
+                  ? 'bg-slate-100 text-slate-900 border-slate-400 shadow-sm'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                }
+              `}
+            >
+              <Package className="h-4 w-4" />
+              All Projects
+              {!currentMilestone && (
+                <span className="ml-1 px-1.5 py-0.5 text-xs font-semibold bg-white rounded">
+                  {projects.length}
+                </span>
+              )}
+            </button>
+
+            {/* Milestone Filter Buttons */}
             {allMilestones.map((milestone) => {
               const config = milestoneConfig[milestone];
               const Icon = config.icon;
               const isActive = currentMilestone === milestone;
-              const count = milestone === currentMilestone ? milestoneData?.data?.metrics?.total : undefined;
 
               return (
                 <button
                   key={milestone}
-                  onClick={() => handleMilestoneChange(milestone)}
+                  onClick={() => handleMilestoneFilter(milestone)}
                   className={`
                     flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all font-medium text-sm
                     ${isActive
@@ -189,11 +188,6 @@ export default function ProjectsPage() {
                 >
                   <Icon className="h-4 w-4" />
                   {config.label}
-                  {count !== undefined && (
-                    <span className="ml-1 px-1.5 py-0.5 text-xs font-semibold bg-white/80 rounded">
-                      {count}
-                    </span>
-                  )}
                 </button>
               );
             })}
@@ -219,15 +213,16 @@ export default function ProjectsPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="newest">Newest First</SelectItem>
+                <SelectItem value="oldest">Oldest First</SelectItem>
                 <SelectItem value="daysDesc">Days (High to Low)</SelectItem>
-                <SelectItem value="daysAsc">Days (Low to High)</SelectItem>
                 <SelectItem value="projectId">Project ID</SelectItem>
                 <SelectItem value="customer">Customer Name</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* Office, Rep, Date Filters */}
+          {/* Office, Rep Filters */}
           <div className="flex gap-3">
             <Select value={office} onValueChange={setOffice}>
               <SelectTrigger className="w-[200px]">
@@ -250,18 +245,6 @@ export default function ProjectsPage() {
                 {uniqueReps.map(r => (
                   <SelectItem key={r} value={r}>{r}</SelectItem>
                 ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={dateRange} onValueChange={setDateRange}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="All Time" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Time</SelectItem>
-                <SelectItem value="7days">Last 7 Days</SelectItem>
-                <SelectItem value="30days">Last 30 Days</SelectItem>
-                <SelectItem value="90days">Last 90 Days</SelectItem>
               </SelectContent>
             </Select>
 
@@ -303,10 +286,14 @@ export default function ProjectsPage() {
               Try Again
             </Button>
           </div>
-        ) : sortedProjects.length === 0 ? (
+        ) : projects.length === 0 ? (
           <div className="bg-white rounded-lg border p-8 text-center">
             <Package className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-600">No projects found in {milestoneConfig[currentMilestone].label} milestone</p>
+            <p className="text-gray-600">
+              {currentMilestone
+                ? `No projects found in ${milestoneConfig[currentMilestone].label} milestone`
+                : 'No projects found'}
+            </p>
             {activeFiltersCount > 0 && (
               <Button onClick={clearFilters} variant="outline" className="mt-4">
                 Clear Filters
@@ -315,69 +302,85 @@ export default function ProjectsPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {sortedProjects.map((project) => (
-              <div key={project.recordId} className="bg-white rounded-lg border hover:shadow-md transition-shadow">
-                <div className="p-4">
-                  {/* Project Header */}
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h3 className="font-semibold text-lg text-gray-900">{project.projectId}</h3>
-                      <p className="text-sm text-gray-600">{project.customerName}</p>
-                      <p className="text-xs text-gray-500">{project.salesOffice}</p>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-blue-600">{project.daysInMilestone}</div>
-                      <div className="text-xs text-gray-500">days in milestone</div>
-                    </div>
-                  </div>
+            {projects.map((project) => {
+              const milestoneInfo = milestoneConfig[project.currentMilestone as OperationsMilestone];
+              const MilestoneIcon = milestoneInfo?.icon || Package;
 
-                  {/* Project Details */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <div className="text-gray-500 text-xs">Status</div>
-                      <div className="font-medium capitalize">
-                        {project.milestoneStatus.replace(/_/g, ' ')}
+              return (
+                <Link
+                  key={project.recordId}
+                  href={`/operations/projects/${project.recordId}`}
+                  className="block bg-white rounded-lg border hover:shadow-md transition-shadow"
+                >
+                  <div className="p-4">
+                    {/* Project Header */}
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold text-lg text-gray-900">{project.projectId}</h3>
+                          <span className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded ${milestoneInfo?.color || 'bg-gray-100 text-gray-700'}`}>
+                            <MilestoneIcon className="h-3 w-3" />
+                            {milestoneInfo?.label || 'Unknown'}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600">{project.customerName}</p>
+                        <p className="text-xs text-gray-500">{project.salesOffice}</p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-blue-600">{project.daysInMilestone}</div>
+                        <div className="text-xs text-gray-500">days in stage</div>
                       </div>
                     </div>
-                    <div>
-                      <div className="text-gray-500 text-xs">Days in Status</div>
-                      <div className="font-medium">{project.daysInStatus} days</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500 text-xs">Sales Rep</div>
-                      <div className="font-medium">{project.salesRepName || 'N/A'}</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500 text-xs">Lender</div>
-                      <div className="font-medium">{project.lenderName || 'N/A'}</div>
-                    </div>
-                  </div>
 
-                  {/* Blockers/Holds */}
-                  {(project.isBlocked || project.isOnHold) && (
-                    <div className="mt-3 flex gap-2">
-                      {project.isBlocked && (
-                        <div className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded">
-                          ⚠️ Blocked: {project.blockReason}
+                    {/* Project Details */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <div className="text-gray-500 text-xs">Status</div>
+                        <div className="font-medium capitalize">
+                          {project.currentStage || 'N/A'}
                         </div>
-                      )}
-                      {project.isOnHold && (
-                        <div className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded">
-                          ⏸️ On Hold: {project.holdReason}
-                        </div>
-                      )}
+                      </div>
+                      <div>
+                        <div className="text-gray-500 text-xs">Sales Rep</div>
+                        <div className="font-medium">{project.salesRepName || 'N/A'}</div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500 text-xs">Coordinator</div>
+                        <div className="font-medium text-xs truncate">{project.coordinatorEmail || 'N/A'}</div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500 text-xs">Lender</div>
+                        <div className="font-medium">{project.lenderName || 'N/A'}</div>
+                      </div>
                     </div>
-                  )}
-                </div>
-              </div>
-            ))}
+
+                    {/* Blockers/Holds */}
+                    {(project.isBlocked || project.isOnHold) && (
+                      <div className="mt-3 flex gap-2">
+                        {project.isBlocked && (
+                          <div className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded">
+                            ⚠ Blocked: {project.blockReason}
+                          </div>
+                        )}
+                        {project.isOnHold && (
+                          <div className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded">
+                            ⏸ On Hold: {project.holdReason}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         )}
 
         {/* Results Summary */}
-        {!isLoading && !error && sortedProjects.length > 0 && (
+        {!isLoading && !error && projects.length > 0 && (
           <div className="mt-4 text-sm text-gray-600 text-center">
-            Showing {sortedProjects.length} project{sortedProjects.length !== 1 ? 's' : ''} in {milestoneConfig[currentMilestone].label} milestone
+            Showing {projects.length} project{projects.length !== 1 ? 's' : ''}
+            {currentMilestone && ` in ${milestoneConfig[currentMilestone].label} milestone`}
           </div>
         )}
       </div>
