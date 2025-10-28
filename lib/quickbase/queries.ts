@@ -9862,7 +9862,7 @@ export async function getMilestoneProjects(
     // Log WHERE clause for debugging
     console.log(`[getMilestoneProjects] WHERE clause for ${milestone}:`, whereClause);
 
-    const response = await qbClient.query(query);
+    const response = await qbClient.queryRecords(query);
     const now = new Date();
 
     // Process projects and categorize by status
