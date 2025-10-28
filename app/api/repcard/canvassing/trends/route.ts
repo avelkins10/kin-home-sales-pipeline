@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
-import { repcardClient } from '@/lib/repcard/client';
 import { sql } from '@/lib/db/client';
 
 export const runtime = 'nodejs';
 
 // Cache implementation
 const trendsCache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL = 1800000; // 30 minutes (reduced API calls to avoid rate limiting)
+const CACHE_TTL = 300000; // 5 minutes (data is refreshed every 10 min by cron)
 const MAX_CACHE_ENTRIES = 100;
 
 function cleanCache() {
@@ -144,27 +143,27 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Fetch users filtered by office if specified
-    let users: any[];
+    // Get users filtered by office if specified
+    let repcardUserIds: number[];
     if (officeIds && officeIds.length > 0) {
-      const result = await sql.query(
-        `SELECT DISTINCT u.id, u.repcard_user_id
-         FROM users u
-         JOIN offices o ON o.name = ANY(u.sales_office)
-         WHERE u.repcard_user_id IS NOT NULL
-           AND o.quickbase_office_id = ANY($1::int[])`,
-        [officeIds]
-      );
-      users = result.rows;
+      const result = await sql`
+        SELECT DISTINCT repcard_user_id
+        FROM users u
+        JOIN offices o ON o.name = ANY(u.sales_office)
+        WHERE u.repcard_user_id IS NOT NULL
+          AND o.quickbase_office_id = ANY(${officeIds}::int[])
+      `;
+      repcardUserIds = result.map((r: any) => parseInt(r.repcard_user_id)).filter(id => !isNaN(id));
     } else {
-      users = await sql`
-        SELECT id, repcard_user_id
+      const result = await sql`
+        SELECT DISTINCT repcard_user_id
         FROM users
         WHERE repcard_user_id IS NOT NULL
-      ` as unknown as any[];
+      `;
+      repcardUserIds = result.map((r: any) => parseInt(r.repcard_user_id)).filter(id => !isNaN(id));
     }
 
-    if (users.length === 0) {
+    if (repcardUserIds.length === 0) {
       return NextResponse.json({
         data: [],
         metadata: {
@@ -178,85 +177,30 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Fetch all customers for the date range
-    const allCustomers: any[] = [];
-    let page = 1;
-    let hasMore = true;
-    const MAX_PAGES = 50; // Safety limit to prevent timeout (5000 customers max)
-    const fetchStartTime = Date.now();
-    const MAX_FETCH_TIME = 45000; // 45 seconds max for fetching
+    console.log(`[Canvassing Trends] Querying database for ${repcardUserIds.length} users from ${calculatedStartDate} to ${calculatedEndDate}`);
 
-    console.log(`[Canvassing Trends] Fetching customers for date range: ${calculatedStartDate} to ${calculatedEndDate}`);
-    console.log(`[Canvassing Trends] Filtering for ${users.length} users in offices: ${officeIds?.join(',') || 'all'}`);
+    // Query database for trending data - GROUP BY date
+    const trendingData = await sql`
+      SELECT
+        DATE(created_at) as date,
+        COUNT(*) as doors
+      FROM repcard_customers
+      WHERE setter_user_id = ANY(${repcardUserIds}::int[])
+        AND created_at >= ${calculatedStartDate}::timestamp
+        AND created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day')
+      GROUP BY DATE(created_at)
+      ORDER BY date ASC
+    `;
 
-    while (hasMore && page <= MAX_PAGES) {
-      // Check if we're approaching timeout
-      if (Date.now() - fetchStartTime > MAX_FETCH_TIME) {
-        console.warn(`[Canvassing Trends] Approaching timeout limit, stopping at page ${page}`);
-        break;
-      }
+    console.log(`[Canvassing Trends] Found ${trendingData.length} days with data`);
 
-      try {
-        const response = await repcardClient.getCustomers({
-          page,
-          perPage: 100,
-          startDate: calculatedStartDate,
-          endDate: calculatedEndDate
-        });
-        console.log(`[Canvassing Trends] Page ${page}: Got ${response.result.data.length} customers (total: ${response.result.total}, currentPage: ${response.result.currentPage}, lastPage: ${response.result.lastPage})`);
+    // Format data for chart
+    const trendData = trendingData.map((row: any) => ({
+      date: new Date(row.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      doors: parseInt(row.doors)
+    }));
 
-        // LOG SAMPLE CUSTOMER DATA FOR USER TO REVIEW
-        if (page === 1 && response.result.data.length > 0) {
-          console.log(`[Canvassing Trends] === SAMPLE CUSTOMER DATA (first 3) ===`);
-          console.log(JSON.stringify(response.result.data.slice(0, 3), null, 2));
-          console.log(`[Canvassing Trends] === END SAMPLE DATA ===`);
-        }
-
-        allCustomers.push(...response.result.data);
-        hasMore = response.result.currentPage < response.result.lastPage;
-        page++;
-      } catch (error) {
-        console.error(`[Canvassing Trends] Failed to fetch customers page ${page}:`, error);
-        hasMore = false;
-      }
-    }
-
-    if (page > MAX_PAGES) {
-      console.warn(`[Canvassing Trends] Reached maximum page limit (${MAX_PAGES}), results may be incomplete`);
-    }
-
-    console.log(`[Canvassing Trends] Total customers fetched from RepCard: ${allCustomers.length}`);
-
-    // Filter customers by users
-    const repcardUserIds = new Set(users.map(u => u.repcard_user_id?.toString()));
-    const filteredCustomers = allCustomers.filter((c: any) =>
-      repcardUserIds.has(c.userId?.toString())
-    );
-
-    console.log(`[Canvassing Trends] After filtering by ${repcardUserIds.size} user IDs: ${filteredCustomers.length} customers remain`);
-    if (filteredCustomers.length > 0) {
-      console.log(`[Canvassing Trends] Sample customer:`, JSON.stringify(filteredCustomers[0], null, 2));
-    }
-
-    // Group customers by date
-    const trendsMap = new Map<string, number>();
-
-    filteredCustomers.forEach((customer: any) => {
-      // Use createdAt or created_at field from customer
-      const createdDate = customer.createdAt || customer.created_at;
-      if (createdDate) {
-        const date = new Date(createdDate).toISOString().split('T')[0];
-        trendsMap.set(date, (trendsMap.get(date) || 0) + 1);
-      }
-    });
-
-    // Convert to array and sort by date
-    const trendData = Array.from(trendsMap.entries())
-      .map(([date, doors]) => ({
-        date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        doors
-      }))
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const totalDoors = trendingData.reduce((sum: number, row: any) => sum + parseInt(row.doors), 0);
 
     const response = {
       data: trendData,
@@ -265,7 +209,7 @@ export async function GET(request: NextRequest) {
         startDate: calculatedStartDate,
         endDate: calculatedEndDate,
         officeIds: officeIds ? officeIds.map(String) : undefined,
-        totalDoors: filteredCustomers.length,
+        totalDoors,
         totalDays: trendData.length,
         cached: false,
         calculatedAt: new Date().toISOString()

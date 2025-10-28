@@ -5,9 +5,11 @@
 
   "functions": {
     "app/api/admin/audit-logs/export/route.ts": { "maxDuration": 30, "memory": 1024 },
+    "app/api/admin/repcard/sync/route.ts": { "maxDuration": 300, "memory": 1024 },
     "app/api/cron/check-milestones/route.ts": { "maxDuration": 60, "memory": 1024 },
     "app/api/cron/sync-users/route.ts": { "maxDuration": 300, "memory": 1024 },
     "app/api/cron/daily-digest/route.ts": { "maxDuration": 120, "memory": 1024 },
+    "app/api/cron/repcard-sync/route.ts": { "maxDuration": 300, "memory": 1024 },
     "app/api/repcard/canvassing/trends/route.ts": { "maxDuration": 60, "memory": 1024 },
     "app/api/repcard/quality-aggregate/route.ts": { "maxDuration": 60, "memory": 1024 },
     "app/api/repcard/leaderboard/route.ts": { "maxDuration": 60, "memory": 1024 },
@@ -25,6 +27,10 @@
     {
       "path": "/api/cron/daily-digest",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/repcard-sync",
+      "schedule": "*/10 * * * *"
     }
   ],
   "headers": [
