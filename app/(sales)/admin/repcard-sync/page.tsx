@@ -68,27 +68,57 @@ export default function RepCardSyncPage() {
     refetchInterval: 10000, // Auto-refresh every 10 seconds
   });
 
-  // Full sync mutation
+  // Sequential full sync mutation (avoids timeouts)
   const fullSyncMutation = useMutation({
     mutationFn: async ({ startDate, endDate }: { startDate: string; endDate: string }) => {
-      const url = `/api/admin/repcard/sync?type=full&startDate=${startDate}&endDate=${endDate}`;
-      const res = await fetch(url, { method: 'POST' });
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || 'Failed to trigger full sync');
-      }
-      return res.json();
+      const results = [];
+
+      // Step 1: Sync customers
+      toast.info('Syncing customers...', { description: 'Step 1 of 3' });
+      const customersRes = await fetch(
+        `/api/admin/repcard/sync?type=customers&startDate=${startDate}&endDate=${endDate}`,
+        { method: 'POST' }
+      );
+      if (!customersRes.ok) throw new Error('Failed to sync customers');
+      const customersData = await customersRes.json();
+      results.push(customersData);
+      queryClient.invalidateQueries({ queryKey: ['repcard-sync-status'] });
+
+      // Step 2: Sync appointments
+      toast.info('Syncing appointments...', { description: 'Step 2 of 3' });
+      const appointmentsRes = await fetch(
+        `/api/admin/repcard/sync?type=appointments&startDate=${startDate}&endDate=${endDate}`,
+        { method: 'POST' }
+      );
+      if (!appointmentsRes.ok) throw new Error('Failed to sync appointments');
+      const appointmentsData = await appointmentsRes.json();
+      results.push(appointmentsData);
+      queryClient.invalidateQueries({ queryKey: ['repcard-sync-status'] });
+
+      // Step 3: Sync status logs
+      toast.info('Syncing status logs...', { description: 'Step 3 of 3' });
+      const statusLogsRes = await fetch(
+        `/api/admin/repcard/sync?type=status_logs&startDate=${startDate}&endDate=${endDate}`,
+        { method: 'POST' }
+      );
+      if (!statusLogsRes.ok) throw new Error('Failed to sync status logs');
+      const statusLogsData = await statusLogsRes.json();
+      results.push(statusLogsData);
+      queryClient.invalidateQueries({ queryKey: ['repcard-sync-status'] });
+
+      return { results, message: 'All syncs completed' };
     },
     onSuccess: (data) => {
-      toast.success('Full sync started successfully', {
-        description: `Syncing data from ${startDate} to ${endDate}...`
+      toast.success('Full sync completed successfully!', {
+        description: `Synced data from ${startDate} to ${endDate}`
       });
       queryClient.invalidateQueries({ queryKey: ['repcard-sync-status'] });
     },
     onError: (error) => {
-      toast.error('Failed to start full sync', {
+      toast.error('Sync failed', {
         description: error.message
       });
+      queryClient.invalidateQueries({ queryKey: ['repcard-sync-status'] });
     },
   });
 
