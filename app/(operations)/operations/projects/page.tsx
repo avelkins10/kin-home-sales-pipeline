@@ -1,199 +1,144 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { useSearchParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { useQuery } from '@tanstack/react-query';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { OperationsProjectCard } from '@/components/operations/OperationsProjectCard';
-import { operationsProjectsListKey } from '@/lib/queryKeys';
-import { formatMilestoneStatus } from '@/lib/utils/operations-milestones';
-import {
-  Package,
-  MapPin,
-  PenTool,
-  FileText,
-  Hammer,
-  ClipboardCheck,
-  Zap,
-  Search,
-  RefreshCw,
-  X,
-  Loader2
-} from 'lucide-react';
-import type { OperationsMilestone } from '@/lib/types/operations';
+import { Card, CardContent } from '@/components/ui/card';
+import { AlertCircle, Calendar, XCircle, CheckCircle, Clock, Search, Zap } from 'lucide-react';
+import { getBaseUrl } from '@/lib/utils/baseUrl';
+import { InspectionsTable } from '@/components/operations/InspectionsTable';
+import type { PCInspectionData, PCInspectionFilters, PCInspectionStatus, PCInspectionProject } from '@/lib/types/operations';
 
-// 7-milestone configuration
-const milestoneConfig: Record<OperationsMilestone, {
-  icon: React.ComponentType<any>;
-  label: string;
-  color: string;
-}> = {
-  intake: { icon: Package, label: 'Intake', color: 'bg-orange-100 text-orange-700 border-orange-300' },
-  survey: { icon: MapPin, label: 'Survey', color: 'bg-purple-100 text-purple-700 border-purple-300' },
-  design: { icon: PenTool, label: 'Design', color: 'bg-blue-100 text-blue-700 border-blue-300' },
-  permitting: { icon: FileText, label: 'Permitting', color: 'bg-teal-100 text-teal-700 border-teal-300' },
-  install: { icon: Hammer, label: 'Install', color: 'bg-indigo-100 text-indigo-700 border-indigo-300' },
-  inspections: { icon: ClipboardCheck, label: 'Inspections', color: 'bg-amber-100 text-amber-700 border-amber-300' },
-  pto: { icon: Zap, label: 'PTO', color: 'bg-emerald-100 text-emerald-700 border-emerald-300' }
-};
-
-const allMilestones: OperationsMilestone[] = ['intake', 'survey', 'design', 'permitting', 'install', 'inspections', 'pto'];
-
-export default function OperationsProjectsPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const { data: session, status: sessionStatus } = useSession();
-
-  // Get filters from URL
-  const currentMilestone = searchParams.get('milestone') as OperationsMilestone | null;
-  const currentStatus = searchParams.get('status') || 'all';
-  const searchQuery = searchParams.get('search') || '';
-  const officeFilter = searchParams.get('office') || 'all';
-  const repFilter = searchParams.get('rep') || 'all';
-  const sortFilter = searchParams.get('sort') || 'newest';
-
-  // Local state for filters (before applying)
-  const [search, setSearch] = useState(searchQuery);
-  const [office, setOffice] = useState(officeFilter);
-  const [rep, setRep] = useState(repFilter);
-  const [sort, setSort] = useState(sortFilter);
-
-  // Fetch projects using the new query key
-  const userId = session?.user?.id || '';
-  const userRole = session?.user?.role || '';
-
-  const { data: projectsData, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: operationsProjectsListKey(
-      userId,
-      userRole,
-      currentMilestone || 'all',
-      currentStatus,
-      searchQuery,
-      sortFilter,
-      officeFilter,
-      repFilter
-    ),
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (currentMilestone) params.append('milestone', currentMilestone);
-      if (currentStatus !== 'all') params.append('status', currentStatus);
-      if (searchQuery) params.append('search', searchQuery);
-      if (sortFilter && sortFilter !== 'newest') params.append('sort', sortFilter);
-      if (officeFilter && officeFilter !== 'all') params.append('office', officeFilter);
-      if (repFilter && repFilter !== 'all') params.append('salesRep', repFilter);
-
-      const response = await fetch(`/api/operations/projects?${params.toString()}`);
-      if (!response.ok) throw new Error('Failed to fetch projects');
-      return response.json();
-    },
-    staleTime: 300000, // 5 minutes
-    enabled: !!userId && !!userRole
+export default function ProjectsPage() {
+  const { data: session, status } = useSession();
+  const [activeTab, setActiveTab] = useState<PCInspectionStatus>('inspection_failed');
+  const [filters, setFilters] = useState<PCInspectionFilters>({
+    status: 'all',
+    office: 'all',
+    salesRep: 'all',
+    search: '',
+    dateRange: 'all',
+    state: 'all'
   });
 
-  // Handle both grouped (milestone filtered) and flat array responses
-  const responseData = projectsData?.data;
-  const isGroupedResponse = currentMilestone && responseData && typeof responseData === 'object' && 'projects' in responseData;
+  // Fetch inspection or PTO data based on active tab
+  const { data: inspectionData, isLoading, error, refetch } = useQuery<{ success: boolean; data: PCInspectionData }>({
+    queryKey: ['inspections', session?.user?.email, activeTab, filters],
+    queryFn: async () => {
+      const baseUrl = getBaseUrl();
+      const params = new URLSearchParams({
+        office: filters.office,
+        salesRep: filters.salesRep,
+        search: filters.search,
+        dateRange: filters.dateRange
+      });
 
-  const projects = isGroupedResponse
-    ? responseData.projects
-    : (Array.isArray(responseData) ? responseData : []);
+      // Only add status param for non-PTO tabs
+      if (activeTab !== 'pto_milestone') {
+        params.append('status', activeTab);
+      }
 
-  const availableStatuses = isGroupedResponse ? responseData.availableStatuses || [] : [];
-  const statusCounts = isGroupedResponse ? responseData.statusCounts || {} : {};
-  const totalProjects = isGroupedResponse ? responseData.total || 0 : projects.length;
+      if (filters.dateRange === 'custom' && filters.customStartDate && filters.customEndDate) {
+        params.append('customStartDate', filters.customStartDate);
+        params.append('customEndDate', filters.customEndDate);
+      }
 
-  // Get unique values for filters from current projects
-  const uniqueOffices = useMemo(() => {
-    const offices = projects.map((p: any) => p.salesOffice).filter(Boolean);
-    return Array.from(new Set(offices)).sort();
-  }, [projects]);
+      // Use different API endpoint for PTO milestone
+      const endpoint = activeTab === 'pto_milestone'
+        ? `${baseUrl}/api/operations/projects/pto?${params}`
+        : `${baseUrl}/api/operations/projects/inspections?${params}`;
 
-  const uniqueReps = useMemo(() => {
-    const reps = projects.flatMap((p: any) => [p.closerName, p.setterName]).filter(Boolean);
-    return Array.from(new Set(reps)).sort();
-  }, [projects]);
+      const response = await fetch(endpoint);
+      if (!response.ok) {
+        throw new Error('Failed to fetch project data');
+      }
+      return response.json();
+    },
+    enabled: !!session?.user?.email,
+    refetchInterval: 30000, // 30 seconds
+    staleTime: 15000 // 15 seconds
+  });
 
-  // Handle milestone filter
-  const handleMilestoneFilter = (milestone: OperationsMilestone | null) => {
-    const newParams = new URLSearchParams();
-    if (milestone) newParams.set('milestone', milestone);
-    if (searchQuery) newParams.set('search', searchQuery);
-    if (sortFilter && sortFilter !== 'newest') newParams.set('sort', sortFilter);
-    if (officeFilter && officeFilter !== 'all') newParams.set('office', officeFilter);
-    if (repFilter && repFilter !== 'all') newParams.set('rep', repFilter);
-    router.push(`/operations/projects?${newParams.toString()}`);
+  // Get projects for the active tab with client-side filtering
+  const getActiveProjects = (): PCInspectionProject[] => {
+    if (!inspectionData?.data) return [];
+
+    let projects: PCInspectionProject[] = [];
+    switch (activeTab) {
+      case 'inspection_failed':
+        projects = inspectionData.data.inspectionFailed;
+        break;
+      case 'waiting_for_inspection':
+        projects = inspectionData.data.waitingForInspection;
+        break;
+      case 'inspection_scheduled':
+        projects = inspectionData.data.inspectionScheduled;
+        break;
+      case 'inspection_passed':
+        projects = inspectionData.data.inspectionPassed;
+        break;
+      default:
+        return [];
+    }
+
+    // Apply state filter if selected
+    if (filters.state && filters.state !== 'all') {
+      projects = projects.filter(project => {
+        if (!project.salesOffice) return false;
+        const match = project.salesOffice.match(/[-\s]([A-Z]{2}|\w+)\s*(?:20\d{2})?$/);
+        if (match && match[1]) {
+          return match[1].toUpperCase() === filters.state?.toUpperCase();
+        }
+        return false;
+      });
+    }
+
+    return projects;
   };
 
-  // Handle status filter (tabs within milestone)
-  const handleStatusChange = (newStatus: string) => {
-    const newParams = new URLSearchParams();
-    if (currentMilestone) newParams.set('milestone', currentMilestone);
-    if (newStatus !== 'all') newParams.set('status', newStatus);
-    if (searchQuery) newParams.set('search', searchQuery);
-    if (sortFilter && sortFilter !== 'newest') newParams.set('sort', sortFilter);
-    if (officeFilter && officeFilter !== 'all') newParams.set('office', officeFilter);
-    if (repFilter && repFilter !== 'all') newParams.set('rep', repFilter);
-    router.push(`/operations/projects?${newParams.toString()}`);
-  };
+  const activeProjects = getActiveProjects();
 
-  // Apply filters
-  const applyFilters = () => {
-    const newParams = new URLSearchParams();
-    if (currentMilestone) newParams.set('milestone', currentMilestone);
-    if (currentStatus !== 'all') newParams.set('status', currentStatus);
-    if (search) newParams.set('search', search);
-    if (sort && sort !== 'newest') newParams.set('sort', sort);
-    if (office && office !== 'all') newParams.set('office', office);
-    if (rep && rep !== 'all') newParams.set('rep', rep);
-    router.push(`/operations/projects?${newParams.toString()}`);
-  };
+  // Extract unique states from office names (e.g., "Molina - KC 2025" -> "KC")
+  const uniqueStates = useMemo(() => {
+    if (!inspectionData?.data) return [];
+    const allProjects = [
+      ...inspectionData.data.waitingForInspection,
+      ...inspectionData.data.inspectionScheduled,
+      ...inspectionData.data.inspectionFailed,
+      ...inspectionData.data.inspectionPassed
+    ];
+    const states = new Set<string>();
+    allProjects.forEach(project => {
+      if (project.salesOffice) {
+        // Extract state abbreviation from office name patterns like "Molina - KC 2025" or "Stevens - Iowa 2025"
+        const match = project.salesOffice.match(/[-\s]([A-Z]{2}|\w+)\s*(?:20\d{2})?$/);
+        if (match && match[1]) {
+          states.add(match[1].toUpperCase());
+        }
+      }
+    });
+    return Array.from(states).sort();
+  }, [inspectionData]);
 
-  // Clear filters
-  const clearFilters = () => {
-    setSearch('');
-    setOffice('all');
-    setRep('all');
-    setSort('newest');
-    const newParams = new URLSearchParams();
-    if (currentMilestone) newParams.set('milestone', currentMilestone);
-    router.push(`/operations/projects?${newParams.toString()}`);
-  };
-
-  // Active filters count
-  const activeFiltersCount = [
-    searchQuery ? 1 : 0,
-    officeFilter && officeFilter !== 'all' ? 1 : 0,
-    repFilter && repFilter !== 'all' ? 1 : 0
-  ].reduce((a, b) => a + b, 0);
-
-  // Show loading state while session is loading to prevent hydration mismatch
-  if (sessionStatus === 'loading') {
+  if (status === 'loading') {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-12 w-12 text-slate-400 animate-spin mx-auto mb-4" />
-          <p className="text-slate-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show error state if not authenticated
-  if (sessionStatus === 'unauthenticated') {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">You must be logged in to view this page</p>
+      <div className="min-h-screen bg-slate-50 p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-6">
+            <div className="h-8 w-48 bg-gray-200 rounded animate-pulse mb-2" />
+            <div className="h-4 w-96 bg-gray-200 rounded animate-pulse" />
+          </div>
+          <Card>
+            <CardContent className="p-6">
+              <div className="animate-pulse space-y-4">
+                <div className="h-10 bg-gray-200 rounded" />
+                <div className="h-10 bg-gray-200 rounded" />
+                <div className="h-10 bg-gray-200 rounded" />
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
@@ -201,230 +146,336 @@ export default function OperationsProjectsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Page Header */}
+      <div className="max-w-7xl mx-auto p-6">
+        {/* Header */}
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-slate-900">Projects</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            {currentMilestone
-              ? `${milestoneConfig[currentMilestone].label} milestone`
-              : 'All projects assigned to you'}
+          <h1 className="text-2xl font-bold text-gray-900">Projects - Inspections</h1>
+          <p className="mt-1 text-sm text-gray-600">
+            Track projects through inspection stages
           </p>
         </div>
 
-        {/* Milestone Filter Buttons */}
-        <div className="mb-6 bg-white rounded-lg border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* All Projects Button */}
-            <button
-              onClick={() => handleMilestoneFilter(null)}
-              className={`
-                flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all font-medium text-sm
-                ${!currentMilestone
-                  ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
-                  : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                }
-              `}
-            >
-              <Package className="h-4 w-4" />
-              All Projects
-              {!currentMilestone && totalProjects > 0 && (
-                <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-white text-slate-900 rounded-full">
-                  {totalProjects}
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as PCInspectionStatus)} className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="inspection_failed" className="flex items-center gap-2">
+              <XCircle className="h-4 w-4" />
+              Failed
+              {inspectionData?.data?.counts && (
+                <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700 rounded-full">
+                  {inspectionData.data.counts.inspectionFailed}
                 </span>
               )}
-            </button>
+            </TabsTrigger>
+            <TabsTrigger value="waiting_for_inspection" className="flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              Waiting
+              {inspectionData?.data?.counts && (
+                <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-yellow-100 text-yellow-700 rounded-full">
+                  {inspectionData.data.counts.waitingForInspection}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="inspection_scheduled" className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Scheduled
+              {inspectionData?.data?.counts && (
+                <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700 rounded-full">
+                  {inspectionData.data.counts.inspectionScheduled}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="inspection_passed" className="flex items-center gap-2">
+              <CheckCircle className="h-4 w-4" />
+              Passed
+              {inspectionData?.data?.counts && (
+                <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-green-100 text-green-700 rounded-full">
+                  {inspectionData.data.counts.inspectionPassed}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="pto_milestone" className="flex items-center gap-2">
+              <Zap className="h-4 w-4" />
+              PTO Milestone
+              {inspectionData?.data?.counts?.ptoTotal !== undefined && (
+                <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-purple-100 text-purple-700 rounded-full">
+                  {inspectionData.data.counts.ptoTotal}
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
 
-            {/* Milestone Buttons */}
-            {allMilestones.map((milestone) => {
-              const config = milestoneConfig[milestone];
-              const Icon = config.icon;
-              const isActive = currentMilestone === milestone;
-
-              return (
-                <button
-                  key={milestone}
-                  onClick={() => handleMilestoneFilter(milestone)}
-                  className={`
-                    flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all font-medium text-sm
-                    ${isActive
-                      ? `${config.color} border-current shadow-sm`
-                      : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                    }
-                  `}
+          {/* Search and Filters - Common for all tabs */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex-1 min-w-[200px] relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search by project ID or customer name..."
+                    value={filters.search}
+                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                    className="pl-10"
+                  />
+                </div>
+                <select
+                  value={filters.dateRange}
+                  onChange={(e) => setFilters({ ...filters, dateRange: e.target.value as any })}
+                  className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
-                  <Icon className="h-4 w-4" />
-                  {config.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Filters Section */}
-        <div className="mb-6 space-y-3 bg-white rounded-lg border border-slate-200 p-4 shadow-sm">
-          {/* Search and Sort Row */}
-          <div className="flex gap-3">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <Input
-                placeholder="Search by project ID, customer name, or address..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
-                className="pl-10 border-slate-300"
-              />
-            </div>
-            <Select value={sort} onValueChange={setSort}>
-              <SelectTrigger className="w-[180px] border-slate-300">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="newest">Newest First</SelectItem>
-                <SelectItem value="oldest">Oldest First</SelectItem>
-                <SelectItem value="daysDesc">Days (High to Low)</SelectItem>
-                <SelectItem value="projectId">Project ID</SelectItem>
-                <SelectItem value="customer">Customer Name</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Office, Rep Filters + Action Buttons */}
-          <div className="flex gap-3 items-center">
-            <Select value={office} onValueChange={setOffice}>
-              <SelectTrigger className="w-[200px] border-slate-300">
-                <SelectValue placeholder="All Offices" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Offices</SelectItem>
-                {uniqueOffices.map(o => (
-                  <SelectItem key={o} value={o}>{o}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={rep} onValueChange={setRep}>
-              <SelectTrigger className="w-[200px] border-slate-300">
-                <SelectValue placeholder="All Reps" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Sales Reps</SelectItem>
-                {uniqueReps.map(r => (
-                  <SelectItem key={r} value={r}>{r}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <div className="flex gap-2 ml-auto">
-              <Button onClick={applyFilters} disabled={isFetching} className="bg-blue-600 hover:bg-blue-700">
-                {isFetching ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Loading
-                  </>
-                ) : (
-                  'Apply'
-                )}
-              </Button>
-
-              {activeFiltersCount > 0 && (
-                <Button variant="outline" onClick={clearFilters} className="border-slate-300">
-                  <X className="h-4 w-4 mr-2" />
-                  Clear ({activeFiltersCount})
-                </Button>
-              )}
-
-              <Button variant="outline" onClick={() => refetch()} disabled={isFetching} className="border-slate-300">
-                <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Status Tabs (only when milestone is selected) */}
-        {currentMilestone && availableStatuses.length > 0 && (
-          <Tabs value={currentStatus} onValueChange={handleStatusChange} className="w-full mb-6">
-            <TabsList className="w-full flex-wrap h-auto gap-2 bg-white border border-slate-200 p-2 rounded-lg shadow-sm">
-              <TabsTrigger value="all" className="data-[state=active]:bg-slate-900 data-[state=active]:text-white">
-                All
-                <span className="ml-2 px-2 py-0.5 text-xs font-semibold bg-slate-100 text-slate-700 rounded-full">
-                  {totalProjects}
-                </span>
-              </TabsTrigger>
-              {availableStatuses.map((statusValue) => {
-                const count = statusCounts[statusValue] || 0;
-                if (count === 0) return null;
-
-                return (
-                  <TabsTrigger
-                    key={statusValue}
-                    value={statusValue}
-                    className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"
-                  >
-                    {formatMilestoneStatus(statusValue)}
-                    <span className="ml-2 px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700 rounded-full">
-                      {count}
-                    </span>
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
-          </Tabs>
-        )}
-
-        {/* Project Grid */}
-        {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="bg-white rounded-lg border border-slate-200 p-6 animate-pulse">
-                <div className="h-4 bg-slate-200 rounded w-1/2 mb-3"></div>
-                <div className="h-3 bg-slate-200 rounded w-3/4 mb-2"></div>
-                <div className="h-3 bg-slate-200 rounded w-1/2 mb-4"></div>
-                <div className="h-20 bg-slate-100 rounded"></div>
+                  <option value="all">All Dates</option>
+                  <option value="7days">Last 7 Days</option>
+                  <option value="30days">Last 30 Days</option>
+                  <option value="90days">Last 90 Days</option>
+                </select>
+                <select
+                  value={filters.state || 'all'}
+                  onChange={(e) => setFilters({ ...filters, state: e.target.value })}
+                  className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">All States</option>
+                  {uniqueStates.map(state => (
+                    <option key={state} value={state}>{state}</option>
+                  ))}
+                </select>
+                <select
+                  value={filters.office}
+                  onChange={(e) => setFilters({ ...filters, office: e.target.value })}
+                  className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">All Offices</option>
+                </select>
+                <select
+                  value={filters.salesRep}
+                  onChange={(e) => setFilters({ ...filters, salesRep: e.target.value })}
+                  className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">All Sales Reps</option>
+                </select>
               </div>
-            ))}
-          </div>
-        ) : error ? (
-          <div className="bg-white rounded-lg border border-slate-200 p-12 text-center shadow-sm">
-            <p className="text-red-600 mb-4">Failed to load projects</p>
-            <Button onClick={() => refetch()} variant="outline">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Try Again
-            </Button>
-          </div>
-        ) : projects.length === 0 ? (
-          <div className="bg-white rounded-lg border border-slate-200 p-12 text-center shadow-sm">
-            <Package className="h-16 w-16 text-slate-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-slate-900 mb-2">No projects found</h3>
-            <p className="text-slate-600 mb-4">
-              {currentMilestone
-                ? `No projects in ${milestoneConfig[currentMilestone].label} milestone`
-                : activeFiltersCount > 0
-                ? 'Try adjusting your filters'
-                : 'No projects assigned to you'}
-            </p>
-            {activeFiltersCount > 0 && (
-              <Button onClick={clearFilters} variant="outline">
-                Clear Filters
-              </Button>
-            )}
-          </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {projects.map((project: any) => (
-                <OperationsProjectCard key={project.recordId} project={project} />
-              ))}
-            </div>
+            </CardContent>
+          </Card>
 
-            {/* Results Summary */}
-            <div className="mt-6 text-sm text-slate-600 text-center">
-              Showing <span className="font-semibold">{projects.length}</span> project{projects.length !== 1 ? 's' : ''}
-              {currentMilestone && ` in ${milestoneConfig[currentMilestone].label}`}
-              {currentStatus !== 'all' && ` with status "${formatMilestoneStatus(currentStatus)}"`}
-            </div>
-          </>
-        )}
+          {/* Tab Content */}
+          <TabsContent value="inspection_failed" className="space-y-4">
+            <Card>
+              <CardContent className="p-6">
+                {isLoading ? (
+                  <div className="animate-pulse space-y-4">
+                    <div className="h-10 bg-gray-200 rounded" />
+                    <div className="h-10 bg-gray-200 rounded" />
+                    <div className="h-10 bg-gray-200 rounded" />
+                  </div>
+                ) : error ? (
+                  <div className="text-center py-8">
+                    <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                      Failed to Load Data
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      {(error as Error).message || 'Please try again later.'}
+                    </p>
+                  </div>
+                ) : (
+                  <InspectionsTable
+                    projects={activeProjects}
+                    status="inspection_failed"
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="waiting_for_inspection" className="space-y-4">
+            <Card>
+              <CardContent className="p-6">
+                {isLoading ? (
+                  <div className="animate-pulse space-y-4">
+                    <div className="h-10 bg-gray-200 rounded" />
+                    <div className="h-10 bg-gray-200 rounded" />
+                    <div className="h-10 bg-gray-200 rounded" />
+                  </div>
+                ) : error ? (
+                  <div className="text-center py-8">
+                    <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                      Failed to Load Data
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      {(error as Error).message || 'Please try again later.'}
+                    </p>
+                  </div>
+                ) : (
+                  <InspectionsTable
+                    projects={activeProjects}
+                    status="waiting_for_inspection"
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="inspection_scheduled" className="space-y-4">
+            <Card>
+              <CardContent className="p-6">
+                {isLoading ? (
+                  <div className="animate-pulse space-y-4">
+                    <div className="h-10 bg-gray-200 rounded" />
+                    <div className="h-10 bg-gray-200 rounded" />
+                    <div className="h-10 bg-gray-200 rounded" />
+                  </div>
+                ) : error ? (
+                  <div className="text-center py-8">
+                    <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                      Failed to Load Data
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      {(error as Error).message || 'Please try again later.'}
+                    </p>
+                  </div>
+                ) : (
+                  <InspectionsTable
+                    projects={activeProjects}
+                    status="inspection_scheduled"
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="inspection_passed" className="space-y-4">
+            <Card>
+              <CardContent className="p-6">
+                {isLoading ? (
+                  <div className="animate-pulse space-y-4">
+                    <div className="h-10 bg-gray-200 rounded" />
+                    <div className="h-10 bg-gray-200 rounded" />
+                    <div className="h-10 bg-gray-200 rounded" />
+                  </div>
+                ) : error ? (
+                  <div className="text-center py-8">
+                    <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                      Failed to Load Data
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      {(error as Error).message || 'Please try again later.'}
+                    </p>
+                  </div>
+                ) : (
+                  <InspectionsTable
+                    projects={activeProjects}
+                    status="inspection_passed"
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="pto_milestone" className="space-y-4">
+            {/* Ready for PTO Submission */}
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    Ready for PTO Submission
+                    {inspectionData?.data?.counts?.ptoReadyForSubmission !== undefined && (
+                      <span className="ml-2 px-2 py-0.5 text-xs font-semibold bg-green-100 text-green-700 rounded-full">
+                        {inspectionData.data.counts.ptoReadyForSubmission}
+                      </span>
+                    )}
+                  </h3>
+                </div>
+                {isLoading ? (
+                  <div className="animate-pulse space-y-4">
+                    <div className="h-10 bg-gray-200 rounded" />
+                    <div className="h-10 bg-gray-200 rounded" />
+                    <div className="h-10 bg-gray-200 rounded" />
+                  </div>
+                ) : error ? (
+                  <div className="text-center py-8">
+                    <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                      Failed to Load Data
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      {(error as Error).message || 'Please try again later.'}
+                    </p>
+                  </div>
+                ) : (
+                  <InspectionsTable
+                    projects={inspectionData?.data?.ptoReadyForSubmission || []}
+                    status="pto_milestone"
+                  />
+                )}
+              </CardContent>
+            </Card>
+
+            {/* PTO Pending Approval */}
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-blue-600" />
+                    PTO Pending Approval
+                    {inspectionData?.data?.counts?.ptoInProgress !== undefined && (
+                      <span className="ml-2 px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700 rounded-full">
+                        {inspectionData.data.counts.ptoInProgress}
+                      </span>
+                    )}
+                  </h3>
+                </div>
+                {isLoading ? (
+                  <div className="animate-pulse space-y-4">
+                    <div className="h-10 bg-gray-200 rounded" />
+                    <div className="h-10 bg-gray-200 rounded" />
+                    <div className="h-10 bg-gray-200 rounded" />
+                  </div>
+                ) : error ? (
+                  <div className="text-center py-8">
+                    <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                      Failed to Load Data
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      {(error as Error).message || 'Please try again later.'}
+                    </p>
+                  </div>
+                ) : (
+                  <InspectionsTable
+                    projects={inspectionData?.data?.ptoInProgress || []}
+                    status="pto_milestone"
+                  />
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Needs Reinspection */}
+            {inspectionData?.data?.ptoInspectionFailed && inspectionData.data.ptoInspectionFailed.length > 0 && (
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                      <XCircle className="h-5 w-5 text-red-600" />
+                      Needs Reinspection
+                      {inspectionData?.data?.counts?.ptoInspectionFailed !== undefined && (
+                        <span className="ml-2 px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700 rounded-full">
+                          {inspectionData.data.counts.ptoInspectionFailed}
+                        </span>
+                      )}
+                    </h3>
+                  </div>
+                  <InspectionsTable
+                    projects={inspectionData.data.ptoInspectionFailed}
+                    status="pto_milestone"
+                  />
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
