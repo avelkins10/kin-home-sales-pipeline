@@ -300,11 +300,14 @@ export function InspectionsTable({ projects, status }: InspectionsTableProps) {
                   <SortIcon field="daysInStatus" />
                 </button>
               </th>
+              {status === 'inspection_failed' && (
+                <>
+                  <th className="pb-3 pr-4 font-semibold">Reason</th>
+                  <th className="pb-3 pr-4 font-semibold">Category</th>
+                </>
+              )}
               {status === 'waiting_for_inspection' && (
                 <th className="pb-3 pr-4 font-semibold">Blockers</th>
-              )}
-              {status === 'inspection_failed' && (
-                <th className="pb-3 pr-4 font-semibold">Category</th>
               )}
               <th className="pb-3 pr-4 font-semibold">Rep</th>
               <th className="pb-3 font-semibold">Actions</th>
@@ -335,10 +338,10 @@ export function InspectionsTable({ projects, status }: InspectionsTableProps) {
                   </td>
                   <td className="py-3 pr-4">
                     <div className="font-medium text-gray-900">#{project.projectId}</div>
-                    <div className="text-xs text-gray-500">{project.customerName}</div>
                   </td>
                   <td className="py-3 pr-4">
-                    <div className="text-xs text-gray-500 flex items-center">
+                    <div className="font-medium text-gray-900">{project.customerName}</div>
+                    <div className="text-xs text-gray-500 flex items-center mt-1">
                       <Phone className="h-3 w-3 mr-1" />
                       {project.customerPhone || 'N/A'}
                     </div>
@@ -380,16 +383,27 @@ export function InspectionsTable({ projects, status }: InspectionsTableProps) {
                       {project.daysInStatus} {project.daysInStatus === 1 ? 'day' : 'days'}
                     </div>
                   </td>
+                  {status === 'inspection_failed' && (
+                    <>
+                      <td className="py-3 pr-4">
+                        <div className="text-sm text-gray-900 max-w-xs">
+                          {project.failureReason ? (
+                            <span className="line-clamp-2">{project.failureReason}</span>
+                          ) : (
+                            <span className="text-gray-400">No reason provided</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3 pr-4">
+                        {getFailureCategoryBadge(project.failureCategory)}
+                      </td>
+                    </>
+                  )}
                   {status === 'waiting_for_inspection' && (
                     <td className="py-3 pr-4">
                       <div className="flex flex-wrap gap-1">
                         {getBlockerBadges(project.blockers)}
                       </div>
-                    </td>
-                  )}
-                  {status === 'inspection_failed' && (
-                    <td className="py-3 pr-4">
-                      {getFailureCategoryBadge(project.failureCategory)}
                     </td>
                   )}
                   <td className="py-3 pr-4">
@@ -418,12 +432,12 @@ export function InspectionsTable({ projects, status }: InspectionsTableProps) {
                 {/* Expandable Row */}
                 {isExpanded && (
                   <tr className="bg-gray-50">
-                    <td colSpan={status === 'waiting_for_inspection' || status === 'inspection_failed' ? 9 : 8} className="py-4 px-6">
+                    <td colSpan={status === 'inspection_failed' ? 10 : status === 'waiting_for_inspection' ? 9 : 8} className="py-4 px-6">
                       <div className="space-y-3">
                         {/* Failure Details (for failed inspections) */}
                         {status === 'inspection_failed' && project.failureReason && (
                           <div>
-                            <div className="text-xs font-semibold text-gray-700 mb-1">Failure Reason:</div>
+                            <div className="text-xs font-semibold text-gray-700 mb-1">Full Failure Reason:</div>
                             <div className="text-sm text-gray-900 bg-white p-3 rounded border border-red-200">
                               {project.failureReason}
                             </div>
