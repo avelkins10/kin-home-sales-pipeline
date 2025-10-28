@@ -4,14 +4,23 @@ export const runtime = 'nodejs'
 import { NextResponse } from 'next/server';
 import { requireAuth, requireProjectAccessById } from '@/lib/auth/guards';
 import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
-import { 
-  getProjectById, 
-  getPCProjectCommunications, 
-  getPCProjectDocuments, 
-  transformProjectToTeamMembers 
+import {
+  getProjectById,
+  getPCProjectCommunications,
+  getPCProjectDocuments,
+  transformProjectToTeamMembers
 } from '@/lib/quickbase/queries';
 import { PROJECT_FIELDS } from '@/lib/constants/fieldIds';
 import type { PCProjectDetail } from '@/lib/types/operations';
+
+// Helper to extract values from QuickBase wrapped objects
+function extractValue(field: any): any {
+  if (field === null || field === undefined) return null;
+  if (typeof field === 'object' && field?.value !== undefined) {
+    return field.value;
+  }
+  return field;
+}
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   const startedAt = Date.now();
@@ -40,13 +49,13 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
   try {
     // Fetch project data
-    const project = await getProjectById(recordId);
-    if (!project) {
+    const rawProject = await getProjectById(recordId);
+    if (!rawProject) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
     // Get the actual project ID from the project object
-    const actualProjectId = project[PROJECT_FIELDS.PROJECT_ID];
+    const actualProjectId = extractValue(rawProject[PROJECT_FIELDS.PROJECT_ID]);
     if (!actualProjectId) {
       return NextResponse.json({ error: 'Project ID not found in project data' }, { status: 500 });
     }
@@ -57,16 +66,22 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     // Enrich communications with project data
     const enrichedCommunications = communications.map(comm => ({
       ...comm,
-      customerName: project[PROJECT_FIELDS.CUSTOMER_NAME] || 'Unknown Customer',
-      customerPhone: project[PROJECT_FIELDS.CUSTOMER_PHONE] || '',
-      projectStage: project[PROJECT_FIELDS.PROJECT_STAGE] || 'Unknown'
+      customerName: extractValue(rawProject[PROJECT_FIELDS.CUSTOMER_NAME]) || 'Unknown Customer',
+      customerPhone: extractValue(rawProject[PROJECT_FIELDS.CUSTOMER_PHONE]) || '',
+      projectStage: extractValue(rawProject[PROJECT_FIELDS.PROJECT_STAGE]) || 'Unknown'
     }));
 
     // Fetch documents (placeholder implementation)
     const documents = await getPCProjectDocuments(actualProjectId, recordId, reqId);
 
     // Transform project to team members
-    const teamMembers = transformProjectToTeamMembers(project);
+    const teamMembers = transformProjectToTeamMembers(rawProject);
+
+    // Extract all wrapped values from the project object for JSON serialization
+    const project: Record<string, any> = {};
+    for (const [key, value] of Object.entries(rawProject)) {
+      project[key] = extractValue(value);
+    }
 
     // Combine into PCProjectDetail object
     const projectDetail: PCProjectDetail = {
