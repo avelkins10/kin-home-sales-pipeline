@@ -85,7 +85,7 @@ export default function RepCardSyncPage() {
       queryClient.invalidateQueries({ queryKey: ['repcard-sync-status'] });
 
       // Step 2: Sync appointments
-      toast.info('Syncing appointments...', { description: 'Step 2 of 3' });
+      toast.info('Syncing appointments...', { description: 'Step 2 of 2' });
       const appointmentsRes = await fetch(
         `/api/admin/repcard/sync?type=appointments&startDate=${startDate}&endDate=${endDate}`,
         { method: 'POST' }
@@ -95,52 +95,9 @@ export default function RepCardSyncPage() {
       results.push(appointmentsData);
       queryClient.invalidateQueries({ queryKey: ['repcard-sync-status'] });
 
-      // Step 3: Sync status logs - chunked into 1-day periods on frontend (status logs are VERY large)
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-
-      // Split into 1-day chunks (most reliable - each day completes in 30-60s)
-      const chunks: Array<{ startDate: string; endDate: string }> = [];
-      let currentStart = new Date(start);
-
-      while (currentStart <= end) {
-        let currentEnd = new Date(currentStart);
-        // Single day chunk (no need to add days)
-
-        if (currentEnd > end) {
-          currentEnd = new Date(end);
-        }
-
-        chunks.push({
-          startDate: currentStart.toISOString().split('T')[0],
-          endDate: currentEnd.toISOString().split('T')[0]
-        });
-
-        // Move to next day
-        currentStart.setDate(currentStart.getDate() + 1);
-      }
-
-      // Process each chunk sequentially
-      for (let i = 0; i < chunks.length; i++) {
-        const chunk = chunks[i];
-        toast.info(`Syncing status logs...`, {
-          description: `Chunk ${i + 1}/${chunks.length}: ${chunk.startDate} to ${chunk.endDate}`
-        });
-
-        const statusLogsRes = await fetch(
-          `/api/admin/repcard/sync?type=status_logs&startDate=${chunk.startDate}&endDate=${chunk.endDate}`,
-          { method: 'POST' }
-        );
-
-        if (!statusLogsRes.ok) {
-          throw new Error(`Failed to sync status logs chunk ${i + 1}/${chunks.length}`);
-        }
-
-        const statusLogsData = await statusLogsRes.json();
-        results.push(statusLogsData);
-        queryClient.invalidateQueries({ queryKey: ['repcard-sync-status'] });
-      }
+      // Status logs sync skipped - Canvassing tab doesn't need status logs (only uses customers table)
+      // Status logs cause timeouts even for 1-day chunks due to massive data volume
+      // Can be re-enabled later if needed for other analytics, with proper filtering by statusIds
 
       return { results, message: 'All syncs completed' };
     },
@@ -337,7 +294,7 @@ export default function RepCardSyncPage() {
               Quick Sync (Last 7 Days)
             </h3>
             <p className="text-sm text-muted-foreground">
-              Recommended for initial setup. Syncs the most recent 7 days of data to get you started quickly (~5-8 minutes).
+              Recommended for initial setup. Syncs customers + appointments from the last 7 days (~2-3 minutes). Status logs are skipped to avoid timeouts.
             </p>
             <Button
               onClick={() => {
@@ -373,7 +330,7 @@ export default function RepCardSyncPage() {
           <div className="space-y-3 pt-4 border-t">
             <h3 className="text-sm font-medium">Custom Date Range Sync</h3>
             <p className="text-sm text-muted-foreground">
-              Sync specific date range for backfilling historical data or custom periods.
+              Sync customers + appointments for specific date range. Status logs are skipped to avoid timeouts.
             </p>
             <div className="flex gap-3 items-end">
               <div className="flex-1">
