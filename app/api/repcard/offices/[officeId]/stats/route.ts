@@ -182,12 +182,13 @@ export async function GET(
     }
     
     // Office validation
-    const officeCount = await sql`
-      SELECT COUNT(*) as count 
-      FROM users 
+    const officeCountResult = await sql`
+      SELECT COUNT(*) as count
+      FROM users
       WHERE office = ${officeName}
     `;
-    
+    const officeCount = Array.from(officeCountResult);
+
     if (officeCount[0].count === 0) {
       const duration = Date.now() - start;
       logApiResponse('GET', path, duration, { status: 404, cached: false, requestId });
@@ -198,12 +199,13 @@ export async function GET(
     }
     
     // Fetch office users with RepCard IDs
-    const officeUsers = await sql`
-      SELECT id, name, email, repcard_user_id, role 
-      FROM users 
+    const officeUsersResult = await sql`
+      SELECT id, name, email, repcard_user_id, role
+      FROM users
       WHERE office = ${officeName} AND repcard_user_id IS NOT NULL
     `;
-    
+    const officeUsers = Array.from(officeUsersResult);
+
     if (officeUsers.length === 0) {
       const response: GracefulDegradationResponse = {
         hasRepcardData: false,
@@ -285,16 +287,21 @@ export async function GET(
         }
         return allAppointments;
       })(),
-      sql`
-        SELECT closer_email, system_cost, date_closed
-        FROM projects 
-        WHERE closer_email = ANY(${userEmails})
-          AND date_closed >= ${startDate}
-          AND date_closed <= ${endDate}
-      `.catch(error => {
-        logError('repcard-office-stats', error as Error, { requestId, context: 'QuickBase projects fetch' });
-        return [];
-      })
+      (async () => {
+        try {
+          const result = await sql`
+            SELECT closer_email, system_cost, date_closed
+            FROM projects
+            WHERE closer_email = ANY(${userEmails})
+              AND date_closed >= ${startDate}
+              AND date_closed <= ${endDate}
+          `;
+          return Array.from(result);
+        } catch (error) {
+          logError('repcard-office-stats', error as Error, { requestId, context: 'QuickBase projects fetch' });
+          return [];
+        }
+      })()
     ]);
     
     // Calculate office metrics

@@ -225,17 +225,19 @@ export async function GET(request: NextRequest) {
     } else {
       // No office filter - use sql template
       if (role !== 'all') {
-        users = await sql`
+        const result = await sql`
           SELECT id, name, email, repcard_user_id, sales_office[1] as office, role
           FROM users
           WHERE repcard_user_id IS NOT NULL AND role = ${role}
-        ` as unknown as any[];
+        `;
+        users = Array.from(result);
       } else {
-        users = await sql`
+        const result = await sql`
           SELECT id, name, email, repcard_user_id, sales_office[1] as office, role
           FROM users
           WHERE repcard_user_id IS NOT NULL
-        ` as unknown as any[];
+        `;
+        users = Array.from(result);
       }
     }
     

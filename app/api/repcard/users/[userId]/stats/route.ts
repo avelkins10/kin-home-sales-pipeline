@@ -167,12 +167,13 @@ export async function GET(
     }
     
     // User lookup
-    const userResult = await sql`
+    const userResultRaw = await sql`
       SELECT id, name, email, repcard_user_id, sales_office[1] as office, role
       FROM users
       WHERE id = ${params.userId}
     `;
-    
+    const userResult = Array.from(userResultRaw);
+
     if (userResult.length === 0) {
       const duration = Date.now() - start;
       logApiResponse('GET', path, duration, { status: 404, cached: false, requestId });
@@ -249,27 +250,29 @@ export async function GET(
     
     try {
       if (user.role === 'closer') {
-        const salesResult = await sql`
-          SELECT COUNT(*)::int as sales_count, COALESCE(SUM(system_cost), 0)::numeric as total_revenue 
-          FROM projects 
-          WHERE closer_email = ${user.email} 
-            AND date_closed >= ${startDate} 
+        const salesResultRaw = await sql`
+          SELECT COUNT(*)::int as sales_count, COALESCE(SUM(system_cost), 0)::numeric as total_revenue
+          FROM projects
+          WHERE closer_email = ${user.email}
+            AND date_closed >= ${startDate}
             AND date_closed <= ${endDate}
         `;
+        const salesResult = Array.from(salesResultRaw);
         quickbaseSales = {
           sales_count: Number(salesResult[0].sales_count),
           total_revenue: Number(salesResult[0].total_revenue)
         };
       }
-      
+
       if (user.role === 'setter') {
-        const appointmentsResult = await sql`
-          SELECT COUNT(*)::int as appointments_count 
-          FROM projects 
-          WHERE setter_email = ${user.email} 
-            AND date_created >= ${startDate} 
+        const appointmentsResultRaw = await sql`
+          SELECT COUNT(*)::int as appointments_count
+          FROM projects
+          WHERE setter_email = ${user.email}
+            AND date_created >= ${startDate}
             AND date_created <= ${endDate}
         `;
+        const appointmentsResult = Array.from(appointmentsResultRaw);
         quickbaseAppointments = {
           appointments_count: Number(appointmentsResult[0].appointments_count)
         };

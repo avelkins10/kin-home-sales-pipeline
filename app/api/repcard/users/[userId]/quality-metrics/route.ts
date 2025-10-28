@@ -56,12 +56,13 @@ export async function GET(
     }
     
     // User lookup
-    const userResult = await sql`
+    const userResultRaw = await sql`
       SELECT id, name, email, repcard_user_id, sales_office[1] as office
       FROM users
       WHERE id = ${params.userId}
     `;
-    
+    const userResult = Array.from(userResultRaw);
+
     if (userResult.length === 0) {
       const duration = Date.now() - start;
       logApiResponse('GET', path, duration, { status: 404, cached: false, requestId });

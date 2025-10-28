@@ -152,11 +152,12 @@ export async function GET(request: NextRequest) {
       );
       users = result.rows;
     } else {
-      users = await sql`
+      const result = await sql`
         SELECT id, repcard_user_id
         FROM users
         WHERE repcard_user_id IS NOT NULL
-      ` as unknown as any[];
+      `;
+      users = Array.from(result);
     }
 
     if (users.length === 0) {
