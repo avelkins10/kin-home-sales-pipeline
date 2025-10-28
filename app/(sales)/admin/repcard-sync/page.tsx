@@ -95,18 +95,53 @@ export default function RepCardSyncPage() {
       results.push(appointmentsData);
       queryClient.invalidateQueries({ queryKey: ['repcard-sync-status'] });
 
-      // Step 3: Sync status logs (may be auto-chunked into smaller periods)
-      toast.info('Syncing status logs...', {
-        description: 'Step 3 of 3 - This may take a few minutes for large date ranges'
-      });
-      const statusLogsRes = await fetch(
-        `/api/admin/repcard/sync?type=status_logs&startDate=${startDate}&endDate=${endDate}`,
-        { method: 'POST' }
-      );
-      if (!statusLogsRes.ok) throw new Error('Failed to sync status logs');
-      const statusLogsData = await statusLogsRes.json();
-      results.push(statusLogsData);
-      queryClient.invalidateQueries({ queryKey: ['repcard-sync-status'] });
+      // Step 3: Sync status logs - chunked into 7-day periods on frontend
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+
+      // Split into 7-day chunks
+      const chunks: Array<{ startDate: string; endDate: string }> = [];
+      let currentStart = new Date(start);
+
+      while (currentStart <= end) {
+        let currentEnd = new Date(currentStart);
+        currentEnd.setDate(currentEnd.getDate() + 6); // 7 days (inclusive)
+
+        if (currentEnd > end) {
+          currentEnd = new Date(end);
+        }
+
+        chunks.push({
+          startDate: currentStart.toISOString().split('T')[0],
+          endDate: currentEnd.toISOString().split('T')[0]
+        });
+
+        // Move to next chunk
+        currentStart = new Date(currentEnd);
+        currentStart.setDate(currentStart.getDate() + 1);
+      }
+
+      // Process each chunk sequentially
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        toast.info(`Syncing status logs...`, {
+          description: `Chunk ${i + 1}/${chunks.length}: ${chunk.startDate} to ${chunk.endDate}`
+        });
+
+        const statusLogsRes = await fetch(
+          `/api/admin/repcard/sync?type=status_logs&startDate=${chunk.startDate}&endDate=${chunk.endDate}`,
+          { method: 'POST' }
+        );
+
+        if (!statusLogsRes.ok) {
+          throw new Error(`Failed to sync status logs chunk ${i + 1}/${chunks.length}`);
+        }
+
+        const statusLogsData = await statusLogsRes.json();
+        results.push(statusLogsData);
+        queryClient.invalidateQueries({ queryKey: ['repcard-sync-status'] });
+      }
 
       return { results, message: 'All syncs completed' };
     },
