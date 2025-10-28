@@ -329,6 +329,14 @@ export async function GET(request: NextRequest) {
             startDate: calculatedStartDate,
             endDate: calculatedEndDate
           });
+
+          // LOG SAMPLE CUSTOMER DATA FOR USER TO REVIEW
+          if (page === 1 && response.result.data.length > 0) {
+            console.log(`[Leaderboard - doors_knocked] === SAMPLE CUSTOMER DATA (first 3) ===`);
+            console.log(JSON.stringify(response.result.data.slice(0, 3), null, 2));
+            console.log(`[Leaderboard - doors_knocked] === END SAMPLE DATA ===`);
+          }
+
           allCustomers.push(...response.result.data);
           hasMore = response.result.currentPage < response.result.lastPage;
           page++;
@@ -365,6 +373,14 @@ export async function GET(request: NextRequest) {
             page,
             perPage: 100
           });
+
+          // LOG SAMPLE APPOINTMENT DATA FOR USER TO REVIEW
+          if (page === 1 && response.result.data.length > 0) {
+            console.log(`[Leaderboard - appointments_set] === SAMPLE APPOINTMENT DATA (first 3) ===`);
+            console.log(JSON.stringify(response.result.data.slice(0, 3), null, 2));
+            console.log(`[Leaderboard - appointments_set] === END SAMPLE DATA ===`);
+          }
+
           allAppointments.push(...response.result.data);
           hasMore = response.result.currentPage < (response.result.totalPages || 1);
           page++;

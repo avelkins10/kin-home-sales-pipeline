@@ -182,11 +182,20 @@ export async function GET(request: NextRequest) {
     const allCustomers: any[] = [];
     let page = 1;
     let hasMore = true;
+    const MAX_PAGES = 50; // Safety limit to prevent timeout (5000 customers max)
+    const fetchStartTime = Date.now();
+    const MAX_FETCH_TIME = 45000; // 45 seconds max for fetching
 
     console.log(`[Canvassing Trends] Fetching customers for date range: ${calculatedStartDate} to ${calculatedEndDate}`);
     console.log(`[Canvassing Trends] Filtering for ${users.length} users in offices: ${officeIds?.join(',') || 'all'}`);
 
-    while (hasMore) {
+    while (hasMore && page <= MAX_PAGES) {
+      // Check if we're approaching timeout
+      if (Date.now() - fetchStartTime > MAX_FETCH_TIME) {
+        console.warn(`[Canvassing Trends] Approaching timeout limit, stopping at page ${page}`);
+        break;
+      }
+
       try {
         const response = await repcardClient.getCustomers({
           page,
@@ -195,6 +204,14 @@ export async function GET(request: NextRequest) {
           endDate: calculatedEndDate
         });
         console.log(`[Canvassing Trends] Page ${page}: Got ${response.result.data.length} customers (total: ${response.result.total}, currentPage: ${response.result.currentPage}, lastPage: ${response.result.lastPage})`);
+
+        // LOG SAMPLE CUSTOMER DATA FOR USER TO REVIEW
+        if (page === 1 && response.result.data.length > 0) {
+          console.log(`[Canvassing Trends] === SAMPLE CUSTOMER DATA (first 3) ===`);
+          console.log(JSON.stringify(response.result.data.slice(0, 3), null, 2));
+          console.log(`[Canvassing Trends] === END SAMPLE DATA ===`);
+        }
+
         allCustomers.push(...response.result.data);
         hasMore = response.result.currentPage < response.result.lastPage;
         page++;
@@ -202,6 +219,10 @@ export async function GET(request: NextRequest) {
         console.error(`[Canvassing Trends] Failed to fetch customers page ${page}:`, error);
         hasMore = false;
       }
+    }
+
+    if (page > MAX_PAGES) {
+      console.warn(`[Canvassing Trends] Reached maximum page limit (${MAX_PAGES}), results may be incomplete`);
     }
 
     console.log(`[Canvassing Trends] Total customers fetched from RepCard: ${allCustomers.length}`);

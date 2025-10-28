@@ -818,3 +818,133 @@ export interface PCInspectionFilters {
   customEndDate?: string; // ISO date string for custom range
   state?: string | 'all'; // State filtering
 }
+
+// =============================================================================
+// MILESTONE DASHBOARD TYPES
+// =============================================================================
+
+// Operations milestone type (project lifecycle stages)
+export type OperationsMilestone =
+  | 'intake'      // Initial customer onboarding
+  | 'survey'      // Site survey scheduling and completion
+  | 'design'      // Design creation and approval
+  | 'permitting'  // AHJ, NEM, and HOA permit processing
+  | 'install'     // Installation scheduling and completion
+  | 'inspection'  // Inspection scheduling and completion
+  | 'pto';        // Permission to Operate submission and approval
+
+// Milestone-specific status types (mapped by milestone)
+export type MilestoneStatus = {
+  intake: 'deposit_received' | 'pending_documents' | 'documents_received' | 'intake_complete' | 'on_hold';
+  survey: 'survey_requested' | 'survey_scheduled' | 'survey_completed' | 'pending_review' | 'blocked';
+  design: 'design_in_progress' | 'pending_approval' | 'approved' | 'revisions_needed' | 'completed';
+  permitting: 'ahj_pending' | 'ahj_approved' | 'ahj_rejected' | 'nem_pending' | 'nem_approved' | 'hoa_pending' | 'hoa_approved' | 'all_approved';
+  install: 'install_scheduled' | 'install_in_progress' | 'install_completed' | 'pending_punch_list' | 'completed';
+  inspection: 'waiting_for_inspection' | 'inspection_scheduled' | 'inspection_passed' | 'inspection_failed' | 'reinspection_scheduled';
+  pto: 'ready_for_pto' | 'pto_submitted' | 'pto_approved' | 'pto_rejected' | 'inspection_failed_pto';
+};
+
+// Milestone project interface (project data for milestone dashboards)
+export interface MilestoneProject {
+  recordId: number;
+  projectId: string;
+  customerName: string;
+  customerPhone: string;
+  salesOffice: string;
+  salesRepName: string;
+  salesRepEmail: string;
+  coordinatorEmail: string;
+  lenderName: string;
+  projectStatus: string; // Overall project status
+  currentMilestone: OperationsMilestone; // Which milestone the project is in
+  milestoneStatus: string; // Status within current milestone
+  daysInMilestone: number; // Days in current milestone
+  daysInStatus: number; // Days in current status
+  isBlocked: boolean; // Whether project is blocked
+  blockReason: string | null; // Reason for block
+  isOnHold: boolean; // Whether project is on hold
+  holdReason: string | null; // Reason for hold
+
+  // Milestone-specific fields
+  // Intake
+  depositDate?: string | null;
+  documentsReceivedDate?: string | null;
+
+  // Survey
+  surveyScheduledDate?: string | null;
+  surveyCompletedDate?: string | null;
+
+  // Design
+  designStartedDate?: string | null;
+  designApprovedDate?: string | null;
+
+  // Permitting
+  ahjStatus?: string | null;
+  ahjSubmitted?: string | null;
+  ahjApproved?: string | null;
+  nemStatus?: string | null;
+  nemSubmitted?: string | null;
+  nemApproved?: string | null;
+  hoaStatus?: string | null;
+  hoaSubmitted?: string | null;
+  hoaApproved?: string | null;
+
+  // Install
+  installScheduledDate?: string | null;
+  installCompletedDate?: string | null;
+
+  // Inspection
+  inspectionScheduledDate?: string | null;
+  inspectionPassedDate?: string | null;
+  inspectionFailedDate?: string | null;
+  failureReason?: string | null;
+
+  // PTO
+  ptoSubmitted?: string | null;
+  ptoApproved?: string | null;
+  utilityApprovalDate?: string | null;
+}
+
+// Milestone dashboard metrics
+export interface MilestoneDashboardMetrics {
+  total: number; // Total projects in milestone
+  byStatus: Record<string, number>; // Count by status
+  avgDaysInMilestone: number; // Average days in milestone
+  avgDaysInStatus: number; // Average days in current status
+  oldestProject: {
+    projectId: string;
+    customerName: string;
+    daysInMilestone: number;
+  } | null;
+  newestProject: {
+    projectId: string;
+    customerName: string;
+    daysInMilestone: number;
+  } | null;
+  blockedCount: number; // Projects blocked in this milestone
+  onHoldCount: number; // Projects on hold in this milestone
+}
+
+// Milestone dashboard data (returned by API)
+export interface MilestoneDashboardData {
+  milestone: OperationsMilestone;
+  projects: MilestoneProject[]; // All projects in this milestone
+  projectsByStatus: Record<string, MilestoneProject[]>; // Projects grouped by status
+  metrics: MilestoneDashboardMetrics;
+  availableStatuses: string[]; // Valid statuses for this milestone
+}
+
+// Milestone dashboard filters
+export interface MilestoneDashboardFilters {
+  milestone: OperationsMilestone;
+  status: string | 'all'; // Status within milestone
+  office: string | 'all';
+  salesRep: string | 'all';
+  coordinator: string | 'all';
+  search: string;
+  dateRange: '7days' | '30days' | '90days' | 'custom' | 'all';
+  customStartDate?: string;
+  customEndDate?: string;
+  showBlocked: boolean; // Include blocked projects
+  showOnHold: boolean; // Include on-hold projects
+}

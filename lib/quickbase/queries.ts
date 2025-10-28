@@ -9674,3 +9674,553 @@ export async function getPTOProjects(
     throw error;
   }
 }
+
+/**
+ * Get projects for a specific milestone dashboard
+ *
+ * @param milestone - Which milestone to fetch projects for
+ * @param pcEmail - Project coordinator email
+ * @param pcName - Project coordinator name
+ * @param role - User role for access control
+ * @param reqId - Request ID for logging
+ * @returns Milestone dashboard data with projects, metrics, and counts
+ */
+export async function getMilestoneProjects(
+  milestone: import('@/lib/types/operations').OperationsMilestone,
+  pcEmail: string,
+  pcName: string,
+  role: string,
+  reqId: string
+): Promise<import('@/lib/types/operations').MilestoneDashboardData> {
+  try {
+    const startTime = Date.now();
+    logQuickbaseRequest('getMilestoneProjects', { milestone, pcEmail, pcName, role }, reqId);
+
+    // Build WHERE clause based on role
+    const sanitizedEmail = sanitizeQbLiteral(pcEmail);
+    const sanitizedName = sanitizeQbLiteral(pcName);
+
+    let whereClause: string;
+    const { hasOperationsUnrestrictedAccess, isOperationsManager } = await import('@/lib/utils/role-helpers');
+
+    // Role-based filtering
+    if (hasOperationsUnrestrictedAccess(role)) {
+      // Super admin, regional, office leaders see ALL projects
+      whereClause = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}`;
+    } else if (isOperationsManager(role)) {
+      // Operations managers see all operations projects (any project with a PC)
+      whereClause = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+    } else {
+      // Operations coordinators see only their assigned projects
+      whereClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+    }
+
+    // Add milestone-specific filtering and exclude Lost/Cancelled
+    whereClause += `AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Lost'}`;
+    whereClause += `AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Cancelled'}`;
+
+    // Define fields to fetch based on milestone
+    let selectFields = [
+      PROJECT_FIELDS.RECORD_ID,
+      PROJECT_FIELDS.PROJECT_ID,
+      PROJECT_FIELDS.CUSTOMER_NAME,
+      PROJECT_FIELDS.CUSTOMER_PHONE,
+      PROJECT_FIELDS.SALES_OFFICE,
+      PROJECT_FIELDS.CLOSER_NAME,
+      PROJECT_FIELDS.CLOSER_EMAIL,
+      PROJECT_FIELDS.PROJECT_COORDINATOR,
+      PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL,
+      PROJECT_FIELDS.LENDER_NAME,
+      PROJECT_FIELDS.PROJECT_STATUS,
+      PROJECT_FIELDS.SALES_DATE,
+      PROJECT_FIELDS.ON_HOLD,
+      PROJECT_FIELDS.HOLD_REASON,
+      PROJECT_FIELDS.BLOCK_REASON
+    ];
+
+    // Add milestone-specific WHERE clauses and fields
+    switch (milestone) {
+      case 'intake':
+        // Projects in intake: Sold but intake not completed
+        whereClause += `AND{${PROJECT_FIELDS.SALES_DATE}.XEX.''}`;
+        whereClause += `AND({${PROJECT_FIELDS.INTAKE_COMPLETED_DATE}.EX.''})OR({${PROJECT_FIELDS.INTAKE_STATUS}.XEX.''})`;
+
+        selectFields.push(
+          PROJECT_FIELDS.INTAKE_STATUS,
+          PROJECT_FIELDS.INTAKE_COMPLETED_DATE,
+          PROJECT_FIELDS.INTAKE_FIRST_PASS_STARTED,
+          PROJECT_FIELDS.INTAKE_FIRST_PASS_COMPLETE,
+          PROJECT_FIELDS.MINIMUM_INTAKE_APPROVAL_DATE
+        );
+        break;
+
+      case 'survey':
+        // Projects in survey: Intake complete, survey not complete
+        whereClause += `AND{${PROJECT_FIELDS.INTAKE_COMPLETED_DATE}.XEX.''}`;
+        whereClause += `AND({${PROJECT_FIELDS.SURVEY_APPROVED}.EX.''})OR({${PROJECT_FIELDS.SURVEY_STATUS}.XEX.''})`;
+
+        selectFields.push(
+          PROJECT_FIELDS.SURVEY_STATUS,
+          PROJECT_FIELDS.SITE_SURVEY_ARRIVY_SCHEDULED,
+          PROJECT_FIELDS.SURVEY_SUBMITTED,
+          PROJECT_FIELDS.SURVEY_APPROVED,
+          PROJECT_FIELDS.INTAKE_COMPLETED_DATE
+        );
+        break;
+
+      case 'design':
+        // Projects in design: Survey complete, design not complete
+        whereClause += `AND{${PROJECT_FIELDS.SURVEY_APPROVED}.XEX.''}`;
+        whereClause += `AND({${PROJECT_FIELDS.DESIGN_COMPLETED}.EX.''})OR({${PROJECT_FIELDS.DESIGN_STATUS}.XEX.''})`;
+
+        selectFields.push(
+          PROJECT_FIELDS.DESIGN_STATUS,
+          PROJECT_FIELDS.DESIGN_COMPLETED,
+          PROJECT_FIELDS.PREDESIGN_APPROVED,
+          PROJECT_FIELDS.CAD_DESIGN_APPROVED,
+          PROJECT_FIELDS.ENGINEERING_COMPLETED,
+          PROJECT_FIELDS.SURVEY_APPROVED
+        );
+        break;
+
+      case 'permitting':
+        // Projects in permitting: Design complete, permits not all approved
+        whereClause += `AND{${PROJECT_FIELDS.DESIGN_COMPLETED}.XEX.''}`;
+        whereClause += `AND(({${PROJECT_FIELDS.PERMIT_APPROVED}.EX.''})OR({${PROJECT_FIELDS.NEM_APPROVED}.EX.''})OR({${PROJECT_FIELDS.HOA_APPLICATION_APPROVED}.EX.''}))`;
+
+        selectFields.push(
+          PROJECT_FIELDS.PERMIT_STATUS,
+          PROJECT_FIELDS.PERMIT_SUBMITTED,
+          PROJECT_FIELDS.PERMIT_APPROVED,
+          PROJECT_FIELDS.NEM_INTERCONNECTION_STATUS,
+          PROJECT_FIELDS.NEM_SUBMITTED,
+          PROJECT_FIELDS.NEM_APPROVED,
+          PROJECT_FIELDS.HOA_STATUS,
+          PROJECT_FIELDS.HOA_APPLICATION_SUBMITTED,
+          PROJECT_FIELDS.HOA_APPLICATION_APPROVED,
+          PROJECT_FIELDS.DESIGN_COMPLETED
+        );
+        break;
+
+      case 'install':
+        // Projects in install: Permits complete, install not complete
+        whereClause += `AND{${PROJECT_FIELDS.PERMIT_APPROVED}.XEX.''}`;
+        whereClause += `AND({${PROJECT_FIELDS.INSTALL_COMPLETED_DATE}.EX.''})`;
+
+        selectFields.push(
+          PROJECT_FIELDS.INSTALL_SCHEDULED_DATE_CAPTURE,
+          PROJECT_FIELDS.INSTALL_STARTED_DATE,
+          PROJECT_FIELDS.INSTALL_COMPLETED_DATE,
+          PROJECT_FIELDS.ESTIMATED_INSTALL_DATE,
+          PROJECT_FIELDS.PERMIT_APPROVED
+        );
+        break;
+
+      case 'inspection':
+        // Projects in inspection: Install complete, inspection not passed
+        whereClause += `AND{${PROJECT_FIELDS.INSTALL_COMPLETED_DATE}.XEX.''}`;
+        whereClause += `AND({${PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED}.EX.''})`;
+
+        selectFields.push(
+          PROJECT_FIELDS.INSTALL_COMPLETED_DATE,
+          PROJECT_FIELDS.INSPECTION_SCHEDULED_DATE,
+          PROJECT_FIELDS.INSPECTION_FAILED_DATE,
+          PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED,
+          PROJECT_FIELDS.NOTE,
+          PROJECT_FIELDS.PERMIT_STATUS,
+          PROJECT_FIELDS.AS_BUILT_SUBMITTED_TO_AHJ
+        );
+        break;
+
+      case 'pto':
+        // Projects in PTO: Inspection passed, PTO not approved
+        whereClause += `AND{${PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED}.XEX.''}`;
+        whereClause += `AND({${PROJECT_FIELDS.PTO_APPROVED}.EX.''})`;
+
+        selectFields.push(
+          PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED,
+          PROJECT_FIELDS.PTO_STATUS,
+          PROJECT_FIELDS.PTO_SUBMITTED,
+          PROJECT_FIELDS.PTO_APPROVED,
+          PROJECT_FIELDS.NEM_INTERCONNECTION_STATUS,
+          PROJECT_FIELDS.UTILITY_APPROVAL_DATE
+        );
+        break;
+    }
+
+    // Fetch projects from QuickBase
+    const query = {
+      from: QB_TABLE_PROJECTS,
+      where: whereClause,
+      select: selectFields,
+      options: {
+        skip: 0,
+        top: 0 // fetch all
+      }
+    };
+
+    const response = await qbClient.query(query);
+    const now = new Date();
+
+    // Process projects and categorize by status
+    const projects: any[] = [];
+    const projectsByStatus: Record<string, any[]> = {};
+    const statusCounts: Record<string, number> = {};
+    let totalDaysInMilestone = 0;
+    let totalDaysInStatus = 0;
+    let oldestProject: any = null;
+    let newestProject: any = null;
+    let blockedCount = 0;
+    let onHoldCount = 0;
+
+    for (const record of response.data) {
+      const isOnHold = isTrueQB(record[PROJECT_FIELDS.ON_HOLD]);
+      const isBlocked = !!record[PROJECT_FIELDS.BLOCK_REASON];
+
+      if (isOnHold) onHoldCount++;
+      if (isBlocked) blockedCount++;
+
+      // Categorize project based on milestone
+      let milestoneStatus = 'unknown';
+      let milestoneStartDate: Date | null = null;
+      let statusStartDate: Date | null = null;
+
+      switch (milestone) {
+        case 'intake':
+          const salesDate = parseQuickbaseDate(record[PROJECT_FIELDS.SALES_DATE]);
+          const intakeCompleted = parseQuickbaseDate(record[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]);
+          const intakeFirstPassStarted = parseQuickbaseDate(record[PROJECT_FIELDS.INTAKE_FIRST_PASS_STARTED]);
+          const intakeFirstPassComplete = parseQuickbaseDate(record[PROJECT_FIELDS.INTAKE_FIRST_PASS_COMPLETE]);
+
+          milestoneStartDate = salesDate;
+
+          if (isOnHold) {
+            milestoneStatus = 'on_hold';
+            statusStartDate = parseQuickbaseDate(record[PROJECT_FIELDS.DATE_ON_HOLD]);
+          } else if (intakeCompleted) {
+            milestoneStatus = 'intake_complete';
+            statusStartDate = intakeCompleted;
+          } else if (intakeFirstPassComplete) {
+            milestoneStatus = 'documents_received';
+            statusStartDate = intakeFirstPassComplete;
+          } else if (intakeFirstPassStarted) {
+            milestoneStatus = 'pending_documents';
+            statusStartDate = intakeFirstPassStarted;
+          } else {
+            milestoneStatus = 'deposit_received';
+            statusStartDate = salesDate;
+          }
+          break;
+
+        case 'survey':
+          const intakeCompletedSurvey = parseQuickbaseDate(record[PROJECT_FIELDS.INTAKE_COMPLETED_DATE]);
+          const surveyScheduled = parseQuickbaseDate(record[PROJECT_FIELDS.SITE_SURVEY_ARRIVY_SCHEDULED]);
+          const surveySubmitted = parseQuickbaseDate(record[PROJECT_FIELDS.SURVEY_SUBMITTED]);
+          const surveyApproved = parseQuickbaseDate(record[PROJECT_FIELDS.SURVEY_APPROVED]);
+
+          milestoneStartDate = intakeCompletedSurvey;
+
+          if (isOnHold) {
+            milestoneStatus = 'on_hold';
+          } else if (isBlocked) {
+            milestoneStatus = 'blocked';
+          } else if (surveyApproved) {
+            milestoneStatus = 'completed';
+            statusStartDate = surveyApproved;
+          } else if (surveySubmitted) {
+            milestoneStatus = 'pending_review';
+            statusStartDate = surveySubmitted;
+          } else if (surveyScheduled) {
+            milestoneStatus = 'survey_scheduled';
+            statusStartDate = surveyScheduled;
+          } else {
+            milestoneStatus = 'survey_requested';
+            statusStartDate = intakeCompletedSurvey;
+          }
+          break;
+
+        case 'design':
+          const surveyApprovedDesign = parseQuickbaseDate(record[PROJECT_FIELDS.SURVEY_APPROVED]);
+          const predesignApproved = parseQuickbaseDate(record[PROJECT_FIELDS.PREDESIGN_APPROVED]);
+          const cadApproved = parseQuickbaseDate(record[PROJECT_FIELDS.CAD_DESIGN_APPROVED]);
+          const engineeringComplete = parseQuickbaseDate(record[PROJECT_FIELDS.ENGINEERING_COMPLETED]);
+          const designComplete = parseQuickbaseDate(record[PROJECT_FIELDS.DESIGN_COMPLETED]);
+
+          milestoneStartDate = surveyApprovedDesign;
+
+          if (isOnHold) {
+            milestoneStatus = 'on_hold';
+          } else if (designComplete) {
+            milestoneStatus = 'completed';
+            statusStartDate = designComplete;
+          } else if (engineeringComplete) {
+            milestoneStatus = 'approved';
+            statusStartDate = engineeringComplete;
+          } else if (cadApproved) {
+            milestoneStatus = 'pending_approval';
+            statusStartDate = cadApproved;
+          } else if (predesignApproved) {
+            milestoneStatus = 'design_in_progress';
+            statusStartDate = predesignApproved;
+          } else {
+            milestoneStatus = 'design_in_progress';
+            statusStartDate = surveyApprovedDesign;
+          }
+          break;
+
+        case 'permitting':
+          const designCompletedPermit = parseQuickbaseDate(record[PROJECT_FIELDS.DESIGN_COMPLETED]);
+          const permitSubmitted = parseQuickbaseDate(record[PROJECT_FIELDS.PERMIT_SUBMITTED]);
+          const permitApproved = parseQuickbaseDate(record[PROJECT_FIELDS.PERMIT_APPROVED]);
+          const nemSubmitted = parseQuickbaseDate(record[PROJECT_FIELDS.NEM_SUBMITTED]);
+          const nemApproved = parseQuickbaseDate(record[PROJECT_FIELDS.NEM_APPROVED]);
+          const hoaSubmitted = parseQuickbaseDate(record[PROJECT_FIELDS.HOA_APPLICATION_SUBMITTED]);
+          const hoaApproved = parseQuickbaseDate(record[PROJECT_FIELDS.HOA_APPLICATION_APPROVED]);
+
+          milestoneStartDate = designCompletedPermit;
+
+          // Determine overall permitting status
+          const allPermitsApproved = permitApproved && (!hoaSubmitted || hoaApproved) && nemApproved;
+          const hasRejection = record[PROJECT_FIELDS.PERMIT_STATUS]?.includes?.('Reject') ||
+                             record[PROJECT_FIELDS.NEM_INTERCONNECTION_STATUS]?.includes?.('Reject');
+
+          if (isOnHold) {
+            milestoneStatus = 'on_hold';
+          } else if (allPermitsApproved) {
+            milestoneStatus = 'all_approved';
+            statusStartDate = permitApproved;
+          } else if (hasRejection) {
+            milestoneStatus = 'ahj_rejected';
+            statusStartDate = permitSubmitted || designCompletedPermit;
+          } else if (permitApproved) {
+            milestoneStatus = 'ahj_approved';
+            statusStartDate = permitApproved;
+          } else if (permitSubmitted) {
+            milestoneStatus = 'ahj_pending';
+            statusStartDate = permitSubmitted;
+          } else {
+            milestoneStatus = 'ahj_pending';
+            statusStartDate = designCompletedPermit;
+          }
+          break;
+
+        case 'install':
+          const permitApprovedInstall = parseQuickbaseDate(record[PROJECT_FIELDS.PERMIT_APPROVED]);
+          const installScheduled = parseQuickbaseDate(record[PROJECT_FIELDS.INSTALL_SCHEDULED_DATE_CAPTURE]);
+          const installStarted = parseQuickbaseDate(record[PROJECT_FIELDS.INSTALL_STARTED_DATE]);
+          const installCompleted = parseQuickbaseDate(record[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]);
+
+          milestoneStartDate = permitApprovedInstall;
+
+          if (isOnHold) {
+            milestoneStatus = 'on_hold';
+          } else if (installCompleted) {
+            milestoneStatus = 'completed';
+            statusStartDate = installCompleted;
+          } else if (installStarted) {
+            milestoneStatus = 'install_in_progress';
+            statusStartDate = installStarted;
+          } else if (installScheduled) {
+            milestoneStatus = 'install_scheduled';
+            statusStartDate = installScheduled;
+          } else {
+            milestoneStatus = 'install_scheduled';
+            statusStartDate = permitApprovedInstall;
+          }
+          break;
+
+        case 'inspection':
+          const installCompletedInspection = parseQuickbaseDate(record[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]);
+          const inspectionScheduled = parseQuickbaseDate(record[PROJECT_FIELDS.INSPECTION_SCHEDULED_DATE]);
+          const inspectionFailed = parseQuickbaseDate(record[PROJECT_FIELDS.INSPECTION_FAILED_DATE]);
+          const inspectionPassed = parseQuickbaseDate(record[PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED]);
+
+          milestoneStartDate = installCompletedInspection;
+
+          if (isOnHold) {
+            milestoneStatus = 'on_hold';
+          } else if (inspectionFailed && !inspectionPassed) {
+            if (inspectionScheduled && inspectionScheduled > inspectionFailed) {
+              milestoneStatus = 'reinspection_scheduled';
+              statusStartDate = inspectionScheduled;
+            } else {
+              milestoneStatus = 'inspection_failed';
+              statusStartDate = inspectionFailed;
+            }
+          } else if (inspectionScheduled) {
+            milestoneStatus = 'inspection_scheduled';
+            statusStartDate = inspectionScheduled;
+          } else {
+            milestoneStatus = 'waiting_for_inspection';
+            statusStartDate = installCompletedInspection;
+          }
+          break;
+
+        case 'pto':
+          const inspectionPassedPTO = parseQuickbaseDate(record[PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED]);
+          const ptoSubmitted = parseQuickbaseDate(record[PROJECT_FIELDS.PTO_SUBMITTED]);
+
+          milestoneStartDate = inspectionPassedPTO;
+
+          if (isOnHold) {
+            milestoneStatus = 'on_hold';
+          } else if (ptoSubmitted) {
+            milestoneStatus = 'pto_submitted';
+            statusStartDate = ptoSubmitted;
+          } else {
+            milestoneStatus = 'ready_for_pto';
+            statusStartDate = inspectionPassedPTO;
+          }
+          break;
+      }
+
+      // Calculate days in milestone and status
+      const daysInMilestone = milestoneStartDate
+        ? Math.ceil((now.getTime() - milestoneStartDate.getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
+
+      const daysInStatus = statusStartDate
+        ? Math.ceil((now.getTime() - statusStartDate.getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
+
+      totalDaysInMilestone += daysInMilestone;
+      totalDaysInStatus += daysInStatus;
+
+      // Track oldest/newest projects
+      if (!oldestProject || daysInMilestone > oldestProject.daysInMilestone) {
+        oldestProject = {
+          projectId: record[PROJECT_FIELDS.PROJECT_ID],
+          customerName: record[PROJECT_FIELDS.CUSTOMER_NAME],
+          daysInMilestone
+        };
+      }
+
+      if (!newestProject || daysInMilestone < newestProject.daysInMilestone) {
+        newestProject = {
+          projectId: record[PROJECT_FIELDS.PROJECT_ID],
+          customerName: record[PROJECT_FIELDS.CUSTOMER_NAME],
+          daysInMilestone
+        };
+      }
+
+      // Build project object
+      const project = {
+        recordId: record[PROJECT_FIELDS.RECORD_ID],
+        projectId: record[PROJECT_FIELDS.PROJECT_ID],
+        customerName: record[PROJECT_FIELDS.CUSTOMER_NAME],
+        customerPhone: record[PROJECT_FIELDS.CUSTOMER_PHONE],
+        salesOffice: record[PROJECT_FIELDS.SALES_OFFICE],
+        salesRepName: record[PROJECT_FIELDS.CLOSER_NAME],
+        salesRepEmail: record[PROJECT_FIELDS.CLOSER_EMAIL],
+        coordinatorEmail: record[PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL],
+        lenderName: record[PROJECT_FIELDS.LENDER_NAME],
+        projectStatus: record[PROJECT_FIELDS.PROJECT_STATUS],
+        currentMilestone: milestone,
+        milestoneStatus,
+        daysInMilestone,
+        daysInStatus,
+        isBlocked,
+        blockReason: record[PROJECT_FIELDS.BLOCK_REASON] || null,
+        isOnHold,
+        holdReason: record[PROJECT_FIELDS.HOLD_REASON] || null,
+        // Add milestone-specific fields
+        ...(milestone === 'intake' && {
+          depositDate: record[PROJECT_FIELDS.SALES_DATE],
+          documentsReceivedDate: record[PROJECT_FIELDS.INTAKE_FIRST_PASS_COMPLETE]
+        }),
+        ...(milestone === 'survey' && {
+          surveyScheduledDate: record[PROJECT_FIELDS.SITE_SURVEY_ARRIVY_SCHEDULED],
+          surveyCompletedDate: record[PROJECT_FIELDS.SURVEY_APPROVED]
+        }),
+        ...(milestone === 'design' && {
+          designStartedDate: record[PROJECT_FIELDS.PREDESIGN_APPROVED],
+          designApprovedDate: record[PROJECT_FIELDS.DESIGN_COMPLETED]
+        }),
+        ...(milestone === 'permitting' && {
+          ahjStatus: record[PROJECT_FIELDS.PERMIT_STATUS],
+          ahjSubmitted: record[PROJECT_FIELDS.PERMIT_SUBMITTED],
+          ahjApproved: record[PROJECT_FIELDS.PERMIT_APPROVED],
+          nemStatus: record[PROJECT_FIELDS.NEM_INTERCONNECTION_STATUS],
+          nemSubmitted: record[PROJECT_FIELDS.NEM_SUBMITTED],
+          nemApproved: record[PROJECT_FIELDS.NEM_APPROVED],
+          hoaStatus: record[PROJECT_FIELDS.HOA_STATUS],
+          hoaSubmitted: record[PROJECT_FIELDS.HOA_APPLICATION_SUBMITTED],
+          hoaApproved: record[PROJECT_FIELDS.HOA_APPLICATION_APPROVED]
+        }),
+        ...(milestone === 'install' && {
+          installScheduledDate: record[PROJECT_FIELDS.INSTALL_SCHEDULED_DATE_CAPTURE],
+          installCompletedDate: record[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]
+        }),
+        ...(milestone === 'inspection' && {
+          inspectionScheduledDate: record[PROJECT_FIELDS.INSPECTION_SCHEDULED_DATE],
+          inspectionPassedDate: record[PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED],
+          inspectionFailedDate: record[PROJECT_FIELDS.INSPECTION_FAILED_DATE],
+          failureReason: record[PROJECT_FIELDS.NOTE]
+        }),
+        ...(milestone === 'pto' && {
+          ptoSubmitted: record[PROJECT_FIELDS.PTO_SUBMITTED],
+          ptoApproved: record[PROJECT_FIELDS.PTO_APPROVED],
+          utilityApprovalDate: record[PROJECT_FIELDS.UTILITY_APPROVAL_DATE]
+        })
+      };
+
+      projects.push(project);
+
+      // Group by status
+      if (!projectsByStatus[milestoneStatus]) {
+        projectsByStatus[milestoneStatus] = [];
+        statusCounts[milestoneStatus] = 0;
+      }
+      projectsByStatus[milestoneStatus].push(project);
+      statusCounts[milestoneStatus]++;
+    }
+
+    // Calculate metrics
+    const totalProjects = projects.length;
+    const avgDaysInMilestone = totalProjects > 0 ? Math.round(totalDaysInMilestone / totalProjects) : 0;
+    const avgDaysInStatus = totalProjects > 0 ? Math.round(totalDaysInStatus / totalProjects) : 0;
+
+    // Get available statuses for this milestone
+    const statusMap: Record<string, string[]> = {
+      intake: ['deposit_received', 'pending_documents', 'documents_received', 'intake_complete', 'on_hold'],
+      survey: ['survey_requested', 'survey_scheduled', 'survey_completed', 'pending_review', 'blocked', 'on_hold'],
+      design: ['design_in_progress', 'pending_approval', 'approved', 'revisions_needed', 'completed', 'on_hold'],
+      permitting: ['ahj_pending', 'ahj_approved', 'ahj_rejected', 'nem_pending', 'nem_approved', 'hoa_pending', 'hoa_approved', 'all_approved', 'on_hold'],
+      install: ['install_scheduled', 'install_in_progress', 'install_completed', 'pending_punch_list', 'completed', 'on_hold'],
+      inspection: ['waiting_for_inspection', 'inspection_scheduled', 'inspection_passed', 'inspection_failed', 'reinspection_scheduled', 'on_hold'],
+      pto: ['ready_for_pto', 'pto_submitted', 'pto_approved', 'pto_rejected', 'on_hold']
+    };
+
+    const result: import('@/lib/types/operations').MilestoneDashboardData = {
+      milestone,
+      projects,
+      projectsByStatus,
+      metrics: {
+        total: totalProjects,
+        byStatus: statusCounts,
+        avgDaysInMilestone,
+        avgDaysInStatus,
+        oldestProject,
+        newestProject,
+        blockedCount,
+        onHoldCount
+      },
+      availableStatuses: statusMap[milestone] || []
+    };
+
+    const duration = Date.now() - startTime;
+    logQuickbaseResponse('getMilestoneProjects', {
+      milestone,
+      totalProjects,
+      statusCounts,
+      blockedCount,
+      onHoldCount
+    }, duration, reqId);
+
+    return result;
+
+  } catch (error) {
+    logQuickbaseError('getMilestoneProjects', error as Error, { milestone, pcEmail, reqId });
+    throw error;
+  }
+}
