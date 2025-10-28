@@ -10346,6 +10346,7 @@ export async function getProjectsForPC(
     }
 
     console.log(`[getProjectsForPC] WHERE clause:`, whereClause);
+    console.log(`[getProjectsForPC] Milestone filter:`, filters?.milestone);
 
     // Query QuickBase
     const query = {
@@ -10364,9 +10365,8 @@ export async function getProjectsForPC(
         PROJECT_FIELDS.PROJECT_STATUS,
         PROJECT_FIELDS.DATE_CREATED,
         PROJECT_FIELDS.CURRENT_STAGE,
-        PROJECT_FIELDS.HOLD_STATUS,
+        PROJECT_FIELDS.ON_HOLD,
         PROJECT_FIELDS.HOLD_REASON,
-        PROJECT_FIELDS.BLOCK_STATUS,
         PROJECT_FIELDS.BLOCK_REASON,
         // Milestone dates for determining current milestone
         PROJECT_FIELDS.INTAKE_COMPLETED_DATE,
@@ -10421,8 +10421,24 @@ export async function getProjectsForPC(
     const response = await qbClient.queryRecords(query);
     const now = new Date();
 
+    console.log(`[getProjectsForPC] QB returned ${response.data.length} records`);
+
+    // Log first record for debugging
+    if (response.data.length > 0) {
+      const firstRecord = response.data[0];
+      console.log('[getProjectsForPC] First record milestone dates:', {
+        intake: firstRecord[PROJECT_FIELDS.INTAKE_COMPLETED_DATE],
+        survey: firstRecord[PROJECT_FIELDS.SURVEY_COMPLETED],
+        design: firstRecord[PROJECT_FIELDS.DESIGN_COMPLETED],
+        permit: firstRecord[PROJECT_FIELDS.PERMIT_APPROVED],
+        install: firstRecord[PROJECT_FIELDS.INSTALL_COMPLETED_DATE],
+        inspection: firstRecord[PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED],
+      });
+    }
+
     // Process projects
     const projects: any[] = [];
+    let firstProjectLogged = false;
 
     for (const record of response.data) {
       // Extract dates
@@ -10434,6 +10450,13 @@ export async function getProjectsForPC(
       const installCompleted = parseQuickbaseDate(record[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]);
       const inspectionCompleted = parseQuickbaseDate(record[PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED]);
       const ptoApproved = parseQuickbaseDate(record[PROJECT_FIELDS.PTO_APPROVED]);
+
+      if (!firstProjectLogged) {
+        console.log('[getProjectsForPC] First record parsed dates:', {
+          dateCreated, intakeCompleted, surveyCompleted, designCompleted,
+          permitApproved, installCompleted, inspectionCompleted, ptoApproved
+        });
+      }
 
       // Determine current milestone
       let currentMilestone: import('@/lib/types/operations').OperationsMilestone = 'intake';
@@ -10462,16 +10485,20 @@ export async function getProjectsForPC(
         milestoneStartDate = intakeCompleted;
       }
 
+      if (!firstProjectLogged) {
+        console.log('[getProjectsForPC] First record currentMilestone:', currentMilestone);
+        firstProjectLogged = true;
+      }
+
       // Calculate days in milestone
       const daysInMilestone = milestoneStartDate
         ? Math.floor((now.getTime() - milestoneStartDate.getTime()) / (1000 * 60 * 60 * 24))
         : 0;
 
       // Determine block/hold status
-      const holdStatus = extractValue(record[PROJECT_FIELDS.HOLD_STATUS]);
-      const blockStatus = extractValue(record[PROJECT_FIELDS.BLOCK_STATUS]);
-      const isOnHold = holdStatus === 'On Hold';
-      const isBlocked = blockStatus === 'Project Blocked';
+      const isOnHold = !!record[PROJECT_FIELDS.ON_HOLD]; // Checkbox field
+      const blockReason = extractValue(record[PROJECT_FIELDS.BLOCK_REASON]);
+      const isBlocked = !!blockReason;
 
       // Calculate milestone-specific status (for status tabs)
       let milestoneStatus = 'unknown';
