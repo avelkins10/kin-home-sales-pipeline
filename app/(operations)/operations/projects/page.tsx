@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { AlertCircle, Calendar, XCircle, CheckCircle, Clock, Search } from 'lucide-react';
+import { AlertCircle, Calendar, XCircle, CheckCircle, Clock, Search, Zap } from 'lucide-react';
 import { getBaseUrl } from '@/lib/utils/baseUrl';
 import { InspectionsTable } from '@/components/operations/InspectionsTable';
 import type { PCInspectionData, PCInspectionFilters, PCInspectionStatus, PCInspectionProject } from '@/lib/types/operations';
@@ -23,27 +23,36 @@ export default function ProjectsPage() {
     state: 'all'
   });
 
-  // Fetch inspection data
+  // Fetch inspection or PTO data based on active tab
   const { data: inspectionData, isLoading, error, refetch } = useQuery<{ success: boolean; data: PCInspectionData }>({
     queryKey: ['inspections', session?.user?.email, activeTab, filters],
     queryFn: async () => {
       const baseUrl = getBaseUrl();
       const params = new URLSearchParams({
-        status: activeTab, // Fetch only the active tab's data
         office: filters.office,
         salesRep: filters.salesRep,
         search: filters.search,
         dateRange: filters.dateRange
       });
 
+      // Only add status param for non-PTO tabs
+      if (activeTab !== 'pto_milestone') {
+        params.append('status', activeTab);
+      }
+
       if (filters.dateRange === 'custom' && filters.customStartDate && filters.customEndDate) {
         params.append('customStartDate', filters.customStartDate);
         params.append('customEndDate', filters.customEndDate);
       }
 
-      const response = await fetch(`${baseUrl}/api/operations/projects/inspections?${params}`);
+      // Use different API endpoint for PTO milestone
+      const endpoint = activeTab === 'pto_milestone'
+        ? `${baseUrl}/api/operations/projects/pto?${params}`
+        : `${baseUrl}/api/operations/projects/inspections?${params}`;
+
+      const response = await fetch(endpoint);
       if (!response.ok) {
-        throw new Error('Failed to fetch inspection data');
+        throw new Error('Failed to fetch project data');
       }
       return response.json();
     },
@@ -182,6 +191,15 @@ export default function ProjectsPage() {
               {inspectionData?.data?.counts && (
                 <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-green-100 text-green-700 rounded-full">
                   {inspectionData.data.counts.inspectionPassed}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="pto_milestone" className="flex items-center gap-2">
+              <Zap className="h-4 w-4" />
+              PTO Milestone
+              {inspectionData?.data?.counts?.ptoTotal !== undefined && (
+                <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-purple-100 text-purple-700 rounded-full">
+                  {inspectionData.data.counts.ptoTotal}
                 </span>
               )}
             </TabsTrigger>
@@ -353,6 +371,109 @@ export default function ProjectsPage() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="pto_milestone" className="space-y-4">
+            {/* Ready for PTO Submission */}
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    Ready for PTO Submission
+                    {inspectionData?.data?.counts?.ptoReadyForSubmission !== undefined && (
+                      <span className="ml-2 px-2 py-0.5 text-xs font-semibold bg-green-100 text-green-700 rounded-full">
+                        {inspectionData.data.counts.ptoReadyForSubmission}
+                      </span>
+                    )}
+                  </h3>
+                </div>
+                {isLoading ? (
+                  <div className="animate-pulse space-y-4">
+                    <div className="h-10 bg-gray-200 rounded" />
+                    <div className="h-10 bg-gray-200 rounded" />
+                    <div className="h-10 bg-gray-200 rounded" />
+                  </div>
+                ) : error ? (
+                  <div className="text-center py-8">
+                    <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                      Failed to Load Data
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      {(error as Error).message || 'Please try again later.'}
+                    </p>
+                  </div>
+                ) : (
+                  <InspectionsTable
+                    projects={inspectionData?.data?.ptoReadyForSubmission || []}
+                    status="pto_milestone"
+                  />
+                )}
+              </CardContent>
+            </Card>
+
+            {/* PTO Pending Approval */}
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-blue-600" />
+                    PTO Pending Approval
+                    {inspectionData?.data?.counts?.ptoInProgress !== undefined && (
+                      <span className="ml-2 px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700 rounded-full">
+                        {inspectionData.data.counts.ptoInProgress}
+                      </span>
+                    )}
+                  </h3>
+                </div>
+                {isLoading ? (
+                  <div className="animate-pulse space-y-4">
+                    <div className="h-10 bg-gray-200 rounded" />
+                    <div className="h-10 bg-gray-200 rounded" />
+                    <div className="h-10 bg-gray-200 rounded" />
+                  </div>
+                ) : error ? (
+                  <div className="text-center py-8">
+                    <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                      Failed to Load Data
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      {(error as Error).message || 'Please try again later.'}
+                    </p>
+                  </div>
+                ) : (
+                  <InspectionsTable
+                    projects={inspectionData?.data?.ptoInProgress || []}
+                    status="pto_milestone"
+                  />
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Needs Reinspection */}
+            {inspectionData?.data?.ptoInspectionFailed && inspectionData.data.ptoInspectionFailed.length > 0 && (
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                      <XCircle className="h-5 w-5 text-red-600" />
+                      Needs Reinspection
+                      {inspectionData?.data?.counts?.ptoInspectionFailed !== undefined && (
+                        <span className="ml-2 px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700 rounded-full">
+                          {inspectionData.data.counts.ptoInspectionFailed}
+                        </span>
+                      )}
+                    </h3>
+                  </div>
+                  <InspectionsTable
+                    projects={inspectionData.data.ptoInspectionFailed}
+                    status="pto_milestone"
+                  />
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
       </div>

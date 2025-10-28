@@ -9348,3 +9348,329 @@ export async function getInspectionProjects(
     throw error;
   }
 }
+
+/**
+ * Get PTO (Permission to Operate) projects for operations team
+ * Returns projects that have passed inspection and are ready for or in PTO process
+ */
+export async function getPTOProjects(
+  pcEmail: string,
+  pcName: string,
+  role: string,
+  reqId: string
+): Promise<import('@/lib/types/operations').PCInspectionData> {
+  try {
+    const startTime = Date.now();
+    logQuickbaseRequest('getPTOProjects', { pcEmail, pcName, role }, reqId);
+
+    // Build WHERE clause based on role
+    const sanitizedEmail = sanitizeQbLiteral(pcEmail);
+    const sanitizedName = sanitizeQbLiteral(pcName);
+
+    let whereClause: string;
+    const { hasOperationsUnrestrictedAccess, isOperationsManager } = await import('@/lib/utils/role-helpers');
+
+    // Role-based filtering
+    if (hasOperationsUnrestrictedAccess(role)) {
+      // Super admin, regional, office leaders see ALL projects
+      whereClause = `{${PROJECT_FIELDS.RECORD_ID}.GT.0}`;
+    } else if (isOperationsManager(role)) {
+      // Operations managers see all operations projects (any project with a PC)
+      whereClause = `{${PROJECT_FIELDS.PROJECT_COORDINATOR}.XEX.''}`;
+    } else {
+      // Operations coordinators see only their assigned projects
+      whereClause = `({${PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL}.EX.'${sanitizedEmail}'})OR({${PROJECT_FIELDS.PROJECT_COORDINATOR}.EX.'${sanitizedName}'})`;
+    }
+
+    // Add filters: must have install completed, exclude Lost/Cancelled, exclude already PTO'd
+    whereClause += `AND{${PROJECT_FIELDS.INSTALL_COMPLETED_DATE}.XEX.''}`;
+    whereClause += `AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Lost'}`;
+    whereClause += `AND{${PROJECT_FIELDS.PROJECT_STATUS}.XCT.'Cancelled'}`;
+    whereClause += `AND{${PROJECT_FIELDS.PTO_APPROVED}.EX.''}`;
+
+    // Fetch all installed projects with PTO-related fields
+    const query = {
+      from: QB_TABLE_PROJECTS,
+      where: whereClause,
+      select: [
+        PROJECT_FIELDS.RECORD_ID,
+        PROJECT_FIELDS.PROJECT_ID,
+        PROJECT_FIELDS.CUSTOMER_NAME,
+        PROJECT_FIELDS.CUSTOMER_PHONE,
+        PROJECT_FIELDS.SALES_OFFICE,
+        PROJECT_FIELDS.INSTALL_COMPLETED_DATE,
+        PROJECT_FIELDS.INSPECTION_SCHEDULED_DATE,
+        PROJECT_FIELDS.INSPECTION_FAILED_DATE,
+        PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED,
+        PROJECT_FIELDS.NOTE,
+        PROJECT_FIELDS.BLOCK_REASON,
+        PROJECT_FIELDS.HOLD_REASON,
+        PROJECT_FIELDS.ON_HOLD,
+        PROJECT_FIELDS.AS_BUILT_SUBMITTED_TO_AHJ,
+        PROJECT_FIELDS.PERMIT_STATUS,
+        PROJECT_FIELDS.PERMIT_APPROVED,
+        PROJECT_FIELDS.PERMIT_SUBMITTED,
+        PROJECT_FIELDS.MAX_PERMIT_REJECTED_REVISIONS,
+        PROJECT_FIELDS.MAX_PERMIT_RESUBMITTED,
+        PROJECT_FIELDS.MAX_PERMIT_RESUBMITTED_DATE,
+        PROJECT_FIELDS.RECENT_NOTE_CATEGORY,
+        // PTO-specific fields
+        PROJECT_FIELDS.PTO_STATUS,
+        PROJECT_FIELDS.PTO_SUBMITTED,
+        PROJECT_FIELDS.NEM_INTERCONNECTION_STATUS,
+        PROJECT_FIELDS.LENDER_PTO_GREENLIGHT_DATE,
+        PROJECT_FIELDS.LENDER_FUNDING_RECEIVED_DATE,
+        PROJECT_FIELDS.UTILITY_APPROVAL_DATE,
+        PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL,
+        PROJECT_FIELDS.CLOSER_NAME,
+        PROJECT_FIELDS.CLOSER_EMAIL,
+        PROJECT_FIELDS.LENDER_NAME
+      ],
+      sortBy: [{ field: PROJECT_FIELDS.INSTALL_COMPLETED_DATE, order: 'DESC' }],
+      options: { top: 5000 }
+    };
+
+    const response = await qbClient.queryRecords(query);
+    const projects = response.data || [];
+
+    // Helper to extract values from wrapped QuickBase objects
+    const extractStringValue = (field: any): string => {
+      if (typeof field === 'object' && field?.value !== undefined) {
+        return String(field.value);
+      }
+      return String(field || '');
+    };
+
+    const extractDateValue = (field: any): string | null => {
+      if (!field) return null;
+      if (typeof field === 'object' && field?.value !== undefined) {
+        return String(field.value);
+      }
+      return String(field);
+    };
+
+    // Helper function to categorize failure reasons (reuse from inspections)
+    const categorizeFailure = (reason: string | null): import('@/lib/types/operations').PCInspectionFailureCategory | null => {
+      if (!reason) return null;
+      const lowerReason = reason.toLowerCase();
+
+      if (lowerReason.match(/electric|electrical|wiring|circuit|panel|breaker|conduit/)) {
+        return 'electrical';
+      } else if (lowerReason.match(/struct|roof|truss|beam|foundation|framing|load/)) {
+        return 'structural';
+      } else if (lowerReason.match(/code|violation|nec|irc|ibc|compliance|standard/)) {
+        return 'code_violation';
+      } else if (lowerReason.match(/document|paperwork|permit|form|label|sign|as-built|asbuilt/)) {
+        return 'documentation';
+      }
+      return 'other';
+    };
+
+    // Helper function to detect blockers (reuse from inspections)
+    const detectBlockers = (
+      asBuilt: any,
+      permitStatus: string | null,
+      onHold: any,
+      blockReason: string | null
+    ): import('@/lib/types/operations').PCInspectionBlocker[] => {
+      const blockers: import('@/lib/types/operations').PCInspectionBlocker[] = [];
+
+      // Check if on hold
+      const isOnHold = onHold === true || onHold === 1 || onHold === '1' ||
+                       (typeof onHold === 'object' && (onHold?.value === true || onHold?.value === 1));
+      if (isOnHold) {
+        blockers.push('on_hold');
+      }
+
+      // Check if blocked
+      if (blockReason && blockReason.trim()) {
+        blockers.push('blocked');
+      }
+
+      // Check as-builts status
+      const hasAsBuilt = asBuilt === true || asBuilt === 1 || asBuilt === '1' ||
+                         (typeof asBuilt === 'object' && (asBuilt?.value === true || asBuilt?.value === 1)) ||
+                         (typeof asBuilt === 'string' && asBuilt.trim() !== '');
+      if (!hasAsBuilt) {
+        blockers.push('as_builts_pending');
+      }
+
+      // Check permit status
+      if (permitStatus && permitStatus.toLowerCase().match(/pending|submitted|review|revision/)) {
+        blockers.push('permit_pending');
+      }
+
+      // If no blockers, mark as ready
+      if (blockers.length === 0) {
+        blockers.push('ready');
+      }
+
+      return blockers;
+    };
+
+    // Categorize projects by PTO status
+    const ptoReadyForSubmission: any[] = [];
+    const ptoInProgress: any[] = [];
+    const ptoInspectionFailed: any[] = [];
+
+    for (const project of projects) {
+      const installDate = extractDateValue(project[PROJECT_FIELDS.INSTALL_COMPLETED_DATE]);
+      const scheduledDate = extractDateValue(project[PROJECT_FIELDS.INSPECTION_SCHEDULED_DATE]);
+      const failedDate = extractDateValue(project[PROJECT_FIELDS.INSPECTION_FAILED_DATE]);
+      const passedDate = extractDateValue(project[PROJECT_FIELDS.PASSING_INSPECTION_COMPLETED]);
+      const ptoSubmittedDate = extractDateValue(project[PROJECT_FIELDS.PTO_SUBMITTED]);
+
+      // Determine inspection status and PTO sub-status
+      let inspectionStatus: import('@/lib/types/operations').PCInspectionStatus = 'pto_milestone';
+      let ptoSubStatus: import('@/lib/types/operations').PCPTOSubStatus;
+      let statusDate: string | null;
+      let daysInPTO: number | null = null;
+
+      if (failedDate) {
+        // Failed inspection - needs reinspection before PTO
+        ptoSubStatus = 'inspection_failed_pto';
+        statusDate = failedDate;
+      } else if (ptoSubmittedDate) {
+        // PTO submitted, awaiting approval
+        ptoSubStatus = 'pto_in_progress';
+        statusDate = ptoSubmittedDate;
+        // Calculate days in PTO process
+        const now = new Date();
+        const submittedDateObj = new Date(ptoSubmittedDate);
+        daysInPTO = Math.ceil((now.getTime() - submittedDateObj.getTime()) / (1000 * 60 * 60 * 24));
+      } else if (passedDate) {
+        // Inspection passed, ready for PTO submission
+        ptoSubStatus = 'ready_for_pto';
+        statusDate = passedDate;
+      } else {
+        // Skip projects that don't fit PTO criteria
+        continue;
+      }
+
+      // Calculate days in status
+      const now = new Date();
+      const statusDateObj = statusDate ? new Date(statusDate) : new Date();
+      const daysInStatus = Math.ceil((now.getTime() - statusDateObj.getTime()) / (1000 * 60 * 60 * 24));
+
+      // Get failure reason (if failed)
+      let failureReason: string | null = null;
+      let failureCategory: import('@/lib/types/operations').PCInspectionFailureCategory | null = null;
+
+      if (ptoSubStatus === 'inspection_failed_pto') {
+        const blockReason = extractStringValue(project[PROJECT_FIELDS.BLOCK_REASON]);
+        const note = extractStringValue(project[PROJECT_FIELDS.NOTE]);
+
+        // Prefer BLOCK_REASON, fallback to NOTE
+        if (blockReason && blockReason.toLowerCase().includes('inspection')) {
+          failureReason = blockReason;
+        } else if (note && note.toLowerCase().includes('inspection')) {
+          // Extract inspection-related portion of notes
+          const sentences = note.split(/[.!?]/);
+          const inspectionSentence = sentences.find(s => s.toLowerCase().includes('inspection'));
+          failureReason = inspectionSentence ? inspectionSentence.trim() : note.substring(0, 200);
+        } else {
+          failureReason = blockReason || null;
+        }
+
+        // Categorize the failure
+        failureCategory = categorizeFailure(failureReason);
+      }
+
+      // Extract values
+      const blockReasonValue = extractStringValue(project[PROJECT_FIELDS.BLOCK_REASON]);
+      const holdReasonValue = extractStringValue(project[PROJECT_FIELDS.HOLD_REASON]);
+      const permitStatusValue = extractStringValue(project[PROJECT_FIELDS.PERMIT_STATUS]);
+      const asBuiltValue = project[PROJECT_FIELDS.AS_BUILT_SUBMITTED_TO_AHJ];
+      const onHoldValue = project[PROJECT_FIELDS.ON_HOLD];
+
+      // Determine as-built status
+      const asBuiltSubmitted = asBuiltValue === true || asBuiltValue === 1 || asBuiltValue === '1' ||
+                                (typeof asBuiltValue === 'object' && (asBuiltValue?.value === true || asBuiltValue?.value === 1)) ||
+                                (typeof asBuiltValue === 'string' && asBuiltValue.trim() !== '');
+
+      // Detect blockers
+      const blockers = detectBlockers(asBuiltValue, permitStatusValue, onHoldValue, blockReasonValue);
+
+      const ptoProject = {
+        recordId: project[PROJECT_FIELDS.RECORD_ID],
+        projectId: extractStringValue(project[PROJECT_FIELDS.PROJECT_ID]),
+        customerName: extractStringValue(project[PROJECT_FIELDS.CUSTOMER_NAME]),
+        customerPhone: extractStringValue(project[PROJECT_FIELDS.CUSTOMER_PHONE]),
+        salesOffice: extractStringValue(project[PROJECT_FIELDS.SALES_OFFICE]),
+        inspectionStatus,
+        installCompletedDate: installDate,
+        inspectionScheduledDate: scheduledDate,
+        inspectionFailedDate: failedDate,
+        inspectionPassedDate: passedDate,
+        daysInStatus,
+        failureReason,
+        failureCategory,
+        asBuiltSubmitted,
+        permitStatus: permitStatusValue,
+        permitApproved: extractDateValue(project[PROJECT_FIELDS.PERMIT_APPROVED]),
+        permitSubmitted: extractDateValue(project[PROJECT_FIELDS.PERMIT_SUBMITTED]),
+        permitRejected: extractStringValue(project[PROJECT_FIELDS.MAX_PERMIT_REJECTED_REVISIONS]),
+        permitResubmitted: extractDateValue(project[PROJECT_FIELDS.MAX_PERMIT_RESUBMITTED_DATE]),
+        recentNoteCategory: extractStringValue(project[PROJECT_FIELDS.RECENT_NOTE_CATEGORY]),
+        holdReason: holdReasonValue,
+        blockReason: blockReasonValue,
+        blockers,
+        coordinatorEmail: extractStringValue(project[PROJECT_FIELDS.PROJECT_COORDINATOR_EMAIL]),
+        salesRepName: extractStringValue(project[PROJECT_FIELDS.CLOSER_NAME]),
+        salesRepEmail: extractStringValue(project[PROJECT_FIELDS.CLOSER_EMAIL]),
+        lenderName: extractStringValue(project[PROJECT_FIELDS.LENDER_NAME]),
+        // PTO-specific fields
+        ptoStatus: extractStringValue(project[PROJECT_FIELDS.PTO_STATUS]),
+        ptoSubmitted: ptoSubmittedDate,
+        ptoSubStatus,
+        daysInPTO,
+        nemStatus: extractStringValue(project[PROJECT_FIELDS.NEM_INTERCONNECTION_STATUS]),
+        lenderPTOGreenlight: extractDateValue(project[PROJECT_FIELDS.LENDER_PTO_GREENLIGHT_DATE]),
+        lenderFundingReceived: extractDateValue(project[PROJECT_FIELDS.LENDER_FUNDING_RECEIVED_DATE]),
+        utilityApprovalDate: extractDateValue(project[PROJECT_FIELDS.UTILITY_APPROVAL_DATE])
+      };
+
+      // Add to appropriate PTO category
+      switch (ptoSubStatus) {
+        case 'ready_for_pto':
+          ptoReadyForSubmission.push(ptoProject);
+          break;
+        case 'pto_in_progress':
+          ptoInProgress.push(ptoProject);
+          break;
+        case 'inspection_failed_pto':
+          ptoInspectionFailed.push(ptoProject);
+          break;
+      }
+    }
+
+    const totalPTO = ptoReadyForSubmission.length + ptoInProgress.length + ptoInspectionFailed.length;
+
+    const result = {
+      waitingForInspection: [],
+      inspectionScheduled: [],
+      inspectionFailed: [],
+      inspectionPassed: [],
+      ptoReadyForSubmission,
+      ptoInProgress,
+      ptoInspectionFailed,
+      counts: {
+        waitingForInspection: 0,
+        inspectionScheduled: 0,
+        inspectionFailed: 0,
+        inspectionPassed: 0,
+        ptoReadyForSubmission: ptoReadyForSubmission.length,
+        ptoInProgress: ptoInProgress.length,
+        ptoInspectionFailed: ptoInspectionFailed.length,
+        ptoTotal: totalPTO
+      }
+    };
+
+    logQuickbaseResponse('getPTOProjects', { totalPTO, counts: result.counts }, Date.now() - startTime, reqId);
+    return result;
+
+  } catch (error) {
+    logQuickbaseError('getPTOProjects', error as Error, { pcEmail, reqId });
+    throw error;
+  }
+}

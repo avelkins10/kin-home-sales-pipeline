@@ -309,6 +309,13 @@ export function InspectionsTable({ projects, status }: InspectionsTableProps) {
               {status === 'waiting_for_inspection' && (
                 <th className="pb-3 pr-4 font-semibold">Blockers</th>
               )}
+              {status === 'pto_milestone' && (
+                <>
+                  <th className="pb-3 pr-4 font-semibold">PTO Status</th>
+                  <th className="pb-3 pr-4 font-semibold">Lender</th>
+                  <th className="pb-3 pr-4 font-semibold">NEM Status</th>
+                </>
+              )}
               <th className="pb-3 pr-4 font-semibold">Rep</th>
               <th className="pb-3 font-semibold">Actions</th>
             </tr>
@@ -406,10 +413,54 @@ export function InspectionsTable({ projects, status }: InspectionsTableProps) {
                       </div>
                     </td>
                   )}
+                  {status === 'pto_milestone' && (
+                    <>
+                      <td className="py-3 pr-4">
+                        <div className="text-sm">
+                          <div className="text-gray-900">
+                            {project.ptoSubStatus === 'ready_for_pto' && (
+                              <span className="text-green-600 font-medium">Ready for Submission</span>
+                            )}
+                            {project.ptoSubStatus === 'pto_in_progress' && (
+                              <span className="text-blue-600 font-medium">Pending Approval</span>
+                            )}
+                            {project.ptoSubStatus === 'inspection_failed_pto' && (
+                              <span className="text-red-600 font-medium">Needs Reinspection</span>
+                            )}
+                          </div>
+                          {project.ptoSubmitted && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              Submitted: {formatDate(project.ptoSubmitted)}
+                            </div>
+                          )}
+                          {project.daysInPTO && (
+                            <div className="text-xs text-gray-500">
+                              {project.daysInPTO} days in PTO
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3 pr-4">
+                        <div className="text-sm">
+                          <div className="text-gray-900">{project.lenderName || 'N/A'}</div>
+                          {project.lenderPTOGreenlight && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              Greenlight: {formatDate(project.lenderPTOGreenlight)}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3 pr-4">
+                        <div className="text-sm text-gray-900">
+                          {project.nemStatus || 'N/A'}
+                        </div>
+                      </td>
+                    </>
+                  )}
                   <td className="py-3 pr-4">
                     <div className="text-sm">
                       <div className="font-medium text-gray-900">{project.salesRepName || 'N/A'}</div>
-                      {project.lenderName && (
+                      {status !== 'pto_milestone' && project.lenderName && (
                         <div className="text-xs text-gray-500">{project.lenderName}</div>
                       )}
                     </div>
@@ -432,7 +483,7 @@ export function InspectionsTable({ projects, status }: InspectionsTableProps) {
                 {/* Expandable Row */}
                 {isExpanded && (
                   <tr className="bg-gray-50">
-                    <td colSpan={status === 'inspection_failed' ? 10 : status === 'waiting_for_inspection' ? 9 : 8} className="py-4 px-6">
+                    <td colSpan={status === 'inspection_failed' ? 10 : status === 'waiting_for_inspection' ? 9 : status === 'pto_milestone' ? 11 : 8} className="py-4 px-6">
                       <div className="space-y-3">
                         {/* Failure Details (for failed inspections) */}
                         {status === 'inspection_failed' && project.failureReason && (
@@ -529,6 +580,111 @@ export function InspectionsTable({ projects, status }: InspectionsTableProps) {
                                 </div>
                               )}
                             </div>
+                          </div>
+                        )}
+
+                        {/* PTO Details (for PTO milestone) */}
+                        {status === 'pto_milestone' && (
+                          <div className="space-y-3">
+                            {/* PTO Workflow Card */}
+                            <div className="bg-white p-3 rounded border border-purple-200">
+                              <div className="text-xs font-semibold text-gray-700 mb-2">PTO Workflow:</div>
+                              <div className="grid grid-cols-2 gap-3">
+                                {project.ptoStatus && (
+                                  <div>
+                                    <div className="text-xs text-gray-500">Status:</div>
+                                    <div className="text-sm font-medium text-gray-900">{project.ptoStatus}</div>
+                                  </div>
+                                )}
+                                {project.ptoSubmitted && (
+                                  <div>
+                                    <div className="text-xs text-gray-500">Submitted:</div>
+                                    <div className="text-sm text-blue-600 font-medium">
+                                      {new Date(project.ptoSubmitted).toLocaleDateString()}
+                                    </div>
+                                  </div>
+                                )}
+                                {project.daysInPTO && (
+                                  <div>
+                                    <div className="text-xs text-gray-500">Days in PTO:</div>
+                                    <div className="text-sm font-medium text-gray-900">
+                                      {project.daysInPTO} {project.daysInPTO === 1 ? 'day' : 'days'}
+                                    </div>
+                                  </div>
+                                )}
+                                {project.inspectionPassedDate && (
+                                  <div>
+                                    <div className="text-xs text-gray-500">Inspection Passed:</div>
+                                    <div className="text-sm text-green-600 font-medium flex items-center">
+                                      <CheckCircle className="h-3 w-3 mr-1" />
+                                      {new Date(project.inspectionPassedDate).toLocaleDateString()}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Lender & Utility Details */}
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="bg-white p-3 rounded border border-gray-200">
+                                <div className="text-xs font-semibold text-gray-700 mb-2">Lender Information:</div>
+                                <div className="space-y-2">
+                                  <div>
+                                    <div className="text-xs text-gray-500">Lender:</div>
+                                    <div className="text-sm text-gray-900">{project.lenderName || 'N/A'}</div>
+                                  </div>
+                                  {project.lenderPTOGreenlight && (
+                                    <div>
+                                      <div className="text-xs text-gray-500">PTO Greenlight:</div>
+                                      <div className="text-sm text-green-600 font-medium">
+                                        {new Date(project.lenderPTOGreenlight).toLocaleDateString()}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {project.lenderFundingReceived && (
+                                    <div>
+                                      <div className="text-xs text-gray-500">Funding Received:</div>
+                                      <div className="text-sm text-green-600 font-medium">
+                                        {new Date(project.lenderFundingReceived).toLocaleDateString()}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="bg-white p-3 rounded border border-gray-200">
+                                <div className="text-xs font-semibold text-gray-700 mb-2">Utility Information:</div>
+                                <div className="space-y-2">
+                                  {project.nemStatus && (
+                                    <div>
+                                      <div className="text-xs text-gray-500">NEM/Interconnection:</div>
+                                      <div className="text-sm text-gray-900">{project.nemStatus}</div>
+                                    </div>
+                                  )}
+                                  {project.utilityApprovalDate && (
+                                    <div>
+                                      <div className="text-xs text-gray-500">Utility Approval:</div>
+                                      <div className="text-sm text-green-600 font-medium">
+                                        {new Date(project.utilityApprovalDate).toLocaleDateString()}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Show inspection failure reason if applicable */}
+                            {project.ptoSubStatus === 'inspection_failed_pto' && project.failureReason && (
+                              <div className="bg-white p-3 rounded border border-red-200">
+                                <div className="text-xs font-semibold text-gray-700 mb-1">Inspection Failure Reason:</div>
+                                <div className="text-sm text-gray-900">{project.failureReason}</div>
+                                {project.failureCategory && (
+                                  <div className="mt-2">
+                                    {getFailureCategoryBadge(project.failureCategory)}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         )}
 

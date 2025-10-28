@@ -721,7 +721,8 @@ export type PCInspectionStatus =
   | 'waiting_for_inspection'   // Install complete, no inspection scheduled
   | 'inspection_scheduled'     // Inspection date is scheduled
   | 'inspection_failed'        // Inspection failed, needs remediation
-  | 'inspection_passed';       // Inspection passed, waiting for PTO
+  | 'inspection_passed'        // Inspection passed, waiting for PTO
+  | 'pto_milestone';           // PTO stage - includes ready for PTO, PTO in progress, and failed
 
 // Inspection failure category type
 export type PCInspectionFailureCategory =
@@ -738,6 +739,12 @@ export type PCInspectionBlocker =
   | 'on_hold'
   | 'blocked'
   | 'ready';
+
+// PTO sub-status type (for categorizing within PTO milestone tab)
+export type PCPTOSubStatus =
+  | 'ready_for_pto'           // Inspection passed, ready to submit PTO
+  | 'pto_in_progress'         // PTO submitted, awaiting utility approval
+  | 'inspection_failed_pto';  // Inspection failed, needs reinspection before PTO
 
 // PC Inspection Project
 export interface PCInspectionProject {
@@ -768,6 +775,15 @@ export interface PCInspectionProject {
   salesRepName: string;
   salesRepEmail: string;
   lenderName: string;
+  // PTO-specific fields (only populated when status is 'pto_milestone')
+  ptoStatus?: string | null; // Current PTO status
+  ptoSubmitted?: string | null; // PTO submission date
+  ptoSubStatus?: PCPTOSubStatus | null; // PTO sub-category
+  daysInPTO?: number | null; // Days since PTO submitted
+  nemStatus?: string | null; // NEM/Interconnection status
+  lenderPTOGreenlight?: string | null; // Lender PTO approval date
+  lenderFundingReceived?: string | null; // Lender funding received date
+  utilityApprovalDate?: string | null; // Utility approval date
 }
 
 // PC Inspection Data (returned by API)
@@ -776,11 +792,18 @@ export interface PCInspectionData {
   inspectionScheduled: PCInspectionProject[];
   inspectionFailed: PCInspectionProject[];
   inspectionPassed: PCInspectionProject[];
+  ptoReadyForSubmission?: PCInspectionProject[]; // Ready for PTO (optional, only for PTO tab)
+  ptoInProgress?: PCInspectionProject[]; // PTO submitted, pending approval (optional)
+  ptoInspectionFailed?: PCInspectionProject[]; // Failed inspections in PTO view (optional)
   counts: {
     waitingForInspection: number;
     inspectionScheduled: number;
     inspectionFailed: number;
     inspectionPassed: number;
+    ptoReadyForSubmission?: number; // Optional PTO counts
+    ptoInProgress?: number;
+    ptoInspectionFailed?: number;
+    ptoTotal?: number; // Total PTO milestone count
   };
 }
 
