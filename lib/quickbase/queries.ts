@@ -10289,6 +10289,14 @@ export async function getProjectsForPC(
   const startTime = Date.now();
   console.log('[getProjectsForPC] Fetching projects for PC:', { pcEmail, role, filters, reqId });
 
+  // Helper function to extract values from QuickBase field objects
+  const extractValue = (field: any): string => {
+    if (typeof field === 'object' && field?.value) {
+      return String(field.value);
+    }
+    return String(field || '');
+  };
+
   try {
     // Build WHERE clause based on role
     let whereClause = '';
