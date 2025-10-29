@@ -310,6 +310,24 @@ export async function GET(
         repcardAppointments = [];
       }
     }
+    
+    // Fetch quality metrics (uses database queries internally)
+    let qualityMetrics;
+    try {
+      qualityMetrics = await getQualityMetricsForUser(user.id, startDate, endDate);
+    } catch (error) {
+      logError('repcard-user-stats', error as Error, { requestId, context: 'Quality metrics fetch', userId: user.id });
+      qualityMetrics = {
+        appointmentSpeed: { percentageWithin24Hours: 0, averageHoursToSchedule: 0, totalAppointments: 0, appointmentsWithin24Hours: 0 },
+        attachmentRate: { percentageWithAttachments: 0, totalAttachments: 0, totalCustomers: 0, customersWithAttachments: 0 },
+        rescheduleRate: { averageReschedulesPerCustomer: 0, totalReschedules: 0, totalCustomers: 0, customersWithReschedules: 0 },
+        followUpConsistency: { percentageWithFollowUps: 0, totalFollowUpAppointments: 0, customersRequiringFollowUps: 0, customersWithFollowUps: 0 },
+        period: { startDate, endDate },
+        calculatedAt: new Date().toISOString()
+      };
+    }
+    
+    // Fetch QuickBase data
     let quickbaseSales = { sales_count: 0, total_revenue: 0 };
     let quickbaseAppointments = { appointments_count: 0 };
     
