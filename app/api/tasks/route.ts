@@ -142,7 +142,7 @@ export async function GET(req: Request) {
 
     // Parse query parameters for filtering
     const { searchParams } = new URL(req.url);
-    const range = searchParams.get('range') || 'ytd'; // ytd, all, 90, 30
+    const range = searchParams.get('range') || 'all'; // all, ytd, 90, 30 - default to 'all' to show all tasks
 
     // QuickBase table IDs
     const QB_TABLE_PROJECTS = (process.env.QUICKBASE_TABLE_PROJECTS || 'br9kwm8na').trim();
@@ -678,7 +678,7 @@ export async function GET(req: Request) {
       totalSubmissions: totalSubmissions,
       uniqueProjects: authorizedProjectIds.size,
       sampleFinalTasks: sampleFinalTasks,
-      queryStrategy: 'task-first with YTD filter',
+      queryStrategy: 'task-first',
       dateFilter: range,
       reqId
     });
