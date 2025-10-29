@@ -339,30 +339,15 @@ class ComprehensiveRepSync {
           // Update existing user
           const user = existing.rows[0];
 
-          // Update user - use sql.query for array parameters
-          if (rep.office) {
-            await sql.query(
-              `UPDATE users
-               SET repcard_user_id = COALESCE($1, repcard_user_id),
-                   name = COALESCE($2, name),
-                   sales_office = ARRAY[$3]::text[],
-                   role = COALESCE($4, role),
-                   last_synced_at = NOW(),
-                   sync_confidence = 1.0
-               WHERE id = $5`,
-              [rep.repcardUserId, rep.name, rep.office, rep.role, user.id]
-            );
-          } else {
-            await sql`
-              UPDATE users
-              SET repcard_user_id = COALESCE(${rep.repcardUserId}, repcard_user_id),
-                  name = COALESCE(${rep.name}, name),
-                  role = COALESCE(${rep.role}, role),
-                  last_synced_at = NOW(),
-                  sync_confidence = 1.0
-              WHERE id = ${user.id}
-            `;
-          }
+          // Only update external IDs and sync metadata
+          // NEVER overwrite name, role, or sales_office - the app is the source of truth
+          await sql`
+            UPDATE users
+            SET repcard_user_id = COALESCE(${rep.repcardUserId}, repcard_user_id),
+                last_synced_at = NOW(),
+                sync_confidence = 1.0
+            WHERE id = ${user.id}
+          `;
 
           // Log to sync log
           await sql`

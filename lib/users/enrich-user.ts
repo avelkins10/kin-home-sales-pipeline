@@ -78,11 +78,12 @@ export async function enrichUserFromContacts(
     const contact = data.data[0];
 
     // Update user with COALESCE (only fill missing fields)
+    // IMPORTANT: Only update external IDs and non-critical metadata
+    // Never overwrite name, role, sales_office - the app is the source of truth
     await sql`
       UPDATE users
       SET
         quickbase_contact_id = COALESCE(quickbase_contact_id, ${contact[CONTACT_FIELDS.RECORD_ID]?.value?.toString()}),
-        name = COALESCE(name, ${contact[CONTACT_FIELDS.FULL_NAME]?.value}),
         phone = COALESCE(phone, ${contact[CONTACT_FIELDS.PHONE]?.value}),
         repcard_user_id = COALESCE(repcard_user_id, ${contact[CONTACT_FIELDS.REPCARD_ID]?.value?.toString()}),
         enerflo_user_id = COALESCE(enerflo_user_id, ${contact[CONTACT_FIELDS.ENERFLO_USER_ID]?.value}),
