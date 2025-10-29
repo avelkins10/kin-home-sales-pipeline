@@ -216,7 +216,16 @@ export async function syncUsers(options: {
             recordsFetched++;
 
           } catch (error) {
-            console.error(`[RepCard Sync] Failed to process user ${user.id}:`, error);
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            const errorStack = error instanceof Error ? error.stack : undefined;
+            console.error(`[RepCard Sync] Failed to process user ${user.id} (${user.email || 'no email'}):`, errorMsg);
+            if (errorStack) {
+              console.error(`[RepCard Sync] Stack trace:`, errorStack);
+            }
+            // Log first few errors in detail
+            if (recordsFailed < 3) {
+              console.error(`[RepCard Sync] User data that failed:`, JSON.stringify(user, null, 2));
+            }
             recordsFailed++;
           }
         }

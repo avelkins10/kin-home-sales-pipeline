@@ -20,7 +20,11 @@ export async function GET(request: NextRequest) {
       LIMIT 20
     `;
 
-    // Check users table
+    // Check users table (also check if table exists and has any rows)
+    const usersTableCheck = await sql`
+      SELECT COUNT(*) as total_users FROM users
+    `;
+    
     const users = await sql`
       SELECT 
         id,
@@ -31,6 +35,10 @@ export async function GET(request: NextRequest) {
       FROM users
       WHERE email IS NOT NULL AND email != ''
       LIMIT 20
+    `;
+    
+    const usersWithNullEmail = await sql`
+      SELECT COUNT(*) as count FROM users WHERE email IS NULL OR email = ''
     `;
 
     // Find potential matches
@@ -68,6 +76,10 @@ export async function GET(request: NextRequest) {
       repcardUsers: Array.from(repcardUsers),
       users: Array.from(users),
       potentialMatches: Array.from(potentialMatches),
+      tableStats: {
+        totalUsers: Number(usersTableCheck[0]?.total_users || 0),
+        usersWithNullEmail: Number(usersWithNullEmail[0]?.count || 0)
+      },
       analysis: {
         repcardUsersWithEmail: stats[0]?.repcard_users_with_email || 0,
         usersWithEmail: stats[0]?.users_with_email || 0,
