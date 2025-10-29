@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/guards';
 import { requireProjectAccessById } from '@/lib/auth/guards';
 import { logApiRequest, logApiResponse, logError, logInfo } from '@/lib/logging/logger';
-import { updateProject, createProjectNote } from '@/lib/quickbase/queries';
+import { updateProject, createNoteForProject } from '@/lib/quickbase/queries';
 import { PROJECT_FIELDS } from '@/lib/constants/fieldIds';
 // getUserEmail is defined inline in tasks route, we'll import from there or use sql directly
 import { sql } from '@/lib/db/client';
@@ -192,14 +192,12 @@ export async function POST(
       }, { status: 500 });
     }
 
-    // Create note in Install Communications for project coordinators
+    // Create note in Install Communications for project coordinators (same format as sales rep notes)
     try {
-      await createProjectNote(
-        project[PROJECT_FIELDS.PROJECT_ID]?.value || String(numericId),
+      await createNoteForProject(
         numericId,
         noteContent,
-        userEmail,
-        reqId
+        userEmail
       );
       logInfo('[SAVE_OR_CANCEL] Note created successfully in Install Communications', {
         projectId: numericId,
