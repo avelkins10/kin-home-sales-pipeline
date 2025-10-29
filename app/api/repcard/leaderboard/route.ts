@@ -361,27 +361,90 @@ export async function GET(request: NextRequest) {
         // Query database for customers (much faster than API, no rate limits)
         // Fix: Query customers first, then join to users to filter by role
         // This ensures we don't miss customers created by closers who have setter_user_id
-        const customerCountsRaw = await sql`
-          SELECT
-            u.id as user_id,
-            u.name as user_name,
-            u.email as user_email,
-            u.repcard_user_id::text as repcard_user_id,
-            u.sales_office[1] as office,
-            u.role,
-            COUNT(c.repcard_customer_id) as count
-          FROM repcard_customers c
-          INNER JOIN users u ON u.repcard_user_id::text = c.setter_user_id::text
-          ${officeIds && officeIds.length > 0 ? sql`
-            LEFT JOIN offices o ON o.name = ANY(u.sales_office)
-          ` : sql``}
-          WHERE u.repcard_user_id IS NOT NULL
-            AND c.created_at >= ${calculatedStartDate}::timestamp
-            AND c.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day')
-            ${role !== 'all' ? sql`AND u.role = ${role}` : sql``}
-            ${officeIds && officeIds.length > 0 ? sql`AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR u.sales_office IS NULL)` : sql``}
-          GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
-        `;
+        let customerCountsRaw;
+        
+        if (officeIds && officeIds.length > 0) {
+          // With office filter
+          if (role !== 'all') {
+            customerCountsRaw = await sql`
+              SELECT
+                u.id as user_id,
+                u.name as user_name,
+                u.email as user_email,
+                u.repcard_user_id::text as repcard_user_id,
+                u.sales_office[1] as office,
+                u.role,
+                COUNT(c.repcard_customer_id) as count
+              FROM repcard_customers c
+              INNER JOIN users u ON u.repcard_user_id::text = c.setter_user_id::text
+              LEFT JOIN offices o ON o.name = ANY(u.sales_office)
+              WHERE u.repcard_user_id IS NOT NULL
+                AND c.created_at >= ${calculatedStartDate}::timestamp
+                AND c.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day')
+                AND u.role = ${role}
+                AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR u.sales_office IS NULL)
+              GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+            `;
+          } else {
+            customerCountsRaw = await sql`
+              SELECT
+                u.id as user_id,
+                u.name as user_name,
+                u.email as user_email,
+                u.repcard_user_id::text as repcard_user_id,
+                u.sales_office[1] as office,
+                u.role,
+                COUNT(c.repcard_customer_id) as count
+              FROM repcard_customers c
+              INNER JOIN users u ON u.repcard_user_id::text = c.setter_user_id::text
+              LEFT JOIN offices o ON o.name = ANY(u.sales_office)
+              WHERE u.repcard_user_id IS NOT NULL
+                AND c.created_at >= ${calculatedStartDate}::timestamp
+                AND c.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day')
+                AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR u.sales_office IS NULL)
+              GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+            `;
+          }
+        } else {
+          // No office filter
+          if (role !== 'all') {
+            customerCountsRaw = await sql`
+              SELECT
+                u.id as user_id,
+                u.name as user_name,
+                u.email as user_email,
+                u.repcard_user_id::text as repcard_user_id,
+                u.sales_office[1] as office,
+                u.role,
+                COUNT(c.repcard_customer_id) as count
+              FROM repcard_customers c
+              INNER JOIN users u ON u.repcard_user_id::text = c.setter_user_id::text
+              WHERE u.repcard_user_id IS NOT NULL
+                AND c.created_at >= ${calculatedStartDate}::timestamp
+                AND c.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day')
+                AND u.role = ${role}
+              GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+            `;
+          } else {
+            customerCountsRaw = await sql`
+              SELECT
+                u.id as user_id,
+                u.name as user_name,
+                u.email as user_email,
+                u.repcard_user_id::text as repcard_user_id,
+                u.sales_office[1] as office,
+                u.role,
+                COUNT(c.repcard_customer_id) as count
+              FROM repcard_customers c
+              INNER JOIN users u ON u.repcard_user_id::text = c.setter_user_id::text
+              WHERE u.repcard_user_id IS NOT NULL
+                AND c.created_at >= ${calculatedStartDate}::timestamp
+                AND c.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day')
+              GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+            `;
+          }
+        }
+        
         const customerCounts = Array.from(customerCountsRaw);
 
         // Map directly to leaderboard entries
@@ -419,30 +482,102 @@ export async function GET(request: NextRequest) {
       } else if (metric === 'appointments_set') {
         // Query database for appointments (much faster than API, no rate limits)
         // Fix: Query appointments first, then join to users to filter by role
-        const appointmentCountsRaw = await sql`
-          SELECT
-            u.id as user_id,
-            u.name as user_name,
-            u.email as user_email,
-            u.repcard_user_id::text as repcard_user_id,
-            u.sales_office[1] as office,
-            u.role,
-            COUNT(a.repcard_appointment_id) as count
-          FROM repcard_appointments a
-          INNER JOIN users u ON u.repcard_user_id::text = a.setter_user_id::text
-          ${officeIds && officeIds.length > 0 ? sql`
-            LEFT JOIN offices o ON o.name = ANY(u.sales_office)
-          ` : sql``}
-          WHERE u.repcard_user_id IS NOT NULL
-            AND (
-              (a.scheduled_at IS NOT NULL AND a.scheduled_at >= ${calculatedStartDate}::timestamp AND a.scheduled_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
-              OR
-              (a.scheduled_at IS NULL AND a.created_at >= ${calculatedStartDate}::timestamp AND a.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
-            )
-            ${role !== 'all' ? sql`AND u.role = ${role}` : sql``}
-            ${officeIds && officeIds.length > 0 ? sql`AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR u.sales_office IS NULL)` : sql``}
-          GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
-        `;
+        let appointmentCountsRaw;
+        
+        if (officeIds && officeIds.length > 0) {
+          // With office filter
+          if (role !== 'all') {
+            appointmentCountsRaw = await sql`
+              SELECT
+                u.id as user_id,
+                u.name as user_name,
+                u.email as user_email,
+                u.repcard_user_id::text as repcard_user_id,
+                u.sales_office[1] as office,
+                u.role,
+                COUNT(a.repcard_appointment_id) as count
+              FROM repcard_appointments a
+              INNER JOIN users u ON u.repcard_user_id::text = a.setter_user_id::text
+              LEFT JOIN offices o ON o.name = ANY(u.sales_office)
+              WHERE u.repcard_user_id IS NOT NULL
+                AND (
+                  (a.scheduled_at IS NOT NULL AND a.scheduled_at >= ${calculatedStartDate}::timestamp AND a.scheduled_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                  OR
+                  (a.scheduled_at IS NULL AND a.created_at >= ${calculatedStartDate}::timestamp AND a.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                )
+                AND u.role = ${role}
+                AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR u.sales_office IS NULL)
+              GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+            `;
+          } else {
+            appointmentCountsRaw = await sql`
+              SELECT
+                u.id as user_id,
+                u.name as user_name,
+                u.email as user_email,
+                u.repcard_user_id::text as repcard_user_id,
+                u.sales_office[1] as office,
+                u.role,
+                COUNT(a.repcard_appointment_id) as count
+              FROM repcard_appointments a
+              INNER JOIN users u ON u.repcard_user_id::text = a.setter_user_id::text
+              LEFT JOIN offices o ON o.name = ANY(u.sales_office)
+              WHERE u.repcard_user_id IS NOT NULL
+                AND (
+                  (a.scheduled_at IS NOT NULL AND a.scheduled_at >= ${calculatedStartDate}::timestamp AND a.scheduled_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                  OR
+                  (a.scheduled_at IS NULL AND a.created_at >= ${calculatedStartDate}::timestamp AND a.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                )
+                AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR u.sales_office IS NULL)
+              GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+            `;
+          }
+        } else {
+          // No office filter
+          if (role !== 'all') {
+            appointmentCountsRaw = await sql`
+              SELECT
+                u.id as user_id,
+                u.name as user_name,
+                u.email as user_email,
+                u.repcard_user_id::text as repcard_user_id,
+                u.sales_office[1] as office,
+                u.role,
+                COUNT(a.repcard_appointment_id) as count
+              FROM repcard_appointments a
+              INNER JOIN users u ON u.repcard_user_id::text = a.setter_user_id::text
+              WHERE u.repcard_user_id IS NOT NULL
+                AND (
+                  (a.scheduled_at IS NOT NULL AND a.scheduled_at >= ${calculatedStartDate}::timestamp AND a.scheduled_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                  OR
+                  (a.scheduled_at IS NULL AND a.created_at >= ${calculatedStartDate}::timestamp AND a.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                )
+                AND u.role = ${role}
+              GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+            `;
+          } else {
+            appointmentCountsRaw = await sql`
+              SELECT
+                u.id as user_id,
+                u.name as user_name,
+                u.email as user_email,
+                u.repcard_user_id::text as repcard_user_id,
+                u.sales_office[1] as office,
+                u.role,
+                COUNT(a.repcard_appointment_id) as count
+              FROM repcard_appointments a
+              INNER JOIN users u ON u.repcard_user_id::text = a.setter_user_id::text
+              WHERE u.repcard_user_id IS NOT NULL
+                AND (
+                  (a.scheduled_at IS NOT NULL AND a.scheduled_at >= ${calculatedStartDate}::timestamp AND a.scheduled_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                  OR
+                  (a.scheduled_at IS NULL AND a.created_at >= ${calculatedStartDate}::timestamp AND a.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                )
+              GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+            `;
+          }
+        }
+        
         const appointmentCounts = Array.from(appointmentCountsRaw);
 
         // Map directly to leaderboard entries
@@ -462,32 +597,108 @@ export async function GET(request: NextRequest) {
           console.log(`[RepCard Leaderboard] ⚠️ INNER JOIN returned 0 entries for appointments_set`);
           console.log(`[RepCard Leaderboard] Falling back to LEFT JOIN to show all users`);
           
-          const fallbackQuery = await sql`
-            SELECT
-              u.id as user_id,
-              u.name as user_name,
-              u.email as user_email,
-              u.repcard_user_id::text as repcard_user_id,
-              u.sales_office[1] as office,
-              u.role,
-              COUNT(a.repcard_appointment_id) as count
-            FROM users u
-            LEFT JOIN repcard_appointments a ON u.repcard_user_id::text = a.setter_user_id::text
-              AND (
-                (a.scheduled_at IS NOT NULL AND a.scheduled_at >= ${calculatedStartDate}::timestamp AND a.scheduled_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
-                OR
-                (a.scheduled_at IS NULL AND a.created_at >= ${calculatedStartDate}::timestamp AND a.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
-              )
-            ${officeIds && officeIds.length > 0 ? sql`
-              LEFT JOIN offices o ON o.name = ANY(u.sales_office)
-            ` : sql``}
-            WHERE u.repcard_user_id IS NOT NULL
-              ${role !== 'all' ? sql`AND u.role = ${role}` : sql``}
-              ${officeIds && officeIds.length > 0 ? sql`AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR u.sales_office IS NULL)` : sql``}
-            GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
-            ORDER BY count DESC
-            LIMIT 1000
-          `;
+          let fallbackQuery;
+          
+          if (officeIds && officeIds.length > 0) {
+            if (role !== 'all') {
+              fallbackQuery = await sql`
+                SELECT
+                  u.id as user_id,
+                  u.name as user_name,
+                  u.email as user_email,
+                  u.repcard_user_id::text as repcard_user_id,
+                  u.sales_office[1] as office,
+                  u.role,
+                  COUNT(a.repcard_appointment_id) as count
+                FROM users u
+                LEFT JOIN repcard_appointments a ON u.repcard_user_id::text = a.setter_user_id::text
+                  AND (
+                    (a.scheduled_at IS NOT NULL AND a.scheduled_at >= ${calculatedStartDate}::timestamp AND a.scheduled_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                    OR
+                    (a.scheduled_at IS NULL AND a.created_at >= ${calculatedStartDate}::timestamp AND a.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                  )
+                LEFT JOIN offices o ON o.name = ANY(u.sales_office)
+                WHERE u.repcard_user_id IS NOT NULL
+                  AND u.role = ${role}
+                  AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR u.sales_office IS NULL)
+                GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+                ORDER BY count DESC
+                LIMIT 1000
+              `;
+            } else {
+              fallbackQuery = await sql`
+                SELECT
+                  u.id as user_id,
+                  u.name as user_name,
+                  u.email as user_email,
+                  u.repcard_user_id::text as repcard_user_id,
+                  u.sales_office[1] as office,
+                  u.role,
+                  COUNT(a.repcard_appointment_id) as count
+                FROM users u
+                LEFT JOIN repcard_appointments a ON u.repcard_user_id::text = a.setter_user_id::text
+                  AND (
+                    (a.scheduled_at IS NOT NULL AND a.scheduled_at >= ${calculatedStartDate}::timestamp AND a.scheduled_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                    OR
+                    (a.scheduled_at IS NULL AND a.created_at >= ${calculatedStartDate}::timestamp AND a.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                  )
+                LEFT JOIN offices o ON o.name = ANY(u.sales_office)
+                WHERE u.repcard_user_id IS NOT NULL
+                  AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR u.sales_office IS NULL)
+                GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+                ORDER BY count DESC
+                LIMIT 1000
+              `;
+            }
+          } else {
+            if (role !== 'all') {
+              fallbackQuery = await sql`
+                SELECT
+                  u.id as user_id,
+                  u.name as user_name,
+                  u.email as user_email,
+                  u.repcard_user_id::text as repcard_user_id,
+                  u.sales_office[1] as office,
+                  u.role,
+                  COUNT(a.repcard_appointment_id) as count
+                FROM users u
+                LEFT JOIN repcard_appointments a ON u.repcard_user_id::text = a.setter_user_id::text
+                  AND (
+                    (a.scheduled_at IS NOT NULL AND a.scheduled_at >= ${calculatedStartDate}::timestamp AND a.scheduled_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                    OR
+                    (a.scheduled_at IS NULL AND a.created_at >= ${calculatedStartDate}::timestamp AND a.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                  )
+                WHERE u.repcard_user_id IS NOT NULL
+                  AND u.role = ${role}
+                GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+                ORDER BY count DESC
+                LIMIT 1000
+              `;
+            } else {
+              fallbackQuery = await sql`
+                SELECT
+                  u.id as user_id,
+                  u.name as user_name,
+                  u.email as user_email,
+                  u.repcard_user_id::text as repcard_user_id,
+                  u.sales_office[1] as office,
+                  u.role,
+                  COUNT(a.repcard_appointment_id) as count
+                FROM users u
+                LEFT JOIN repcard_appointments a ON u.repcard_user_id::text = a.setter_user_id::text
+                  AND (
+                    (a.scheduled_at IS NOT NULL AND a.scheduled_at >= ${calculatedStartDate}::timestamp AND a.scheduled_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                    OR
+                    (a.scheduled_at IS NULL AND a.created_at >= ${calculatedStartDate}::timestamp AND a.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                  )
+                WHERE u.repcard_user_id IS NOT NULL
+                GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+                ORDER BY count DESC
+                LIMIT 1000
+              `;
+            }
+          }
+          
           const fallbackResults = Array.from(fallbackQuery);
           leaderboardEntries = fallbackResults.map((row: any) => ({
             rank: 0,
