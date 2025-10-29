@@ -73,8 +73,12 @@ export default function TasksPage() {
     ? (tasksData?.activeTasks || [])
     : (tasksData?.cancelledAndPendingCancelTasks || [])
   
-  // Fallback to allTasks for backward compatibility
-  const allTasks = tasksData?.allTasks || tasksData || []
+  // Fallback to allTasks for backward compatibility - ensure it's always an array
+  const allTasks = Array.isArray(tasksData?.allTasks) 
+    ? tasksData.allTasks 
+    : Array.isArray(tasksData) 
+      ? tasksData 
+      : []
 
   if (status === 'loading') {
     return <TasksPageSkeleton />
