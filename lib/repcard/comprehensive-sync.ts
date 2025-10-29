@@ -707,6 +707,21 @@ export async function linkRepCardUsersToUsers(): Promise<void> {
   try {
     console.log('[RepCard Sync] Linking RepCard users to users table...');
     
+    // First, check what we're working with
+    const statsBefore = await sql`
+      SELECT 
+        (SELECT COUNT(*) FROM repcard_users WHERE email IS NOT NULL AND email != '') as repcard_count,
+        (SELECT COUNT(*) FROM users WHERE email IS NOT NULL AND email != '') as users_count,
+        (SELECT COUNT(*) FROM users WHERE repcard_user_id IS NOT NULL) as already_linked,
+        (SELECT COUNT(*) FROM users u
+         INNER JOIN repcard_users ru ON LOWER(u.email) = LOWER(ru.email)
+         WHERE u.repcard_user_id IS NULL
+           AND ru.email IS NOT NULL AND ru.email != '') as ready_to_link
+    `;
+    
+    const stats = statsBefore[0];
+    console.log(`[RepCard Sync] Stats: ${stats?.repcard_count || 0} RepCard users with email, ${stats?.users_count || 0} users with email, ${stats?.already_linked || 0} already linked, ${stats?.ready_to_link || 0} ready to link`);
+    
     const result = await sql`
       UPDATE users u
       SET 
