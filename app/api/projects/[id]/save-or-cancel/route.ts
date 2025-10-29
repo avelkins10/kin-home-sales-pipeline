@@ -148,8 +148,22 @@ export async function POST(
     }
 
     // Update project status in QuickBase
+    logInfo('[SAVE_OR_CANCEL] Updating project in QuickBase', {
+      projectId: numericId,
+      previousStatus: currentStatus,
+      newStatus,
+      action,
+      reqId
+    });
+    
     await updateProject(numericId, {
       [PROJECT_FIELDS.PROJECT_STATUS]: { value: newStatus }
+    });
+    
+    logInfo('[SAVE_OR_CANCEL] Project updated successfully in QuickBase', {
+      projectId: numericId,
+      newStatus,
+      reqId
     });
 
     // Create note in Install Communications for project coordinators

@@ -13,10 +13,12 @@ interface TaskListProps {
     projectStatus: string
     closerName?: string | null
     salesOffice?: string | null
+    isPendingCancel?: boolean
   }>
   groupBy?: 'none' | 'project' | 'urgency' | 'office'
   expandedOffices?: Set<string>
   toggleOffice?: (officeName: string) => void
+  showOnlyPendingCancel?: boolean // If true, only show pending cancel cards, filter out regular tasks
 }
 
 // Helper: Sort tasks by date (newest first)
@@ -28,16 +30,36 @@ function sortByDate(tasks: any[]) {
   })
 }
 
-export function TaskList({ tasks, groupBy = 'none', expandedOffices, toggleOffice }: TaskListProps) {
-  if (tasks.length === 0) {
+export function TaskList({ tasks, groupBy = 'none', expandedOffices, toggleOffice, showOnlyPendingCancel = false }: TaskListProps) {
+  // If showing only pending cancel, filter to only pending cancel tasks and deduplicate by project
+  let displayTasks = tasks
+  if (showOnlyPendingCancel) {
+    // Filter to only pending cancel tasks
+    const pendingCancelTasks = tasks.filter((t: any) => t.isPendingCancel)
+    
+    // Deduplicate by projectId - show only one card per project
+    const projectsSeen = new Set<number>()
+    displayTasks = pendingCancelTasks.filter((task: any) => {
+      if (projectsSeen.has(task.projectId)) {
+        return false // Already showed this project
+      }
+      projectsSeen.add(task.projectId)
+      return true
+    })
+  }
+
+  if (displayTasks.length === 0) {
     return (
       <div className="text-center py-12 bg-white rounded-lg border">
         <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
         <h3 className="text-lg font-semibold text-gray-900 mb-1">
-          No Tasks Pending
+          {showOnlyPendingCancel ? 'No Pending Cancel Projects' : 'No Tasks Pending'}
         </h3>
         <p className="text-sm text-gray-500">
-          All your tasks are complete. Great work!
+          {showOnlyPendingCancel 
+            ? 'All projects are active or cancelled. No pending cancellation actions needed.'
+            : 'All your tasks are complete. Great work!'
+          }
         </p>
       </div>
     )
@@ -45,7 +67,7 @@ export function TaskList({ tasks, groupBy = 'none', expandedOffices, toggleOffic
 
   // Group tasks if needed
   if (groupBy === 'project') {
-    const tasksByProject = tasks.reduce((acc, task) => {
+    const tasksByProject = displayTasks.reduce((acc, task) => {
       const projectId = task.projectId
       if (!acc[projectId]) {
         acc[projectId] = {
@@ -83,7 +105,7 @@ export function TaskList({ tasks, groupBy = 'none', expandedOffices, toggleOffic
   }
 
   if (groupBy === 'office') {
-    const tasksByOffice = tasks.reduce((acc, task) => {
+    const tasksByOffice = displayTasks.reduce((acc, task) => {
       const officeName = task.salesOffice || 'No Office'
       if (!acc[officeName]) {
         acc[officeName] = []
@@ -139,7 +161,7 @@ export function TaskList({ tasks, groupBy = 'none', expandedOffices, toggleOffic
   }
 
   if (groupBy === 'urgency') {
-    const sortedTasks = sortTasksByUrgency(tasks)
+    const sortedTasks = sortTasksByUrgency(displayTasks)
     const critical = sortByDate(sortedTasks.filter(t => {
       // Exclude approved tasks from critical - they're completed
       const taskStatus = (t.status || '').toLowerCase().trim()
@@ -222,7 +244,27 @@ export function TaskList({ tasks, groupBy = 'none', expandedOffices, toggleOffic
   }
 
   // No grouping - sort by date first
-  const sortedTasks = sortByDate(tasks)
+  const sortedTasks = sortByDate(displayTasks)
+  
+  // If showing only pending cancel, render them as cards grouped by project
+  if (showOnlyPendingCancel) {
+    // Group by project
+    const tasksByProject = sortedTasks.reduce((acc, task) => {
+      const projectId = task.projectId
+      if (!acc[projectId]) {
+        acc[projectId] = task // Just store the first/only task per project
+      }
+      return acc
+    }, {} as Record<number, typeof sortedTasks[0]>)
+
+    return (
+      <div className="space-y-4">
+        {Object.values(tasksByProject).map((task: any) => (
+          <PendingCancelTaskCard key={`pending-cancel-${task.projectId}`} task={task} />
+        ))}
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-3">

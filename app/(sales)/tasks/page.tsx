@@ -597,6 +597,7 @@ export default function TasksPage() {
             groupBy={groupBy}
             expandedOffices={expandedOffices}
             toggleOffice={toggleOffice}
+            showOnlyPendingCancel={activeTab === 'pending-cancel'}
           />
         )}
       </div>
