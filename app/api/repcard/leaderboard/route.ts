@@ -201,14 +201,16 @@ export async function GET(request: NextRequest) {
     // Query users table (master table) - users should have repcard_user_id linked from sync
     if (officeIds && officeIds.length > 0) {
       // Use sql.query for office filtering with proper array parameters
+      // Fix: Handle NULL sales_office by using LEFT JOIN or checking office name matches
       if (role !== 'all') {
         const result = await sql.query(
           `SELECT DISTINCT u.id, u.name, u.email, u.repcard_user_id, u.sales_office[1] as office, u.role
            FROM users u
-           JOIN offices o ON o.name = ANY(u.sales_office)
+           LEFT JOIN offices o ON o.name = ANY(u.sales_office)
            WHERE u.repcard_user_id IS NOT NULL
              AND u.role = $1
-             AND o.quickbase_office_id = ANY($2::int[])`,
+             AND (o.quickbase_office_id = ANY($2::int[]) OR u.sales_office IS NULL)
+           LIMIT 1000`,
           [role, officeIds]
         );
         users = result.rows;
@@ -216,12 +218,35 @@ export async function GET(request: NextRequest) {
         const result = await sql.query(
           `SELECT DISTINCT u.id, u.name, u.email, u.repcard_user_id, u.sales_office[1] as office, u.role
            FROM users u
-           JOIN offices o ON o.name = ANY(u.sales_office)
+           LEFT JOIN offices o ON o.name = ANY(u.sales_office)
            WHERE u.repcard_user_id IS NOT NULL
-             AND o.quickbase_office_id = ANY($1::int[])`,
+             AND (o.quickbase_office_id = ANY($1::int[]) OR u.sales_office IS NULL)
+           LIMIT 1000`,
           [officeIds]
         );
         users = result.rows;
+      }
+      
+      // If office filtering returns 0 users, fall back to all users (office filter might be too restrictive)
+      if (users.length === 0) {
+        console.log(`[RepCard Leaderboard] Office filter returned 0 users, falling back to all users`);
+        if (role !== 'all') {
+          const result = await sql`
+            SELECT id, name, email, repcard_user_id, sales_office[1] as office, role
+            FROM users
+            WHERE repcard_user_id IS NOT NULL AND role = ${role}
+            LIMIT 1000
+          `;
+          users = Array.from(result);
+        } else {
+          const result = await sql`
+            SELECT id, name, email, repcard_user_id, sales_office[1] as office, role
+            FROM users
+            WHERE repcard_user_id IS NOT NULL
+            LIMIT 1000
+          `;
+          users = Array.from(result);
+        }
       }
     } else {
       // No office filter - use sql template
@@ -230,6 +255,7 @@ export async function GET(request: NextRequest) {
           SELECT id, name, email, repcard_user_id, sales_office[1] as office, role
           FROM users
           WHERE repcard_user_id IS NOT NULL AND role = ${role}
+          LIMIT 1000
         `;
         users = Array.from(result);
       } else {
@@ -237,6 +263,7 @@ export async function GET(request: NextRequest) {
           SELECT id, name, email, repcard_user_id, sales_office[1] as office, role
           FROM users
           WHERE repcard_user_id IS NOT NULL
+          LIMIT 1000
         `;
         users = Array.from(result);
       }
@@ -356,14 +383,18 @@ export async function GET(request: NextRequest) {
       } else if (metric === 'appointments_set') {
         // Query database for appointments (much faster than API, no rate limits)
         // Fix: Cast setter_user_id to TEXT for comparison
+        // Use scheduled_at if available, otherwise fall back to created_at
         const appointmentCountsRaw = await sql`
           SELECT
             setter_user_id::text as setter_user_id,
             COUNT(*) as count
           FROM repcard_appointments
           WHERE setter_user_id::text = ANY(${repcardUserIds.map(String)}::text[])
-            AND scheduled_at >= ${calculatedStartDate}::timestamp
-            AND scheduled_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day')
+            AND (
+              (scheduled_at IS NOT NULL AND scheduled_at >= ${calculatedStartDate}::timestamp AND scheduled_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+              OR
+              (scheduled_at IS NULL AND created_at >= ${calculatedStartDate}::timestamp AND created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+            )
           GROUP BY setter_user_id
         `;
         const appointmentCounts = Array.from(appointmentCountsRaw);
