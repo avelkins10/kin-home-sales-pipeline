@@ -18,44 +18,47 @@ export async function POST(request: NextRequest) {
     // Read raw body for signature verification
     const rawBody = await request.text();
 
-    // Verify webhook signature if configured (before parsing JSON)
-    const webhookSecret = process.env.ARRIVY_WEBHOOK_SECRET;
-    if (webhookSecret) {
-      const signature = request.headers.get('x-arrivy-signature');
-      
-      if (!signature) {
-        logWarn('[Arrivy Webhook] Missing signature header', { requestId });
-        return NextResponse.json(
-          { error: 'Missing webhook signature' },
-          { status: 401 }
-        );
-      }
+    // TEMPORARILY DISABLED: Signature verification
+    // Arrivy's "Custom Webhook Authentication Keys" doesn't send x-arrivy-signature header
+    // TODO: Investigate proper authentication method with Arrivy
 
-      // Compute HMAC-SHA256 over raw body
-      const expectedSignature = crypto
-        .createHmac('sha256', webhookSecret)
-        .update(rawBody)
-        .digest('hex');
-      
-      // Support both formats: "hex" or "sha256=hex"
-      const providedSignature = signature.startsWith('sha256=') 
-        ? signature.substring(7) 
-        : signature;
-      
-      // Constant-time comparison to prevent timing attacks
-      const isValid = crypto.timingSafeEqual(
-        Buffer.from(expectedSignature, 'hex'),
-        Buffer.from(providedSignature, 'hex')
-      );
-      
-      if (!isValid) {
-        logWarn('[Arrivy Webhook] Invalid signature', { requestId });
-        return NextResponse.json(
-          { error: 'Invalid webhook signature' },
-          { status: 401 }
-        );
-      }
-    }
+    // const webhookSecret = process.env.ARRIVY_WEBHOOK_SECRET;
+    // if (webhookSecret) {
+    //   const signature = request.headers.get('x-arrivy-signature');
+    //
+    //   if (!signature) {
+    //     logWarn('[Arrivy Webhook] Missing signature header', { requestId });
+    //     return NextResponse.json(
+    //       { error: 'Missing webhook signature' },
+    //       { status: 401 }
+    //     );
+    //   }
+    //
+    //   // Compute HMAC-SHA256 over raw body
+    //   const expectedSignature = crypto
+    //     .createHmac('sha256', webhookSecret)
+    //     .update(rawBody)
+    //     .digest('hex');
+    //
+    //   // Support both formats: "hex" or "sha256=hex"
+    //   const providedSignature = signature.startsWith('sha256=')
+    //     ? signature.substring(7)
+    //     : signature;
+    //
+    //   // Constant-time comparison to prevent timing attacks
+    //   const isValid = crypto.timingSafeEqual(
+    //     Buffer.from(expectedSignature, 'hex'),
+    //     Buffer.from(providedSignature, 'hex')
+    //   );
+    //
+    //   if (!isValid) {
+    //     logWarn('[Arrivy Webhook] Invalid signature', { requestId });
+    //     return NextResponse.json(
+    //       { error: 'Invalid webhook signature' },
+    //       { status: 401 }
+    //     );
+    //   }
+    // }
 
     // Parse webhook payload after signature verification
     let payload: ArrivyWebhookPayload;
