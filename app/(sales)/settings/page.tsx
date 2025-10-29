@@ -13,6 +13,7 @@ import SystemTab from '@/components/settings/SystemTab'
 import { AuditLogsTab } from '@/components/settings/AuditLogsTab'
 import { MilestoneConfigTab } from '@/components/settings/MilestoneConfigTab'
 import { Card, CardContent } from '@/components/ui/card'
+import RepCardDebugTab from '@/components/settings/RepCardDebugTab'
 
 export default async function SettingsPage() {
   const session = await getServerSession(authOptions)
@@ -160,15 +161,7 @@ export default async function SettingsPage() {
 
               <Suspense fallback={<Skeleton className="h-96 w-full" />}>
                 <TabsContent value="repcard-debug">
-                  <Card>
-                    <CardContent className="p-0">
-                      <iframe
-                        src="/settings/repcard-debug"
-                        className="w-full h-[calc(100vh-200px)] border-0"
-                        title="RepCard Debug Tool"
-                      />
-                    </CardContent>
-                  </Card>
+                  <RepCardDebugTab />
                 </TabsContent>
               </Suspense>
             </>
