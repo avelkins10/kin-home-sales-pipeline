@@ -460,7 +460,7 @@ class ArrivySyncService {
 
     // Try to infer from template
     if (task.template) {
-      const template = task.template.toLowerCase();
+      const template = String(task.template).toLowerCase();
       if (template.includes('survey')) return 'survey';
       if (template.includes('install')) return 'install';
       if (template.includes('inspection')) return 'inspection';

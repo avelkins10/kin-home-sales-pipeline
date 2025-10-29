@@ -80,7 +80,7 @@ export async function upsertArrivyTask(taskData: ArrivyTaskData): Promise<Arrivy
         ${taskData.scheduled_start ?? null},
         ${taskData.scheduled_end ?? null},
         ${taskData.assigned_entity_ids && taskData.assigned_entity_ids.length > 0
-          ? sql`ARRAY[${sql.join(taskData.assigned_entity_ids.map(id => sql`${id}`), sql`, `)}]::bigint[]`
+          ? taskData.assigned_entity_ids
           : null},
         ${taskData.current_status ?? null},
         ${taskData.tracker_url ?? null},
