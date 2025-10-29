@@ -17,7 +17,14 @@ export default function TriggerSyncPage() {
   const [isDiagnosing, setIsDiagnosing] = useState(false);
   const [diagnosticResult, setDiagnosticResult] = useState<any>(null);
 
-  const triggerSync = async (options?: { skipUsers?: boolean; skipOffices?: boolean; skipStatusLogs?: boolean; skipAttachments?: boolean }) => {
+  const triggerSync = async (options?: { 
+    skipUsers?: boolean; 
+    skipOffices?: boolean; 
+    skipStatusLogs?: boolean; 
+    skipAttachments?: boolean;
+    incremental?: boolean;
+    daysBack?: number;
+  }) => {
     setIsSyncing(true);
     setError(null);
     setResult(null);
@@ -33,6 +40,20 @@ export default function TriggerSyncPage() {
       if (options?.skipAttachments) {
         params.set('skipCustomerAttachments', 'true');
         params.set('skipAppointmentAttachments', 'true');
+      }
+      
+      // Default to incremental sync (faster, only new data)
+      if (options?.incremental !== false) {
+        params.set('incremental', 'true');
+      }
+      
+      // Add date range for recent data only (default: last 30 days)
+      if (options?.daysBack) {
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - options.daysBack);
+        params.set('startDate', startDate.toISOString().split('T')[0]);
+        params.set('endDate', endDate.toISOString().split('T')[0]);
       }
 
       const response = await fetch(
@@ -145,7 +166,13 @@ export default function TriggerSyncPage() {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <Button 
-              onClick={() => triggerSync({ skipUsers: true, skipOffices: true, skipStatusLogs: true })}
+              onClick={() => triggerSync({ 
+                skipUsers: true, 
+                skipOffices: true, 
+                skipStatusLogs: true,
+                incremental: true,
+                daysBack: 30  // Last 30 days only
+              })}
               disabled={isSyncing || isLinking || isDiagnosing}
               className="w-full"
               size="lg"
@@ -156,11 +183,17 @@ export default function TriggerSyncPage() {
                   Syncing...
                 </>
               ) : (
-                'Sync Customers & Appointments'
+                'Sync Recent Data (30 days)'
               )}
             </Button>
             <Button 
-              onClick={() => triggerSync()} 
+              onClick={() => triggerSync({ 
+                skipUsers: true, 
+                skipOffices: true, 
+                skipStatusLogs: true,
+                incremental: true,
+                daysBack: 7  // Last 7 days
+              })} 
               disabled={isSyncing || isLinking || isDiagnosing}
               variant="outline"
               className="w-full"
@@ -172,7 +205,43 @@ export default function TriggerSyncPage() {
                   Syncing...
                 </>
               ) : (
-                'Full Sync (All Data)'
+                'Sync This Week (7 days)'
+              )}
+            </Button>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <Button 
+              onClick={() => triggerSync({ 
+                incremental: false,
+                daysBack: 90  // Last 90 days for backfill
+              })} 
+              disabled={isSyncing || isLinking || isDiagnosing}
+              variant="secondary"
+              className="w-full"
+            >
+              {isSyncing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Syncing...
+                </>
+              ) : (
+                'Backfill (90 days)'
+              )}
+            </Button>
+            <Button 
+              onClick={() => triggerSync()} 
+              disabled={isSyncing || isLinking || isDiagnosing}
+              variant="secondary"
+              className="w-full"
+            >
+              {isSyncing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Syncing...
+                </>
+              ) : (
+                'Full Historical Sync'
               )}
             </Button>
           </div>
@@ -212,8 +281,8 @@ export default function TriggerSyncPage() {
           
           <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-800">
-              <strong>💡 Tip:</strong> Click "Sync Customers & Appointments" to sync just those (users will be auto-enriched). 
-              Users are automatically linked when you sync customers/appointments!
+              <strong>💡 Recommended:</strong> Use "Sync Recent Data (30 days)" for fastest syncs. 
+              Users are automatically enriched when syncing customers/appointments. Historical data can be backfilled later if needed.
             </p>
           </div>
 
