@@ -114,17 +114,18 @@ export default function TasksPage() {
       .filter((office): office is string => !!office)
   )).sort()
 
-  // Calculate status counts for tabs
+  // Calculate status counts for tabs - ensure tasks is an array
+  const tasksForCounts = Array.isArray(tasks) ? tasks : []
   const statusCounts = {
-    all: tasks.length,
-    actionable: tasks.filter((t: any) => {
+    all: tasksForCounts.length,
+    actionable: tasksForCounts.filter((t: any) => {
       const taskStatus = (t.status || '').toLowerCase().trim()
       return taskStatus !== 'approved' && taskStatus !== 'closed by ops'
     }).length,
-    not_started: tasks.filter((t: any) => (t.status || '').toLowerCase().trim() === 'not started').length,
-    in_progress: tasks.filter((t: any) => (t.status || '').toLowerCase().trim() === 'in progress').length,
-    approved: tasks.filter((t: any) => (t.status || '').toLowerCase().trim() === 'approved').length,
-    closed_by_ops: tasks.filter((t: any) => (t.status || '').toLowerCase().trim() === 'closed by ops').length,
+    not_started: tasksForCounts.filter((t: any) => (t.status || '').toLowerCase().trim() === 'not started').length,
+    in_progress: tasksForCounts.filter((t: any) => (t.status || '').toLowerCase().trim() === 'in progress').length,
+    approved: tasksForCounts.filter((t: any) => (t.status || '').toLowerCase().trim() === 'approved').length,
+    closed_by_ops: tasksForCounts.filter((t: any) => (t.status || '').toLowerCase().trim() === 'closed by ops').length,
   }
 
   // Filter tasks by selected closer, office, and status
