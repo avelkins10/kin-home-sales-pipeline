@@ -128,7 +128,9 @@ export default function TasksPage() {
   }
 
   // Filter tasks by selected closer, office, and status
-  const filteredTasks = tasks.filter((t: any) => {
+  // Ensure tasks is always an array before filtering
+  const tasksArray = Array.isArray(tasks) ? tasks : []
+  const filteredTasks = tasksArray.filter((t: any) => {
     // Filter by closer
     if (selectedCloser !== 'all' && t.closerName !== selectedCloser) {
       return false
