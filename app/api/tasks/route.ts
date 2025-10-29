@@ -10,7 +10,9 @@ import {
   PROJECT_FIELDS,
   TASK_GROUP_FIELDS,
   TASK_FIELDS,
-  TASK_SUBMISSION_FIELDS
+  TASK_SUBMISSION_FIELDS,
+  INSTALL_COMMUNICATION_FIELDS,
+  QB_TABLE_INSTALL_COMMUNICATIONS
 } from '@/lib/constants/fieldIds';
 import { Task, TaskSubmission } from '@/lib/types/task';
 import { buildProjectAccessClause } from '@/lib/auth/projectAuthorization';
@@ -778,17 +780,89 @@ export async function GET(req: Request) {
       };
     });
 
-    // Step 6: Create special "Pending Cancel" tasks for projects with that status
-    // These are synthetic tasks that appear in the tasks list to alert reps
-    const pendingCancelProjects = Array.from(projectMap.entries())
+    // Step 6: Query Install Communications for pending cancel projects to get actual dates and notes
+    const pendingCancelProjectEntries = Array.from(projectMap.entries())
       .filter(([projectId, info]: [number, any]) => {
         const status = info.projectStatus || '';
         return typeof status === 'string' && status.toLowerCase().includes('pending cancel');
-      })
-      .map(([projectId, info]: [number, any]) => ({
+      });
+
+    // Build map of project record IDs to pending cancel communication data
+    const pendingCancelCommMap = new Map<number, { date: string | null; note: string | null }>();
+    
+    if (pendingCancelProjectEntries.length > 0) {
+      checkTimeout();
+      const pendingCancelRecordIds = pendingCancelProjectEntries.map(([projectId]: [number, any]) => projectId);
+      logInfo('[TASKS_API] Querying Install Communications for pending cancel projects', { 
+        count: pendingCancelRecordIds.length, 
+        reqId 
+      });
+
+      try {
+        // Query Install Communications for these projects, looking for notes containing "pending cancel"
+        // Use XIN operator for efficient project filtering
+        const recordIdsStr = pendingCancelRecordIds.join(',');
+        const commWhereClause = `{${INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT}.XIN.'${recordIdsStr}'}`;
+        
+        const commResponse = await qbClient.queryRecords({
+          from: QB_TABLE_INSTALL_COMMUNICATIONS,
+          where: commWhereClause,
+          select: [
+            INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT,
+            INSTALL_COMMUNICATION_FIELDS.DATE,
+            INSTALL_COMMUNICATION_FIELDS.COMMUNICATION_NOTE
+          ],
+          sortBy: [{ field: INSTALL_COMMUNICATION_FIELDS.DATE, order: 'DESC' }],
+          options: { top: 10000 } // Get all recent communications
+        });
+
+        // Process communications to find pending cancel notes for each project
+        const commRecords = commResponse.data || [];
+        commRecords.forEach((record: any) => {
+          const relatedProjectField = record[INSTALL_COMMUNICATION_FIELDS.RELATED_PROJECT];
+          const projectRecordId = typeof relatedProjectField === 'object' && relatedProjectField?.value !== undefined
+            ? Number(relatedProjectField.value) || 0
+            : Number(relatedProjectField) || 0;
+          if (!projectRecordId || !pendingCancelRecordIds.includes(projectRecordId)) return;
+
+          const note = record[INSTALL_COMMUNICATION_FIELDS.COMMUNICATION_NOTE]?.value || '';
+          const noteLower = typeof note === 'string' ? note.toLowerCase() : '';
+          
+          // Check if this note mentions "pending cancel" (case insensitive)
+          if (noteLower.includes('pending cancel') || noteLower.includes('pending cancellation')) {
+            // Only set if we haven't found one yet (since sorted DESC, first match is most recent)
+            if (!pendingCancelCommMap.has(projectRecordId)) {
+              const commDate = record[INSTALL_COMMUNICATION_FIELDS.DATE]?.value || null;
+              pendingCancelCommMap.set(projectRecordId, {
+                date: commDate,
+                note: note
+              });
+            }
+          }
+        });
+
+        logInfo('[TASKS_API] Found pending cancel communications', { 
+          found: pendingCancelCommMap.size, 
+          total: pendingCancelProjectEntries.length,
+          reqId 
+        });
+      } catch (error) {
+        logError('[TASKS_API] Failed to query Install Communications for pending cancel', error as Error, { reqId });
+        // Continue without communication data - will fall back to DATE_MODIFIED
+      }
+    }
+
+    // Step 7: Create special "Pending Cancel" tasks for projects with that status
+    // These are synthetic tasks that appear in the tasks list to alert reps
+    const pendingCancelProjects = pendingCancelProjectEntries.map(([projectId, info]: [number, any]) => {
+      const commData = pendingCancelCommMap.get(projectId);
+      const pendingCancelDate = commData?.date || info.dateModified || null;
+      const cancelNote = commData?.note || info.cancelReason || null;
+
+      return {
         recordId: -projectId, // Negative ID to distinguish from real tasks
-        dateCreated: info.dateModified || null, // Use date modified as proxy for when moved to pending cancel
-        dateModified: info.dateModified || null,
+        dateCreated: pendingCancelDate,
+        dateModified: pendingCancelDate,
         taskGroup: 0, // No task group for synthetic tasks
         status: 'Not Started' as const,
         name: 'Save Customer or Cancel Project',
@@ -807,10 +881,11 @@ export async function GET(req: Request) {
         customerName: info.customerName,
         closerName: info.closerName,
         salesOffice: info.salesOffice,
-        cancelReason: info.cancelReason || null, // Cancellation reason/notes
-        dateMovedToPendingCancel: info.dateModified || null, // When project was moved to pending cancel
+        cancelReason: cancelNote, // Use communication note if available, otherwise fall back to CANCEL_REASON field
+        dateMovedToPendingCancel: pendingCancelDate, // Use communication date if available, otherwise fall back to DATE_MODIFIED
         isPendingCancel: true // Flag to identify special tasks
-      }));
+      };
+    });
 
     // Combine regular tasks with pending cancel tasks
     const allTasksIncludingPendingCancel = [...tasksWithProject, ...pendingCancelProjects];

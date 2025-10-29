@@ -124,37 +124,55 @@ export function PendingCancelTaskCard({ task, className }: PendingCancelTaskCard
               </p>
             </div>
 
-            {/* Cancellation Details */}
-            {(task.cancelReason || task.dateMovedToPendingCancel) && (
-              <div className="bg-white rounded-lg p-3 border border-gray-200 space-y-2">
-                {task.dateMovedToPendingCancel && (
-                  <div className="flex items-start gap-2 text-sm">
-                    <Calendar className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <span className="font-medium text-gray-700">Moved to Pending Cancel:</span>{' '}
-                      <span className="text-gray-600">
-                        {new Date(task.dateMovedToPendingCancel).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                          hour: 'numeric',
-                          minute: '2-digit'
-                        })}
-                      </span>
-                    </div>
+            {/* Cancellation Details - Always show if pending cancel */}
+            <div className="bg-white rounded-lg p-3 border border-gray-200 space-y-2">
+              {task.dateMovedToPendingCancel ? (
+                <div className="flex items-start gap-2 text-sm">
+                  <Calendar className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <span className="font-medium text-gray-700">Moved to Pending Cancel:</span>{' '}
+                    <span className="text-gray-600">
+                      {(() => {
+                        try {
+                          const dateValue = task.dateMovedToPendingCancel
+                          if (!dateValue) return 'Date unavailable'
+                          
+                          // Handle QuickBase date format (MM-DD-YYYY or ISO string)
+                          const date = typeof dateValue === 'string' && dateValue.includes('-') && !dateValue.includes('T')
+                            ? new Date(dateValue.split(' ')[0].split('-').reverse().join('-')) // MM-DD-YYYY -> YYYY-MM-DD
+                            : new Date(dateValue)
+                          
+                          if (isNaN(date.getTime())) return 'Date unavailable'
+                          return date.toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit'
+                          })
+                        } catch {
+                          return 'Date unavailable'
+                        }
+                      })()}
+                    </span>
                   </div>
-                )}
-                {task.cancelReason && (
-                  <div className="flex items-start gap-2 text-sm">
-                    <FileText className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <span className="font-medium text-gray-700">Cancellation Reason:</span>
-                      <p className="text-gray-600 mt-1 whitespace-pre-wrap">{task.cancelReason}</p>
-                    </div>
+                </div>
+              ) : (
+                <div className="flex items-start gap-2 text-sm text-gray-500">
+                  <Calendar className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <span>Date moved to pending cancel not available</span>
+                </div>
+              )}
+              {task.cancelReason && (
+                <div className="flex items-start gap-2 text-sm mt-2">
+                  <FileText className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <span className="font-medium text-gray-700">Cancellation Reason:</span>
+                    <p className="text-gray-600 mt-1 whitespace-pre-wrap">{task.cancelReason}</p>
                   </div>
-                )}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
 
             {!showActions ? (
               <div className="flex gap-2">
