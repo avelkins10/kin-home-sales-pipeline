@@ -432,14 +432,56 @@ export async function syncAppointments(options: {
             const customerRows = customerResult.rows || customerResult;
             const customerId = customerRows.length > 0 ? customerRows[0].id : null;
 
-            // Extract disposition from status
+            // Extract disposition from status (capture all possible status fields)
             const disposition = appointment.status?.title || appointment.status?.category?.title || null;
+            
+            // Determine status category from disposition
+            let statusCategory: string | null = null;
+            if (disposition) {
+              const dispLower = disposition.toLowerCase();
+              if (dispLower.includes('cancel')) statusCategory = 'cancelled';
+              else if (dispLower.includes('reschedule')) statusCategory = 'rescheduled';
+              else if (dispLower.includes('no.show') || dispLower.includes('no_show')) statusCategory = 'no_show';
+              else if (dispLower.includes('sat.closed') || dispLower.includes('sat_closed') || dispLower.includes('closed')) statusCategory = 'sat_closed';
+              else if (dispLower.includes('sat.no.close') || dispLower.includes('sat_no_close')) statusCategory = 'sat_no_close';
+              else if (appointment.endAt) statusCategory = 'completed';
+              else if (appointment.startAt) statusCategory = 'scheduled';
+            }
 
             // Extract user IDs (RepCard user IDs)
             const setterUserId = appointment.userId; // setter (who created the customer/appointment)
             const closerUserId = appointment.closerId; // closer (who runs the appointment)
 
-            // Upsert appointment
+            // Get office_id from customer, setter, or closer (order of preference)
+            const officeResult = await sql`
+              SELECT 
+                COALESCE(
+                  (SELECT office_id FROM repcard_customers WHERE repcard_customer_id = ${appointment.contact.id} LIMIT 1),
+                  (SELECT office_id FROM repcard_users WHERE repcard_user_id = ${appointment.userId} LIMIT 1),
+                  (SELECT office_id FROM repcard_users WHERE repcard_user_id = ${appointment.closerId} LIMIT 1)
+                ) as office_id
+            `;
+            const officeRows = officeResult.rows || officeResult;
+            const officeId = officeRows.length > 0 ? officeRows[0].office_id : null;
+
+            // Calculate is_within_48_hours if we have customer data
+            let isWithin48Hours = false;
+            if (appointment.contact?.id) {
+              const customerCreatedResult = await sql`
+                SELECT created_at FROM repcard_customers 
+                WHERE repcard_customer_id = ${appointment.contact.id} 
+                LIMIT 1
+              `;
+              const customerCreatedRows = customerCreatedResult.rows || customerCreatedResult;
+              if (customerCreatedRows.length > 0 && customerCreatedRows[0].created_at) {
+                const customerCreated = new Date(customerCreatedRows[0].created_at);
+                const appointmentCreated = new Date(appointment.createdAt);
+                const diffHours = (appointmentCreated.getTime() - customerCreated.getTime()) / (1000 * 60 * 60);
+                isWithin48Hours = diffHours >= 0 && diffHours <= 48;
+              }
+            }
+
+            // Upsert appointment with ALL fields
             const result = await sql`
               INSERT INTO repcard_appointments (
                 repcard_appointment_id,
@@ -447,11 +489,14 @@ export async function syncAppointments(options: {
                 repcard_customer_id,
                 setter_user_id,
                 closer_user_id,
+                office_id,
                 disposition,
+                status_category,
                 scheduled_at,
                 completed_at,
                 duration,
                 notes,
+                is_within_48_hours,
                 created_at,
                 updated_at,
                 raw_data
@@ -462,11 +507,14 @@ export async function syncAppointments(options: {
                 ${appointment.contact.id},
                 ${appointment.userId},
                 ${appointment.closerId},
+                ${officeId},
                 ${disposition},
-                ${appointment.startAt},
-                ${appointment.endAt},
-                ${appointment.durationTime},
+                ${statusCategory},
+                ${appointment.startAt || null},
+                ${appointment.endAt || null},
+                ${appointment.durationTime || null},
                 ${appointment.notes || null},
+                ${isWithin48Hours},
                 ${appointment.createdAt},
                 ${appointment.updatedAt},
                 ${JSON.stringify(appointment)}
@@ -476,11 +524,14 @@ export async function syncAppointments(options: {
                 customer_id = EXCLUDED.customer_id,
                 setter_user_id = EXCLUDED.setter_user_id,
                 closer_user_id = EXCLUDED.closer_user_id,
+                office_id = COALESCE(EXCLUDED.office_id, repcard_appointments.office_id),
                 disposition = EXCLUDED.disposition,
+                status_category = EXCLUDED.status_category,
                 scheduled_at = EXCLUDED.scheduled_at,
                 completed_at = EXCLUDED.completed_at,
                 duration = EXCLUDED.duration,
                 notes = EXCLUDED.notes,
+                is_within_48_hours = EXCLUDED.is_within_48_hours,
                 updated_at = EXCLUDED.updated_at,
                 raw_data = EXCLUDED.raw_data,
                 synced_at = NOW()
