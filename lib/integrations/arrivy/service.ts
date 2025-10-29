@@ -337,6 +337,106 @@ export function hasQuickBaseAssociation(task: { quickbase_project_id?: string | 
 // =============================================================================
 
 /**
+ * Ensure task exists in database before processing event
+ * Fetches task from Arrivy API if not found locally
+ */
+async function ensureTaskExists(arrivyTaskId: number, eventType: string): Promise<boolean> {
+  try {
+    // Check if task exists in database
+    let task = await getArrivyTaskByArrivyId(arrivyTaskId);
+
+    if (task) {
+      return true; // Task exists, we're good
+    }
+
+    // Task doesn't exist - try to fetch from Arrivy API
+    logInfo(`[Arrivy] Task ${arrivyTaskId} not found, fetching from API`, {
+      arrivy_task_id: arrivyTaskId,
+      event_type: eventType,
+    });
+
+    if (!arrivyClient) {
+      logError('[Arrivy] Cannot fetch task - Arrivy client not configured', new Error('Arrivy client not configured'), {
+        arrivy_task_id: arrivyTaskId,
+      });
+      return false;
+    }
+
+    // Fetch task from Arrivy API
+    const arrivyTask = await arrivyClient.getTask(arrivyTaskId);
+    if (!arrivyTask) {
+      logError('[Arrivy] Task not found in Arrivy API', new Error('Task not found in API'), {
+        arrivy_task_id: arrivyTaskId,
+      });
+      return false;
+    }
+
+    // Helper function to format address
+    const formatAddress = (task: ArrivyTask): string | undefined => {
+      const parts = [
+        task.customer_address_line_1,
+        task.customer_city,
+        task.customer_state,
+        task.customer_zipcode
+      ].filter(Boolean);
+      return parts.length > 0 ? parts.join(', ') : undefined;
+    };
+
+    // Helper function to extract task type
+    const extractTaskType = (task: ArrivyTask): string => {
+      if (task.extra_fields?.task_type) {
+        return task.extra_fields.task_type;
+      }
+      // Try to infer from title
+      const title = task.title?.toLowerCase() || '';
+      if (title.includes('survey')) return 'survey';
+      if (title.includes('install')) return 'install';
+      if (title.includes('inspection')) return 'inspection';
+      return 'service'; // default
+    };
+
+    // Generate tracker URL
+    const trackerUrl = getCustomerTrackerUrl(arrivyTask.id, arrivyTask.url_safe_id);
+
+    // Create task in database
+    const taskData: ArrivyTaskData = {
+      arrivy_task_id: arrivyTask.id,
+      url_safe_id: arrivyTask.url_safe_id,
+      quickbase_project_id: arrivyTask.external_id ?? null,
+      quickbase_record_id: null,
+      customer_name: arrivyTask.customer_name,
+      customer_phone: arrivyTask.customer_phone,
+      customer_email: arrivyTask.customer_email,
+      customer_address: formatAddress(arrivyTask),
+      task_type: extractTaskType(arrivyTask),
+      scheduled_start: arrivyTask.start_datetime ? new Date(arrivyTask.start_datetime) : undefined,
+      scheduled_end: arrivyTask.end_datetime ? new Date(arrivyTask.end_datetime) : undefined,
+      assigned_entity_ids: arrivyTask.entity_ids || [],
+      current_status: arrivyTask.status || 'NOT_STARTED',
+      tracker_url: trackerUrl,
+      template_id: arrivyTask.template_id?.toString(),
+      extra_fields: arrivyTask.extra_fields,
+      synced_at: new Date(),
+    };
+
+    await upsertArrivyTask(taskData);
+
+    logInfo('[Arrivy] Successfully fetched and created task from API', {
+      arrivy_task_id: arrivyTaskId,
+      customer_name: arrivyTask.customer_name,
+    });
+
+    return true;
+  } catch (error) {
+    logError('[Arrivy] Failed to ensure task exists', error as Error, {
+      arrivy_task_id: arrivyTaskId,
+      event_type: eventType,
+    });
+    return false;
+  }
+}
+
+/**
  * Process incoming webhook event from Arrivy
  */
 export async function processWebhookEvent(
@@ -372,38 +472,21 @@ export async function processWebhookEvent(
       payload,
     });
 
-    // For TASK_CREATED events, we must create the task FIRST before inserting the event
-    // This ensures the foreign key constraint (arrivy_task_id) is satisfied
-    if (EVENT_TYPE === 'TASK_CREATED') {
-      try {
-        await handleTaskCreatedEvent(payload);
-
-        // Verify task was created successfully before proceeding
-        const taskExists = await getArrivyTaskByArrivyId(OBJECT_ID);
-        if (!taskExists) {
-          logError('[Arrivy] Task creation failed - task not found in database', new Error('Task not created'), {
-            event_id: EVENT_ID,
-            arrivy_task_id: OBJECT_ID,
-          });
-          // Return success to prevent webhook retries, but don't insert event
-          return {
-            success: true,
-            eventId: EVENT_ID,
-            notificationCreated: false,
-          };
-        }
-      } catch (error) {
-        logError('[Arrivy] Failed to handle TASK_CREATED event before inserting', error as Error, {
-          event_id: EVENT_ID,
-          arrivy_task_id: OBJECT_ID,
-        });
-        // Return success to prevent webhook retries
-        return {
-          success: true,
-          eventId: EVENT_ID,
-          notificationCreated: false,
-        };
-      }
+    // Ensure task exists in database before inserting event
+    // This prevents foreign key constraint violations
+    const taskExists = await ensureTaskExists(OBJECT_ID, EVENT_TYPE);
+    if (!taskExists) {
+      logError('[Arrivy] Cannot process event - task does not exist and could not be created', new Error('Task unavailable'), {
+        event_id: EVENT_ID,
+        event_type: EVENT_TYPE,
+        arrivy_task_id: OBJECT_ID,
+      });
+      // Return success to prevent webhook retries
+      return {
+        success: true,
+        eventId: EVENT_ID,
+        notificationCreated: false,
+      };
     }
 
     // Store event in database - returns null if duplicate
