@@ -372,6 +372,40 @@ export async function processWebhookEvent(
       payload,
     });
 
+    // For TASK_CREATED events, we must create the task FIRST before inserting the event
+    // This ensures the foreign key constraint (arrivy_task_id) is satisfied
+    if (EVENT_TYPE === 'TASK_CREATED') {
+      try {
+        await handleTaskCreatedEvent(payload);
+
+        // Verify task was created successfully before proceeding
+        const taskExists = await getArrivyTaskByArrivyId(OBJECT_ID);
+        if (!taskExists) {
+          logError('[Arrivy] Task creation failed - task not found in database', new Error('Task not created'), {
+            event_id: EVENT_ID,
+            arrivy_task_id: OBJECT_ID,
+          });
+          // Return success to prevent webhook retries, but don't insert event
+          return {
+            success: true,
+            eventId: EVENT_ID,
+            notificationCreated: false,
+          };
+        }
+      } catch (error) {
+        logError('[Arrivy] Failed to handle TASK_CREATED event before inserting', error as Error, {
+          event_id: EVENT_ID,
+          arrivy_task_id: OBJECT_ID,
+        });
+        // Return success to prevent webhook retries
+        return {
+          success: true,
+          eventId: EVENT_ID,
+          notificationCreated: false,
+        };
+      }
+    }
+
     // Store event in database - returns null if duplicate
     const eventData: ArrivyEventData = {
       event_id: EVENT_ID,
@@ -400,12 +434,12 @@ export async function processWebhookEvent(
       };
     }
 
-    // Handle different event types
+    // Handle different event types (TASK_CREATED already handled above)
     let notificationCreated = false;
 
     switch (EVENT_TYPE) {
       case 'TASK_CREATED':
-        await handleTaskCreatedEvent(payload);
+        // Already handled above to ensure task exists before event insertion
         break;
 
       case 'TASK_STATUS':
