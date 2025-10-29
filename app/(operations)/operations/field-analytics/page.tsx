@@ -185,16 +185,22 @@ export default function FieldAnalyticsPage() {
   });
 
   // Helper functions
-  const formatDuration = (minutes: number | null): string => {
-    if (!minutes) return 'N/A';
+  const formatDuration = (minutes: number | null | undefined): string => {
+    if (!minutes || typeof minutes !== 'number') return 'N/A';
     const hours = Math.floor(minutes / 60);
     const mins = Math.round(minutes % 60);
     if (hours > 0) return `${hours}h ${mins}m`;
     return `${mins}m`;
   };
 
-  const formatPercentage = (value: number): string => {
+  const formatPercentage = (value: number | null | undefined): string => {
+    if (typeof value !== 'number' || isNaN(value)) return '0.0%';
     return `${value.toFixed(1)}%`;
+  };
+
+  const safeToFixed = (value: number | null | undefined, decimals: number): string => {
+    if (typeof value !== 'number' || isNaN(value)) return '0';
+    return value.toFixed(decimals);
   };
 
   // CSV Export handlers
@@ -590,7 +596,7 @@ export default function FieldAnalyticsPage() {
                           <Badge
                             variant={crew.quality_score >= 90 ? 'default' : crew.quality_score >= 70 ? 'secondary' : 'destructive'}
                           >
-                            Quality: {crew.quality_score.toFixed(0)}%
+                            Quality: {safeToFixed(crew.quality_score, 0)}%
                           </Badge>
                         </div>
                         <div className="grid grid-cols-3 gap-4 text-sm">
@@ -647,7 +653,7 @@ export default function FieldAnalyticsPage() {
                   <div>
                     <p className="text-sm text-gray-600">Avg per Crew</p>
                     <p className="text-2xl font-bold">
-                      {loadingWorkload ? '...' : (workloadData?.overview.avg_tasks_per_crew || 0).toFixed(1)}
+                      {loadingWorkload ? '...' : safeToFixed(workloadData?.overview.avg_tasks_per_crew, 1)}
                     </p>
                   </div>
                   <Users className="h-8 w-8 text-green-500" />
@@ -675,7 +681,7 @@ export default function FieldAnalyticsPage() {
                   <div>
                     <p className="text-sm text-gray-600">Imbalance Score</p>
                     <p className="text-2xl font-bold">
-                      {loadingWorkload ? '...' : (workloadData?.overview.workload_imbalance_score || 0).toFixed(1)}%
+                      {loadingWorkload ? '...' : safeToFixed(workloadData?.overview.workload_imbalance_score, 1)}%
                     </p>
                   </div>
                   <BarChart3 className={`h-8 w-8 ${(workloadData?.overview.workload_imbalance_score || 0) < 20 ? 'text-green-500' : 'text-orange-500'}`} />
@@ -726,7 +732,7 @@ export default function FieldAnalyticsPage() {
                             </Badge>
                           </div>
                           <span className="text-sm font-medium">
-                            Capacity: {crew.capacity_percentage.toFixed(0)}%
+                            Capacity: {safeToFixed(crew.capacity_percentage, 0)}%
                           </span>
                         </div>
 
