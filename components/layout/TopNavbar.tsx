@@ -33,7 +33,9 @@ import {
   Phone,
   AlertTriangle,
   RefreshCw,
-  Bell
+  Bell,
+  Truck,
+  ChevronDown
 } from 'lucide-react';
 import { Logo } from './Logo';
 
@@ -44,6 +46,7 @@ export function TopNavbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notificationCenterOpen, setNotificationCenterOpen] = useState(false);
+  const [fieldOpsMenuOpen, setFieldOpsMenuOpen] = useState(false);
 
   // Sales navigation items
   const salesNavigationItems = [
@@ -65,9 +68,18 @@ export function TopNavbar() {
     { name: 'Outreach', href: '/operations/outreach', icon: MessageSquare, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
     { name: 'Communications', href: '/operations/communications', icon: Phone, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
     { name: 'Escalations', href: '/operations/escalations', icon: AlertTriangle, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
-    { name: 'Alerts', href: '/operations/alerts', icon: Bell, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
+    {
+      name: 'Field Ops',
+      icon: Truck,
+      roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'],
+      isDropdown: true,
+      subItems: [
+        { name: 'Scheduling', href: '/operations/scheduling', icon: Calendar, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
+        { name: 'Crew Performance', href: '/operations/crew-performance', icon: Users, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
+        { name: 'Alerts', href: '/operations/alerts', icon: Bell, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
+      ]
+    },
     { name: 'Analytics', href: '/operations/analytics', icon: BarChart3, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
-    { name: 'Crew Performance', href: '/operations/crew-performance', icon: Users, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
     { name: 'Sync Monitoring', href: '/operations/sync-monitoring', icon: RefreshCw, roles: ['super_admin'] },
     { name: 'Settings', href: '/operations/settings', icon: Settings, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
   ];
@@ -177,6 +189,65 @@ export function TopNavbar() {
                   );
                 }
 
+                // Handle dropdown menu items
+                if (item.isDropdown && item.subItems) {
+                  const isAnySubItemActive = item.subItems.some(subItem =>
+                    pathname === subItem.href || pathname.startsWith(subItem.href)
+                  );
+
+                  return (
+                    <div key={item.name} className="relative">
+                      <button
+                        onClick={() => setFieldOpsMenuOpen(!fieldOpsMenuOpen)}
+                        className={cn(
+                          'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                          isAnySubItemActive
+                            ? 'bg-indigo-50 text-indigo-700'
+                            : 'text-slate-700 hover:text-indigo-700 hover:bg-indigo-50'
+                        )}
+                      >
+                        <item.icon className="h-4 w-4" />
+                        {item.name}
+                        <ChevronDown className={cn(
+                          'h-4 w-4 transition-transform',
+                          fieldOpsMenuOpen && 'rotate-180'
+                        )} />
+                      </button>
+
+                      {/* Dropdown Menu */}
+                      {fieldOpsMenuOpen && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-40"
+                            onClick={() => setFieldOpsMenuOpen(false)}
+                          />
+                          <div className="absolute left-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-50">
+                            {item.subItems.map((subItem) => {
+                              const isActive = pathname === subItem.href || pathname.startsWith(subItem.href);
+                              return (
+                                <Link
+                                  key={subItem.href}
+                                  href={subItem.href}
+                                  className={cn(
+                                    'flex items-center gap-3 px-4 py-2 text-sm transition-colors',
+                                    isActive
+                                      ? 'bg-indigo-50 text-indigo-700 font-medium'
+                                      : 'text-slate-700 hover:bg-slate-50'
+                                  )}
+                                  onClick={() => setFieldOpsMenuOpen(false)}
+                                >
+                                  <subItem.icon className="h-4 w-4" />
+                                  {subItem.name}
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                }
+
                 // Handle active state detection
                 const isActive = pathname === item.href ||
                   (item.href !== '/' && item.href !== '/operations' && pathname.startsWith(item.href)) ||
@@ -199,10 +270,10 @@ export function TopNavbar() {
                     {item.href === '/operations/communications' && inboundCounts && inboundCounts.count > 0 && (
                       <span className={cn(
                         'absolute -top-1 -right-1 h-5 w-5 rounded-full text-white text-xs font-bold flex items-center justify-center',
-                        inboundCounts.criticalCount > 0 
-                          ? 'bg-red-500' 
-                          : inboundCounts.highCount > 0 
-                            ? 'bg-orange-500' 
+                        inboundCounts.criticalCount > 0
+                          ? 'bg-red-500'
+                          : inboundCounts.highCount > 0
+                            ? 'bg-orange-500'
                             : 'bg-blue-500'
                       )}>
                         {inboundCounts.count > 9 ? '9+' : inboundCounts.count}
@@ -212,10 +283,10 @@ export function TopNavbar() {
                     {item.href === '/operations/escalations' && escalationCounts && escalationCounts.count > 0 && (
                       <span className={cn(
                         'absolute -top-1 -right-1 h-5 w-5 rounded-full text-white text-xs font-bold flex items-center justify-center',
-                        escalationCounts.criticalCount > 0 
-                          ? 'bg-red-500' 
-                          : escalationCounts.highCount > 0 
-                            ? 'bg-orange-500' 
+                        escalationCounts.criticalCount > 0
+                          ? 'bg-red-500'
+                          : escalationCounts.highCount > 0
+                            ? 'bg-orange-500'
                             : 'bg-blue-500'
                       )}>
                         {escalationCounts.count > 9 ? '9+' : escalationCounts.count}
@@ -347,6 +418,60 @@ export function TopNavbar() {
                 );
               }
 
+              // Handle dropdown in mobile
+              if (item.isDropdown && item.subItems) {
+                const isAnySubItemActive = item.subItems.some(subItem =>
+                  pathname === subItem.href || pathname.startsWith(subItem.href)
+                );
+
+                return (
+                  <div key={item.name} className="space-y-1">
+                    <button
+                      onClick={() => setFieldOpsMenuOpen(!fieldOpsMenuOpen)}
+                      className={cn(
+                        'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium',
+                        isAnySubItemActive
+                          ? 'bg-indigo-50 text-indigo-700'
+                          : 'text-slate-700 hover:bg-indigo-50 hover:text-indigo-700'
+                      )}
+                    >
+                      <item.icon className="h-5 w-5" />
+                      {item.name}
+                      <ChevronDown className={cn(
+                        'h-4 w-4 ml-auto transition-transform',
+                        fieldOpsMenuOpen && 'rotate-180'
+                      )} />
+                    </button>
+                    {fieldOpsMenuOpen && (
+                      <div className="pl-4 space-y-1">
+                        {item.subItems.map((subItem) => {
+                          const isActive = pathname === subItem.href || pathname.startsWith(subItem.href);
+                          return (
+                            <Link
+                              key={subItem.href}
+                              href={subItem.href}
+                              className={cn(
+                                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium',
+                                isActive
+                                  ? 'bg-indigo-50 text-indigo-700'
+                                  : 'text-slate-700 hover:bg-indigo-50 hover:text-indigo-700'
+                              )}
+                              onClick={() => {
+                                setFieldOpsMenuOpen(false);
+                                setMobileMenuOpen(false);
+                              }}
+                            >
+                              <subItem.icon className="h-5 w-5" />
+                              {subItem.name}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
               const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
 
               return (
@@ -367,10 +492,10 @@ export function TopNavbar() {
                   {item.href === '/operations/communications' && inboundCounts && inboundCounts.count > 0 && (
                     <span className={cn(
                       'ml-auto h-5 w-5 rounded-full text-white text-xs font-bold flex items-center justify-center',
-                      inboundCounts.criticalCount > 0 
-                        ? 'bg-red-500' 
-                        : inboundCounts.highCount > 0 
-                          ? 'bg-orange-500' 
+                      inboundCounts.criticalCount > 0
+                        ? 'bg-red-500'
+                        : inboundCounts.highCount > 0
+                          ? 'bg-orange-500'
                           : 'bg-blue-500'
                     )}>
                       {inboundCounts.count > 9 ? '9+' : inboundCounts.count}
@@ -380,10 +505,10 @@ export function TopNavbar() {
                   {item.href === '/operations/escalations' && escalationCounts && escalationCounts.count > 0 && (
                     <span className={cn(
                       'ml-auto h-5 w-5 rounded-full text-white text-xs font-bold flex items-center justify-center',
-                      escalationCounts.criticalCount > 0 
-                        ? 'bg-red-500' 
-                        : escalationCounts.highCount > 0 
-                          ? 'bg-orange-500' 
+                      escalationCounts.criticalCount > 0
+                        ? 'bg-red-500'
+                        : escalationCounts.highCount > 0
+                          ? 'bg-orange-500'
                           : 'bg-blue-500'
                     )}>
                       {escalationCounts.count > 9 ? '9+' : escalationCounts.count}
