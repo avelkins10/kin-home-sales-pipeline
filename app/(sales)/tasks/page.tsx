@@ -110,16 +110,17 @@ export default function TasksPage() {
   })
 
   // Calculate stats from filtered tasks
-  const totalTasks = filteredTasks.length
-  const criticalCount = filteredTasks.filter((task: any) => {
-    const urgency = getTaskUrgency(task, task.projectStatus)
-    return urgency.level === 'critical'
+  const totalIncompleteTasks = filteredTasks.filter((task: any) => {
+    const taskStatus = (task.status || '').toLowerCase().trim()
+    return taskStatus !== 'approved' && taskStatus !== 'closed by ops'
   }).length
-  const urgentCount = filteredTasks.filter((task: any) => {
-    const urgency = getTaskUrgency(task, task.projectStatus)
-    return urgency.level === 'urgent'
+  
+  const totalApprovedTasks = filteredTasks.filter((task: any) => {
+    const taskStatus = (task.status || '').toLowerCase().trim()
+    return taskStatus === 'approved'
   }).length
-  const waitingOver7Days = filteredTasks.filter((task: any) => {
+  
+  const totalTasksWaitingOver7Days = filteredTasks.filter((task: any) => {
     const daysWaiting = task.dateCreated
       ? Math.ceil((Date.now() - new Date(task.dateCreated).getTime()) / (1000 * 60 * 60 * 24))
       : 0
@@ -138,12 +139,12 @@ export default function TasksPage() {
         </div>
 
         {/* Stats Bar */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="bg-white rounded-lg border p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">Total Tasks</p>
-                <p className="text-2xl font-bold text-gray-900">{totalTasks}</p>
+                <p className="text-sm text-gray-500">Total Incomplete Tasks</p>
+                <p className="text-2xl font-bold text-gray-900">{totalIncompleteTasks}</p>
               </div>
               <List className="w-8 h-8 text-gray-400" />
             </div>
@@ -152,30 +153,20 @@ export default function TasksPage() {
           <div className="bg-white rounded-lg border p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">Critical</p>
-                <p className="text-2xl font-bold text-red-600">{criticalCount}</p>
+                <p className="text-sm text-gray-500">Total Approved Tasks</p>
+                <p className="text-2xl font-bold text-green-600">{totalApprovedTasks}</p>
               </div>
-              <AlertTriangle className="w-8 h-8 text-red-400" />
+              <CheckCircle className="w-8 h-8 text-green-400" />
             </div>
           </div>
 
           <div className="bg-white rounded-lg border p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">Urgent</p>
-                <p className="text-2xl font-bold text-yellow-600">{urgentCount}</p>
+                <p className="text-sm text-gray-500">Total Tasks Waiting &gt;7 days</p>
+                <p className="text-2xl font-bold text-orange-600">{totalTasksWaitingOver7Days}</p>
               </div>
-              <Clock className="w-8 h-8 text-yellow-400" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg border p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Waiting &gt;7 days</p>
-                <p className="text-2xl font-bold text-orange-600">{waitingOver7Days}</p>
-              </div>
-              <CheckCircle className="w-8 h-8 text-orange-400" />
+              <Clock className="w-8 h-8 text-orange-400" />
             </div>
           </div>
         </div>

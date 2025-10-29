@@ -167,15 +167,11 @@ export async function syncCustomers(options: {
 
         // Batch check which users already exist
         if (setterUserIds.size > 0) {
-          const existingUsersResult = await sql`
+          const existingUsers = await sql`
             SELECT repcard_user_id FROM users 
             WHERE repcard_user_id = ANY(${Array.from(setterUserIds).map(String)}::text[])
           `;
-          // Handle @vercel/postgres result format (can be { rows: [...] } or array)
-          const existingUsers = Array.isArray(existingUsersResult) 
-            ? existingUsersResult 
-            : (existingUsersResult.rows || []);
-          const existingIds = new Set(existingUsers.map((u: any) => u?.repcard_user_id).filter(Boolean));
+          const existingIds = new Set(existingUsers.map((u: any) => u.repcard_user_id));
           
           // Only enrich users that don't exist yet (batch API calls with delay)
           const idsToEnrich = Array.from(setterUserIds).filter(id => !existingIds.has(id.toString()));
@@ -405,15 +401,11 @@ export async function syncAppointments(options: {
 
         // Batch check which users already exist
         if (userIds.size > 0) {
-          const existingUsersResult = await sql`
+          const existingUsers = await sql`
             SELECT repcard_user_id FROM users 
             WHERE repcard_user_id = ANY(${Array.from(userIds).map(String)}::text[])
           `;
-          // Handle @vercel/postgres result format (can be { rows: [...] } or array)
-          const existingUsers = Array.isArray(existingUsersResult) 
-            ? existingUsersResult 
-            : (existingUsersResult.rows || []);
-          const existingIds = new Set(existingUsers.map((u: any) => u?.repcard_user_id).filter(Boolean));
+          const existingIds = new Set(existingUsers.map((u: any) => u.repcard_user_id));
           
           // Only enrich users that don't exist yet (limit to avoid timeout)
           const idsToEnrich = Array.from(userIds).filter(id => !existingIds.has(id.toString())).slice(0, 10);
@@ -445,6 +437,23 @@ export async function syncAppointments(options: {
         // Process each appointment
         for (const appointment of appointments) {
           try {
+            // Validate appointment structure
+            if (!appointment || !appointment.id) {
+              console.warn(`[RepCard Sync] Skipping invalid appointment (missing id):`, appointment);
+              recordsFailed++;
+              continue;
+            }
+
+            if (!appointment.contact || !appointment.contact.id) {
+              console.warn(`[RepCard Sync] Skipping appointment ${appointment.id} - missing contact information:`, {
+                appointmentId: appointment.id,
+                hasContact: !!appointment.contact,
+                contactId: appointment.contact?.id
+              });
+              recordsFailed++;
+              continue;
+            }
+
             const updatedAt = new Date(appointment.updatedAt);
             if (!lastRecordDate || updatedAt > lastRecordDate) {
               lastRecordDate = updatedAt;
@@ -481,12 +490,13 @@ export async function syncAppointments(options: {
             const closerUserId = appointment.closerId; // closer (who runs the appointment)
 
             // Get office_id from customer, setter, or closer (order of preference)
+            // Use safe optional chaining for userId and closerId
             const officeResult = await sql`
               SELECT 
                 COALESCE(
                   (SELECT office_id FROM repcard_customers WHERE repcard_customer_id = ${appointment.contact.id} LIMIT 1),
-                  (SELECT office_id FROM repcard_users WHERE repcard_user_id = ${appointment.userId} LIMIT 1),
-                  (SELECT office_id FROM repcard_users WHERE repcard_user_id = ${appointment.closerId} LIMIT 1)
+                  ${appointment.userId ? sql`(SELECT office_id FROM repcard_users WHERE repcard_user_id = ${appointment.userId} LIMIT 1)` : sql`NULL`},
+                  ${appointment.closerId ? sql`(SELECT office_id FROM repcard_users WHERE repcard_user_id = ${appointment.closerId} LIMIT 1)` : sql`NULL`}
                 ) as office_id
             `;
             const officeRows = officeResult.rows || officeResult;
@@ -510,6 +520,13 @@ export async function syncAppointments(options: {
             }
 
             // Upsert appointment with ALL fields
+            // Ensure all required fields are present
+            if (!appointment.createdAt || !appointment.updatedAt) {
+              console.warn(`[RepCard Sync] Appointment ${appointment.id} missing required timestamps, skipping`);
+              recordsFailed++;
+              continue;
+            }
+
             const result = await sql`
               INSERT INTO repcard_appointments (
                 repcard_appointment_id,
@@ -533,8 +550,8 @@ export async function syncAppointments(options: {
                 ${appointment.id},
                 ${customerId},
                 ${appointment.contact.id},
-                ${appointment.userId},
-                ${appointment.closerId},
+                ${appointment.userId || null},
+                ${appointment.closerId || null},
                 ${officeId},
                 ${disposition},
                 ${statusCategory},
@@ -575,7 +592,23 @@ export async function syncAppointments(options: {
             recordsFetched++;
 
           } catch (error) {
-            console.error(`[RepCard Sync] Failed to process appointment ${appointment.id}:`, error);
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            const appointmentId = appointment?.id || 'unknown';
+            console.error(`[RepCard Sync] Failed to process appointment ${appointmentId}:`, errorMsg);
+            if (error instanceof Error && error.stack) {
+              console.error(`[RepCard Sync] Stack trace:`, error.stack.substring(0, 500));
+            }
+            // Log first few errors in detail for debugging
+            if (recordsFailed < 5) {
+              console.error(`[RepCard Sync] Appointment data that failed:`, JSON.stringify({
+                id: appointment?.id,
+                contact: appointment?.contact,
+                userId: appointment?.userId,
+                closerId: appointment?.closerId,
+                createdAt: appointment?.createdAt,
+                updatedAt: appointment?.updatedAt
+              }, null, 2));
+            }
             recordsFailed++;
           }
         }
