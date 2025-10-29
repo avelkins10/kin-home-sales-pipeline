@@ -982,10 +982,12 @@ export interface FieldTrackingTask {
   assigned_entity_ids: number[] | null;
   current_status: FieldTrackingTaskStatus | null;
   tracker_url: string | null;
+  business_tracker_url: string | null;
   template_id: string | null;
   latest_status?: string | null;
   latest_status_time?: Date | null;
   entity_names?: string[] | null;
+  hasQuickBaseLink?: boolean;
   created_at: Date;
   updated_at: Date;
   synced_at: Date | null;
@@ -1027,6 +1029,33 @@ export interface FieldTrackingEvent {
   created_at: Date;
 }
 
+/**
+ * Activity feed filter state
+ */
+export interface ActivityFeedFilters {
+  eventType: string | 'all'; // Filter by event type (e.g., TASK_CREATED, LATE, NOSHOW)
+  dateRange: { start: Date; end: Date } | null; // Date range filter (null = no date filtering)
+  crewMember: string | 'all'; // Filter by crew member name (reporter_name)
+  taskType: string | 'all'; // Filter by task type (survey, install, inspection, service)
+  search: string; // Search query for customer name or task ID
+}
+
+/**
+ * Activity feed API response structure
+ */
+export interface ActivityFeedResponse {
+  events: FieldTrackingEvent[]; // Array of matching events
+  total: number; // Total count of events matching filters
+  hasMore: boolean; // Whether more events are available for pagination
+  offset: number; // Current pagination offset
+  limit: number; // Events per page
+}
+
+/**
+ * Event type counts for filter dropdowns (optional)
+ */
+export type EventTypeCounts = Record<string, number>;
+
 // Task status with details
 export interface FieldTrackingStatus {
   id: number;
@@ -1040,6 +1069,85 @@ export interface FieldTrackingStatus {
   visible_to_customer: boolean;
   source: string | null;
   created_at: Date;
+}
+
+/**
+ * Task attachment metadata from Arrivy status updates
+ * Files are stored in Arrivy and accessed via their web interface
+ */
+export interface TaskAttachment {
+  file_id: number;
+  file_path: string;
+  filename: string;
+  status_id: number;
+  uploaded_by: string | null;
+  uploaded_at: Date;
+}
+
+/**
+ * Customer rating data from TASK_RATING events
+ * Extracted from arrivy_events table extra_fields and object_fields
+ */
+export interface TaskRating {
+  event_id: number;
+  rating: number;
+  rating_type: string;
+  feedback: string | null;
+  customer_name: string | null;
+  rated_at: Date;
+}
+
+/**
+ * Customer note data from note-type events
+ * Includes any customer-submitted notes or comments beyond ratings
+ */
+export interface CustomerNote {
+  event_id: number;
+  note: string;
+  customer_name: string | null;
+  created_at: Date;
+  event_type: string;
+}
+
+/**
+ * Full crew member contact information
+ * Extended from basic entity data with phone and email
+ */
+export interface CrewContact {
+  entity_id: number;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  entity_type: string | null;
+}
+
+/**
+ * Calculated duration metrics for task completion analysis
+ * Compares scheduled vs actual times and identifies delays
+ */
+export interface TaskDurationMetrics {
+  scheduled_duration_minutes: number | null;
+  actual_duration_minutes: number | null;
+  time_to_start_minutes: number | null;
+  is_completed: boolean;
+  is_delayed: boolean;
+  started_at: Date | null;
+  completed_at: Date | null;
+}
+
+/**
+ * Enhanced task details response
+ * Combines task data with enriched operational information
+ */
+export interface EnhancedTaskDetails {
+  task: FieldTrackingTask;
+  statusHistory: FieldTrackingStatus[];
+  events: FieldTrackingEvent[];
+  attachments: TaskAttachment[];
+  ratings: TaskRating[];
+  customerNotes: CustomerNote[];
+  crewContacts: CrewContact[];
+  durationMetrics: TaskDurationMetrics;
 }
 
 // Location data
@@ -1104,4 +1212,93 @@ export interface ArrivyTaskMapping {
   url_safe_id: string;
   synced_at: Date;
   tracker_url: string;
+}
+
+// ============================================================================
+// CREW PERFORMANCE ANALYTICS TYPES
+// ============================================================================
+
+/**
+ * Comprehensive performance metrics for a single crew member
+ * Aggregated from Arrivy task completion, duration, ratings, and status data
+ */
+export interface CrewPerformanceMetrics {
+  entity_id: number;
+  crew_name: string;
+  crew_email: string | null;
+  crew_phone: string | null;
+  tasks_completed_today: number;
+  tasks_completed_week: number;
+  tasks_completed_month: number;
+  tasks_completed_total: number;
+  avg_completion_time_minutes: number | null;
+  on_time_percentage: number;
+  customer_rating_avg: number | null;
+  customer_rating_count: number;
+  tasks_currently_assigned: number;
+  total_tasks_assigned: number;
+  delayed_tasks_count: number;
+  exception_count: number;
+  noshow_count: number;
+}
+
+/**
+ * Comparison data for a specific crew member against team averages
+ * Used for generating comparison charts and performance indicators
+ */
+export interface CrewComparisonData {
+  crew_name: string;
+  metric_value: number;
+  team_average: number;
+  delta: number;
+  rank: number;
+}
+
+/**
+ * Daily performance trend data for crew members
+ * Used for historical trend charts showing performance over time
+ */
+export interface CrewPerformanceTrend {
+  date: string; // YYYY-MM-DD format
+  crew_name: string;
+  tasks_completed: number;
+  avg_completion_time: number;
+  on_time_percentage: number;
+}
+
+/**
+ * Leaderboard data identifying top performers and crew members needing support
+ */
+export interface CrewLeaderboard {
+  top_performers: Array<{
+    crew_name: string;
+    metric_value: number;
+    metric_name: string;
+  }>;
+  needs_support: Array<{
+    crew_name: string;
+    metric_value: number;
+    issue: string;
+  }>;
+}
+
+/**
+ * Filter options for crew performance analytics
+ */
+export interface CrewPerformanceFilters {
+  timeRange: '7days' | '30days' | '90days' | 'all';
+  crewMember: string | 'all';
+  taskType: string | 'all';
+  metric: 'tasks_completed' | 'completion_time' | 'on_time' | 'ratings';
+}
+
+/**
+ * Complete crew performance dashboard data structure
+ * Returned by the /api/operations/crew-performance endpoint
+ */
+export interface CrewPerformanceDashboardData {
+  crewMetrics: CrewPerformanceMetrics[];
+  teamAverages: Omit<CrewPerformanceMetrics, 'entity_id' | 'crew_name' | 'crew_email' | 'crew_phone'>;
+  leaderboard: CrewLeaderboard;
+  trends?: CrewPerformanceTrend[];
 }

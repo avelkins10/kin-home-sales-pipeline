@@ -53,5 +53,5 @@ COMMIT;
 -- during transition period. After verifying the join table works correctly, you can:
 -- 1. Update all application code to use the join table
 -- 2. Run a follow-up migration to drop the assigned_entity_ids column
--- 3. See migration 016_drop_assigned_entity_ids_array.sql (to be created after verification)
+-- 3. See migration 018_drop_assigned_entity_ids_array.sql (run only after code uses arrivy_task_entities exclusively)
 

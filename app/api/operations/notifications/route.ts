@@ -47,13 +47,17 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get('offset') || '0');
     const unreadOnly = searchParams.get('unreadOnly') === 'true';
     const type = searchParams.get('type') || null;
+    const source = searchParams.get('source') || null;
+    const search = searchParams.get('search') || null;
 
     logApiRequest('GET', '/api/operations/notifications', {
       pcEmail,
       limit,
       offset,
       unreadOnly,
-      type
+      type,
+      source,
+      search
     });
 
     // Get all notifications for the PC
@@ -63,13 +67,17 @@ export async function GET(request: NextRequest) {
       unreadOnly
     });
 
-    // Filter to only include PC milestone notification types
+    // Filter to only include PC milestone and Arrivy field notification types
     const pcNotificationTypes = [
       'milestone_survey_late',
       'milestone_install_late', 
       'milestone_nem_overdue',
       'milestone_pto_overdue',
-      'milestone_unresponsive_escalation'
+      'milestone_unresponsive_escalation',
+      'arrivy_task_late',
+      'arrivy_task_noshow',
+      'arrivy_task_exception',
+      'arrivy_task_cancelled'
     ];
 
     let filteredNotifications = allNotifications.filter(notification => 
@@ -80,6 +88,22 @@ export async function GET(request: NextRequest) {
     if (type) {
       filteredNotifications = filteredNotifications.filter(notification => 
         notification.type === type
+      );
+    }
+
+    // Apply source filter if provided
+    if (source && source !== 'all') {
+      filteredNotifications = filteredNotifications.filter(notification => 
+        notification.source === source
+      );
+    }
+
+    // Apply search filter if provided
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filteredNotifications = filteredNotifications.filter(notification => 
+        notification.title.toLowerCase().includes(searchLower) ||
+        (notification.message && notification.message.toLowerCase().includes(searchLower))
       );
     }
 

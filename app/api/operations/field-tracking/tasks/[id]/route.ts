@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/guards';
 import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
 import { arrivyClient } from '@/lib/integrations/arrivy/client';
+import { getBusinessTrackerUrl } from '@/lib/integrations/arrivy';
 import { 
   getArrivyTaskByProjectId, 
   getArrivyTaskByArrivyId,
@@ -13,7 +14,19 @@ import {
   deleteArrivyTask,
   upsertArrivyTask,
   getArrivyEntityById,
+  getTaskRatings,
+  getCustomerNotes,
+  getCrewContactsForTask,
+  calculateTaskDurationMetrics,
 } from '@/lib/db/arrivy';
+import type { 
+  EnhancedTaskDetails, 
+  TaskAttachment, 
+  TaskRating, 
+  CustomerNote,
+  CrewContact, 
+  TaskDurationMetrics 
+} from '@/lib/types/operations';
 
 /**
  * GET - Get specific task by ID (project ID or Arrivy task ID)
@@ -57,41 +70,99 @@ export async function GET(
       }, { status: 404 });
     }
 
-    // Fetch status history
-    const statusHistory = await getTaskStatusHistory(task.arrivy_task_id, 20);
+    // Fetch core data in parallel
+    // Use higher limit for status history to ensure STARTED/COMPLETE statuses are captured for duration metrics
+    const [statusHistory, events] = await Promise.all([
+      getTaskStatusHistory(task.arrivy_task_id, 100),
+      getArrivyEventsForTask(task.arrivy_task_id, 20),
+    ]);
 
-    // Fetch events
-    const events = await getArrivyEventsForTask(task.arrivy_task_id, 20);
-
-    // Fetch entity names for assigned crew members
-    const entityNames: string[] = [];
-    if (task.assigned_entity_ids && task.assigned_entity_ids.length > 0) {
-      for (const entityId of task.assigned_entity_ids) {
+    // Fetch enhanced data in parallel
+    const [attachments, ratings, customerNotes, crewContacts] = await Promise.all([
+      // Fetch attachments from Arrivy API
+      (async (): Promise<TaskAttachment[]> => {
+        if (!arrivyClient) return [];
         try {
-          const entity = await getArrivyEntityById(entityId);
-          if (entity) {
-            entityNames.push(entity.name);
-          }
+          const arrivyStatuses = await arrivyClient.getTaskStatuses(task.arrivy_task_id);
+          return arrivyStatuses.flatMap(status => 
+            (status.files || []).map(file => ({
+              file_id: file.file_id,
+              file_path: file.file_path,
+              filename: file.filename,
+              status_id: status.id,
+              uploaded_by: status.reporter_name || null,
+              uploaded_at: new Date(status.time),
+            }))
+          );
         } catch (error) {
-          // Log but continue if entity fetch fails
-          logError('Failed to fetch entity name', error as Error, { entityId });
+          logError('Failed to fetch attachments from Arrivy', error as Error, { taskId: task.arrivy_task_id });
+          return [];
         }
-      }
-    }
+      })(),
+      
+      // Fetch customer ratings
+      (async (): Promise<TaskRating[]> => {
+        try {
+          return await getTaskRatings(task.arrivy_task_id);
+        } catch (error) {
+          logError('Failed to fetch task ratings', error as Error, { taskId: task.arrivy_task_id });
+          return [];
+        }
+      })(),
+      
+      // Fetch customer notes
+      (async (): Promise<CustomerNote[]> => {
+        try {
+          return await getCustomerNotes(task.arrivy_task_id);
+        } catch (error) {
+          logError('Failed to fetch customer notes', error as Error, { taskId: task.arrivy_task_id });
+          return [];
+        }
+      })(),
+      
+      // Fetch crew contacts
+      (async (): Promise<CrewContact[]> => {
+        if (!task.assigned_entity_ids || task.assigned_entity_ids.length === 0) return [];
+        try {
+          return await getCrewContactsForTask(task.assigned_entity_ids);
+        } catch (error) {
+          logError('Failed to fetch crew contacts', error as Error, { entityIds: task.assigned_entity_ids });
+          return [];
+        }
+      })(),
+    ]);
 
-    logApiResponse('GET', `/api/operations/field-tracking/tasks/${taskId}`, Date.now() - startedAt, { 
-      found: true,
-    }, reqId);
+    // Calculate duration metrics
+    const durationMetrics = calculateTaskDurationMetrics(task, statusHistory);
 
-    return NextResponse.json({ 
+    // Generate business tracker URL
+    const businessTrackerUrl = getBusinessTrackerUrl(task.arrivy_task_id);
+
+    // Compose enhanced response
+    const enhancedDetails: EnhancedTaskDetails = {
       task: {
         ...task,
-        entity_names: entityNames,
+        business_tracker_url: businessTrackerUrl,
         hasQuickBaseLink: task.quickbase_project_id != null,
       },
       statusHistory,
       events,
-    }, { status: 200 });
+      attachments,
+      ratings,
+      customerNotes,
+      crewContacts,
+      durationMetrics,
+    };
+
+    logApiResponse('GET', `/api/operations/field-tracking/tasks/${taskId}`, Date.now() - startedAt, { 
+      found: true,
+      attachmentsCount: attachments.length,
+      ratingsCount: ratings.length,
+      customerNotesCount: customerNotes.length,
+      crewCount: crewContacts.length,
+    }, reqId);
+
+    return NextResponse.json(enhancedDetails, { status: 200 });
 
   } catch (error) {
     logError('Failed to fetch field tracking task', error as Error, { reqId, taskId: params.id });

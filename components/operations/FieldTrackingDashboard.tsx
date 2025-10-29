@@ -24,7 +24,7 @@ export function FieldTrackingDashboard({ data, isLoading, onRefresh }: FieldTrac
     return <FieldTrackingDashboardSkeleton />;
   }
 
-  const { tasks, entities, events, metrics } = data;
+  const { tasks, entities, metrics } = data;
 
   return (
     <div className="space-y-6">
@@ -124,7 +124,9 @@ export function FieldTrackingDashboard({ data, isLoading, onRefresh }: FieldTrac
               <CardTitle>Activity Feed</CardTitle>
             </CardHeader>
             <CardContent>
-              <FieldTrackingActivityFeed events={events} limit={20} />
+              <FieldTrackingActivityFeed 
+                onTaskClick={(taskId) => setSelectedTaskId(taskId)}
+              />
             </CardContent>
           </Card>
         </div>

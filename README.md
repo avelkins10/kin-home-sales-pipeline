@@ -1983,6 +1983,46 @@ console.log('Tracker URL:', result.trackerUrl);
 
 **Customer Tracker**: Share the tracker URL with customers for real-time updates on crew arrival and task progress.
 
+### Crew Performance Dashboard
+
+Track field crew metrics and performance analytics.
+
+**Features:**
+- Individual crew member performance metrics
+- Team-wide averages and comparisons
+- Top performers leaderboard
+- Crew members needing support identification
+- Sortable performance table
+- Comparison charts with team benchmarks
+- CSV export for reporting
+
+**Metrics Tracked:**
+- Tasks completed (daily, weekly, monthly)
+- Average completion time
+- On-time percentage
+- Customer rating average
+- Active tasks count
+- Exception and no-show rates
+
+**Access:**
+Navigate to Operations → Crew Performance
+
+**Filters:**
+- Time range: 7 days, 30 days, 90 days, all time
+- Crew member: Filter to specific crew or view all
+- Task type: Filter by survey, install, inspection, service
+
+**Export:**
+Click "Export to CSV" to download crew performance report.
+
+**Requirements:**
+- Crew entities must be synced from Arrivy
+- Tasks must have assigned_entity_ids populated
+- Status history must include STARTED and COMPLETE statuses
+- Customer ratings require TASK_RATING webhook events
+
+For detailed information, see `CREW_PERFORMANCE_GUIDE.md`.
+
 ### API Endpoints
 
 - `GET /api/operations/field-tracking/dashboard` - Dashboard data with tasks, entities, events, and metrics
@@ -1995,6 +2035,7 @@ console.log('Tracker URL:', result.trackerUrl);
 - `POST /api/operations/field-tracking/entities` - Create/sync entity
 - `GET /api/operations/field-tracking/events` - Query field events
 - `POST /api/webhooks/arrivy` - Webhook receiver for Arrivy events
+- `GET /api/operations/crew-performance` - Crew performance metrics and analytics
 
 ### Database Tables
 

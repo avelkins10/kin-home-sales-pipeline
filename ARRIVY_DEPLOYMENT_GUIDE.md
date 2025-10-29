@@ -82,7 +82,7 @@ npm run dev
 
 ## Phase 2: Database Migration (10 minutes)
 
-### Step 2.1: Execute Migration
+### Step 2.1: Execute Migration 014
 
 **For local development:**
 ```bash
@@ -154,6 +154,30 @@ ORDER BY tablename, indexname;
 - `idx_arrivy_task_status_task`
 - `idx_arrivy_task_status_type`
 
+### Step 2.2: Execute Migration 016 (Make QuickBase Fields Optional)
+
+**For local development:**
+```bash
+psql $DATABASE_URL -f lib/db/migrations/016_make_quickbase_fields_optional.sql
+```
+
+**For Vercel Postgres (production):**
+```bash
+# Option A: Using Vercel CLI
+vercel env pull .env.production.local
+psql "$(grep DATABASE_URL .env.production.local | cut -d '=' -f2-)" -f lib/db/migrations/016_make_quickbase_fields_optional.sql
+
+# Option B: Direct connection
+psql "postgresql://username:password@host/database?sslmode=require" -f lib/db/migrations/016_make_quickbase_fields_optional.sql
+```
+
+**Verification:**
+```bash
+psql $DATABASE_URL -c "SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name = 'arrivy_tasks' AND column_name IN ('quickbase_project_id', 'quickbase_record_id');"
+```
+
+**Expected:** Both columns show `is_nullable = YES`
+
 ### Step 2.4: Test Database Access
 ```sql
 -- Verify tables are accessible
@@ -166,7 +190,27 @@ SELECT COUNT(*) FROM arrivy_task_status;
 **Expected result:** All queries return `0` (tables are empty but accessible)
 
 ### Step 2.5: Rollback Plan (if needed)
-If migration fails or needs to be reversed:
+
+**Rollback Migration 016:**
+```sql
+-- Check for tasks with null QuickBase IDs before rollback
+SELECT COUNT(*) FROM arrivy_tasks WHERE quickbase_project_id IS NULL;
+
+-- If rollback is needed and there are null values, you must either:
+-- Option 1: Delete those tasks
+DELETE FROM arrivy_tasks WHERE quickbase_project_id IS NULL;
+
+-- Option 2: Set placeholder values before rollback
+UPDATE arrivy_tasks SET quickbase_project_id = 'ARRIVY-' || arrivy_task_id WHERE quickbase_project_id IS NULL;
+UPDATE arrivy_tasks SET quickbase_record_id = 0 WHERE quickbase_record_id IS NULL;
+
+-- Then rollback:
+ALTER TABLE arrivy_tasks ALTER COLUMN quickbase_project_id SET NOT NULL;
+ALTER TABLE arrivy_tasks ALTER COLUMN quickbase_record_id SET NOT NULL;
+```
+
+**Rollback Migration 014:**
+If migration 014 fails or needs to be reversed:
 ```sql
 BEGIN;
 DROP TABLE IF EXISTS arrivy_task_status CASCADE;
@@ -233,15 +277,15 @@ curl http://localhost:3000/api/operations/field-tracking/tasks/TEST-001 \
    URL: https://your-domain.com/api/webhooks/arrivy
    Secret: [Paste your ARRIVY_WEBHOOK_SECRET from .env.local]
    Method: POST
-   Events to Subscribe:
-     ☑ TASK_CREATED
-     ☑ TASK_STATUS
-     ☑ CREW_ASSIGNED
-     ☑ ARRIVING
-     ☑ LATE
-     ☑ NOSHOW
-     ☑ TASK_RATING
-     ☑ EXCEPTION
+   Events (select all):
+     ☑ TASK_CREATED (automatically syncs new tasks to dashboard)
+     ☑ TASK_STATUS (tracks progress: ENROUTE, STARTED, COMPLETE)
+     ☑ CREW_ASSIGNED (updates crew assignments)
+     ☑ ARRIVING (crew approaching customer location)
+     ☑ LATE (automatic delay detection)
+     ☑ NOSHOW (customer not available)
+     ☑ TASK_RATING (customer feedback)
+     ☑ EXCEPTION (issues reported by crew)
    ```
 
 4. **Test Webhook Delivery:**
@@ -480,6 +524,22 @@ curl -X POST https://your-domain.com/api/operations/field-tracking/tasks \
    - Click "Copy Tracker URL" → URL copied to clipboard
    - Click "Open Tracker" → Opens Arrivy tracker in new tab
 
+### Test 2.5: Verify TASK_CREATED Webhook
+1. Create a new task in Arrivy dashboard
+2. Check application logs for webhook processing:
+   ```bash
+   vercel logs --filter "TASK_CREATED" --follow
+   ```
+3. Verify task appears in database:
+   ```sql
+   SELECT customer_name, task_type, tracker_url 
+   FROM arrivy_tasks 
+   ORDER BY created_at DESC 
+   LIMIT 1;
+   ```
+4. Verify task appears in dashboard within 30 seconds (auto-refresh)
+5. Check tracker URL is accessible
+
 ### Test 3: Webhook Processing
 1. **Open task in Arrivy dashboard**
 2. **Update task status:**
@@ -589,7 +649,274 @@ Simulate a complete appointment lifecycle:
 
 ---
 
+## Phase 7: Alert System Configuration (10 minutes)
+
+### Step 7.1: Verify Notification Types
+Confirm new Arrivy notification types are included in the system:
+- arrivy_task_late
+- arrivy_task_noshow
+- arrivy_task_exception
+- arrivy_task_cancelled
+
+```bash
+# Check database for notification types
+psql $DATABASE_URL -c "SELECT DISTINCT type FROM notifications WHERE source = 'arrivy' ORDER BY type;"
+```
+
+### Step 7.2: Configure Alert Preferences
+1. Navigate to **Operations → Settings**
+2. Review notification preferences section
+3. Verify Arrivy alert types are listed under "Field Alerts"
+4. Configure email preferences:
+   - Enable/disable email notifications
+   - Set email frequency (immediate, daily, weekly)
+   - Configure quiet hours if desired
+5. Select which alert types to receive
+6. Click **Save Changes**
+
+### Step 7.3: Test Alert Creation
+1. **Create test task** in Arrivy with QuickBase external_id
+2. **Update task status to LATE** in Arrivy dashboard
+3. **Verify webhook processes event:**
+```bash
+# Check logs for webhook processing
+tail -f /var/log/app.log | grep "Arrivy"
+```
+
+4. **Check notification created in database:**
+```sql
+SELECT id, type, title, source, priority, created_at 
+FROM notifications 
+WHERE source = 'arrivy' 
+ORDER BY created_at DESC 
+LIMIT 5;
+```
+
+5. **Verify email sent** (if preferences enabled):
+   - Check email inbox for alert
+   - Verify subject line and content
+   - Verify tracker URLs are clickable
+
+6. **Check dashboard bell** shows unread count
+7. **Navigate to Operations → Alerts** to view notification
+
+### Step 7.4: Test Alert Preferences
+1. **Navigate to Settings** and disable "Field Task Late" notification type
+2. **Trigger LATE event** in Arrivy
+3. **Verify notification NOT created** (or created but email not sent)
+4. **Re-enable preference** and test again
+5. **Verify notification and email are sent**
+
+### Step 7.5: Test Quiet Hours
+1. **Set quiet hours** to current time ± 1 hour
+2. **Trigger NOSHOW event**
+3. **Verify:**
+   - Notification is created in database
+   - Email is NOT sent
+   - Logs show "quiet hours" skip message
+4. **Set quiet hours** outside current time
+5. **Trigger EXCEPTION event**
+6. **Verify both notification and email are sent**
+
+### Step 7.6: Test Alerts Page
+1. Navigate to **Operations → Alerts**
+2. **Verify page loads** with all notifications
+3. **Test filters:**
+   - Filter by "Unread" → shows only unread
+   - Filter by source "Arrivy" → shows only field alerts
+   - Filter by type "Task Late" → shows only LATE events
+4. **Test search** by customer name
+5. **Click alert card** → marks as read and navigates
+6. **Test "Mark All Read"** button
+7. **Test "Load More"** pagination if applicable
+
+### Step 7.7: Test Email Templates
+Trigger each event type and verify email rendering:
+- **LATE:** Red alert, urgency notice, "Contact customer immediately" action
+- **NOSHOW:** Red alert, urgency notice, "Attempt to reach customer" action
+- **EXCEPTION:** Orange alert, "Review crew report" action
+- **CANCELLED:** Gray alert, "Verify cancellation reason" action
+
+**Verify:**
+- Subject lines are descriptive
+- Customer name and task type displayed
+- Tracker URLs are clickable
+- Recommended actions are clear
+- Styling is consistent and mobile-friendly
+
+### Success Criteria
+- ✅ Arrivy notification types added to system
+- ✅ Alert preferences configurable in settings
+- ✅ Critical events create notifications automatically
+- ✅ Email alerts sent based on user preferences
+- ✅ Notifications appear in dashboard bell
+- ✅ Alerts page displays all notifications with filtering
+- ✅ Quiet hours respected for email delivery
+- ✅ Coordinator email lookup works for linked tasks
+- ✅ Tasks without QuickBase link handled gracefully
+- ✅ Duplicate alerts prevented
+- ✅ Email templates render correctly
+
+---
+
+## Phase 8: Crew Performance Dashboard (Optional - 5 minutes)
+
+### Step 8.1: Verify Crew Entities Synced
+Ensure crew members are synced to the database:
+```bash
+psql $DATABASE_URL -c "SELECT COUNT(*) FROM arrivy_entities;"
+# Expected: At least 1 crew member
+```
+
+If no entities exist, sync from Arrivy:
+```bash
+npm run sync:arrivy:entities
+```
+
+### Step 8.2: Access Crew Performance Dashboard
+1. Navigate to Operations → Crew Performance
+2. Verify page loads without errors
+3. Check metrics cards display data
+4. Test time range filters
+
+### Step 8.3: Test Performance Metrics
+1. Verify tasks completed counts are accurate
+2. Check completion time calculations
+3. Confirm on-time percentage matches expectations
+4. Validate customer ratings display correctly
+
+### Step 8.4: Test CSV Export
+1. Click "Export to CSV" button
+2. Verify CSV downloads with crew metrics
+3. Open CSV and check data accuracy
+4. Confirm all columns are present
+
+### Success Criteria
+- ✅ Crew performance dashboard accessible
+- ✅ Metrics calculated correctly from Arrivy data
+- ✅ Comparison charts display crew vs team averages
+- ✅ Top performers and support needed cards populated
+- ✅ Performance table sortable and filterable
+- ✅ CSV export generates valid file
+- ✅ Dashboard auto-refreshes every 60 seconds
+
+---
+
 ## Troubleshooting
+
+### Alerts Not Being Created
+
+**Symptoms:**
+- Webhook processes successfully but no notification created
+- Coordinator not receiving alerts
+
+**Possible Causes & Solutions:**
+
+1. **Task has no QuickBase association**
+```bash
+# Check task record
+psql $DATABASE_URL -c "SELECT arrivy_task_id, quickbase_project_id, quickbase_record_id FROM arrivy_tasks WHERE arrivy_task_id = YOUR_TASK_ID;"
+```
+**Solution:** Ensure task was created with valid QuickBase external_id
+
+2. **Coordinator email not in QuickBase**
+```bash
+# Check project coordinator field
+# This requires QuickBase API access
+```
+**Solution:** Update PROJECT_COORDINATOR_EMAIL field in QuickBase
+
+3. **User preferences block notification**
+```bash
+# Check user preferences
+psql $DATABASE_URL -c "SELECT notification_types, email_enabled FROM pc_notification_preferences WHERE user_id = 'coordinator@example.com';"
+```
+**Solution:** Update preferences to include Arrivy notification types
+
+4. **Notification creation failed**
+```bash
+# Check application logs
+grep "Failed to create notification" /var/log/app.log
+```
+**Solution:** Review error logs for specific failure reason
+
+### Emails Not Being Sent
+
+**Symptoms:**
+- Notification created but email not delivered
+- Email enabled in preferences
+
+**Possible Causes & Solutions:**
+
+1. **EMAIL_ENABLED not true**
+```bash
+echo $EMAIL_ENABLED
+```
+**Solution:** Set `EMAIL_ENABLED=true` in environment
+
+2. **Notification type not in user's enabled types**
+```bash
+# Check preferences
+psql $DATABASE_URL -c "SELECT notification_types FROM pc_notification_preferences WHERE user_id = 'coordinator@example.com';"
+```
+**Solution:** Add missing notification type to array
+
+3. **Quiet hours active**
+```bash
+# Check quiet hours settings
+psql $DATABASE_URL -c "SELECT quiet_hours_start, quiet_hours_end FROM pc_notification_preferences WHERE user_id = 'coordinator@example.com';"
+```
+**Solution:** Wait until outside quiet hours or adjust settings
+
+4. **Email configuration invalid**
+```bash
+# Check environment variables
+echo $EMAIL_HOST
+echo $EMAIL_PORT
+echo $EMAIL_FROM
+```
+**Solution:** Verify all email environment variables are set correctly
+
+### Crew Performance Shows No Data
+
+**Symptoms:**
+- Crew performance dashboard shows "No crew members found"
+- Metrics show zero values
+- Comparison charts empty
+
+**Possible Causes & Solutions:**
+
+1. **No crew entities synced**
+```bash
+# Check entities table
+psql $DATABASE_URL -c "SELECT COUNT(*) FROM arrivy_entities;"
+```
+**Solution:** Run entity sync command: `npm run sync:arrivy:entities`
+
+2. **Tasks have no assigned entities**
+```bash
+# Check task assignments
+psql $DATABASE_URL -c "SELECT COUNT(*) FROM arrivy_tasks WHERE assigned_entity_ids IS NOT NULL AND array_length(assigned_entity_ids, 1) > 0;"
+```
+**Solution:** Ensure tasks are assigned to crew members in Arrivy
+
+3. **No completed tasks in time range**
+```bash
+# Check for completed tasks
+psql $DATABASE_URL -c "SELECT COUNT(*) FROM arrivy_task_status WHERE status_type = 'COMPLETE' AND reported_at >= NOW() - INTERVAL '30 days';"
+```
+**Solution:** Select longer time range or wait for tasks to complete
+
+4. **API endpoint error**
+```bash
+# Check logs
+vercel logs --since 1h | grep crew-performance
+```
+**Solution:** Review error logs and check database connectivity
+
+---
+
+## Original Troubleshooting
 
 ### Issue: Webhook Not Receiving Events
 
@@ -743,6 +1070,37 @@ curl -I https://app.arrivy.com/api/tasks \
   -H "X-Auth-Token: ..."
 ```
 Look for `X-RateLimit-Remaining` header.
+
+### Issue: New Tasks Not Appearing in Dashboard
+
+**Symptoms:**
+- Tasks created in Arrivy don't appear in dashboard
+- No TASK_CREATED webhooks in logs
+- Manual refresh doesn't show new tasks
+
+**Solutions:**
+1. **Verify TASK_CREATED webhook is enabled:**
+   - Log into Arrivy dashboard
+   - Go to Settings → Integrations → Webhooks
+   - Verify TASK_CREATED event is checked
+
+2. **Check webhook delivery logs in Arrivy:**
+   - Settings → Integrations → Webhooks → View Delivery Log
+   - Look for failed TASK_CREATED deliveries
+   - Check error messages
+
+3. **Review application logs for processing errors:**
+```bash
+vercel logs --filter "TASK_CREATED" --filter "error"
+```
+
+4. **Confirm task was created with valid customer information:**
+   - Tasks without customer name may not sync properly
+   - Check task has scheduled date/time
+
+5. **Test webhook endpoint manually with sample payload:**
+   - Use the test payload from Arrivy documentation
+   - Send test webhook and verify processing
 
 ### Issue: Tracker URLs Not Working
 
@@ -964,7 +1322,10 @@ Create internal documentation for:
 
 ✅ **Technical Success:**
 - [ ] All environment variables configured
-- [ ] Database migration executed successfully
+- [ ] Migration 014 executed successfully
+- [ ] Migration 016 executed successfully
+- [ ] Existing tasks with QuickBase IDs preserved
+- [ ] New Arrivy-only tasks can be created with null QuickBase fields
 - [ ] Webhook configured and receiving events
 - [ ] Field crew entities created and synced
 - [ ] Test task created and visible in dashboard
@@ -972,6 +1333,12 @@ Create internal documentation for:
 - [ ] Dashboard updates in real-time (30s polling)
 - [ ] Tracker URLs accessible to customers
 - [ ] Detail modal displays full information
+- [ ] Task detail modal displays customer ratings (if available)
+- [ ] Task detail modal shows crew contact information with phone/email
+- [ ] Task detail modal displays attachment count and file names
+- [ ] "View Live Tracker" button is prominent and functional
+- [ ] Duration metrics calculated correctly for completed tasks
+- [ ] Status timeline displays in chronological order with visual indicators
 - [ ] No errors in application logs for 24 hours
 
 ✅ **User Success:**
@@ -987,6 +1354,134 @@ Create internal documentation for:
 - [ ] Better crew utilization and scheduling efficiency
 - [ ] Increased customer satisfaction scores
 - [ ] Reduced appointment no-shows
+
+---
+
+## Enhanced Task Detail Modal Testing
+
+### Test 6: Enhanced Task Detail Modal
+
+#### 6.1 Test Crew Contacts Display
+1. Open task detail modal for task with assigned crew
+2. Navigate to "Overview" tab
+3. **Verify:**
+   - Crew members display with avatars (initials)
+   - Phone numbers and emails shown
+   - Call and SMS buttons functional
+   - "No crew assigned" message shown for unassigned tasks
+
+#### 6.2 Test Attachments Display
+1. In Arrivy mobile app, upload photo to a task
+2. Report status update with attachment (e.g., STARTED with photo)
+3. Wait for webhook to process
+4. Open task detail modal
+5. Navigate to "Photos" tab
+6. **Verify:**
+   - Attachment count badge shows on tab
+   - Photo filename and uploader displayed
+   - Upload timestamp formatted correctly
+   - "View in Arrivy" button opens tracker in new tab
+   - Empty state message for tasks with no photos
+
+#### 6.3 Test Customer Ratings
+1. Get tracker URL from a completed task
+2. Open tracker URL in incognito browser
+3. Leave 5-star rating with feedback comment
+4. Wait for TASK_RATING webhook (check logs)
+5. Open task detail modal
+6. Navigate to "Feedback" tab
+7. **Verify:**
+   - Rating count badge shows on tab
+   - 5 filled stars displayed correctly
+   - Customer feedback text shown
+   - Rating timestamp formatted
+   - Empty state message for tasks with no ratings
+
+**Verify in database:**
+```bash
+psql $DATABASE_URL -c "SELECT event_type, message, extra_fields->>'rating' as rating FROM arrivy_events WHERE event_type = 'TASK_RATING' ORDER BY event_time DESC LIMIT 1;"
+```
+
+#### 6.4 Test Duration Metrics
+1. Create task scheduled for 2 hours (e.g., 10:00 AM - 12:00 PM)
+2. At 10:05 AM, report STARTED status
+3. At 11:30 AM, report COMPLETE status
+4. Open task detail modal
+5. Navigate to "Overview" tab, scroll to Schedule & Duration
+6. **Verify:**
+   - Scheduled Duration: 2h 0m
+   - Actual Duration: 1h 25m
+   - Start Status: "Started 5m late" (red, with TrendingDown icon)
+   - Completed metrics show in header
+
+#### 6.5 Test Visual Timeline
+1. Create task with multiple status updates (ASSIGNED → ENROUTE → STARTED → COMPLETE)
+2. Open task detail modal
+3. Navigate to "Timeline" tab
+4. **Verify:**
+   - Statuses in chronological order (oldest to newest, top to bottom)
+   - Vertical connecting line between status items
+   - Status icons: CheckCircle2 (green) for COMPLETE, filled Circle for STARTED/ENROUTE
+   - Reporter avatars with initials
+   - Attachment indicators ("Has attachments") on statuses with photos
+   - Timestamps formatted correctly
+
+#### 6.6 Test Crew Contact Actions
+1. Assign task to crew member with phone and email
+2. Open task detail modal
+3. Navigate to "Overview" tab
+4. Locate crew contact card
+5. **Verify:**
+   - Phone icon button initiates call (`tel:` link)
+   - SMS icon button opens SMS dialog (`sms:` link)
+   - Avatar shows initials correctly
+   - Entity type badge displayed (if available)
+
+#### 6.7 Test Tracker Button Prominence
+1. Open any task detail modal
+2. **Verify:**
+   - "View Live Tracker" button is at the top (hero section)
+   - Large button with primary variant (blue)
+   - "Copy Link" button adjacent
+   - Both buttons functional
+   - "View Live Tracker" opens in new tab
+   - "Copy Link" shows success toast
+
+#### 6.8 Test Empty States
+1. **Task with no attachments:**
+   - Photos tab shows "No photos uploaded yet"
+2. **Task with no ratings:**
+   - Feedback tab shows "No customer feedback yet"
+3. **Task with no crew:**
+   - Crew section shows "No crew assigned"
+4. **Task with no status history:**
+   - Timeline tab shows "No status updates yet"
+
+---
+
+### Troubleshooting Enhanced Modal Features
+
+**Attachments Not Showing:**
+- Verify crew uploaded photos via Arrivy mobile app
+- Check `has_attachments` flag in database: `SELECT has_attachments FROM arrivy_task_status WHERE arrivy_task_id = X;`
+- Test Arrivy API: Review response from `getTaskStatuses()` for files array
+- Confirm files metadata is fetched in API endpoint
+
+**Ratings Not Appearing:**
+- Verify TASK_RATING webhook is enabled in Arrivy dashboard
+- Check `arrivy_events` table: `SELECT * FROM arrivy_events WHERE event_type = 'TASK_RATING';`
+- Confirm rating value is in `extra_fields` JSONB column
+- Test rating via Arrivy tracker URL to generate sample event
+
+**Crew Contacts Missing:**
+- Verify entities exist: `SELECT * FROM arrivy_entities WHERE arrivy_entity_id = ANY(ARRAY[...]);`
+- Check phone and email fields are populated
+- Confirm entity IDs in task match entities in database
+
+**Duration Metrics Incorrect:**
+- Verify STARTED and COMPLETE status timestamps
+- Check scheduled_start and scheduled_end are set on task
+- Confirm calculation logic in `calculateTaskDurationMetrics()`
 
 ---
 

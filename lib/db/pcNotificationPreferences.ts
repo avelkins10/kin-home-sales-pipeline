@@ -42,7 +42,11 @@ export async function getPCNotificationPreferences(
           'milestone_install_late',
           'milestone_nem_overdue',
           'milestone_pto_overdue',
-          'milestone_unresponsive_escalation'
+          'milestone_unresponsive_escalation',
+          'arrivy_task_late',
+          'arrivy_task_noshow',
+          'arrivy_task_exception',
+          'arrivy_task_cancelled'
         ]
       };
     }

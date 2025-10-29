@@ -660,9 +660,18 @@ async function runSync(options: SyncOptions): Promise<SyncResult> {
 // =============================================================================
 
 if (require.main === module) {
-  // Load environment variables for CLI usage only
-  const dotenv = require('dotenv');
-  dotenv.config({ path: path.join(__dirname, '..', '.env.local') });
+  // Load environment variables for CLI usage only (not in production)
+  // Only load .env.local if required environment variables are not already set
+  if (process.env.NODE_ENV !== 'production' && !process.env.ARRIVY_AUTH_KEY) {
+    const dotenv = require('dotenv');
+    const envPath = path.join(__dirname, '..', '.env.local');
+    console.log(`🔧 Loading environment from: ${envPath}`);
+    dotenv.config({ path: envPath });
+  } else if (process.env.NODE_ENV === 'production') {
+    console.log('🚀 Running in production mode - using environment variables from system');
+  } else {
+    console.log('✅ Using existing environment variables');
+  }
 
   (async () => {
     try {

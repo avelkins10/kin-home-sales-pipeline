@@ -664,6 +664,177 @@ export function getPCMilestoneEmailTemplate(
 }
 
 /**
+ * Generate HTML template for Arrivy field alert notification
+ */
+export function getArrivyFieldAlertEmailTemplate(
+  coordinatorName: string,
+  eventType: 'LATE' | 'NOSHOW' | 'EXCEPTION' | 'CANCELLED',
+  customerName: string,
+  taskType: string,
+  scheduledTime: string,
+  crewNames: string[],
+  eventMessage: string,
+  trackerUrl: string,
+  businessTrackerUrl: string,
+  dashboardUrl: string
+): string {
+  const styles = getEmailStyles();
+
+  // Event-specific styling and messaging
+  const getEventInfo = () => {
+    switch (eventType) {
+      case 'LATE':
+        return {
+          color: '#dc3545',
+          icon: '⏰',
+          title: 'Task Running Late',
+          preheader: 'Task running late - immediate action required',
+          recommendedAction: 'Contact customer immediately to confirm appointment and provide updated ETA. Update project notes with current status.',
+          urgencyNotice: '⚠️ This alert requires immediate attention. Please respond within 15 minutes.',
+        };
+      case 'NOSHOW':
+        return {
+          color: '#dc3545',
+          icon: '🚫',
+          title: 'Customer No-Show',
+          preheader: 'Customer no-show reported',
+          recommendedAction: 'Attempt to reach customer immediately to understand the situation. Document the no-show and reschedule if appropriate.',
+          urgencyNotice: '⚠️ This alert requires immediate attention. Please respond within 15 minutes.',
+        };
+      case 'EXCEPTION':
+        return {
+          color: '#fd7e14',
+          icon: '⚠️',
+          title: 'Field Exception Reported',
+          preheader: 'Field crew reported an exception',
+          recommendedAction: 'Review crew report and determine if additional resources or rescheduling is needed. Contact crew and customer as appropriate.',
+          urgencyNotice: null,
+        };
+      case 'CANCELLED':
+        return {
+          color: '#6c757d',
+          icon: '❌',
+          title: 'Task Cancelled',
+          preheader: 'Task has been cancelled',
+          recommendedAction: 'Verify cancellation reason and update project status in QuickBase. Follow up with customer if needed.',
+          urgencyNotice: null,
+        };
+    }
+  };
+
+  const eventInfo = getEventInfo();
+  const taskTypeLabel = taskType.charAt(0).toUpperCase() + taskType.slice(1);
+  const crewList = crewNames.length > 0 ? crewNames.join(', ') : 'Not assigned';
+
+  const content = `
+    <!-- Alert Header -->
+    <div style="background: ${eventInfo.color}; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+      <div style="font-size: 48px; margin-bottom: 10px;">${eventInfo.icon}</div>
+      <h1 style="margin: 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.xlarge}; font-weight: 600;">
+        ${eventInfo.title}
+      </h1>
+    </div>
+
+    <!-- Main Content -->
+    <div style="padding: 30px; background: white; border-radius: 0 0 8px 8px;">
+      <p style="margin: 0 0 20px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; line-height: 1.6;">
+        Hi <strong>${coordinatorName}</strong>,
+      </p>
+
+      <p style="margin: 0 0 25px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; line-height: 1.6;">
+        A field alert has been triggered for <strong>${customerName}</strong>'s ${taskTypeLabel.toLowerCase()} appointment.
+      </p>
+
+      <!-- Task Details Card -->
+      <div style="background: #f8f9fa; border-left: 4px solid ${eventInfo.color}; padding: 20px; margin-bottom: 25px; border-radius: 4px;">
+        <h3 style="margin: 0 0 15px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.large}; color: ${styles.text};">
+          Task Details
+        </h3>
+        <table style="width: 100%; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium};">
+          <tr>
+            <td style="padding: 8px 0; color: #666; width: 40%;">Customer:</td>
+            <td style="padding: 8px 0; color: ${styles.text}; font-weight: 600;">${customerName}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #666;">Task Type:</td>
+            <td style="padding: 8px 0; color: ${styles.text}; font-weight: 600;">${taskTypeLabel}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #666;">Scheduled Time:</td>
+            <td style="padding: 8px 0; color: ${styles.text}; font-weight: 600;">${scheduledTime}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #666;">Assigned Crew:</td>
+            <td style="padding: 8px 0; color: ${styles.text}; font-weight: 600;">${crewList}</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Event Details -->
+      <div style="margin-bottom: 25px;">
+        <h3 style="margin: 0 0 10px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.large}; color: ${styles.text};">
+          Event Details
+        </h3>
+        <p style="margin: 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; line-height: 1.6; padding: 15px; background: #fff3cd; border-radius: 4px;">
+          ${eventMessage}
+        </p>
+      </div>
+
+      <!-- Recommended Action -->
+      <div style="background: #e7f3ff; border-left: 4px solid ${styles.primary}; padding: 20px; margin-bottom: 25px; border-radius: 4px;">
+        <h3 style="margin: 0 0 10px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.large}; color: ${styles.text};">
+          Recommended Action
+        </h3>
+        <p style="margin: 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: ${styles.text}; line-height: 1.6;">
+          ${eventInfo.recommendedAction}
+        </p>
+      </div>
+
+      ${eventInfo.urgencyNotice ? `
+      <!-- Urgency Notice -->
+      <div style="background: #fff3cd; border: 2px solid #ffc107; padding: 15px; margin-bottom: 25px; border-radius: 4px; text-align: center;">
+        <p style="margin: 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; color: #856404; font-weight: 600;">
+          ${eventInfo.urgencyNotice}
+        </p>
+      </div>
+      ` : ''}
+
+      <!-- Action Buttons -->
+      <div style="text-align: center; margin: 30px 0;">
+        <!-- Primary CTA -->
+        <a href="${dashboardUrl}" style="display: inline-block; background: ${styles.primary}; color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; font-weight: 600; margin: 0 8px 12px 8px; box-shadow: ${styles.shadow};">
+          View in Operations Dashboard
+        </a>
+        
+        <!-- Secondary CTA -->
+        <a href="${trackerUrl}" style="display: inline-block; background: ${styles.secondary}; color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.medium}; font-weight: 600; margin: 0 8px 12px 8px; box-shadow: ${styles.shadow};">
+          View Live Tracker
+        </a>
+      </div>
+
+      <!-- Business Tracker Link -->
+      <div style="text-align: center; margin-bottom: 25px;">
+        <a href="${businessTrackerUrl}" style="font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.small}; color: ${styles.primary}; text-decoration: underline;">
+          View in Arrivy Dashboard →
+        </a>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="border-top: 1px solid ${styles.border}; padding-top: 20px; text-align: center;">
+      <p style="margin: 0 0 10px 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.small}; color: #666; line-height: 1.4;">
+        This is an automated field alert from the Kin Home Operations Dashboard.
+      </p>
+      <p style="margin: 0; font-family: ${styles.fontFamily}; font-size: ${styles.fontSize.small}; color: #999; line-height: 1.4;">
+        © ${new Date().getFullYear()} Kin Home. All rights reserved.
+      </p>
+    </div>
+  `;
+
+  return getEmailLayout(content, eventInfo.preheader);
+}
+
+/**
  * Generate HTML template for task submitted notification
  */
 export function getTaskSubmittedEmailTemplate(

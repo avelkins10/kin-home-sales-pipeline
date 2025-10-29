@@ -301,6 +301,108 @@ export async function sendCustomEmail(
 }
 
 /**
+ * Send Arrivy field alert email
+ */
+export async function sendArrivyFieldAlertEmail(
+  coordinatorEmail: string,
+  coordinatorName: string,
+  eventType: 'LATE' | 'NOSHOW' | 'EXCEPTION' | 'CANCELLED',
+  customerName: string,
+  taskType: string,
+  scheduledTime: string,
+  crewNames: string[],
+  eventMessage: string,
+  trackerUrl: string,
+  businessTrackerUrl: string
+): Promise<EmailResult> {
+  // Check if email is enabled globally
+  if (process.env.EMAIL_ENABLED !== 'true') {
+    logEmailEvent('send_skipped', { 
+      recipient: coordinatorEmail, 
+      emailType: 'arrivy_field_alert',
+      reason: 'EMAIL_ENABLED not true' 
+    });
+    return { success: false, skipped: true };
+  }
+
+  // Validate email configuration
+  const config = validateEmailConfig();
+  if (!config.valid) {
+    logEmailEvent('send_skipped', { 
+      recipient: coordinatorEmail, 
+      emailType: 'arrivy_field_alert',
+      reason: 'Invalid email configuration' 
+    });
+    return { success: false, skipped: true };
+  }
+
+  try {
+    // Generate email template
+    const { getArrivyFieldAlertEmailTemplate } = await import('./email-templates');
+    const dashboardUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://dashboard.kinhome.com';
+    
+    const html = getArrivyFieldAlertEmailTemplate(
+      coordinatorName,
+      eventType,
+      customerName,
+      taskType,
+      scheduledTime,
+      crewNames,
+      eventMessage,
+      trackerUrl,
+      businessTrackerUrl,
+      dashboardUrl
+    );
+
+    // Generate subject line based on event type
+    const subjectLines: Record<string, string> = {
+      'LATE': `🚨 Task Running Late: ${customerName} - Action Required`,
+      'NOSHOW': `🚫 Customer No-Show: ${customerName} - Immediate Action Needed`,
+      'EXCEPTION': `⚠️ Field Exception: ${customerName} - Review Required`,
+      'CANCELLED': `❌ Task Cancelled: ${customerName} - Update Required`,
+    };
+    const subject = subjectLines[eventType] || `Field Alert: ${customerName}`;
+
+    logEmailEvent('send_attempt', { 
+      recipient: coordinatorEmail, 
+      emailType: 'arrivy_field_alert',
+      eventType 
+    });
+
+    // Send email with retry logic
+    await retryWithBackoff(async () => {
+      await sendMail({
+        to: coordinatorEmail,
+        subject,
+        html,
+      });
+    });
+
+    logEmailEvent('send_success', { 
+      recipient: coordinatorEmail, 
+      emailType: 'arrivy_field_alert',
+      eventType 
+    });
+
+    return { success: true };
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logEmailEvent('send_failure', { 
+      recipient: coordinatorEmail, 
+      emailType: 'arrivy_field_alert',
+      eventType,
+      error: errorMessage 
+    });
+
+    return {
+      success: false,
+      error: errorMessage
+    };
+  }
+}
+
+/**
  * Send task submitted notification email
  * ALWAYS sent - no user configuration needed
  */

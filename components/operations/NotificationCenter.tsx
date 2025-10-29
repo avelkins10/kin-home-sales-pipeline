@@ -28,7 +28,16 @@ interface NotificationCenterProps {
 }
 
 type FilterType = 'all' | 'unread' | 'critical';
-type NotificationType = 'all' | 'milestone_survey_late' | 'milestone_install_late' | 'milestone_nem_overdue' | 'milestone_pto_overdue' | 'milestone_unresponsive_escalation';
+type NotificationType = 'all' 
+  | 'milestone_survey_late' 
+  | 'milestone_install_late' 
+  | 'milestone_nem_overdue' 
+  | 'milestone_pto_overdue' 
+  | 'milestone_unresponsive_escalation'
+  | 'arrivy_task_late'
+  | 'arrivy_task_noshow'
+  | 'arrivy_task_exception'
+  | 'arrivy_task_cancelled';
 
 export function NotificationCenter({ isOpen, onClose }: NotificationCenterProps) {
   const [filter, setFilter] = useState<FilterType>('all');
@@ -114,6 +123,15 @@ export function NotificationCenter({ isOpen, onClose }: NotificationCenterProps)
 
   // Get notification icon and color
   const getNotificationIcon = (notification: Notification) => {
+    // Check if it's an Arrivy notification
+    if (notification.source === 'arrivy' || notification.type.startsWith('arrivy_')) {
+      if (notification.type === 'arrivy_task_cancelled') {
+        return <Clock className="h-5 w-5 text-gray-500" />;
+      }
+      return <AlertCircle className="h-5 w-5 text-red-500" />;
+    }
+    
+    // Default for milestone notifications
     if (notification.priority === 'critical') {
       return <AlertCircle className="h-5 w-5 text-red-500" />;
     }
@@ -212,11 +230,19 @@ export function NotificationCenter({ isOpen, onClose }: NotificationCenterProps)
               className="text-sm border rounded px-2 py-1"
             >
               <option value="all">All Types</option>
-              <option value="milestone_survey_late">Survey Late</option>
-              <option value="milestone_install_late">Install Late</option>
-              <option value="milestone_nem_overdue">NEM Overdue</option>
-              <option value="milestone_pto_overdue">PTO Overdue</option>
-              <option value="milestone_unresponsive_escalation">Unresponsive</option>
+              <optgroup label="Milestone Alerts">
+                <option value="milestone_survey_late">Survey Late</option>
+                <option value="milestone_install_late">Install Late</option>
+                <option value="milestone_nem_overdue">NEM Overdue</option>
+                <option value="milestone_pto_overdue">PTO Overdue</option>
+                <option value="milestone_unresponsive_escalation">Unresponsive</option>
+              </optgroup>
+              <optgroup label="Field Alerts">
+                <option value="arrivy_task_late">Field Task Late</option>
+                <option value="arrivy_task_noshow">Customer No-Show</option>
+                <option value="arrivy_task_exception">Field Exception</option>
+                <option value="arrivy_task_cancelled">Task Cancelled</option>
+              </optgroup>
             </select>
           </div>
 

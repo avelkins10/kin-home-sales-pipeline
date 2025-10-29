@@ -47,4 +47,11 @@ export { InspectionsTable, InspectionTableSkeleton } from './InspectionsTable';
 export { FieldTrackingDashboard } from './FieldTrackingDashboard';
 export { FieldTrackingTaskCard } from './FieldTrackingTaskCard';
 export { FieldTrackingActivityFeed } from './FieldTrackingActivityFeed';
+export { FieldTrackingActivityFilters } from './FieldTrackingActivityFilters';
 export { FieldTrackingDetailModal } from './FieldTrackingDetailModal';
+
+// Crew Performance Components
+export { CrewPerformanceTable } from './CrewPerformanceTable';
+export { CrewComparisonChart } from './CrewComparisonChart';
+export { CrewTopPerformersCard } from './CrewTopPerformersCard';
+export { CrewSupportNeededCard } from './CrewSupportNeededCard';

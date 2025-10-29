@@ -16,7 +16,8 @@
     "sync:arrivy:entities": "tsx scripts/sync-arrivy-tasks.ts --sync-entities",
     "sync:arrivy:recent": "tsx scripts/sync-arrivy-tasks.ts --start-date=$(date -v-30d +%Y-%m-%d)",
     "migrate:sync-runs": "node scripts/run-user-sync-runs-migration.js",
-    "migrate:repcard": "node scripts/run-repcard-migration.js"
+    "migrate:repcard": "node scripts/run-repcard-migration.js",
+    "migrate:arrivy": "node scripts/run-arrivy-migration.js"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

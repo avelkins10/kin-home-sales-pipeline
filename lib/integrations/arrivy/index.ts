@@ -30,6 +30,7 @@ export {
   syncProjectToArrivy,
   syncEntityFromQuickBase,
   getCustomerTrackerUrl,
+  getBusinessTrackerUrl,
   processWebhookEvent,
   getFieldTrackingData,
   mapQuickBaseToArrivyTask,

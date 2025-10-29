@@ -14,8 +14,14 @@ export type NotificationType =
   | 'milestone_install_late'
   | 'milestone_nem_overdue'
   | 'milestone_pto_overdue'
-  | 'milestone_unresponsive_escalation';
-export type NotificationSource = 'quickbase' | 'internal' | 'system';
+  | 'milestone_unresponsive_escalation'
+  | 'arrivy_task_late'
+  | 'arrivy_task_noshow'
+  | 'arrivy_task_exception'
+  | 'arrivy_task_cancelled'
+  | 'arrivy_task_started'
+  | 'arrivy_task_complete';
+export type NotificationSource = 'quickbase' | 'internal' | 'system' | 'arrivy';
 
 export interface Notification {
   id: number;
@@ -110,6 +116,21 @@ export interface PCMilestoneNotificationMetadata {
   contact_attempts: number;
   current_stage: string;
   recommended_action: string;
+}
+
+export interface ArrivyFieldAlertMetadata {
+  arrivy_task_id: number;
+  event_type: string; // LATE, NOSHOW, EXCEPTION, CANCELLED
+  task_type: string; // survey, install, inspection, service
+  customer_name: string;
+  customer_phone: string | null;
+  scheduled_start: string; // ISO date
+  current_status: string;
+  assigned_crew: string[];
+  tracker_url: string;
+  business_tracker_url: string;
+  reporter_name: string | null;
+  event_message: string;
 }
 
 // Unread count responses

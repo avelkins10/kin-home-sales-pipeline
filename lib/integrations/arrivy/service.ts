@@ -16,6 +16,8 @@ import {
   updateArrivyTaskStatus,
   getFieldTrackingTasks,
   getArrivyEntityByEmail,
+  getCoordinatorEmailForTask,
+  getCrewContactsForTask,
   type ArrivyTaskData,
   type ArrivyEntityData,
   type ArrivyEventData,
@@ -23,7 +25,9 @@ import {
   type FieldTrackingTaskWithDetails,
 } from '@/lib/db/arrivy';
 import { logError, logInfo, logArrivyWebhook } from '@/lib/logging/logger';
-import { createNotification } from '@/lib/db/notifications';
+import { createNotification, getNotificationsForUser } from '@/lib/db/notifications';
+import { shouldSendEmailNotification } from '@/lib/db/pcNotificationPreferences';
+import type { ArrivyFieldAlertMetadata } from '@/lib/types/notification';
 
 /**
  * Arrivy Service Layer
@@ -313,6 +317,13 @@ export function getCustomerTrackerUrl(taskId: number, urlSafeId: string): string
 }
 
 /**
+ * Generate business/internal tracker URL for operations team
+ */
+export function getBusinessTrackerUrl(taskId: number): string {
+  return `https://app.arrivy.com/dashboard/task/${taskId}`;
+}
+
+/**
  * Check if a task has QuickBase association
  */
 export function hasQuickBaseAssociation(task: { quickbase_project_id?: string | null; quickbase_record_id?: number | null }): boolean {
@@ -407,6 +418,10 @@ export async function processWebhookEvent(
         break;
 
       case 'ARRIVING':
+        // Only normalize status to ENROUTE, don't create notification
+        await handleCriticalEvent(payload);
+        break;
+
       case 'LATE':
       case 'NOSHOW':
         await handleCriticalEvent(payload);
@@ -664,6 +679,65 @@ async function handleTaskRatingEvent(payload: ArrivyWebhookPayload): Promise<voi
   // Could store rating in database or sync back to QuickBase
 }
 
+// =============================================================================
+// NOTIFICATION HELPERS
+// =============================================================================
+
+/**
+ * Get notification type for Arrivy event
+ */
+function getNotificationTypeForArrivyEvent(eventType: string, eventSubType?: string): string {
+  const upperEventType = eventType.toUpperCase();
+  const upperSubType = eventSubType?.toUpperCase();
+  
+  // Critical events
+  if (upperEventType === 'LATE') return 'arrivy_task_late';
+  if (upperEventType === 'NOSHOW') return 'arrivy_task_noshow';
+  
+  // Status events
+  if (upperEventType === 'STATUS_CHANGE' && upperSubType) {
+    if (upperSubType === 'EXCEPTION') return 'arrivy_task_exception';
+    if (upperSubType === 'CANCELLED') return 'arrivy_task_cancelled';
+    if (upperSubType === 'STARTED') return 'arrivy_task_started';
+    if (upperSubType === 'COMPLETE') return 'arrivy_task_complete';
+  }
+  
+  return 'system_alert'; // Fallback
+}
+
+/**
+ * Get notification title for Arrivy event
+ */
+function getNotificationTitleForArrivyEvent(
+  eventType: string,
+  customerName: string,
+  taskType: string
+): string {
+  const upperEventType = eventType.toUpperCase();
+  const taskTypeLabel = taskType.charAt(0).toUpperCase() + taskType.slice(1);
+  
+  switch (upperEventType) {
+    case 'LATE':
+      return `${taskTypeLabel} Running Late: ${customerName}`;
+    case 'NOSHOW':
+      return `Customer No-Show: ${customerName}`;
+    case 'EXCEPTION':
+      return `Field Exception: ${customerName}`;
+    case 'CANCELLED':
+      return `${taskTypeLabel} Cancelled: ${customerName}`;
+    case 'STARTED':
+      return `${taskTypeLabel} Started: ${customerName}`;
+    case 'COMPLETE':
+      return `${taskTypeLabel} Complete: ${customerName}`;
+    default:
+      return `${taskTypeLabel} Update: ${customerName}`;
+  }
+}
+
+// =============================================================================
+// NOTIFICATION CREATION
+// =============================================================================
+
 /**
  * Create notification for status event if needed
  */
@@ -681,20 +755,126 @@ async function createNotificationForStatusEvent(payload: ArrivyWebhookPayload): 
     // Get task to find associated project coordinator
     const task = await getArrivyTaskByArrivyId(OBJECT_ID);
     if (!task) {
+      logInfo('[Arrivy] Task not found for status event', { arrivy_task_id: OBJECT_ID });
       return false;
     }
 
-    // Note: In a real implementation, you would look up the coordinator's user_id
-    // from the QuickBase project data. For now, we'll skip notification creation
-    // unless we have that mapping.
+    // Get coordinator email from QuickBase project
+    const coordinatorEmail = await getCoordinatorEmailForTask(task);
+    if (!coordinatorEmail) {
+      logInfo('[Arrivy] No coordinator email found for status event', {
+        arrivy_task_id: OBJECT_ID,
+        quickbase_project_id: task.quickbase_project_id,
+      });
+      return false;
+    }
 
-    logInfo(`[Arrivy] Would create notification for status event`, {
-      arrivy_task_id: OBJECT_ID,
-      status_type: EVENT_SUB_TYPE,
-      project_id: task.quickbase_project_id || 'none',
+    // Determine notification type
+    const notificationType = getNotificationTypeForArrivyEvent('STATUS_CHANGE', EVENT_SUB_TYPE);
+
+    // Determine priority
+    const priority = ['EXCEPTION', 'CANCELLED'].includes(EVENT_SUB_TYPE) ? 'critical' : 'normal';
+
+    // Get crew member names
+    const crewIds = task.assigned_entity_ids || [];
+    const crewContacts = await getCrewContactsForTask(crewIds);
+    const crewNames = crewContacts.map(c => c.name);
+
+    // Build notification metadata
+    const metadata: ArrivyFieldAlertMetadata = {
+      arrivy_task_id: task.arrivy_task_id,
+      event_type: EVENT_SUB_TYPE,
+      task_type: task.task_type || 'service',
+      customer_name: task.customer_name || 'Unknown Customer',
+      customer_phone: task.customer_phone || null,
+      scheduled_start: task.scheduled_start?.toISOString() || new Date().toISOString(),
+      current_status: task.current_status || EVENT_SUB_TYPE,
+      assigned_crew: crewNames,
+      tracker_url: task.tracker_url || '',
+      business_tracker_url: getBusinessTrackerUrl(task.arrivy_task_id),
+      reporter_name: REPORTER_NAME || null,
+      event_message: MESSAGE || `Task status changed to ${EVENT_SUB_TYPE}`,
+    };
+
+    // Generate title
+    const title = getNotificationTitleForArrivyEvent(
+      EVENT_SUB_TYPE,
+      metadata.customer_name,
+      metadata.task_type
+    );
+
+    // Check for duplicate notification
+    const recentNotifications = await getNotificationsForUser(coordinatorEmail, { limit: 10 });
+    const isDuplicate = recentNotifications.some(
+      n => n.type === notificationType && 
+           n.metadata?.arrivy_task_id === task.arrivy_task_id &&
+           (Date.now() - new Date(n.created_at).getTime()) < 3600000 // Within last hour
+    );
+
+    if (isDuplicate) {
+      logInfo('[Arrivy] Duplicate notification prevented', {
+        coordinator: coordinatorEmail,
+        notification_type: notificationType,
+        arrivy_task_id: task.arrivy_task_id,
+      });
+      return false;
+    }
+
+    // Create notification
+    const notification = await createNotification({
+      user_id: coordinatorEmail,
+      project_id: task.quickbase_record_id || 0,
+      type: notificationType as any,
+      priority,
+      source: 'arrivy',
+      title,
+      message: metadata.event_message,
+      metadata,
+      icon: priority === 'critical' ? 'alert-triangle' : 'info',
+      color: priority === 'critical' ? 'red' : 'blue',
+      action_url: `/operations/scheduling?task=${task.arrivy_task_id}`,
     });
 
-    return false; // Set to true when coordinator mapping is implemented
+    logInfo('[Arrivy] Status notification created', {
+      notification_id: notification.id,
+      coordinator: coordinatorEmail,
+      type: notificationType,
+    });
+
+    // Send email notification if preferences allow
+    // Email sending errors should not block notification creation
+    try {
+      // Check user preferences for email delivery
+      const shouldSendEmail = await shouldSendEmailNotification(coordinatorEmail, notificationType);
+      
+      if (shouldSendEmail) {
+        const { sendArrivyFieldAlertEmail } = await import('@/lib/utils/email-helpers');
+        await sendArrivyFieldAlertEmail(
+          coordinatorEmail,
+          coordinatorEmail.split('@')[0], // Simple name extraction
+          EVENT_SUB_TYPE as any,
+          metadata.customer_name,
+          metadata.task_type,
+          new Date(metadata.scheduled_start).toLocaleString(),
+          crewNames,
+          metadata.event_message,
+          metadata.tracker_url,
+          metadata.business_tracker_url
+        );
+      } else {
+        logInfo('[Arrivy] Email skipped due to user preferences', {
+          coordinator: coordinatorEmail,
+          notification_type: notificationType,
+          notification_id: notification.id,
+        });
+      }
+    } catch (emailError) {
+      logError('[Arrivy] Failed to send status event email', emailError as Error, {
+        notification_id: notification.id,
+      });
+    }
+
+    return true;
   } catch (error) {
     logError('Failed to create notification for status event', error as Error, {
       arrivy_task_id: OBJECT_ID,
@@ -708,25 +888,132 @@ async function createNotificationForStatusEvent(payload: ArrivyWebhookPayload): 
  * Create notification for critical event (LATE, NOSHOW, ARRIVING)
  */
 async function createNotificationForCriticalEvent(payload: ArrivyWebhookPayload): Promise<boolean> {
-  const { EVENT_TYPE, OBJECT_ID, MESSAGE, TITLE } = payload;
+  const { EVENT_TYPE, OBJECT_ID, MESSAGE, TITLE, REPORTER_NAME } = payload;
 
   try {
     // Get task to find associated project
     const task = await getArrivyTaskByArrivyId(OBJECT_ID);
     if (!task) {
+      logInfo('[Arrivy] Task not found for critical event', { arrivy_task_id: OBJECT_ID });
       return false;
     }
 
-    // Note: In a real implementation, you would create a notification for the
-    // project coordinator. For now, we'll just log it.
+    // Get coordinator email from QuickBase project
+    const coordinatorEmail = await getCoordinatorEmailForTask(task);
+    if (!coordinatorEmail) {
+      logInfo('[Arrivy] No coordinator email found for critical event', {
+        arrivy_task_id: OBJECT_ID,
+        quickbase_project_id: task.quickbase_project_id,
+      });
+      return false;
+    }
 
-    logInfo(`[Arrivy] Would create notification for critical event`, {
-      arrivy_task_id: OBJECT_ID,
+    // Determine notification type
+    const notificationType = getNotificationTypeForArrivyEvent(EVENT_TYPE);
+
+    // All critical events have critical priority except CANCELLED
+    const priority = EVENT_TYPE === 'CANCELLED' ? 'normal' : 'critical';
+
+    // Get crew member names
+    const crewIds = task.assigned_entity_ids || [];
+    const crewContacts = await getCrewContactsForTask(crewIds);
+    const crewNames = crewContacts.map(c => c.name);
+
+    // Build notification metadata
+    const metadata: ArrivyFieldAlertMetadata = {
+      arrivy_task_id: task.arrivy_task_id,
       event_type: EVENT_TYPE,
-      project_id: task.quickbase_project_id || 'none',
+      task_type: task.task_type || 'service',
+      customer_name: task.customer_name || 'Unknown Customer',
+      customer_phone: task.customer_phone || null,
+      scheduled_start: task.scheduled_start?.toISOString() || new Date().toISOString(),
+      current_status: task.current_status || EVENT_TYPE,
+      assigned_crew: crewNames,
+      tracker_url: task.tracker_url || '',
+      business_tracker_url: getBusinessTrackerUrl(task.arrivy_task_id),
+      reporter_name: REPORTER_NAME || null,
+      event_message: MESSAGE || TITLE || `Critical event: ${EVENT_TYPE}`,
+    };
+
+    // Generate title
+    const title = getNotificationTitleForArrivyEvent(
+      EVENT_TYPE,
+      metadata.customer_name,
+      metadata.task_type
+    );
+
+    // Check for duplicate notification
+    const recentNotifications = await getNotificationsForUser(coordinatorEmail, { limit: 10 });
+    const isDuplicate = recentNotifications.some(
+      n => n.type === notificationType && 
+           n.metadata?.arrivy_task_id === task.arrivy_task_id &&
+           (Date.now() - new Date(n.created_at).getTime()) < 3600000 // Within last hour
+    );
+
+    if (isDuplicate) {
+      logInfo('[Arrivy] Duplicate notification prevented', {
+        coordinator: coordinatorEmail,
+        notification_type: notificationType,
+        arrivy_task_id: task.arrivy_task_id,
+      });
+      return false;
+    }
+
+    // Create notification
+    const notification = await createNotification({
+      user_id: coordinatorEmail,
+      project_id: task.quickbase_record_id || 0,
+      type: notificationType as any,
+      priority,
+      source: 'arrivy',
+      title,
+      message: metadata.event_message,
+      metadata,
+      icon: 'alert-triangle',
+      color: priority === 'critical' ? 'red' : 'orange',
+      action_url: `/operations/scheduling?task=${task.arrivy_task_id}`,
     });
 
-    return false; // Set to true when coordinator mapping is implemented
+    logInfo('[Arrivy] Critical notification created', {
+      notification_id: notification.id,
+      coordinator: coordinatorEmail,
+      type: notificationType,
+    });
+
+    // Send email notification if preferences allow
+    // Email sending errors should not block notification creation
+    try {
+      // Check user preferences for email delivery
+      const shouldSendEmail = await shouldSendEmailNotification(coordinatorEmail, notificationType);
+      
+      if (shouldSendEmail) {
+        const { sendArrivyFieldAlertEmail } = await import('@/lib/utils/email-helpers');
+        await sendArrivyFieldAlertEmail(
+          coordinatorEmail,
+          coordinatorEmail.split('@')[0], // Simple name extraction
+          EVENT_TYPE as any,
+          metadata.customer_name,
+          metadata.task_type,
+          new Date(metadata.scheduled_start).toLocaleString(),
+          crewNames,
+          metadata.event_message,
+          metadata.tracker_url,
+          metadata.business_tracker_url
+        );
+      } else {
+        logInfo('[Arrivy] Email skipped due to user preferences', {
+          coordinator: coordinatorEmail,
+          notification_type: notificationType,
+          notification_id: notification.id,
+        });
+      }
+    } catch (emailError) {
+      logError('[Arrivy] Failed to send critical event email', emailError as Error, {
+        notification_id: notification.id,
+      });
+    }
+
+    return true;
   } catch (error) {
     logError('Failed to create notification for critical event', error as Error, {
       arrivy_task_id: OBJECT_ID,
