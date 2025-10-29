@@ -1147,7 +1147,22 @@ export interface EnhancedTaskDetails {
   ratings: TaskRating[];
   customerNotes: CustomerNote[];
   crewContacts: CrewContact[];
+  exceptions: TaskException[];
   durationMetrics: TaskDurationMetrics;
+}
+
+// Task exceptions (imported from database layer for convenience)
+export interface TaskException {
+  event_id: number;
+  exception_type: 'EXCEPTION' | 'LATE' | 'NOSHOW';
+  occurred_at: Date;
+  reporter_name: string | null;
+  description: string | null;
+  exception_details?: {
+    type?: string;
+    notes?: string;
+    reason?: string;
+  } | null;
 }
 
 // Location data

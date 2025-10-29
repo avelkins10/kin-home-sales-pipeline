@@ -13,12 +13,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  ExternalLink, 
-  Copy, 
-  Phone, 
-  MapPin, 
-  Clock, 
+import {
+  ExternalLink,
+  Copy,
+  Phone,
+  MapPin,
+  Clock,
   User,
   Star,
   Image as ImageIcon,
@@ -29,13 +29,15 @@ import {
   Circle,
   MessageSquare,
   Users,
+  AlertTriangle,
 } from 'lucide-react';
-import type { 
-  EnhancedTaskDetails, 
-  TaskAttachment, 
-  TaskRating, 
+import type {
+  EnhancedTaskDetails,
+  TaskAttachment,
+  TaskRating,
   CrewContact,
   FieldTrackingStatus,
+  TaskException,
 } from '@/lib/types/operations';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -221,7 +223,7 @@ export function FieldTrackingDetailModal({ taskId, onClose }: FieldTrackingDetai
 
             {/* Tabs */}
             <Tabs defaultValue="overview" className="w-full">
-              <TabsList className="grid w-full grid-cols-5">
+              <TabsList className="grid w-full grid-cols-6">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="journal">
                   Journal {(details.statusHistory.filter(s => s.notes).length + details.customerNotes.length) > 0 &&
@@ -233,6 +235,9 @@ export function FieldTrackingDetailModal({ taskId, onClose }: FieldTrackingDetai
                 </TabsTrigger>
                 <TabsTrigger value="feedback">
                   Feedback {details.ratings.length > 0 && `(${details.ratings.length})`}
+                </TabsTrigger>
+                <TabsTrigger value="exceptions">
+                  Exceptions {details.exceptions.length > 0 && `(${details.exceptions.length})`}
                 </TabsTrigger>
               </TabsList>
 
@@ -320,6 +325,64 @@ export function FieldTrackingDetailModal({ taskId, onClose }: FieldTrackingDetai
                     )}
                   </CardContent>
                 </Card>
+
+                {/* Exceptions Warning (Overview) */}
+                {details.exceptions.length > 0 && (
+                  <Card className="border-red-200 bg-red-50">
+                    <CardHeader>
+                      <CardTitle className="text-lg flex items-center gap-2 text-red-700">
+                        <AlertTriangle className="h-5 w-5" />
+                        Task Exceptions ({details.exceptions.length})
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {details.exceptions.slice(0, 3).map((exception) => (
+                          <div
+                            key={exception.event_id}
+                            className="bg-white border border-red-200 rounded-lg p-3"
+                          >
+                            <div className="flex items-start justify-between mb-2">
+                              <Badge
+                                variant="outline"
+                                className={
+                                  exception.exception_type === 'LATE'
+                                    ? 'bg-orange-100 text-orange-700 border-orange-300'
+                                    : exception.exception_type === 'NOSHOW'
+                                    ? 'bg-red-100 text-red-700 border-red-300'
+                                    : 'bg-yellow-100 text-yellow-700 border-yellow-300'
+                                }
+                              >
+                                {exception.exception_type}
+                              </Badge>
+                              <span className="text-xs text-gray-500">
+                                {format(new Date(exception.occurred_at), 'MMM d, h:mm a')}
+                              </span>
+                            </div>
+                            {exception.description && (
+                              <p className="text-sm text-gray-700 mb-1">{exception.description}</p>
+                            )}
+                            {exception.exception_details?.notes && (
+                              <p className="text-xs text-gray-600 italic">
+                                {exception.exception_details.notes}
+                              </p>
+                            )}
+                            {exception.reporter_name && (
+                              <p className="text-xs text-gray-500 mt-2">
+                                Reported by {exception.reporter_name}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                        {details.exceptions.length > 3 && (
+                          <p className="text-sm text-center text-gray-600 pt-2">
+                            View Exceptions tab for all {details.exceptions.length} exceptions
+                          </p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* Crew Contacts */}
                 <Card>
@@ -630,6 +693,125 @@ export function FieldTrackingDetailModal({ taskId, onClose }: FieldTrackingDetai
                     </CardContent>
                   </Card>
                 )}
+              </TabsContent>
+
+              {/* Exceptions Tab */}
+              <TabsContent value="exceptions" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5 text-red-500" />
+                      Task Exceptions & Issues
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {details.exceptions.length === 0 ? (
+                      <div className="text-center py-8">
+                        <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" />
+                        <p className="text-gray-600 font-medium">No exceptions reported</p>
+                        <p className="text-sm text-gray-500 mt-1">
+                          This task has no late arrivals, no-shows, or other exceptions
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                          <p className="text-sm text-amber-800">
+                            <strong>Total Exceptions:</strong> {details.exceptions.length}
+                          </p>
+                          <p className="text-xs text-amber-700 mt-1">
+                            Exceptions include late arrivals, no-shows, and other reported issues
+                          </p>
+                        </div>
+                        <div className="space-y-4">
+                          {details.exceptions.map((exception) => (
+                            <div
+                              key={exception.event_id}
+                              className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                            >
+                              <div className="flex items-start justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                  <AlertTriangle
+                                    className={`h-5 w-5 ${
+                                      exception.exception_type === 'LATE'
+                                        ? 'text-orange-500'
+                                        : exception.exception_type === 'NOSHOW'
+                                        ? 'text-red-500'
+                                        : 'text-yellow-500'
+                                    }`}
+                                  />
+                                  <Badge
+                                    variant="outline"
+                                    className={
+                                      exception.exception_type === 'LATE'
+                                        ? 'bg-orange-100 text-orange-700 border-orange-300'
+                                        : exception.exception_type === 'NOSHOW'
+                                        ? 'bg-red-100 text-red-700 border-red-300'
+                                        : 'bg-yellow-100 text-yellow-700 border-yellow-300'
+                                    }
+                                  >
+                                    {exception.exception_type}
+                                  </Badge>
+                                </div>
+                                <span className="text-sm text-gray-500">
+                                  {format(new Date(exception.occurred_at), 'EEEE, MMMM d, yyyy at h:mm a')}
+                                </span>
+                              </div>
+
+                              {exception.description && (
+                                <p className="text-sm text-gray-700 mb-3 font-medium">
+                                  {exception.description}
+                                </p>
+                              )}
+
+                              {exception.exception_details && (
+                                <div className="bg-gray-50 rounded p-3 mb-3 space-y-2">
+                                  {exception.exception_details.type && (
+                                    <div>
+                                      <span className="text-xs font-medium text-gray-600">Type: </span>
+                                      <span className="text-sm text-gray-700">
+                                        {exception.exception_details.type}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {exception.exception_details.reason && (
+                                    <div>
+                                      <span className="text-xs font-medium text-gray-600">Reason: </span>
+                                      <span className="text-sm text-gray-700">
+                                        {exception.exception_details.reason}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {exception.exception_details.notes && (
+                                    <div>
+                                      <span className="text-xs font-medium text-gray-600">Notes: </span>
+                                      <span className="text-sm text-gray-700">
+                                        {exception.exception_details.notes}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {exception.reporter_name && (
+                                <div className="flex items-center gap-2 mt-3 pt-3 border-t">
+                                  <Avatar className="h-6 w-6">
+                                    <AvatarFallback className="text-xs bg-gray-100">
+                                      {getInitials(exception.reporter_name)}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <span className="text-xs text-gray-600">
+                                    Reported by <strong>{exception.reporter_name}</strong>
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
               </TabsContent>
             </Tabs>
           </div>

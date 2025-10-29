@@ -28,9 +28,11 @@ import {
   upsertArrivyEntity,
   getArrivyTaskByArrivyId,
   insertArrivyTaskStatus,
+  insertArrivyTaskAttachment,
   type ArrivyTaskData,
   type ArrivyEntityData,
-  type ArrivyTaskStatusData
+  type ArrivyTaskStatusData,
+  type ArrivyTaskAttachmentData
 } from '@/lib/db/arrivy';
 import { getCustomerTrackerUrl } from '@/lib/integrations/arrivy/service';
 import type { ArrivyTask, ArrivyEntity } from '@/lib/integrations/arrivy/types';
@@ -463,6 +465,38 @@ class ArrivySyncService {
 
           await insertArrivyTaskStatus(statusData);
           syncedCount++;
+
+          // Also sync attachments for this status if present
+          if (status.files && status.files.length > 0) {
+            let attachmentsSynced = 0;
+            for (const file of status.files) {
+              try {
+                const attachmentData: ArrivyTaskAttachmentData = {
+                  arrivy_task_id: arrivyTaskId,
+                  arrivy_status_id: status.id,
+                  file_id: file.file_id,
+                  file_path: file.file_path,
+                  filename: file.filename,
+                  uploaded_by: status.reporter_name || null,
+                  uploaded_at: new Date(status.time),
+                };
+
+                const result = await insertArrivyTaskAttachment(attachmentData);
+                if (result) {
+                  attachmentsSynced++;
+                }
+              } catch (error) {
+                // Log but don't fail - attachments are non-critical
+                if (options.verbose) {
+                  console.error(`   ⚠️  Failed to sync attachment ${file.file_id}:`, error);
+                }
+              }
+            }
+
+            if (options.verbose && attachmentsSynced > 0) {
+              console.log(`   📎 Synced ${attachmentsSynced} attachment(s) for status ${status.id}`);
+            }
+          }
         } catch (error) {
           // Log error but continue with other statuses
           if (options.verbose) {

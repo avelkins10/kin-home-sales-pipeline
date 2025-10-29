@@ -19,14 +19,17 @@ import {
   getCustomerNotes,
   getCrewContactsForTask,
   calculateTaskDurationMetrics,
+  getTaskAttachments,
+  getTaskExceptions,
 } from '@/lib/db/arrivy';
-import type { 
-  EnhancedTaskDetails, 
-  TaskAttachment, 
-  TaskRating, 
+import type {
+  EnhancedTaskDetails,
+  TaskAttachment,
+  TaskRating,
   CustomerNote,
-  CrewContact, 
-  TaskDurationMetrics 
+  CrewContact,
+  TaskDurationMetrics,
+  TaskException,
 } from '@/lib/types/operations';
 
 /**
@@ -87,28 +90,25 @@ export async function GET(
     ]);
 
     // Fetch enhanced data in parallel
-    const [attachments, ratings, customerNotes, crewContacts] = await Promise.all([
-      // Fetch attachments from Arrivy API
+    const [attachments, ratings, customerNotes, crewContacts, exceptions] = await Promise.all([
+      // Fetch attachments from database (cached from sync)
       (async (): Promise<TaskAttachment[]> => {
-        if (!arrivyClient) return [];
         try {
-          const arrivyStatuses = await arrivyClient.getTaskStatuses(task.arrivy_task_id);
-          return arrivyStatuses.flatMap(status => 
-            (status.files || []).map(file => ({
-              file_id: file.file_id,
-              file_path: file.file_path,
-              filename: file.filename,
-              status_id: status.id,
-              uploaded_by: status.reporter_name || null,
-              uploaded_at: new Date(status.time),
-            }))
-          );
+          const dbAttachments = await getTaskAttachments(task.arrivy_task_id);
+          return dbAttachments.map(att => ({
+            file_id: att.file_id,
+            file_path: att.file_path,
+            filename: att.filename,
+            status_id: att.arrivy_status_id,
+            uploaded_by: att.uploaded_by || null,
+            uploaded_at: att.uploaded_at,
+          }));
         } catch (error) {
-          logError('Failed to fetch attachments from Arrivy', error as Error, { taskId: task.arrivy_task_id });
+          logError('Failed to fetch task attachments', error as Error, { taskId: task.arrivy_task_id });
           return [];
         }
       })(),
-      
+
       // Fetch customer ratings
       (async (): Promise<TaskRating[]> => {
         try {
@@ -118,7 +118,7 @@ export async function GET(
           return [];
         }
       })(),
-      
+
       // Fetch customer notes
       (async (): Promise<CustomerNote[]> => {
         try {
@@ -128,7 +128,7 @@ export async function GET(
           return [];
         }
       })(),
-      
+
       // Fetch crew contacts
       (async (): Promise<CrewContact[]> => {
         if (!task.assigned_entity_ids || task.assigned_entity_ids.length === 0) return [];
@@ -136,6 +136,16 @@ export async function GET(
           return await getCrewContactsForTask(task.assigned_entity_ids);
         } catch (error) {
           logError('Failed to fetch crew contacts', error as Error, { entityIds: task.assigned_entity_ids });
+          return [];
+        }
+      })(),
+
+      // Fetch task exceptions (LATE, NOSHOW, EXCEPTION events)
+      (async (): Promise<TaskException[]> => {
+        try {
+          return await getTaskExceptions(task.arrivy_task_id);
+        } catch (error) {
+          logError('Failed to fetch task exceptions', error as Error, { taskId: task.arrivy_task_id });
           return [];
         }
       })(),
@@ -160,15 +170,17 @@ export async function GET(
       ratings,
       customerNotes,
       crewContacts,
+      exceptions,
       durationMetrics,
     };
 
-    logApiResponse('GET', `/api/operations/field-tracking/tasks/${taskId}`, Date.now() - startedAt, { 
+    logApiResponse('GET', `/api/operations/field-tracking/tasks/${taskId}`, Date.now() - startedAt, {
       found: true,
       attachmentsCount: attachments.length,
       ratingsCount: ratings.length,
       customerNotesCount: customerNotes.length,
       crewCount: crewContacts.length,
+      exceptionsCount: exceptions.length,
     }, reqId);
 
     return NextResponse.json(enhancedDetails, { status: 200 });

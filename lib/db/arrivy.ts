@@ -1002,6 +1002,174 @@ export async function getTaskStatusHistory(arrivyTaskId: number, limit: number =
 }
 
 // =============================================================================
+// ARRIVY TASK ATTACHMENTS
+// =============================================================================
+
+export interface ArrivyTaskAttachmentData {
+  arrivy_task_id: number;
+  arrivy_status_id: number;
+  file_id: number;
+  file_path: string;
+  filename: string;
+  uploaded_by?: string | null;
+  uploaded_at: Date;
+}
+
+export interface ArrivyTaskAttachmentRecord extends ArrivyTaskAttachmentData {
+  id: number;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
+ * Insert a task attachment (idempotent - uses ON CONFLICT DO NOTHING)
+ * Returns null if attachment already exists (duplicate file_id)
+ */
+export async function insertArrivyTaskAttachment(
+  attachmentData: ArrivyTaskAttachmentData
+): Promise<ArrivyTaskAttachmentRecord | null> {
+  try {
+    const result = await sql<ArrivyTaskAttachmentRecord>`
+      INSERT INTO arrivy_task_attachments (
+        arrivy_task_id,
+        arrivy_status_id,
+        file_id,
+        file_path,
+        filename,
+        uploaded_by,
+        uploaded_at
+      ) VALUES (
+        ${attachmentData.arrivy_task_id},
+        ${attachmentData.arrivy_status_id},
+        ${attachmentData.file_id},
+        ${attachmentData.file_path},
+        ${attachmentData.filename},
+        ${attachmentData.uploaded_by},
+        ${attachmentData.uploaded_at}
+      )
+      ON CONFLICT (file_id) DO NOTHING
+      RETURNING *
+    `;
+
+    return result.rows[0] || null;
+  } catch (error) {
+    logError('Failed to insert task attachment', error as Error, {
+      file_id: attachmentData.file_id,
+      task_id: attachmentData.arrivy_task_id,
+    });
+    throw error;
+  }
+}
+
+/**
+ * Get all attachments for a task
+ * Ordered by upload time (newest first)
+ */
+export async function getTaskAttachments(
+  arrivyTaskId: number,
+  limit: number = 100
+): Promise<ArrivyTaskAttachmentRecord[]> {
+  try {
+    const result = await sql<ArrivyTaskAttachmentRecord>`
+      SELECT * FROM arrivy_task_attachments
+      WHERE arrivy_task_id = ${arrivyTaskId}
+      ORDER BY uploaded_at DESC
+      LIMIT ${limit}
+    `;
+
+    return result.rows;
+  } catch (error) {
+    logError('Failed to get task attachments', error as Error, { arrivyTaskId });
+    return []; // Return empty array on error (non-fatal)
+  }
+}
+
+/**
+ * Get attachment count for a task
+ */
+export async function getTaskAttachmentCount(arrivyTaskId: number): Promise<number> {
+  try {
+    const result = await sql`
+      SELECT COUNT(*) as count
+      FROM arrivy_task_attachments
+      WHERE arrivy_task_id = ${arrivyTaskId}
+    `;
+
+    return result.rows[0]?.count || 0;
+  } catch (error) {
+    logError('Failed to get task attachment count', error as Error, { arrivyTaskId });
+    return 0;
+  }
+}
+
+// =============================================================================
+// TASK EXCEPTIONS & ISSUES
+// =============================================================================
+
+export interface TaskException {
+  event_id: number;
+  exception_type: 'EXCEPTION' | 'LATE' | 'NOSHOW';
+  occurred_at: Date;
+  reporter_name: string | null;
+  description: string | null;
+  exception_details?: {
+    type?: string;
+    notes?: string;
+    reason?: string;
+  } | null;
+}
+
+/**
+ * Get exceptions/issues for a task
+ * Fetches EXCEPTION, LATE, and NOSHOW events from arrivy_events
+ */
+export async function getTaskExceptions(arrivyTaskId: number, limit: number = 50): Promise<TaskException[]> {
+  try {
+    const result = await sql`
+      SELECT
+        event_id,
+        event_type as exception_type,
+        event_time as occurred_at,
+        reporter_name,
+        message as description,
+        extra_fields
+      FROM arrivy_events
+      WHERE arrivy_task_id = ${arrivyTaskId}
+        AND event_type IN ('EXCEPTION', 'LATE', 'NOSHOW')
+      ORDER BY event_time DESC
+      LIMIT ${limit}
+    `;
+
+    return result.rows.map(row => {
+      // Try to parse exception details from extra_fields.EXCEPTION
+      let exception_details = null;
+      if (row.extra_fields && typeof row.extra_fields === 'object') {
+        const exceptionField = (row.extra_fields as any).EXCEPTION;
+        if (exceptionField && typeof exceptionField === 'object') {
+          exception_details = {
+            type: exceptionField.type || null,
+            notes: exceptionField.notes || null,
+            reason: exceptionField.reason || null,
+          };
+        }
+      }
+
+      return {
+        event_id: row.event_id,
+        exception_type: row.exception_type,
+        occurred_at: row.occurred_at,
+        reporter_name: row.reporter_name,
+        description: row.description,
+        exception_details,
+      };
+    });
+  } catch (error) {
+    logError('Failed to get task exceptions', error as Error, { arrivyTaskId });
+    return []; // Return empty array on error (non-fatal)
+  }
+}
+
+// =============================================================================
 // FIELD TRACKING DASHBOARD QUERIES
 // =============================================================================
 
