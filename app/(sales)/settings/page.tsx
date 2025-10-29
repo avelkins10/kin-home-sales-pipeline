@@ -106,6 +106,7 @@ export default async function SettingsPage() {
                 <TabsTrigger value="offices">Offices</TabsTrigger>
                 <TabsTrigger value="system">System</TabsTrigger>
                 <TabsTrigger value="audit">Audit Logs</TabsTrigger>
+                <TabsTrigger value="repcard-debug">RepCard Debug</TabsTrigger>
               </>
             )}
           </TabsList>
@@ -154,6 +155,20 @@ export default async function SettingsPage() {
               <Suspense fallback={<Skeleton className="h-96 w-full" />}>
                 <TabsContent value="audit">
                   <AuditLogsTab />
+                </TabsContent>
+              </Suspense>
+
+              <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+                <TabsContent value="repcard-debug">
+                  <Card>
+                    <CardContent className="p-0">
+                      <iframe
+                        src="/settings/repcard-debug"
+                        className="w-full h-[calc(100vh-200px)] border-0"
+                        title="RepCard Debug Tool"
+                      />
+                    </CardContent>
+                  </Card>
                 </TabsContent>
               </Suspense>
             </>
