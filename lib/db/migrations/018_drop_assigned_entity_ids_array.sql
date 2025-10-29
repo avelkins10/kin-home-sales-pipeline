@@ -1,4 +1,4 @@
--- migrations/016_drop_assigned_entity_ids_array.sql
+-- migrations/018_drop_assigned_entity_ids_array.sql
 -- Drop the legacy assigned_entity_ids array column after verifying join table works
 -- ⚠️ ONLY RUN THIS AFTER:
 -- 1. Migration 015 has been executed

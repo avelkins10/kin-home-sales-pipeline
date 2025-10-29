@@ -23,19 +23,22 @@ export async function POST(request: NextRequest) {
 
     const userEmail = session.user.email;
 
-    // Only allow for Austin's email
-    if (!userEmail.toLowerCase().includes('austin')) {
+    // Only allow for admin accounts
+    if (!userEmail.toLowerCase().includes('austin') && userEmail !== 'admin@kinhome.com') {
       return NextResponse.json(
-        { error: 'This endpoint is only for Austin' },
+        { error: 'This endpoint is only for authorized admin accounts' },
         { status: 403 }
       );
     }
 
-    // Update role to super_admin and name to Austin Admin
+    // Determine the appropriate name based on email
+    const name = userEmail === 'admin@kinhome.com' ? 'System Admin' : 'Austin Admin';
+
+    // Update role to super_admin
     await sql`
       UPDATE users
       SET role = 'super_admin',
-          name = 'Austin Admin'
+          name = ${name}
       WHERE email = ${userEmail}
     `;
 
