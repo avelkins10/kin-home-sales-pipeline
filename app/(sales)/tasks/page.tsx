@@ -70,10 +70,11 @@ export default function TasksPage() {
 
   // Get tasks based on active tab - memoize to ensure stability
   const tasks = useMemo(() => {
+    if (!tasksData) return []
     return activeTab === 'open' 
-      ? (tasksData?.activeTasks || [])
-      : (tasksData?.cancelledAndPendingCancelTasks || [])
-  }, [activeTab, tasksData?.activeTasks, tasksData?.cancelledAndPendingCancelTasks])
+      ? (tasksData.activeTasks || [])
+      : (tasksData.cancelledAndPendingCancelTasks || [])
+  }, [activeTab, tasksData])
   
   // Fallback to allTasks for backward compatibility - ensure it's always an array
   const allTasks = useMemo(() => {
