@@ -228,8 +228,18 @@ export async function GET(request: NextRequest) {
       }
       
       // If office filtering returns 0 users, fall back to all users (office filter might be too restrictive)
+      // BUT also log WHY it's filtering out users
       if (users.length === 0) {
-        console.log(`[RepCard Leaderboard] Office filter returned 0 users, falling back to all users`);
+        console.log(`[RepCard Leaderboard] ⚠️ Office filter returned 0 users for officeIds: ${officeIds}`);
+        console.log(`[RepCard Leaderboard] Falling back to all users to ensure data is shown`);
+        
+        // Debug: Check how many users match office filter vs total
+        const totalUsers = await sql`
+          SELECT COUNT(*) as count FROM users WHERE repcard_user_id IS NOT NULL
+        `;
+        const total = Array.isArray(totalUsers) ? totalUsers[0]?.count : totalUsers.rows?.[0]?.count || 0;
+        console.log(`[RepCard Leaderboard] Total users with repcard_user_id: ${total}`);
+        
         if (role !== 'all') {
           const result = await sql`
             SELECT id, name, email, repcard_user_id, sales_office[1] as office, role
@@ -247,6 +257,7 @@ export async function GET(request: NextRequest) {
           `;
           users = Array.from(result);
         }
+        console.log(`[RepCard Leaderboard] ✅ Fallback returned ${users.length} users`);
       }
     } else {
       // No office filter - use sql template
@@ -535,6 +546,10 @@ export async function GET(request: NextRequest) {
     leaderboardEntries.forEach((entry, index) => {
       entry.rank = index + 1;
     });
+    
+    // Debug: Log final results
+    console.log(`[RepCard Leaderboard] Final: ${leaderboardEntries.length} entries, top 3:`, 
+      leaderboardEntries.slice(0, 3).map(e => `${e.userName}: ${e.metricValue}`).join(', '));
     
     // Apply pagination
     const totalEntries = leaderboardEntries.length;
