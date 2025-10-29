@@ -201,104 +201,115 @@ export async function GET(
       return NextResponse.json(response);
     }
     
-    // Fetch data in parallel with error handling
-    let qualityMetrics;
+    // Fetch RepCard data from DATABASE (not API) for better performance
+    // Use the synced data instead of calling RepCard API
     let repcardCustomers: any[] = [];
     let repcardAppointments: any[] = [];
     
     try {
-      [qualityMetrics, repcardCustomers, repcardAppointments] = await Promise.all([
-        getQualityMetricsForUser(user.id, startDate, endDate).catch((error) => {
-          logError('repcard-user-stats', error as Error, { requestId, context: 'Quality metrics fetch', userId: user.id });
-          // Return default empty metrics on error
-          return {
-            appointmentSpeed: { percentageWithin24Hours: 0, averageHoursToSchedule: 0, totalAppointments: 0, appointmentsWithin24Hours: 0 },
-            attachmentRate: { percentageWithAttachments: 0, totalAttachments: 0, totalCustomers: 0, customersWithAttachments: 0 },
-            rescheduleRate: { averageReschedulesPerCustomer: 0, totalReschedules: 0, totalCustomers: 0, customersWithReschedules: 0 },
-            followUpConsistency: { percentageWithFollowUps: 0, totalFollowUpAppointments: 0, customersRequiringFollowUps: 0, customersWithFollowUps: 0 },
-            period: { startDate, endDate },
-            calculatedAt: new Date().toISOString()
-          };
-        }),
-        // Fetch customers with pagination
-        (async () => {
-          const allCustomers = [];
-          let page = 1;
-          let hasMore = true;
-          
-          while (hasMore) {
-            try {
-              const response = await repcardClient.getCustomers({ 
-                userId: typeof user.repcard_user_id === 'string' ? parseInt(user.repcard_user_id) : user.repcard_user_id, 
-                page,
-                perPage: 100
-              });
-              allCustomers.push(...response.result.data);
-              hasMore = response.result.currentPage < response.result.lastPage;
-              page++;
-              
-              // Safety limit to prevent infinite loops
-              if (page > 200) {
-                logError('repcard-user-stats', new Error('Customer pagination exceeded 200 pages'), { requestId, userId: user.id });
+      // Fetch customers from database
+      const customersResult = await sql`
+        SELECT 
+          repcard_customer_id,
+          name,
+          email,
+          phone,
+          address,
+          created_at,
+          updated_at,
+          raw_data
+        FROM repcard_customers
+        WHERE setter_user_id::text = ${String(user.repcard_user_id)}
+          AND created_at >= ${startDate}::timestamp
+          AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')
+        ORDER BY created_at DESC
+        LIMIT 1000
+      `;
+      repcardCustomers = Array.from(customersResult);
+
+      // Fetch appointments from database
+      const appointmentsResult = await sql`
+        SELECT 
+          repcard_appointment_id,
+          repcard_customer_id,
+          scheduled_at,
+          completed_at,
+          disposition,
+          status_category,
+          created_at,
+          updated_at,
+          raw_data
+        FROM repcard_appointments
+        WHERE setter_user_id::text = ${String(user.repcard_user_id)}
+          AND scheduled_at >= ${startDate}::timestamp
+          AND scheduled_at <= (${endDate}::timestamp + INTERVAL '1 day')
+        ORDER BY scheduled_at DESC
+        LIMIT 1000
+      `;
+      repcardAppointments = Array.from(appointmentsResult);
+
+      console.log(`[RepCard Stats] Fetched ${repcardCustomers.length} customers and ${repcardAppointments.length} appointments from database for user ${user.id}`);
+    } catch (dbError) {
+      logError('repcard-user-stats', dbError as Error, { requestId, context: 'Database fetch failed, falling back to API', userId: user.id });
+      
+      // Fallback to API if database query fails
+      try {
+        [repcardCustomers, repcardAppointments] = await Promise.all([
+          // Fetch customers with pagination
+          (async () => {
+            const allCustomers = [];
+            let page = 1;
+            let hasMore = true;
+            
+            while (hasMore && page <= 10) { // Limit to 10 pages for timeout protection
+              try {
+                const response = await repcardClient.getCustomers({ 
+                  userId: typeof user.repcard_user_id === 'string' ? parseInt(user.repcard_user_id) : user.repcard_user_id, 
+                  page,
+                  perPage: 100
+                });
+                allCustomers.push(...response.result.data);
+                hasMore = response.result.currentPage < response.result.lastPage;
+                page++;
+              } catch (error) {
+                logError('repcard-user-stats', error as Error, { requestId, context: 'RepCard customers fetch', userId: user.id });
                 break;
               }
-            } catch (error) {
-              logError('repcard-user-stats', error as Error, { requestId, context: 'RepCard customers fetch', userId: user.id, repcardUserId: user.repcard_user_id, page });
-              // Break on error to avoid infinite loop
-              hasMore = false;
             }
-          }
-          return allCustomers;
-        })(),
-        // Fetch appointments with pagination
-        (async () => {
-          const allAppointments = [];
-          let page = 1;
-          let hasMore = true;
-          
-          while (hasMore) {
-            try {
-              const response = await repcardClient.getAppointments({ 
-                setterIds: String(user.repcard_user_id), // Convert to string as API expects comma-separated string
-                fromDate: startDate, 
-                toDate: endDate,
-                page,
-                perPage: 100
-              });
-              allAppointments.push(...response.result.data);
-              hasMore = response.result.currentPage < response.result.lastPage;
-              page++;
-              
-              // Safety limit to prevent infinite loops
-              if (page > 200) {
-                logError('repcard-user-stats', new Error('Appointment pagination exceeded 200 pages'), { requestId, userId: user.id });
+            return allCustomers;
+          })(),
+          // Fetch appointments with pagination
+          (async () => {
+            const allAppointments = [];
+            let page = 1;
+            let hasMore = true;
+            
+            while (hasMore && page <= 10) { // Limit to 10 pages for timeout protection
+              try {
+                const response = await repcardClient.getAppointments({ 
+                  setterIds: String(user.repcard_user_id),
+                  fromDate: startDate, 
+                  toDate: endDate,
+                  page,
+                  perPage: 100
+                });
+                allAppointments.push(...response.result.data);
+                hasMore = response.result.currentPage < response.result.lastPage;
+                page++;
+              } catch (error) {
+                logError('repcard-user-stats', error as Error, { requestId, context: 'RepCard appointments fetch', userId: user.id });
                 break;
               }
-            } catch (error) {
-              logError('repcard-user-stats', error as Error, { requestId, context: 'RepCard appointments fetch', userId: user.id, repcardUserId: user.repcard_user_id, page });
-              // Break on error to avoid infinite loop
-              hasMore = false;
             }
-          }
-          return allAppointments;
-        })()
-      ]);
-    } catch (error) {
-      logError('repcard-user-stats', error as Error, { requestId, context: 'Parallel data fetch failed', userId: user.id });
-      // Continue with empty arrays if fetch fails completely
-      if (!qualityMetrics) {
-        qualityMetrics = {
-          appointmentSpeed: { percentageWithin24Hours: 0, averageHoursToSchedule: 0, totalAppointments: 0, appointmentsWithin24Hours: 0 },
-          attachmentRate: { percentageWithAttachments: 0, totalAttachments: 0, totalCustomers: 0, customersWithAttachments: 0 },
-          rescheduleRate: { averageReschedulesPerCustomer: 0, totalReschedules: 0, totalCustomers: 0, customersWithReschedules: 0 },
-          followUpConsistency: { percentageWithFollowUps: 0, totalFollowUpAppointments: 0, customersRequiringFollowUps: 0, customersWithFollowUps: 0 },
-          period: { startDate, endDate },
-          calculatedAt: new Date().toISOString()
-        };
+            return allAppointments;
+          })()
+        ]);
+      } catch (apiError) {
+        logError('repcard-user-stats', apiError as Error, { requestId, context: 'API fallback also failed', userId: user.id });
+        repcardCustomers = [];
+        repcardAppointments = [];
       }
     }
-    
-    // Fetch QuickBase data
     let quickbaseSales = { sales_count: 0, total_revenue: 0 };
     let quickbaseAppointments = { appointments_count: 0 };
     

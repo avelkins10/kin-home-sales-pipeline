@@ -321,12 +321,13 @@ export async function GET(request: NextRequest) {
       
       if (metric === 'doors_knocked') {
         // Query database for customers (much faster than API, no rate limits)
+        // Fix: Cast repcard_user_id to INTEGER for comparison
         const customerCountsRaw = await sql`
           SELECT
-            setter_user_id,
+            setter_user_id::text as setter_user_id,
             COUNT(*) as count
           FROM repcard_customers
-          WHERE setter_user_id = ANY(${repcardUserIds.map(String)}::text[])
+          WHERE setter_user_id::text = ANY(${repcardUserIds.map(String)}::text[])
             AND created_at >= ${calculatedStartDate}::timestamp
             AND created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day')
           GROUP BY setter_user_id
@@ -354,12 +355,13 @@ export async function GET(request: NextRequest) {
         });
       } else if (metric === 'appointments_set') {
         // Query database for appointments (much faster than API, no rate limits)
+        // Fix: Cast setter_user_id to TEXT for comparison
         const appointmentCountsRaw = await sql`
           SELECT
-            setter_user_id,
+            setter_user_id::text as setter_user_id,
             COUNT(*) as count
           FROM repcard_appointments
-          WHERE setter_user_id = ANY(${repcardUserIds.map(String)}::text[])
+          WHERE setter_user_id::text = ANY(${repcardUserIds.map(String)}::text[])
             AND scheduled_at >= ${calculatedStartDate}::timestamp
             AND scheduled_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day')
           GROUP BY setter_user_id
@@ -387,9 +389,10 @@ export async function GET(request: NextRequest) {
       } else if (metric === 'sales_closed' || metric === 'revenue') {
         // Query synced status logs from database (much faster than API calls)
         // Filter for "sold" statuses - check both old_status and new_status transitions
+        // Fix: Cast changed_by_user_id to TEXT for comparison
         const statusLogsRaw = await sql`
           SELECT
-            sl.changed_by_user_id,
+            sl.changed_by_user_id::text as changed_by_user_id,
             sl.repcard_customer_id,
             sl.new_status,
             sl.old_status,
@@ -397,7 +400,7 @@ export async function GET(request: NextRequest) {
             c.raw_data->'customFields'->>'systemCost' as system_cost
           FROM repcard_status_logs sl
           LEFT JOIN repcard_customers c ON c.repcard_customer_id = sl.repcard_customer_id
-          WHERE sl.changed_by_user_id = ANY(${repcardUserIds.map(String)}::text[])
+          WHERE sl.changed_by_user_id::text = ANY(${repcardUserIds.map(String)}::text[])
             AND sl.changed_at >= ${calculatedStartDate}::timestamp
             AND sl.changed_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day')
             AND (
