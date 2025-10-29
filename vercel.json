@@ -5,6 +5,7 @@
 
   "functions": {
     "app/api/admin/audit-logs/export/route.ts": { "maxDuration": 30, "memory": 1024 },
+    "app/api/admin/repcard-debug/route.ts": { "maxDuration": 60, "memory": 1024 },
     "app/api/admin/repcard/sync/route.ts": { "maxDuration": 300, "memory": 1024 },
     "app/api/cron/check-milestones/route.ts": { "maxDuration": 60, "memory": 1024 },
     "app/api/cron/sync-users/route.ts": { "maxDuration": 300, "memory": 1024 },
