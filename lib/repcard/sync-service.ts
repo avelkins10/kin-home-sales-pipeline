@@ -143,7 +143,17 @@ export async function syncCustomers(options: {
           endDate: options.endDate
         });
 
-        const customers = response.result.data;
+        // Validate response structure
+        if (!response || !response.result) {
+          console.error(`[RepCard Sync] Invalid response structure on page ${page}:`, response);
+          throw new Error(`Invalid response structure: ${JSON.stringify(response)}`);
+        }
+
+        const customers = Array.isArray(response.result.data) ? response.result.data : [];
+        if (customers.length === 0 && page === 1) {
+          console.log(`[RepCard Sync] No customers found - API may have returned different structure`);
+          console.log(`[RepCard Sync] Response structure:`, JSON.stringify(response.result, null, 2).substring(0, 500));
+        }
         console.log(`[RepCard Sync] Page ${page}: Got ${customers.length} customers`);
 
         // Batch enrich users - collect all unique setter_user_ids first
@@ -369,7 +379,17 @@ export async function syncAppointments(options: {
           toDate: options.toDate
         });
 
-        const appointments = response.result.data;
+        // Validate response structure
+        if (!response || !response.result) {
+          console.error(`[RepCard Sync] Invalid response structure on page ${page}:`, response);
+          throw new Error(`Invalid response structure: ${JSON.stringify(response)}`);
+        }
+
+        const appointments = Array.isArray(response.result.data) ? response.result.data : [];
+        if (appointments.length === 0 && page === 1) {
+          console.log(`[RepCard Sync] No appointments found - API may have returned different structure`);
+          console.log(`[RepCard Sync] Response structure:`, JSON.stringify(response.result, null, 2).substring(0, 500));
+        }
         console.log(`[RepCard Sync] Page ${page}: Got ${appointments.length} appointments`);
 
         // Batch enrich users - collect all unique user IDs first
@@ -649,7 +669,17 @@ export async function syncStatusLogs(options: {
           toDate: options.toDate
         });
 
-        const statusLogs = response.result.data;
+        // Validate response structure
+        if (!response || !response.result) {
+          console.error(`[RepCard Sync] Invalid response structure on page ${page}:`, response);
+          throw new Error(`Invalid response structure: ${JSON.stringify(response)}`);
+        }
+
+        const statusLogs = Array.isArray(response.result.data) ? response.result.data : [];
+        if (statusLogs.length === 0 && page === 1) {
+          console.log(`[RepCard Sync] No status logs found - API may have returned different structure`);
+          console.log(`[RepCard Sync] Response structure:`, JSON.stringify(response.result, null, 2).substring(0, 500));
+        }
         console.log(`[RepCard Sync] Page ${page}: Got ${statusLogs.length} status logs`);
 
         for (const log of statusLogs) {
