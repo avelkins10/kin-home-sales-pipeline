@@ -125,7 +125,13 @@ export async function syncUsers(options: {
           perPage: 100
         });
 
-        const users = response.result.data;
+        // Validate response structure
+        if (!response || !response.result) {
+          console.error(`[RepCard Sync] Invalid response structure on page ${page}:`, response);
+          throw new Error(`Invalid response structure: ${JSON.stringify(response)}`);
+        }
+
+        const users = Array.isArray(response.result.data) ? response.result.data : [];
         console.log(`[RepCard Sync] Page ${page}: Got ${users.length} users`);
 
         for (const user of users) {
@@ -294,8 +300,14 @@ export async function syncOffices(): Promise<SyncEntityResult> {
     console.log('[RepCard Sync] Starting sync for offices...');
 
     const response = await repcardClient.getOffices();
-    const offices = response.result.data || response.result || [];
+    // Validate response structure
+    if (!response || !response.result) {
+      console.error(`[RepCard Sync] Invalid response structure for offices:`, response);
+      throw new Error(`Invalid response structure: ${JSON.stringify(response)}`);
+    }
 
+    const offices = Array.isArray(response.result.data) ? response.result.data : 
+                    Array.isArray(response.result) ? response.result : [];
     console.log(`[RepCard Sync] Got ${offices.length} offices`);
 
     for (const office of offices) {
@@ -424,7 +436,13 @@ export async function syncCustomerAttachments(options: {
           toDate: options.toDate
         });
 
-        const attachments = response.result.data;
+        // Validate response structure
+        if (!response || !response.result) {
+          console.error(`[RepCard Sync] Invalid response structure on page ${page}:`, response);
+          throw new Error(`Invalid response structure: ${JSON.stringify(response)}`);
+        }
+
+        const attachments = Array.isArray(response.result.data) ? response.result.data : [];
         console.log(`[RepCard Sync] Page ${page}: Got ${attachments.length} customer attachments`);
 
         for (const attachment of attachments) {
@@ -579,7 +597,13 @@ export async function syncAppointmentAttachments(options: {
           toDate: options.toDate
         });
 
-        const attachments = response.result.data;
+        // Validate response structure
+        if (!response || !response.result) {
+          console.error(`[RepCard Sync] Invalid response structure on page ${page}:`, response);
+          throw new Error(`Invalid response structure: ${JSON.stringify(response)}`);
+        }
+
+        const attachments = Array.isArray(response.result.data) ? response.result.data : [];
         console.log(`[RepCard Sync] Page ${page}: Got ${attachments.length} appointment attachments`);
 
         for (const attachment of attachments) {
