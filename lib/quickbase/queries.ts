@@ -4354,7 +4354,8 @@ export async function updateTaskStatus(taskId: number, status: TaskStatus): Prom
       data: [
         {
           [TASK_FIELDS.RECORD_ID]: { value: taskId },
-          [TASK_FIELDS.STATUS]: { value: status }
+          [TASK_FIELDS.STATUS]: { value: status },
+          [TASK_FIELDS.DATE_MODIFIED]: { value: new Date().toISOString() }
         }
       ]
     });
@@ -4362,6 +4363,112 @@ export async function updateTaskStatus(taskId: number, status: TaskStatus): Prom
     console.log('[updateTaskStatus] Task status updated successfully');
   } catch (error) {
     logError('Failed to update task status', error as Error, { taskId, status });
+    throw error;
+  }
+}
+
+/**
+ * Close all tasks for a cancelled project
+ * This function finds all incomplete tasks linked to a project and closes them
+ * Used when a project status changes to "Cancelled"
+ */
+export async function closeTasksForCancelledProject(
+  projectId: number,
+  reqId?: string
+): Promise<{ closedCount: number; taskIds: number[] }> {
+  const startTime = Date.now();
+  const requestId = reqId || Math.random().toString(36).substring(7);
+
+  try {
+    logQuickbaseRequest('closeTasksForCancelledProject', { projectId }, requestId);
+
+    // Step 1: Get all task groups for this project
+    const taskGroupsResponse = await qbClient.queryRecords({
+      from: QB_TABLE_TASK_GROUPS,
+      select: [TASK_GROUP_FIELDS.RECORD_ID],
+      where: `{${TASK_GROUP_FIELDS.RELATED_PROJECT}.EX.${projectId}}`
+    });
+
+    if (taskGroupsResponse.data.length === 0) {
+      logQuickbaseResponse('closeTasksForCancelledProject', { closedCount: 0, taskIds: [] }, requestId, Date.now() - startTime);
+      return { closedCount: 0, taskIds: [] };
+    }
+
+    const taskGroupIds = taskGroupsResponse.data
+      .map((record: any) => record[TASK_GROUP_FIELDS.RECORD_ID]?.value)
+      .filter((id: any) => id);
+
+    if (taskGroupIds.length === 0) {
+      logQuickbaseResponse('closeTasksForCancelledProject', { closedCount: 0, taskIds: [] }, requestId, Date.now() - startTime);
+      return { closedCount: 0, taskIds: [] };
+    }
+
+    // Step 2: Get all incomplete tasks for these task groups
+    // Exclude tasks that are already Completed or Closed by Ops
+    const whereClause = taskGroupIds
+      .map((id: number) => `{${TASK_FIELDS.TASK_GROUP}.EX.${id}}`)
+      .join('OR');
+
+    // Query tasks that are NOT Completed AND NOT "Closed by Ops"
+    // Using XEX (does not equal) twice with AND to exclude both statuses
+    const tasksResponse = await qbClient.queryRecords({
+      from: QB_TABLE_TASKS,
+      select: [TASK_FIELDS.RECORD_ID, TASK_FIELDS.STATUS],
+      where: `(${whereClause})AND{${TASK_FIELDS.STATUS}.XEX.'Completed'}AND{${TASK_FIELDS.STATUS}.XEX.'Closed by Ops'}`
+    });
+
+    const incompleteTasks = tasksResponse.data
+      .map((record: any) => ({
+        taskId: record[TASK_FIELDS.RECORD_ID]?.value,
+        currentStatus: record[TASK_FIELDS.STATUS]?.value || 'Not Started'
+      }))
+      .filter((task: any) => task.taskId);
+
+    if (incompleteTasks.length === 0) {
+      logQuickbaseResponse('closeTasksForCancelledProject', { closedCount: 0, taskIds: [] }, requestId, Date.now() - startTime);
+      return { closedCount: 0, taskIds: [] };
+    }
+
+    // Step 3: Close all incomplete tasks
+    const taskIds = incompleteTasks.map((t: any) => t.taskId);
+    const currentTime = new Date().toISOString();
+
+    // Batch update tasks (QuickBase supports up to 100 records per update)
+    const BATCH_SIZE = 100;
+    let closedCount = 0;
+
+    for (let i = 0; i < taskIds.length; i += BATCH_SIZE) {
+      const batch = taskIds.slice(i, i + BATCH_SIZE);
+      const updateData = batch.map((taskId: number) => ({
+        [TASK_FIELDS.RECORD_ID]: { value: taskId },
+        [TASK_FIELDS.STATUS]: { value: 'Closed by Ops' as TaskStatus },
+        [TASK_FIELDS.DATE_MODIFIED]: { value: currentTime }
+      }));
+
+      await qbClient.updateRecord({
+        to: QB_TABLE_TASKS,
+        data: updateData
+      });
+
+      closedCount += batch.length;
+    }
+
+    logQuickbaseResponse('closeTasksForCancelledProject', {
+      closedCount,
+      taskIds,
+      projectId
+    }, requestId, Date.now() - startTime);
+
+    logInfo('[closeTasksForCancelledProject] Closed tasks for cancelled project', {
+      projectId,
+      closedCount,
+      taskIds: taskIds.slice(0, 10), // Log first 10 for debugging
+      reqId: requestId
+    });
+
+    return { closedCount, taskIds };
+  } catch (error) {
+    logQuickbaseError('closeTasksForCancelledProject', error, requestId);
     throw error;
   }
 }
