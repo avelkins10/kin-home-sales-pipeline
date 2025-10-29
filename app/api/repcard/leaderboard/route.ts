@@ -361,10 +361,14 @@ export async function GET(request: NextRequest) {
             COUNT(c.repcard_customer_id) as count
           FROM repcard_customers c
           INNER JOIN users u ON u.repcard_user_id::text = c.setter_user_id::text
+          ${officeIds && officeIds.length > 0 ? sql`
+            LEFT JOIN offices o ON o.name = ANY(u.sales_office)
+          ` : sql``}
           WHERE u.repcard_user_id IS NOT NULL
             AND c.created_at >= ${calculatedStartDate}::timestamp
             AND c.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day')
             ${role !== 'all' ? sql`AND u.role = ${role}` : sql``}
+            ${officeIds && officeIds.length > 0 ? sql`AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR u.sales_office IS NULL)` : sql``}
           GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
         `;
         const customerCounts = Array.from(customerCountsRaw);
@@ -415,6 +419,9 @@ export async function GET(request: NextRequest) {
             COUNT(a.repcard_appointment_id) as count
           FROM repcard_appointments a
           INNER JOIN users u ON u.repcard_user_id::text = a.setter_user_id::text
+          ${officeIds && officeIds.length > 0 ? sql`
+            LEFT JOIN offices o ON o.name = ANY(u.sales_office)
+          ` : sql``}
           WHERE u.repcard_user_id IS NOT NULL
             AND (
               (a.scheduled_at IS NOT NULL AND a.scheduled_at >= ${calculatedStartDate}::timestamp AND a.scheduled_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
@@ -422,6 +429,7 @@ export async function GET(request: NextRequest) {
               (a.scheduled_at IS NULL AND a.created_at >= ${calculatedStartDate}::timestamp AND a.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
             )
             ${role !== 'all' ? sql`AND u.role = ${role}` : sql``}
+            ${officeIds && officeIds.length > 0 ? sql`AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR u.sales_office IS NULL)` : sql``}
           GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
         `;
         const appointmentCounts = Array.from(appointmentCountsRaw);
