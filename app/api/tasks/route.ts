@@ -259,20 +259,25 @@ export async function GET(req: Request) {
     const BATCH_SIZE = 100;
     const allTaskGroups: any[] = [];
 
-    // Batch if we have many task groups
+    // Batch if we have many task groups - PARALLELIZE for performance
     if (taskGroupIds.length > BATCH_SIZE) {
-      logInfo('[TASKS_API] Batching task groups query', {
-        batches: Math.ceil(taskGroupIds.length / BATCH_SIZE),
+      const batches = [];
+      for (let i = 0; i < taskGroupIds.length; i += BATCH_SIZE) {
+        batches.push(taskGroupIds.slice(i, i + BATCH_SIZE));
+      }
+
+      logInfo('[TASKS_API] Batching task groups query (parallelized)', {
+        batches: batches.length,
         reqId
       });
 
-      for (let i = 0; i < taskGroupIds.length; i += BATCH_SIZE) {
-        const batch = taskGroupIds.slice(i, i + BATCH_SIZE);
+      // Execute all batches in parallel - QuickBase client handles rate limiting
+      const batchPromises = batches.map(batch => {
         const taskGroupsWhereClause = batch
           .map((id: number) => `{${TASK_GROUP_FIELDS.RECORD_ID}.EX.${id}}`)
           .join('OR');
 
-        const batchResponse = await qbClient.queryRecords({
+        return qbClient.queryRecords({
           from: QB_TABLE_TASK_GROUPS,
           select: [
             TASK_GROUP_FIELDS.RECORD_ID,
@@ -280,9 +285,12 @@ export async function GET(req: Request) {
           ],
           where: taskGroupsWhereClause
         });
+      });
 
-        allTaskGroups.push(...batchResponse.data);
-      }
+      const batchResults = await Promise.all(batchPromises);
+      batchResults.forEach(response => {
+        allTaskGroups.push(...response.data);
+      });
     } else {
       const taskGroupsWhereClause = taskGroupIds
         .map((id: number) => `{${TASK_GROUP_FIELDS.RECORD_ID}.EX.${id}}`)
@@ -325,20 +333,25 @@ export async function GET(req: Request) {
     checkTimeout(); // Check before projects query
     const allProjects: any[] = [];
 
-    // Batch if we have many projects
+    // Batch if we have many projects - PARALLELIZE for performance
     if (projectIds.length > BATCH_SIZE) {
-      logInfo('[TASKS_API] Batching projects query', {
-        batches: Math.ceil(projectIds.length / BATCH_SIZE),
+      const batches = [];
+      for (let i = 0; i < projectIds.length; i += BATCH_SIZE) {
+        batches.push(projectIds.slice(i, i + BATCH_SIZE));
+      }
+
+      logInfo('[TASKS_API] Batching projects query (parallelized)', {
+        batches: batches.length,
         reqId
       });
 
-      for (let i = 0; i < projectIds.length; i += BATCH_SIZE) {
-        const batch = projectIds.slice(i, i + BATCH_SIZE);
+      // Execute all batches in parallel - QuickBase client handles rate limiting
+      const batchPromises = batches.map(batch => {
         const projectsWhereClause = batch
           .map((id: number) => `{${PROJECT_FIELDS.RECORD_ID}.EX.${id}}`)
           .join('OR');
 
-        const batchResponse = await qbClient.queryRecords({
+        return qbClient.queryRecords({
           from: QB_TABLE_PROJECTS,
           select: [
             PROJECT_FIELDS.RECORD_ID,
@@ -353,9 +366,12 @@ export async function GET(req: Request) {
           ],
           where: projectsWhereClause
         });
+      });
 
-        allProjects.push(...batchResponse.data);
-      }
+      const batchResults = await Promise.all(batchPromises);
+      batchResults.forEach(response => {
+        allProjects.push(...response.data);
+      });
     } else {
       const projectsWhereClause = projectIds
         .map((id: number) => `{${PROJECT_FIELDS.RECORD_ID}.EX.${id}}`)
@@ -556,20 +572,25 @@ export async function GET(req: Request) {
       });
 
       checkTimeout(); // Check before submissions query
-      // Batch submissions query if we have many tasks
+      // Batch submissions query if we have many tasks - PARALLELIZE for performance
       if (taskIds.length > BATCH_SIZE) {
-        logInfo('[TASKS_API] Batching submissions query', {
-          batches: Math.ceil(taskIds.length / BATCH_SIZE),
+        const batches = [];
+        for (let i = 0; i < taskIds.length; i += BATCH_SIZE) {
+          batches.push(taskIds.slice(i, i + BATCH_SIZE));
+        }
+
+        logInfo('[TASKS_API] Batching submissions query (parallelized)', {
+          batches: batches.length,
           reqId
         });
 
-        for (let i = 0; i < taskIds.length; i += BATCH_SIZE) {
-          const batch = taskIds.slice(i, i + BATCH_SIZE);
+        // Execute all batches in parallel - QuickBase client handles rate limiting
+        const batchPromises = batches.map(batch => {
           const submissionsWhereClause = batch
             .map((id: number) => `{${TASK_SUBMISSION_FIELDS.RELATED_TASK}.EX.${id}}`)
             .join('OR');
 
-          const batchResponse = await qbClient.queryRecords({
+          return qbClient.queryRecords({
             from: QB_TABLE_TASK_SUBMISSIONS,
             select: [
               TASK_SUBMISSION_FIELDS.RECORD_ID,
@@ -582,7 +603,10 @@ export async function GET(req: Request) {
             ],
             where: submissionsWhereClause
           });
+        });
 
+        const batchResults = await Promise.all(batchPromises);
+        batchResults.forEach(batchResponse => {
           batchResponse.data.forEach((s: any) => {
             const taskId = s[TASK_SUBMISSION_FIELDS.RELATED_TASK]?.value;
             if (!taskId) return;
@@ -602,7 +626,7 @@ export async function GET(req: Request) {
             }
             submissionsMap.get(taskId)!.push(submission);
           });
-        }
+        });
       } else {
         const submissionsWhereClause = taskIds
           .map((id: number) => `{${TASK_SUBMISSION_FIELDS.RELATED_TASK}.EX.${id}}`)
