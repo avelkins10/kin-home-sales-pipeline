@@ -1200,7 +1200,7 @@ export async function getCrewPerformanceMetrics(filters: {
         JOIN arrivy_task_entities te ON te.arrivy_task_id = t.arrivy_task_id
         WHERE ev.event_type = 'TASK_RATING'
         AND ev.extra_fields->>'rating' IS NOT NULL
-        ${dateFilter.replace('s.reported_at', 'e.event_time')}
+        ${dateFilter.replace('s.reported_at', 'ev.event_time')}
         ${taskTypeFilter}
         GROUP BY entity_id
       ),
@@ -1229,7 +1229,7 @@ export async function getCrewPerformanceMetrics(filters: {
         JOIN arrivy_tasks t ON ev.arrivy_task_id = t.arrivy_task_id
         JOIN arrivy_task_entities te ON te.arrivy_task_id = t.arrivy_task_id
         WHERE ev.event_type IN ('EXCEPTION', 'NOSHOW')
-        ${dateFilter.replace('s.reported_at', 'e.event_time')}
+        ${dateFilter.replace('s.reported_at', 'ev.event_time')}
         ${taskTypeFilter}
         GROUP BY entity_id
       )
@@ -1379,7 +1379,7 @@ export async function getCrewTeamAverages(filters: {
         JOIN arrivy_task_entities te ON te.arrivy_task_id = t.arrivy_task_id
         WHERE ev.event_type = 'TASK_RATING'
         AND ev.extra_fields->>'rating' IS NOT NULL
-        ${dateFilter.replace('s.reported_at', 'e.event_time')}
+        ${dateFilter.replace('s.reported_at', 'ev.event_time')}
         ${taskTypeFilter}
         GROUP BY entity_id
       ),
@@ -1408,7 +1408,7 @@ export async function getCrewTeamAverages(filters: {
         JOIN arrivy_tasks t ON ev.arrivy_task_id = t.arrivy_task_id
         JOIN arrivy_task_entities te ON te.arrivy_task_id = t.arrivy_task_id
         WHERE ev.event_type IN ('EXCEPTION', 'NOSHOW')
-        ${dateFilter.replace('s.reported_at', 'e.event_time')}
+        ${dateFilter.replace('s.reported_at', 'ev.event_time')}
         ${taskTypeFilter}
         GROUP BY entity_id
       )
