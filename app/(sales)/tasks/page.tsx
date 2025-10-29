@@ -114,23 +114,23 @@ export default function TasksPage() {
       .filter((office): office is string => !!office)
   )).sort()
 
-  // Calculate status counts for tabs - ensure tasks is an array
-  const tasksForCounts = Array.isArray(tasks) ? tasks : []
+  // Ensure tasks is always an array (defensive programming)
+  const tasksArray = Array.isArray(tasks) ? tasks : []
+
+  // Calculate status counts for tabs
   const statusCounts = {
-    all: tasksForCounts.length,
-    actionable: tasksForCounts.filter((t: any) => {
+    all: tasksArray.length,
+    actionable: tasksArray.filter((t: any) => {
       const taskStatus = (t.status || '').toLowerCase().trim()
       return taskStatus !== 'approved' && taskStatus !== 'closed by ops'
     }).length,
-    not_started: tasksForCounts.filter((t: any) => (t.status || '').toLowerCase().trim() === 'not started').length,
-    in_progress: tasksForCounts.filter((t: any) => (t.status || '').toLowerCase().trim() === 'in progress').length,
-    approved: tasksForCounts.filter((t: any) => (t.status || '').toLowerCase().trim() === 'approved').length,
-    closed_by_ops: tasksForCounts.filter((t: any) => (t.status || '').toLowerCase().trim() === 'closed by ops').length,
+    not_started: tasksArray.filter((t: any) => (t.status || '').toLowerCase().trim() === 'not started').length,
+    in_progress: tasksArray.filter((t: any) => (t.status || '').toLowerCase().trim() === 'in progress').length,
+    approved: tasksArray.filter((t: any) => (t.status || '').toLowerCase().trim() === 'approved').length,
+    closed_by_ops: tasksArray.filter((t: any) => (t.status || '').toLowerCase().trim() === 'closed by ops').length,
   }
 
   // Filter tasks by selected closer, office, and status
-  // Ensure tasks is always an array before filtering
-  const tasksArray = Array.isArray(tasks) ? tasks : []
   const filteredTasks = tasksArray.filter((t: any) => {
     // Filter by closer
     if (selectedCloser !== 'all' && t.closerName !== selectedCloser) {
