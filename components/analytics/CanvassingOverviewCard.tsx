@@ -78,13 +78,26 @@ export function CanvassingOverviewCard({
   const isLoading = doorsLoading || appointmentsLoading;
   const hasError = doorsError || appointmentsError;
 
-  // Calculate metrics
-  const totalDoors = doorsData?.leaderboard?.reduce((sum: number, entry: any) => sum + (entry.metricValue || 0), 0) || 0;
-  const totalAppointments = appointmentsData?.leaderboard?.reduce((sum: number, entry: any) => sum + (entry.metricValue || 0), 0) || 0;
+  // Calculate metrics - handle empty leaderboard arrays
+  const doorsList = doorsData?.leaderboard || [];
+  const appointmentsList = appointmentsData?.leaderboard || [];
+  
+  const totalDoors = doorsList.reduce((sum: number, entry: any) => sum + (entry.metricValue || 0), 0);
+  const totalAppointments = appointmentsList.reduce((sum: number, entry: any) => sum + (entry.metricValue || 0), 0);
   const conversionRate = totalDoors > 0 ? (totalAppointments / totalDoors) * 100 : 0;
   
-  // Count unique active reps from doors data
-  const activeReps = new Set(doorsData?.leaderboard?.map((entry: any) => entry.userId)).size || 0;
+  // Count unique active reps from doors data (users with metricValue > 0)
+  const activeReps = new Set(doorsList.filter((e: any) => e.metricValue > 0).map((entry: any) => entry.userId)).size;
+  
+  // Debug logging
+  if (doorsList.length === 0 && !doorsLoading && !doorsError) {
+    console.log('[CanvassingOverview] ⚠️ Empty leaderboard received for doors_knocked');
+    console.log('[CanvassingOverview] Response:', doorsData);
+  }
+  if (appointmentsList.length === 0 && !appointmentsLoading && !appointmentsError) {
+    console.log('[CanvassingOverview] ⚠️ Empty leaderboard received for appointments_set');
+    console.log('[CanvassingOverview] Response:', appointmentsData);
+  }
 
   if (hasError) {
     return (
