@@ -139,6 +139,9 @@ export function FieldTrackingTaskCard({ task, onClick, crewMembers = [] }: Field
             <div className="flex items-center text-sm text-gray-600">
               <Clock className="mr-2 h-4 w-4" />
               {format(new Date(task.scheduled_start), 'MMM d, yyyy h:mm a')}
+              <span className="text-xs text-gray-500 ml-1">
+                ({Intl.DateTimeFormat().resolvedOptions().timeZone})
+              </span>
             </div>
           )}
 
@@ -158,7 +161,7 @@ export function FieldTrackingTaskCard({ task, onClick, crewMembers = [] }: Field
 
           {task.latest_status && task.latest_status_time && (
             <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
-              Last update: {task.latest_status} at {format(new Date(task.latest_status_time), 'h:mm a')}
+              Last update: {task.latest_status} at {format(new Date(task.latest_status_time), 'MMM d, h:mm a')}
             </div>
           )}
 

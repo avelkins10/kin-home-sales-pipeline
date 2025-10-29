@@ -18,7 +18,7 @@ export default function SchedulingPage() {
     status: (searchParams.get('status') as any) || 'all',
     taskType: (searchParams.get('taskType') as any) || 'all',
     crewMember: searchParams.get('crewMember') || 'all',
-    dateFilter: (searchParams.get('dateFilter') as any) || 'today',
+    dateFilter: (searchParams.get('dateFilter') as any) || 'all', // Changed from 'today' to 'all' to show all tasks by default
     sortBy: (searchParams.get('sortBy') as any) || 'scheduled_start',
     sortOrder: (searchParams.get('sortOrder') as any) || 'asc',
   });

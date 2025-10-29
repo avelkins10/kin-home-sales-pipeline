@@ -158,35 +158,60 @@ export async function GET(req: Request) {
     const sortBy = searchParams.get('sortBy') || 'scheduled_start';
     const sortOrder = searchParams.get('sortOrder') || 'asc';
 
-    // Convert date filter to date range
+    // Convert date filter to date range (using UTC to match database timestamps)
     let dateRange: { start: Date; end: Date } | undefined;
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000 - 1);
+
+    // Get current date components in UTC
+    const utcYear = now.getUTCFullYear();
+    const utcMonth = now.getUTCMonth();
+    const utcDate = now.getUTCDate();
 
     switch (dateFilter) {
       case 'today':
+        // Create UTC date range for today (00:00:00 to 23:59:59.999 UTC)
+        const todayStart = new Date(Date.UTC(utcYear, utcMonth, utcDate, 0, 0, 0, 0));
+        const todayEnd = new Date(Date.UTC(utcYear, utcMonth, utcDate, 23, 59, 59, 999));
         dateRange = { start: todayStart, end: todayEnd };
         break;
       case 'tomorrow':
-        const tomorrowStart = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
-        const tomorrowEnd = new Date(tomorrowStart.getTime() + 24 * 60 * 60 * 1000 - 1);
+        // Create UTC date range for tomorrow
+        const tomorrowStart = new Date(Date.UTC(utcYear, utcMonth, utcDate + 1, 0, 0, 0, 0));
+        const tomorrowEnd = new Date(Date.UTC(utcYear, utcMonth, utcDate + 1, 23, 59, 59, 999));
         dateRange = { start: tomorrowStart, end: tomorrowEnd };
         break;
       case 'this_week':
-        const weekStart = new Date(todayStart);
-        weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Start of week (Sunday)
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekEnd.getDate() + 7);
+        // Start of week (Sunday) in UTC
+        const todayUTC = new Date(Date.UTC(utcYear, utcMonth, utcDate, 0, 0, 0, 0));
+        const dayOfWeek = todayUTC.getUTCDay();
+        const weekStart = new Date(Date.UTC(utcYear, utcMonth, utcDate - dayOfWeek, 0, 0, 0, 0));
+        const weekEnd = new Date(Date.UTC(utcYear, utcMonth, utcDate + (6 - dayOfWeek), 23, 59, 59, 999));
         dateRange = { start: weekStart, end: weekEnd };
         break;
       case 'overdue':
-        dateRange = { start: new Date('2020-01-01'), end: new Date(now.getTime() - 1) };
+        // Tasks scheduled before today
+        const beforeToday = new Date(Date.UTC(utcYear, utcMonth, utcDate, 0, 0, 0, 0));
+        dateRange = { start: new Date('2020-01-01'), end: beforeToday };
         break;
       case 'all':
       default:
         dateRange = undefined;
         break;
+    }
+
+    // Log filter parameters for debugging (helps diagnose timezone issues)
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[Field Tracking Dashboard] Filter params:', {
+        dateFilter,
+        dateRange: dateRange ? {
+          start: dateRange.start.toISOString(),
+          end: dateRange.end.toISOString(),
+        } : null,
+        search,
+        status,
+        taskType,
+        crewMember,
+      });
     }
 
     // Create cache key based on filters
