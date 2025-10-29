@@ -62,8 +62,6 @@ export default function TriggerSyncPage() {
 
       const data = await response.json();
 
-      mock_data = await response.json();
-
       if (response.ok && data.success) {
         setResult({ message: data.message, type: 'link' });
       } else {
