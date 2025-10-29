@@ -148,6 +148,7 @@ export async function GET(req: Request) {
     // Parse query parameters for filtering
     const { searchParams } = new URL(req.url);
     const range = searchParams.get('range') || 'all'; // all, ytd, 90, 30 - default to 'all' to show all tasks
+    const actionableOnly = searchParams.get('actionable') !== 'false'; // Default to true for faster initial load
 
     // QuickBase table IDs
     const QB_TABLE_PROJECTS = (process.env.QUICKBASE_TABLE_PROJECTS || 'br9kwm8na').trim();
@@ -178,10 +179,20 @@ export async function GET(req: Request) {
 
     // STEP 1: Query incomplete tasks first (task-first strategy)
     // This is the key optimization - we query tasks directly instead of projects
-    const tasksWhereClause = `{${TASK_FIELDS.STATUS}.XEX.'Completed'}${dateFilter}`;
+    // FILTER AT API LEVEL for performance: exclude Completed, and optionally Approved/Closed by Ops
+    let statusFilter = `{${TASK_FIELDS.STATUS}.XEX.'Completed'}`;
+    
+    if (actionableOnly) {
+      // Exclude Completed, Approved, and Closed by Ops - only fetch actionable tasks
+      // This significantly reduces data transfer and speeds up initial load
+      statusFilter = `{${TASK_FIELDS.STATUS}.XEX.'Completed'}AND{${TASK_FIELDS.STATUS}.XEX.'Approved'}AND{${TASK_FIELDS.STATUS}.XEX.'Closed by Ops'}`;
+    }
+    
+    const tasksWhereClause = `${statusFilter}${dateFilter}`;
 
-    logInfo('[TASKS_API] Querying incomplete tasks', {
+    logInfo('[TASKS_API] Querying tasks', {
       range,
+      actionableOnly,
       dateFilter,
       tasksWhereClause,
       reqId

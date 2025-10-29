@@ -29,12 +29,28 @@ export default function TasksPage() {
   // Tab state: 'open' shows active tasks, 'pending-cancel' shows cancelled/pending cancel tasks
   const [activeTab, setActiveTab] = useState<'open' | 'pending-cancel'>('open')
 
-  // Fetch all tasks for current user with date range filter
+  // Fetch tasks for current user with date range and actionable filters
   // IMPORTANT: Must call all hooks before any early returns (Rules of Hooks)
+  // By default, fetch actionable tasks only (faster initial load) - excludes Approved/Closed by Ops
+  // When user selects "All", "Approved", or "Closed by Ops", fetch all tasks
+  const shouldFetchAllTasks = selectedStatus === 'all' || selectedStatus === 'approved' || selectedStatus === 'closed_by_ops'
+  
   const { data: tasksData, isLoading, error } = useQuery({
-    queryKey: ['tasks', dateRange],
+    queryKey: ['tasks', dateRange, shouldFetchAllTasks],
     queryFn: async () => {
-      const url = `/api/tasks${dateRange !== 'all' ? `?range=${dateRange}` : ''}`
+      const params = new URLSearchParams()
+      if (dateRange !== 'all') {
+        params.set('range', dateRange)
+      }
+      // Filter at API level for performance: actionable=true excludes Approved/Closed by Ops
+      // This reduces data transfer and speeds up initial load significantly
+      if (!shouldFetchAllTasks) {
+        params.set('actionable', 'true') // Default: faster, only actionable tasks
+      } else {
+        params.set('actionable', 'false') // User wants to see all including approved/closed
+      }
+      
+      const url = `/api/tasks${params.toString() ? `?${params.toString()}` : ''}`
       const response = await fetch(url)
       if (!response.ok) {
         throw new Error('Failed to fetch tasks')
