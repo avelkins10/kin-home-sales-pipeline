@@ -401,11 +401,16 @@ export async function syncAppointments(options: {
 
         // Batch check which users already exist
         if (userIds.size > 0) {
-          const existingUsers = await sql`
-            SELECT repcard_user_id FROM users 
-            WHERE repcard_user_id = ANY(${Array.from(userIds).map(String)}::text[])
-          `;
-          const existingIds = new Set(existingUsers.map((u: any) => u.repcard_user_id));
+          try {
+            const existingUsersResult = await sql`
+              SELECT repcard_user_id FROM users 
+              WHERE repcard_user_id = ANY(${Array.from(userIds).map(String)}::text[])
+            `;
+            // Handle @vercel/postgres result format
+            const existingUsers = Array.isArray(existingUsersResult) 
+              ? existingUsersResult 
+              : (existingUsersResult.rows || []);
+            const existingIds = new Set(existingUsers.map((u: any) => u?.repcard_user_id).filter(Boolean));
           
           // Only enrich users that don't exist yet (limit to avoid timeout)
           const idsToEnrich = Array.from(userIds).filter(id => !existingIds.has(id.toString())).slice(0, 10);
@@ -490,17 +495,45 @@ export async function syncAppointments(options: {
             const closerUserId = appointment.closerId; // closer (who runs the appointment)
 
             // Get office_id from customer, setter, or closer (order of preference)
-            // Use safe optional chaining for userId and closerId
-            const officeResult = await sql`
-              SELECT 
-                COALESCE(
-                  (SELECT office_id FROM repcard_customers WHERE repcard_customer_id = ${appointment.contact.id} LIMIT 1),
-                  ${appointment.userId ? sql`(SELECT office_id FROM repcard_users WHERE repcard_user_id = ${appointment.userId} LIMIT 1)` : sql`NULL`},
-                  ${appointment.closerId ? sql`(SELECT office_id FROM repcard_users WHERE repcard_user_id = ${appointment.closerId} LIMIT 1)` : sql`NULL`}
-                ) as office_id
+            // Handle optional userId and closerId safely
+            let officeId: number | null = null;
+            
+            // Try customer first
+            const customerOfficeResult = await sql`
+              SELECT office_id FROM repcard_customers 
+              WHERE repcard_customer_id = ${appointment.contact.id} 
+              LIMIT 1
             `;
-            const officeRows = officeResult.rows || officeResult;
-            const officeId = officeRows.length > 0 ? officeRows[0].office_id : null;
+            const customerOfficeRows = customerOfficeResult.rows || customerOfficeResult;
+            if (customerOfficeRows.length > 0 && customerOfficeRows[0].office_id) {
+              officeId = customerOfficeRows[0].office_id;
+            }
+            
+            // Try setter if no customer office
+            if (!officeId && appointment.userId) {
+              const setterOfficeResult = await sql`
+                SELECT office_id FROM repcard_users 
+                WHERE repcard_user_id = ${appointment.userId} 
+                LIMIT 1
+              `;
+              const setterOfficeRows = setterOfficeResult.rows || setterOfficeResult;
+              if (setterOfficeRows.length > 0 && setterOfficeRows[0].office_id) {
+                officeId = setterOfficeRows[0].office_id;
+              }
+            }
+            
+            // Try closer if still no office
+            if (!officeId && appointment.closerId) {
+              const closerOfficeResult = await sql`
+                SELECT office_id FROM repcard_users 
+                WHERE repcard_user_id = ${appointment.closerId} 
+                LIMIT 1
+              `;
+              const closerOfficeRows = closerOfficeResult.rows || closerOfficeResult;
+              if (closerOfficeRows.length > 0 && closerOfficeRows[0].office_id) {
+                officeId = closerOfficeRows[0].office_id;
+              }
+            }
 
             // Calculate is_within_48_hours if we have customer data
             let isWithin48Hours = false;
