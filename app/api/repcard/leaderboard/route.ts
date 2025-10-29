@@ -319,37 +319,27 @@ export async function GET(request: NextRequest) {
       const repcardUserIds = (users as any[]).map((u: any) => u.repcard_user_id);
       
       if (metric === 'doors_knocked') {
-        // Fetch customers with pagination and date filtering
-        const allCustomers: any[] = [];
-        let page = 1;
-        let hasMore = true;
+        // Query database for customers (much faster than API, no rate limits)
+        const customerCountsRaw = await sql`
+          SELECT
+            setter_user_id,
+            COUNT(*) as count
+          FROM repcard_customers
+          WHERE setter_user_id = ANY(${repcardUserIds.map(String)}::text[])
+            AND created_at >= ${calculatedStartDate}::timestamp
+            AND created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day')
+          GROUP BY setter_user_id
+        `;
+        const customerCounts = Array.from(customerCountsRaw);
 
-        while (hasMore) {
-          const response = await repcardClient.getCustomers({
-            page,
-            perPage: 100,
-            startDate: calculatedStartDate,
-            endDate: calculatedEndDate
-          });
-
-          // LOG SAMPLE CUSTOMER DATA FOR USER TO REVIEW
-          if (page === 1 && response.result.data.length > 0) {
-            console.log(`[Leaderboard - doors_knocked] === SAMPLE CUSTOMER DATA (first 3) ===`);
-            console.log(JSON.stringify(response.result.data.slice(0, 3), null, 2));
-            console.log(`[Leaderboard - doors_knocked] === END SAMPLE DATA ===`);
-          }
-
-          allCustomers.push(...response.result.data);
-          hasMore = response.result.currentPage < response.result.lastPage;
-          page++;
-        }
+        // Create lookup map for fast access
+        const countsMap = new Map(
+          customerCounts.map((row: any) => [row.setter_user_id, parseInt(row.count)])
+        );
 
         // Count customers per user (doors knocked = customers created by user)
         leaderboardEntries = (users as any[]).map((user: any) => {
-          // Filter by userId (the person who created/knocked the door)
-          const userCustomers = allCustomers.filter((c: any) =>
-            c.userId?.toString() === user.repcard_user_id?.toString()
-          ) || [];
+          const count = countsMap.get(user.repcard_user_id?.toString()) || 0;
           return {
             rank: 0,
             userId: user.id,
@@ -357,39 +347,31 @@ export async function GET(request: NextRequest) {
             userEmail: user.email,
             office: user.office,
             role: user.role,
-            metricValue: userCustomers.length,
+            metricValue: count,
             metricType: metric
           };
         });
       } else if (metric === 'appointments_set') {
-        // Fetch appointments with pagination
-        const allAppointments: any[] = [];
-        let page = 1;
-        let hasMore = true;
-        
-        while (hasMore) {
-          const response = await repcardClient.getAppointments({
-            setterIds: repcardUserIds.join(','),
-            fromDate: calculatedStartDate,
-            toDate: calculatedEndDate,
-            page,
-            perPage: 100
-          });
+        // Query database for appointments (much faster than API, no rate limits)
+        const appointmentCountsRaw = await sql`
+          SELECT
+            setter_user_id,
+            COUNT(*) as count
+          FROM repcard_appointments
+          WHERE setter_user_id = ANY(${repcardUserIds.map(String)}::text[])
+            AND appointment_date >= ${calculatedStartDate}::date
+            AND appointment_date <= ${calculatedEndDate}::date
+          GROUP BY setter_user_id
+        `;
+        const appointmentCounts = Array.from(appointmentCountsRaw);
 
-          // LOG SAMPLE APPOINTMENT DATA FOR USER TO REVIEW
-          if (page === 1 && response.result.data.length > 0) {
-            console.log(`[Leaderboard - appointments_set] === SAMPLE APPOINTMENT DATA (first 3) ===`);
-            console.log(JSON.stringify(response.result.data.slice(0, 3), null, 2));
-            console.log(`[Leaderboard - appointments_set] === END SAMPLE DATA ===`);
-          }
+        // Create lookup map for fast access
+        const countsMap = new Map(
+          appointmentCounts.map((row: any) => [row.setter_user_id, parseInt(row.count)])
+        );
 
-          allAppointments.push(...response.result.data);
-          hasMore = response.result.currentPage < (response.result.totalPages || 1);
-          page++;
-        }
-        
         leaderboardEntries = (users as any[]).map((user: any) => {
-          const userAppointments = allAppointments.filter((a: any) => a.userId === user.repcard_user_id) || [];
+          const count = countsMap.get(user.repcard_user_id?.toString()) || 0;
           return {
             rank: 0,
             userId: user.id,
@@ -397,7 +379,7 @@ export async function GET(request: NextRequest) {
             userEmail: user.email,
             office: user.office,
             role: user.role,
-            metricValue: userAppointments.length,
+            metricValue: count,
             metricType: metric
           };
         });
