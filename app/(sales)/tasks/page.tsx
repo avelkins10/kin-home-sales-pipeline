@@ -111,30 +111,36 @@ export default function TasksPage() {
   }
 
   // Extract unique closers and offices for filters (use allTasks for filter options)
-  const uniqueClosers = Array.from(new Set(
-    allTasks
-      .map((t: any) => t.closerName)
-      .filter((name): name is string => !!name)
-  )).sort()
+  const uniqueClosers = useMemo(() => {
+    return Array.from(new Set(
+      allTasks
+        .map((t: any) => t.closerName)
+        .filter((name): name is string => !!name)
+    )).sort()
+  }, [allTasks])
 
-  const uniqueOffices = Array.from(new Set(
-    allTasks
-      .map((t: any) => t.salesOffice)
-      .filter((office): office is string => !!office)
-  )).sort()
+  const uniqueOffices = useMemo(() => {
+    return Array.from(new Set(
+      allTasks
+        .map((t: any) => t.salesOffice)
+        .filter((office): office is string => !!office)
+    )).sort()
+  }, [allTasks])
 
   // Calculate status counts for tabs
-  const statusCounts = {
-    all: tasksArray.length,
-    actionable: tasksArray.filter((t: any) => {
-      const taskStatus = (t.status || '').toLowerCase().trim()
-      return taskStatus !== 'approved' && taskStatus !== 'closed by ops'
-    }).length,
-    not_started: tasksArray.filter((t: any) => (t.status || '').toLowerCase().trim() === 'not started').length,
-    in_progress: tasksArray.filter((t: any) => (t.status || '').toLowerCase().trim() === 'in progress').length,
-    approved: tasksArray.filter((t: any) => (t.status || '').toLowerCase().trim() === 'approved').length,
-    closed_by_ops: tasksArray.filter((t: any) => (t.status || '').toLowerCase().trim() === 'closed by ops').length,
-  }
+  const statusCounts = useMemo(() => {
+    return {
+      all: tasksArray.length,
+      actionable: tasksArray.filter((t: any) => {
+        const taskStatus = (t.status || '').toLowerCase().trim()
+        return taskStatus !== 'approved' && taskStatus !== 'closed by ops'
+      }).length,
+      not_started: tasksArray.filter((t: any) => (t.status || '').toLowerCase().trim() === 'not started').length,
+      in_progress: tasksArray.filter((t: any) => (t.status || '').toLowerCase().trim() === 'in progress').length,
+      approved: tasksArray.filter((t: any) => (t.status || '').toLowerCase().trim() === 'approved').length,
+      closed_by_ops: tasksArray.filter((t: any) => (t.status || '').toLowerCase().trim() === 'closed by ops').length,
+    }
+  }, [tasksArray])
 
   // Filter tasks by selected closer, office, and status
   const filteredTasks = useMemo(() => {
