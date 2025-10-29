@@ -6,9 +6,10 @@ import { requireAuth } from '@/lib/auth/guards';
 import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
 import { arrivyClient } from '@/lib/integrations/arrivy/client';
 import { getBusinessTrackerUrl } from '@/lib/integrations/arrivy';
-import { 
-  getArrivyTaskByProjectId, 
+import {
+  getArrivyTaskByProjectId,
   getArrivyTaskByArrivyId,
+  getArrivyTaskById,
   getTaskStatusHistory,
   getArrivyEventsForTask,
   deleteArrivyTask,
@@ -53,20 +54,28 @@ export async function GET(
 
     const taskId = params.id;
 
-    // Try to fetch task (check if it's a project ID or Arrivy task ID)
-    let task = await getArrivyTaskByProjectId(taskId);
-    
+    // Try to fetch task (check if it's a database ID, project ID, or Arrivy task ID)
+    let task = null;
+
+    // First, try as database ID (most common case now)
+    const dbId = parseInt(taskId, 10);
+    if (!isNaN(dbId)) {
+      task = await getArrivyTaskById(dbId);
+    }
+
+    // Fallback: try as QuickBase project ID (for backward compatibility)
     if (!task) {
-      // Try as Arrivy task ID
-      const arrivyTaskId = parseInt(taskId, 10);
-      if (!isNaN(arrivyTaskId)) {
-        task = await getArrivyTaskByArrivyId(arrivyTaskId);
-      }
+      task = await getArrivyTaskByProjectId(taskId);
+    }
+
+    // Fallback: try as Arrivy task ID (for backward compatibility)
+    if (!task && !isNaN(dbId)) {
+      task = await getArrivyTaskByArrivyId(dbId);
     }
 
     if (!task) {
-      return NextResponse.json({ 
-        error: 'Task not found' 
+      return NextResponse.json({
+        error: 'Task not found'
       }, { status: 404 });
     }
 

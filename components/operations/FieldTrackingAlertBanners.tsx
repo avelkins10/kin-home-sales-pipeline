@@ -43,7 +43,7 @@ export function FieldTrackingAlertBanners({ tasks, onTaskClick }: FieldTrackingA
                   {lateTasks.slice(0, 3).map((task) => (
                     <button
                       key={task.id}
-                      onClick={() => onTaskClick(task.quickbase_project_id || '')}
+                      onClick={() => onTaskClick(task.id.toString())}
                       className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-gray-800 border border-red-300 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors text-sm"
                     >
                       <Clock className="h-3 w-3" />
@@ -87,7 +87,7 @@ export function FieldTrackingAlertBanners({ tasks, onTaskClick }: FieldTrackingA
                   {noshowTasks.slice(0, 3).map((task) => (
                     <button
                       key={task.id}
-                      onClick={() => onTaskClick(task.quickbase_project_id || '')}
+                      onClick={() => onTaskClick(task.id.toString())}
                       className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-gray-800 border border-orange-300 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors text-sm"
                     >
                       <Phone className="h-3 w-3" />
@@ -131,7 +131,7 @@ export function FieldTrackingAlertBanners({ tasks, onTaskClick }: FieldTrackingA
                   {exceptionTasks.slice(0, 3).map((task) => (
                     <button
                       key={task.id}
-                      onClick={() => onTaskClick(task.quickbase_project_id || '')}
+                      onClick={() => onTaskClick(task.id.toString())}
                       className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-gray-800 border border-yellow-300 rounded-lg hover:bg-yellow-100 dark:hover:bg-yellow-900/30 transition-colors text-sm"
                     >
                       <AlertTriangle className="h-3 w-3" />

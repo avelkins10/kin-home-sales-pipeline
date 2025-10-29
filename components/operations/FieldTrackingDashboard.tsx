@@ -248,7 +248,7 @@ export function FieldTrackingDashboard({ data, filters, onFilterChange, isLoadin
                 key={task.id}
                 task={task}
                 crewMembers={entities}
-                onClick={() => setSelectedTaskId(task.quickbase_project_id)}
+                onClick={() => setSelectedTaskId(task.id.toString())}
               />
             ))
           )}

@@ -156,7 +156,7 @@ export async function GET(req: Request) {
     const crewMember = searchParams.get('crewMember') === 'all' ? undefined : searchParams.get('crewMember') || undefined;
     const dateFilter = searchParams.get('dateFilter') || 'today';
     const sortBy = searchParams.get('sortBy') || 'scheduled_start';
-    const sortOrder = searchParams.get('sortOrder') || 'asc';
+    const sortOrder = searchParams.get('sortOrder') || 'desc'; // Changed from 'asc' to 'desc' to show newest tasks first
 
     // Convert date filter to date range (using UTC to match database timestamps)
     let dateRange: { start: Date; end: Date } | undefined;

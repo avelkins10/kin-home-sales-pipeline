@@ -76,9 +76,11 @@ export function FieldTrackingDetailModal({ taskId, onClose }: FieldTrackingDetai
   }, [taskId]);
 
   const copyTrackerUrl = () => {
-    if (details?.task.tracker_url) {
-      navigator.clipboard.writeText(details.task.tracker_url);
-      toast.success('Tracker URL copied to clipboard');
+    // Use business tracker URL for internal operations
+    const urlToCopy = details?.task.business_tracker_url || details?.task.tracker_url;
+    if (urlToCopy) {
+      navigator.clipboard.writeText(urlToCopy);
+      toast.success('Business tracker URL copied to clipboard');
     }
   };
 
@@ -182,7 +184,7 @@ export function FieldTrackingDetailModal({ taskId, onClose }: FieldTrackingDetai
                     View Internal Tracker
                   </Button>
                 )}
-                {details.task.tracker_url && (
+                {(details.task.business_tracker_url || details.task.tracker_url) && (
                   <Button
                     variant="outline"
                     size="lg"
@@ -190,7 +192,7 @@ export function FieldTrackingDetailModal({ taskId, onClose }: FieldTrackingDetai
                     className="w-full"
                   >
                     <Copy className="mr-2 h-5 w-5" />
-                    Copy Link
+                    Copy Business Link
                   </Button>
                 )}
               </div>
@@ -219,8 +221,12 @@ export function FieldTrackingDetailModal({ taskId, onClose }: FieldTrackingDetai
 
             {/* Tabs */}
             <Tabs defaultValue="overview" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="journal">
+                  Journal {(details.statusHistory.filter(s => s.notes).length + details.customerNotes.length) > 0 &&
+                    `(${details.statusHistory.filter(s => s.notes).length + details.customerNotes.length})`}
+                </TabsTrigger>
                 <TabsTrigger value="timeline">Timeline</TabsTrigger>
                 <TabsTrigger value="photos">
                   Photos {details.attachments.length > 0 && `(${details.attachments.length})`}
@@ -378,6 +384,87 @@ export function FieldTrackingDetailModal({ taskId, onClose }: FieldTrackingDetai
                 </Card>
               </TabsContent>
 
+              {/* Journal Tab */}
+              <TabsContent value="journal" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Task Journal</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {(() => {
+                      // Combine status notes and customer notes
+                      const statusNotes = details.statusHistory
+                        .filter(s => s.notes)
+                        .map(s => ({
+                          type: 'status' as const,
+                          timestamp: new Date(s.reported_at),
+                          user: s.reporter_name || 'Unknown',
+                          statusType: s.status_type,
+                          message: s.notes!,
+                          id: `status-${s.id}`,
+                        }));
+
+                      const customerNoteEntries = details.customerNotes.map(n => ({
+                        type: 'customer' as const,
+                        timestamp: new Date(n.created_at),
+                        user: n.customer_name || 'Customer',
+                        message: n.note,
+                        id: `note-${n.event_id}`,
+                      }));
+
+                      // Combine and sort by timestamp (newest first)
+                      const allEntries = [...statusNotes, ...customerNoteEntries]
+                        .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
+                      if (allEntries.length === 0) {
+                        return <p className="text-gray-500 text-sm">No journal entries yet</p>;
+                      }
+
+                      return (
+                        <div className="space-y-4">
+                          {allEntries.map((entry) => (
+                            <div key={entry.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                              <div className="flex items-start gap-3">
+                                <Avatar className="h-10 w-10 flex-shrink-0">
+                                  <AvatarFallback className={
+                                    entry.type === 'customer'
+                                      ? 'bg-blue-100 text-blue-700'
+                                      : 'bg-gray-100 text-gray-700'
+                                  }>
+                                    {getInitials(entry.user)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="font-medium text-sm">{entry.user}</span>
+                                    {entry.type === 'status' && entry.statusType && (
+                                      <Badge variant="outline" className="text-xs">
+                                        {entry.statusType}
+                                      </Badge>
+                                    )}
+                                    {entry.type === 'customer' && (
+                                      <Badge variant="outline" className="text-xs bg-blue-50">
+                                        Customer Note
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-gray-500 mb-2">
+                                    {format(entry.timestamp, 'EEEE, MMMM d, yyyy at h:mm a')}
+                                  </p>
+                                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                                    {entry.message}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
               {/* Timeline Tab */}
               <TabsContent value="timeline" className="space-y-4">
                 <Card>
@@ -468,10 +555,13 @@ export function FieldTrackingDetailModal({ taskId, onClose }: FieldTrackingDetai
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => details.task.tracker_url && window.open(details.task.tracker_url, '_blank')}
-                                disabled={!details.task.tracker_url}
+                                onClick={() => {
+                                  const trackerUrl = details.task.business_tracker_url || details.task.tracker_url;
+                                  if (trackerUrl) window.open(trackerUrl, '_blank');
+                                }}
+                                disabled={!details.task.business_tracker_url && !details.task.tracker_url}
                                 className="w-full"
-                                title={!details.task.tracker_url ? 'Tracker link not available' : undefined}
+                                title={!details.task.business_tracker_url && !details.task.tracker_url ? 'Tracker link not available' : undefined}
                               >
                                 <ExternalLink className="mr-2 h-3 w-3" />
                                 View in Arrivy

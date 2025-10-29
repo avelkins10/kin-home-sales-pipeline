@@ -158,6 +158,24 @@ export async function getArrivyTaskByArrivyId(arrivyTaskId: number): Promise<Arr
 }
 
 /**
+ * Get Arrivy task by database ID
+ */
+export async function getArrivyTaskById(id: number): Promise<ArrivyTaskRecord | null> {
+  try {
+    const result = await sql<ArrivyTaskRecord>`
+      SELECT * FROM arrivy_tasks
+      WHERE id = ${id}
+      LIMIT 1
+    `;
+
+    return result.rows[0] || null;
+  } catch (error) {
+    logError('Failed to get Arrivy task by database ID', error as Error, { id });
+    throw error;
+  }
+}
+
+/**
  * Update Arrivy task status
  */
 export async function updateArrivyTaskStatus(arrivyTaskId: number, status: string): Promise<void> {
