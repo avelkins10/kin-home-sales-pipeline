@@ -68,17 +68,26 @@ export default function TasksPage() {
     enabled: status !== 'loading' && !!session, // Only run query when session is ready
   })
 
-  // Get tasks based on active tab
-  const tasks = activeTab === 'open' 
-    ? (tasksData?.activeTasks || [])
-    : (tasksData?.cancelledAndPendingCancelTasks || [])
+  // Get tasks based on active tab - memoize to ensure stability
+  const tasks = useMemo(() => {
+    return activeTab === 'open' 
+      ? (tasksData?.activeTasks || [])
+      : (tasksData?.cancelledAndPendingCancelTasks || [])
+  }, [activeTab, tasksData?.activeTasks, tasksData?.cancelledAndPendingCancelTasks])
   
   // Fallback to allTasks for backward compatibility - ensure it's always an array
-  const allTasks = Array.isArray(tasksData?.allTasks) 
-    ? tasksData.allTasks 
-    : Array.isArray(tasksData) 
-      ? tasksData 
-      : []
+  const allTasks = useMemo(() => {
+    return Array.isArray(tasksData?.allTasks) 
+      ? tasksData.allTasks 
+      : Array.isArray(tasksData) 
+        ? tasksData 
+        : []
+  }, [tasksData])
+  
+  // Ensure tasks is always an array (defensive programming)
+  const tasksArray = useMemo(() => {
+    return Array.isArray(tasks) ? tasks : []
+  }, [tasks])
 
   if (status === 'loading') {
     return <TasksPageSkeleton />
@@ -113,9 +122,6 @@ export default function TasksPage() {
       .map((t: any) => t.salesOffice)
       .filter((office): office is string => !!office)
   )).sort()
-
-  // Ensure tasks is always an array (defensive programming)
-  const tasksArray = Array.isArray(tasks) ? tasks : []
 
   // Calculate status counts for tabs
   const statusCounts = {
