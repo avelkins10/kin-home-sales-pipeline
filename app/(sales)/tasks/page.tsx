@@ -3,8 +3,8 @@
 import { useSession } from 'next-auth/react'
 import { redirect } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
-import { AlertTriangle, CheckCircle, Clock, Filter, Grid3x3, List, Building2 } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { AlertTriangle, CheckCircle, Clock, Filter, Grid3x3, List, Building2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import { TaskList } from '@/components/tasks/TaskList'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -12,10 +12,12 @@ import { cn } from '@/lib/utils/cn'
 import { getTaskUrgency } from '@/lib/utils/task-urgency'
 
 type GroupBy = 'none' | 'project' | 'urgency' | 'office'
+type SortBy = 'urgency' | 'date-newest' | 'date-oldest' | 'name'
 
 export default function TasksPage() {
   const { data: session, status } = useSession()
   const [groupBy, setGroupBy] = useState<GroupBy>('urgency')
+  const [sortBy, setSortBy] = useState<SortBy>('urgency')
   const [selectedCloser, setSelectedCloser] = useState<string>('all')
   const [selectedOffice, setSelectedOffice] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
@@ -109,6 +111,42 @@ export default function TasksPage() {
     return true
   })
 
+  // Apply sorting to filtered tasks
+  const sortedTasks = useMemo(() => {
+    let sorted = [...filteredTasks]
+    
+    switch (sortBy) {
+      case 'date-newest':
+        sorted.sort((a, b) => {
+          const dateA = a.dateCreated ? new Date(a.dateCreated).getTime() : 0
+          const dateB = b.dateCreated ? new Date(b.dateCreated).getTime() : 0
+          return dateB - dateA // Newest first
+        })
+        break
+      case 'date-oldest':
+        sorted.sort((a, b) => {
+          const dateA = a.dateCreated ? new Date(a.dateCreated).getTime() : 0
+          const dateB = b.dateCreated ? new Date(b.dateCreated).getTime() : 0
+          return dateA - dateB // Oldest first
+        })
+        break
+      case 'name':
+        sorted.sort((a, b) => {
+          const nameA = (a.name || '').toLowerCase()
+          const nameB = (b.name || '').toLowerCase()
+          return nameA.localeCompare(nameB)
+        })
+        break
+      case 'urgency':
+      default:
+        // Sort by urgency (handled by TaskList component when groupBy='urgency')
+        // For other groupBy modes, use default order
+        break
+    }
+    
+    return sorted
+  }, [filteredTasks, sortBy])
+
   // Calculate stats from filtered tasks
   const totalIncompleteTasks = filteredTasks.filter((task: any) => {
     const taskStatus = (task.status || '').toLowerCase().trim()
@@ -120,7 +158,13 @@ export default function TasksPage() {
     return taskStatus === 'approved'
   }).length
   
+  // Only count INCOMPLETE tasks waiting >7 days (exclude approved/closed)
   const totalTasksWaitingOver7Days = filteredTasks.filter((task: any) => {
+    const taskStatus = (task.status || '').toLowerCase().trim()
+    // Exclude approved and closed tasks - they're not "waiting"
+    if (taskStatus === 'approved' || taskStatus === 'closed by ops') {
+      return false
+    }
     const daysWaiting = task.dateCreated
       ? Math.ceil((Date.now() - new Date(task.dateCreated).getTime()) / (1000 * 60 * 60 * 24))
       : 0
@@ -324,8 +368,59 @@ export default function TasksPage() {
               <List className="w-4 h-4 mr-1.5" />
               List
             </Button>
+            </div>
           </div>
-        </div>
+
+          {/* Sort by */}
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm font-medium text-gray-700">Sort by:</span>
+            <div className="flex items-center gap-2">
+            <Button
+              variant={sortBy === 'urgency' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSortBy('urgency')}
+              className={cn(
+                sortBy === 'urgency' && 'bg-blue-600 hover:bg-blue-700'
+              )}
+            >
+              <AlertTriangle className="w-4 h-4 mr-1.5" />
+              Urgency
+            </Button>
+            <Button
+              variant={sortBy === 'date-newest' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSortBy('date-newest')}
+              className={cn(
+                sortBy === 'date-newest' && 'bg-blue-600 hover:bg-blue-700'
+              )}
+            >
+              <ArrowDown className="w-4 h-4 mr-1.5" />
+              Newest First
+            </Button>
+            <Button
+              variant={sortBy === 'date-oldest' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSortBy('date-oldest')}
+              className={cn(
+                sortBy === 'date-oldest' && 'bg-blue-600 hover:bg-blue-700'
+              )}
+            >
+              <ArrowUp className="w-4 h-4 mr-1.5" />
+              Oldest First
+            </Button>
+            <Button
+              variant={sortBy === 'name' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSortBy('name')}
+              className={cn(
+                sortBy === 'name' && 'bg-blue-600 hover:bg-blue-700'
+              )}
+            >
+              <ArrowUpDown className="w-4 h-4 mr-1.5" />
+              Name
+            </Button>
+            </div>
+          </div>
         </div>
 
         {/* Task List */}
@@ -343,7 +438,7 @@ export default function TasksPage() {
           </div>
         ) : (
           <TaskList
-            tasks={filteredTasks}
+            tasks={sortedTasks}
             groupBy={groupBy}
             expandedOffices={expandedOffices}
             toggleOffice={toggleOffice}
