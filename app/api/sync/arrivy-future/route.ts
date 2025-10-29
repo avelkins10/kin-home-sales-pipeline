@@ -38,20 +38,31 @@ export async function GET(request: Request) {
 
     logInfo(`[Arrivy Sync] Starting future task sync from ${startDate} to ${endDate}`);
 
-    // Fetch tasks from Arrivy
-    const tasks = await arrivyClient.listTasks({
-      start_date: today.toISOString(),
-      end_date: futureDate.toISOString(),
+    // Fetch ALL tasks from Arrivy (no date filter)
+    // The start_date/end_date parameters filter by creation date, not scheduled date
+    // So we fetch all tasks and filter by scheduled date locally
+    logInfo('[Arrivy Sync] Fetching all tasks from Arrivy (API date filters don\'t work as expected)');
+    const tasks = await arrivyClient.listTasks();
+
+    logInfo(`[Arrivy Sync] Fetched ${tasks.length} total tasks from Arrivy`);
+
+    // Filter to only tasks scheduled from today forward
+    const futureTasks = tasks.filter(task => {
+      if (!task.start_datetime) return false;
+      const scheduledDate = new Date(task.start_datetime);
+      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      return scheduledDate >= todayStart;
     });
 
-    logInfo(`[Arrivy Sync] Found ${tasks.length} future tasks`);
+    logInfo(`[Arrivy Sync] Found ${futureTasks.length} tasks scheduled from today forward`);
 
     // Sync each task
     let created = 0;
     let updated = 0;
     let errors = 0;
+    let skipped = 0;
 
-    for (const task of tasks) {
+    for (const task of futureTasks) {
       try {
         const exists = await upsertArrivyTask({
           arrivy_task_id: task.id,
@@ -91,7 +102,8 @@ export async function GET(request: Request) {
     const result = {
       success: true,
       stats: {
-        total: tasks.length,
+        totalFetched: tasks.length,
+        futureTasksFound: futureTasks.length,
         created,
         updated,
         errors,
