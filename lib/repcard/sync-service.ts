@@ -201,6 +201,10 @@ export async function syncCustomers(options: {
               console.warn(`[RepCard Sync] Could not enrich user ${userId}:`, repcardError);
             }
           }
+          } catch (userCheckError) {
+            console.error(`[RepCard Sync] Error checking existing users for appointments:`, userCheckError);
+            // Continue processing appointments even if user check fails
+          }
         }
 
         // Process each customer
@@ -436,6 +440,10 @@ export async function syncAppointments(options: {
             } catch (repcardError) {
               console.warn(`[RepCard Sync] Could not enrich user ${userId}:`, repcardError);
             }
+          }
+          } catch (userCheckError) {
+            console.error(`[RepCard Sync] Error checking existing users for appointments:`, userCheckError);
+            // Continue processing appointments even if user check fails
           }
         }
 
