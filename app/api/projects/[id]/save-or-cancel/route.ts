@@ -36,10 +36,11 @@ export async function POST(
     const userId = (auth.session.user as any).id as string;
     const userRole = auth.session.user.role;
 
-    // Only closers and setters can save/cancel projects
-    if (!['closer', 'setter'].includes(userRole)) {
+    // Only closers, setters, team leads, and office leaders can save/cancel projects
+    // (Matches who can see pending cancel tasks in the tasks API)
+    if (!['closer', 'setter', 'team_lead', 'office_leader', 'area_director', 'divisional', 'regional', 'super_admin'].includes(userRole)) {
       return NextResponse.json(
-        { error: 'Forbidden', message: 'Only sales reps can save or cancel projects' },
+        { error: 'Forbidden', message: 'Only sales reps and team leaders can save or cancel projects' },
         { status: 403 }
       );
     }
@@ -50,22 +51,48 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid project ID' }, { status: 400 });
     }
 
-    // Verify user can access this project
-    const access = await requireProjectAccessById(numericId);
-    if (!access.authorized) {
-      return access.response;
-    }
-
-    // Get user email for notes
+    // Get user email first (needed for access check and notes)
     const emailResult = await sql.query(
       'SELECT email FROM users WHERE id = $1 AND email IS NOT NULL',
       [userId]
     );
     const userEmail = emailResult.rows.length > 0 ? emailResult.rows[0].email : null;
     if (!userEmail) {
+      logError('User email not found in database', new Error('Missing email'), {
+        userId,
+        userRole,
+        projectId: numericId,
+        reqId
+      });
       return NextResponse.json(
         { error: 'Bad Request', message: 'User email not found' },
         { status: 400 }
+      );
+    }
+
+    // Verify user can access this project
+    const access = await requireProjectAccessById(numericId);
+    if (!access.authorized) {
+      // Log access denial for debugging
+      const { getProjectById } = await import('@/lib/quickbase/queries');
+      const project = await getProjectById(numericId).catch(() => null);
+      
+      logError('Access denied to project', new Error('Forbidden'), {
+        userId,
+        userRole,
+        userEmail: userEmail?.toLowerCase(),
+        projectId: numericId,
+        projectCloserEmail: project?.[PROJECT_FIELDS.CLOSER_EMAIL]?.value?.toLowerCase() || null,
+        projectSetterEmail: project?.[PROJECT_FIELDS.SETTER_EMAIL]?.value?.toLowerCase() || null,
+        reqId
+      });
+      
+      return NextResponse.json(
+        { 
+          error: 'Forbidden', 
+          message: 'You do not have access to this project. Please ensure you are the closer or setter assigned to this project, or have team/office leadership access.' 
+        },
+        { status: 403 }
       );
     }
 
