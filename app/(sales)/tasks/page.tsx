@@ -23,21 +23,38 @@ export default function TasksPage() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
   const [expandedOffices, setExpandedOffices] = useState<Set<string>>(new Set())
 
+  // Tab state: 'open' shows active tasks, 'pending-cancel' shows cancelled/pending cancel tasks
+  const [activeTab, setActiveTab] = useState<'open' | 'pending-cancel'>('open')
+
   // Fetch all tasks for current user
   // IMPORTANT: Must call all hooks before any early returns (Rules of Hooks)
-  const { data: tasks = [], isLoading, error } = useQuery({
+  const { data: tasksData, isLoading, error } = useQuery({
     queryKey: ['tasks', 'all'],
     queryFn: async () => {
       const response = await fetch('/api/tasks')
       if (!response.ok) {
         throw new Error('Failed to fetch tasks')
       }
-      return response.json()
+      const data = await response.json()
+      // Handle both new format (with activeTasks) and old format (array)
+      if (data.activeTasks) {
+        return data
+      }
+      // Backward compatibility: if it's an array, treat as activeTasks
+      return { activeTasks: data, cancelledAndPendingCancelTasks: [], allTasks: data }
     },
     staleTime: 60000, // 1 minute
     refetchInterval: 60000, // Auto-refresh every minute
     enabled: status !== 'loading' && !!session, // Only run query when session is ready
   })
+
+  // Get tasks based on active tab
+  const tasks = activeTab === 'open' 
+    ? (tasksData?.activeTasks || [])
+    : (tasksData?.cancelledAndPendingCancelTasks || [])
+  
+  // Fallback to allTasks for backward compatibility
+  const allTasks = tasksData?.allTasks || tasksData || []
 
   if (status === 'loading') {
     return <TasksPageSkeleton />
@@ -60,15 +77,15 @@ export default function TasksPage() {
     })
   }
 
-  // Extract unique closers and offices for filters
+  // Extract unique closers and offices for filters (use allTasks for filter options)
   const uniqueClosers = Array.from(new Set(
-    tasks
+    allTasks
       .map((t: any) => t.closerName)
       .filter((name): name is string => !!name)
   )).sort()
 
   const uniqueOffices = Array.from(new Set(
-    tasks
+    allTasks
       .map((t: any) => t.salesOffice)
       .filter((office): office is string => !!office)
   )).sort()
@@ -147,19 +164,22 @@ export default function TasksPage() {
     return sorted
   }, [filteredTasks, sortBy])
 
-  // Calculate stats from filtered tasks
-  const totalIncompleteTasks = filteredTasks.filter((task: any) => {
+  // Calculate stats from filtered tasks (only count active tasks for stats)
+  // Stats should reflect the current tab's tasks
+  const tasksForStats = activeTab === 'open' ? filteredTasks : []
+  
+  const totalIncompleteTasks = tasksForStats.filter((task: any) => {
     const taskStatus = (task.status || '').toLowerCase().trim()
     return taskStatus !== 'approved' && taskStatus !== 'closed by ops'
   }).length
   
-  const totalApprovedTasks = filteredTasks.filter((task: any) => {
+  const totalApprovedTasks = tasksForStats.filter((task: any) => {
     const taskStatus = (task.status || '').toLowerCase().trim()
     return taskStatus === 'approved'
   }).length
   
   // Only count INCOMPLETE tasks waiting >7 days (exclude approved/closed)
-  const totalTasksWaitingOver7Days = filteredTasks.filter((task: any) => {
+  const totalTasksWaitingOver7Days = tasksForStats.filter((task: any) => {
     const taskStatus = (task.status || '').toLowerCase().trim()
     // Exclude approved and closed tasks - they're not "waiting"
     if (taskStatus === 'approved' || taskStatus === 'closed by ops') {
@@ -178,8 +198,36 @@ export default function TasksPage() {
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">My Tasks</h1>
           <p className="mt-1 text-sm text-gray-600">
-            All pending tasks across your projects
+            {activeTab === 'open' 
+              ? 'All pending tasks across your active projects'
+              : 'Tasks for cancelled or pending cancellation projects'}
           </p>
+        </div>
+
+        {/* Tabs */}
+        <div className="mb-6 flex gap-2 border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('open')}
+            className={cn(
+              'px-4 py-2 text-sm font-medium border-b-2 transition-colors',
+              activeTab === 'open'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            )}
+          >
+            Open Tasks ({tasksData?.activeTasks?.length || 0})
+          </button>
+          <button
+            onClick={() => setActiveTab('pending-cancel')}
+            className={cn(
+              'px-4 py-2 text-sm font-medium border-b-2 transition-colors',
+              activeTab === 'pending-cancel'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            )}
+          >
+            Pending Cancel ({tasksData?.cancelledAndPendingCancelTasks?.length || 0})
+          </button>
         </div>
 
         {/* Stats Bar */}

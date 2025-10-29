@@ -2,6 +2,7 @@
 
 import { Task } from '@/lib/types/task'
 import { TaskListItem } from './TaskListItem'
+import { PendingCancelTaskCard } from './PendingCancelTaskCard'
 import { AlertTriangle, CheckCircle, Clock, ChevronDown, ChevronUp } from 'lucide-react'
 import { sortTasksByUrgency } from '@/lib/utils/task-urgency'
 
@@ -67,8 +68,12 @@ export function TaskList({ tasks, groupBy = 'none', expandedOffices, toggleOffic
               </span>
             </h3>
             <div className="space-y-3">
-              {sortByDate(projectTasks).map((task) => (
-                <TaskListItem key={task.recordId} task={task as any} showProject={false} />
+              {sortByDate(projectTasks).map((task: any) => (
+                task.isPendingCancel ? (
+                  <PendingCancelTaskCard key={task.recordId} task={task} />
+                ) : (
+                  <TaskListItem key={task.recordId} task={task} showProject={false} />
+                )
               ))}
             </div>
           </div>
@@ -117,8 +122,12 @@ export function TaskList({ tasks, groupBy = 'none', expandedOffices, toggleOffic
               </button>
               {isExpanded && (
                 <div className="px-4 pb-4 space-y-3">
-                  {sortByDate(officeTasks).map((task) => (
-                    <TaskListItem key={task.recordId} task={task as any} />
+                  {sortByDate(officeTasks).map((task: any) => (
+                    task.isPendingCancel ? (
+                      <PendingCancelTaskCard key={task.recordId} task={task} />
+                    ) : (
+                      <TaskListItem key={task.recordId} task={task} />
+                    )
                   ))}
                 </div>
               )}
@@ -162,8 +171,12 @@ export function TaskList({ tasks, groupBy = 'none', expandedOffices, toggleOffic
               <span>Critical ({critical.length})</span>
             </h3>
             <div className="space-y-3">
-              {critical.map((task) => (
-                <TaskListItem key={task.recordId} task={task as any} />
+              {critical.map((task: any) => (
+                task.isPendingCancel ? (
+                  <PendingCancelTaskCard key={task.recordId} task={task} />
+                ) : (
+                  <TaskListItem key={task.recordId} task={task} />
+                )
               ))}
             </div>
           </div>
@@ -176,8 +189,12 @@ export function TaskList({ tasks, groupBy = 'none', expandedOffices, toggleOffic
               <span>Urgent ({urgent.length})</span>
             </h3>
             <div className="space-y-3">
-              {urgent.map((task) => (
-                <TaskListItem key={task.recordId} task={task as any} />
+              {urgent.map((task: any) => (
+                task.isPendingCancel ? (
+                  <PendingCancelTaskCard key={task.recordId} task={task} />
+                ) : (
+                  <TaskListItem key={task.recordId} task={task} />
+                )
               ))}
             </div>
           </div>
@@ -190,8 +207,12 @@ export function TaskList({ tasks, groupBy = 'none', expandedOffices, toggleOffic
               <span>Normal ({normal.length})</span>
             </h3>
             <div className="space-y-3">
-              {normal.map((task) => (
-                <TaskListItem key={task.recordId} task={task as any} />
+              {normal.map((task: any) => (
+                task.isPendingCancel ? (
+                  <PendingCancelTaskCard key={task.recordId} task={task} />
+                ) : (
+                  <TaskListItem key={task.recordId} task={task} />
+                )
               ))}
             </div>
           </div>
@@ -205,8 +226,12 @@ export function TaskList({ tasks, groupBy = 'none', expandedOffices, toggleOffic
 
   return (
     <div className="space-y-3">
-      {sortedTasks.map((task) => (
-        <TaskListItem key={task.recordId} task={task as any} />
+      {sortedTasks.map((task: any) => (
+        task.isPendingCancel ? (
+          <PendingCancelTaskCard key={task.recordId} task={task} />
+        ) : (
+          <TaskListItem key={task.recordId} task={task} />
+        )
       ))}
     </div>
   )

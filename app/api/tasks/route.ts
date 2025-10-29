@@ -688,6 +688,60 @@ export async function GET(req: Request) {
       };
     });
 
+    // Step 6: Create special "Pending Cancel" tasks for projects with that status
+    // These are synthetic tasks that appear in the tasks list to alert reps
+    const pendingCancelProjects = Array.from(projectMap.entries())
+      .filter(([projectId, info]: [number, any]) => {
+        const status = info.projectStatus || '';
+        return typeof status === 'string' && status.toLowerCase().includes('pending cancel');
+      })
+      .map(([projectId, info]: [number, any]) => ({
+        recordId: -projectId, // Negative ID to distinguish from real tasks
+        dateCreated: null, // Use project date if available
+        dateModified: null,
+        taskGroup: 0, // No task group for synthetic tasks
+        status: 'Not Started' as const,
+        name: 'Save Customer or Cancel Project',
+        description: `Project "${info.customerName}" is pending cancellation. You can save the customer or officially cancel the project.`,
+        maxSubmissionStatus: null,
+        taskTemplate: null,
+        category: 'pending-cancel' as any,
+        missingItem: null,
+        reviewedByOps: null,
+        reviewedByOpsUser: null,
+        opsReviewNote: null,
+        submissions: [],
+        projectId,
+        projectName: info.customerName,
+        projectStatus: info.projectStatus,
+        customerName: info.customerName,
+        closerName: info.closerName,
+        salesOffice: info.salesOffice,
+        isPendingCancel: true // Flag to identify special tasks
+      }));
+
+    // Combine regular tasks with pending cancel tasks
+    const allTasksIncludingPendingCancel = [...tasksWithProject, ...pendingCancelProjects];
+
+    // Separate tasks into active vs cancelled/pending cancel
+    const activeTasks = allTasksIncludingPendingCancel.filter((task: any) => {
+      const status = task.projectStatus || '';
+      const isCancelled = typeof status === 'string' && 
+        (status.toLowerCase().includes('cancel') || status === 'Cancelled') &&
+        !status.toLowerCase().includes('pending');
+      const isPendingCancel = task.isPendingCancel || status.toLowerCase().includes('pending cancel');
+      return !isCancelled && !isPendingCancel;
+    });
+
+    const cancelledAndPendingCancelTasks = allTasksIncludingPendingCancel.filter((task: any) => {
+      const status = task.projectStatus || '';
+      const isCancelled = typeof status === 'string' && 
+        (status.toLowerCase().includes('cancel') || status === 'Cancelled') &&
+        !status.toLowerCase().includes('pending');
+      const isPendingCancel = task.isPendingCancel || status.toLowerCase().includes('pending cancel');
+      return isCancelled || isPendingCancel;
+    });
+
     // Final summary log
     const totalSubmissions = Array.from(submissionsMap.values()).reduce((sum, subs) => sum + subs.length, 0);
     const sampleFinalTasks = tasksWithProject.slice(0, 3).map(t => ({
@@ -700,7 +754,10 @@ export async function GET(req: Request) {
     }));
 
     logInfo('[TASKS_API] Final result summary', {
-      totalTasksReturned: tasksWithProject.length,
+      totalTasksReturned: allTasksIncludingPendingCancel.length,
+      activeTasks: activeTasks.length,
+      cancelledAndPendingCancelTasks: cancelledAndPendingCancelTasks.length,
+      pendingCancelTasks: pendingCancelProjects.length,
       totalSubmissions: totalSubmissions,
       uniqueProjects: authorizedProjectIds.size,
       sampleFinalTasks: sampleFinalTasks,
@@ -712,12 +769,19 @@ export async function GET(req: Request) {
     // Log response
     const duration = Date.now() - startedAt;
     logApiResponse('GET', '/api/tasks', duration, {
-      tasks: tasksWithProject.length,
+      totalTasks: allTasksIncludingPendingCancel.length,
+      activeTasks: activeTasks.length,
+      cancelledAndPendingCancelTasks: cancelledAndPendingCancelTasks.length,
       projects: authorizedProjectIds.size,
       submissions: totalSubmissions
     }, reqId);
 
-    return NextResponse.json(tasksWithProject, { status: 200 });
+    // Return tasks separated by category
+    return NextResponse.json({
+      activeTasks,
+      cancelledAndPendingCancelTasks,
+      allTasks: allTasksIncludingPendingCancel // Keep for backward compatibility
+    }, { status: 200 });
 
   } catch (error) {
     const elapsed = Date.now() - startedAt;
