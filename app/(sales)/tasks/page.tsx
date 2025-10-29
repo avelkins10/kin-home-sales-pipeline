@@ -4,7 +4,7 @@ import { useSession } from 'next-auth/react'
 import { redirect } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useState, useMemo } from 'react'
-import { AlertTriangle, CheckCircle, Clock, Filter, Grid3x3, List, Building2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import { AlertTriangle, CheckCircle, Clock, Filter, Grid3x3, List, Building2, ArrowUpDown, ArrowUp, ArrowDown, Calendar } from 'lucide-react'
 import { TaskList } from '@/components/tasks/TaskList'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -13,6 +13,7 @@ import { getTaskUrgency } from '@/lib/utils/task-urgency'
 
 type GroupBy = 'none' | 'project' | 'urgency' | 'office'
 type SortBy = 'urgency' | 'date-newest' | 'date-oldest' | 'name'
+type DateRange = 'all' | 'ytd' | '90' | '30' | '7'
 
 export default function TasksPage() {
   const { data: session, status } = useSession()
@@ -21,17 +22,19 @@ export default function TasksPage() {
   const [selectedCloser, setSelectedCloser] = useState<string>('all')
   const [selectedOffice, setSelectedOffice] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
+  const [dateRange, setDateRange] = useState<DateRange>('all')
   const [expandedOffices, setExpandedOffices] = useState<Set<string>>(new Set())
 
   // Tab state: 'open' shows active tasks, 'pending-cancel' shows cancelled/pending cancel tasks
   const [activeTab, setActiveTab] = useState<'open' | 'pending-cancel'>('open')
 
-  // Fetch all tasks for current user
+  // Fetch all tasks for current user with date range filter
   // IMPORTANT: Must call all hooks before any early returns (Rules of Hooks)
   const { data: tasksData, isLoading, error } = useQuery({
-    queryKey: ['tasks', 'all'],
+    queryKey: ['tasks', dateRange],
     queryFn: async () => {
-      const response = await fetch('/api/tasks')
+      const url = `/api/tasks${dateRange !== 'all' ? `?range=${dateRange}` : ''}`
+      const response = await fetch(url)
       if (!response.ok) {
         throw new Error('Failed to fetch tasks')
       }
@@ -265,6 +268,66 @@ export default function TasksPage() {
 
         {/* Controls */}
         <div className="bg-white rounded-lg border p-4 mb-6 space-y-4">
+          {/* Date Range Filter - Most Prominent */}
+          <div className="flex flex-wrap items-center gap-3 pb-3 border-b border-gray-200">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-gray-500" />
+              <span className="text-sm font-medium text-gray-700">Date Range:</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant={dateRange === 'all' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setDateRange('all')}
+                className={cn(
+                  dateRange === 'all' && 'bg-blue-600 hover:bg-blue-700'
+                )}
+              >
+                All Time
+              </Button>
+              <Button
+                variant={dateRange === 'ytd' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setDateRange('ytd')}
+                className={cn(
+                  dateRange === 'ytd' && 'bg-blue-600 hover:bg-blue-700'
+                )}
+              >
+                Year to Date
+              </Button>
+              <Button
+                variant={dateRange === '90' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setDateRange('90')}
+                className={cn(
+                  dateRange === '90' && 'bg-blue-600 hover:bg-blue-700'
+                )}
+              >
+                Last 90 Days
+              </Button>
+              <Button
+                variant={dateRange === '30' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setDateRange('30')}
+                className={cn(
+                  dateRange === '30' && 'bg-blue-600 hover:bg-blue-700'
+                )}
+              >
+                Last 30 Days
+              </Button>
+              <Button
+                variant={dateRange === '7' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setDateRange('7')}
+                className={cn(
+                  dateRange === '7' && 'bg-blue-600 hover:bg-blue-700'
+                )}
+              >
+                Last 7 Days
+              </Button>
+            </div>
+          </div>
+
           {/* Filters */}
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
