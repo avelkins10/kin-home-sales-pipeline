@@ -891,6 +891,95 @@ async function handleTaskRescheduledEvent(payload: ArrivyWebhookPayload): Promis
 }
 
 /**
+ * Handle task data change events (address updates, extra fields, etc.)
+ * Fetches updated task data from Arrivy API and syncs to database
+ */
+async function handleTaskDataChangeEvent(payload: ArrivyWebhookPayload): Promise<void> {
+  const { OBJECT_ID, EVENT_TYPE, MESSAGE } = payload;
+
+  try {
+    if (!arrivyClient) {
+      logInfo('[Arrivy] Arrivy client not configured, skipping task data change event', {
+        event_type: EVENT_TYPE,
+        arrivy_task_id: OBJECT_ID,
+      });
+      return;
+    }
+
+    logInfo(`[Arrivy] Processing task data change: ${EVENT_TYPE}`, {
+      arrivy_task_id: OBJECT_ID,
+      message: MESSAGE,
+    });
+
+    // Fetch the updated task from Arrivy
+    const task = await arrivyClient.getTask(OBJECT_ID);
+    if (!task) {
+      logError(`[Arrivy] Task not found in Arrivy API after ${EVENT_TYPE}`, new Error('Task not found'), {
+        arrivy_task_id: OBJECT_ID,
+      });
+      return;
+    }
+
+    const existingTask = await getArrivyTaskByArrivyId(OBJECT_ID);
+
+    // Helper functions
+    const formatAddress = (task: ArrivyTask): string | undefined => {
+      const parts = [
+        task.customer_address_line_1,
+        task.customer_city,
+        task.customer_state,
+        task.customer_zipcode
+      ].filter(Boolean);
+      return parts.length > 0 ? parts.join(', ') : undefined;
+    };
+
+    const extractTaskType = (task: ArrivyTask): string => {
+      if (task.extra_fields?.task_type) {
+        return task.extra_fields.task_type;
+      }
+      const title = task.title?.toLowerCase() || '';
+      if (title.includes('survey')) return 'survey';
+      if (title.includes('install')) return 'install';
+      if (title.includes('inspection')) return 'inspection';
+      return 'service';
+    };
+
+    // Update task with latest data
+    await upsertArrivyTask({
+      arrivy_task_id: task.id,
+      url_safe_id: task.url_safe_id,
+      quickbase_project_id: existingTask?.quickbase_project_id || task.external_id || null,
+      quickbase_record_id: existingTask?.quickbase_record_id || null,
+      customer_name: task.customer_name,
+      customer_phone: task.customer_phone,
+      customer_email: task.customer_email,
+      customer_address: formatAddress(task),
+      task_type: extractTaskType(task),
+      scheduled_start: task.start_datetime ? new Date(task.start_datetime) : null,
+      scheduled_end: task.end_datetime ? new Date(task.end_datetime) : null,
+      assigned_entity_ids: task.entity_ids || [],
+      current_status: task.status || 'NOT_STARTED',
+      tracker_url: existingTask?.tracker_url || getCustomerTrackerUrl(task.id, task.url_safe_id),
+      template_id: task.template_id?.toString(),
+      extra_fields: task.extra_fields,
+      synced_at: new Date(),
+    });
+
+    logInfo(`[Arrivy] Successfully updated task after ${EVENT_TYPE}`, {
+      arrivy_task_id: task.id,
+      customer_name: task.customer_name,
+      event_type: EVENT_TYPE,
+    });
+  } catch (error) {
+    logError(`[Arrivy] Failed to handle ${EVENT_TYPE} event`, error as Error, {
+      arrivy_task_id: OBJECT_ID,
+      event_type: EVENT_TYPE,
+    });
+    // Don't throw - prevents webhook retries on non-critical errors
+  }
+}
+
+/**
  * Handle TASK_RATING event
  */
 async function handleTaskRatingEvent(payload: ArrivyWebhookPayload): Promise<void> {

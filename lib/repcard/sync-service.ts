@@ -175,7 +175,7 @@ export async function syncCustomers(options: {
           const existingUsers = Array.isArray(existingUsersResult) 
             ? existingUsersResult 
             : (existingUsersResult.rows || []);
-          const existingIds = new Set(existingUsers.map((u: any) => u?.repcard_user_id || u?.repcard_user_id));
+          const existingIds = new Set(existingUsers.map((u: any) => u?.repcard_user_id).filter(Boolean));
           
           // Only enrich users that don't exist yet (batch API calls with delay)
           const idsToEnrich = Array.from(setterUserIds).filter(id => !existingIds.has(id.toString()));
@@ -413,7 +413,7 @@ export async function syncAppointments(options: {
           const existingUsers = Array.isArray(existingUsersResult) 
             ? existingUsersResult 
             : (existingUsersResult.rows || []);
-          const existingIds = new Set(existingUsers.map((u: any) => u?.repcard_user_id || u?.repcard_user_id));
+          const existingIds = new Set(existingUsers.map((u: any) => u?.repcard_user_id).filter(Boolean));
           
           // Only enrich users that don't exist yet (limit to avoid timeout)
           const idsToEnrich = Array.from(userIds).filter(id => !existingIds.has(id.toString())).slice(0, 10);
