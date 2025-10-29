@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { AlertTriangle, Save, X, Loader2 } from 'lucide-react'
+import { AlertTriangle, Save, X, Loader2, Calendar, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -18,6 +18,8 @@ interface PendingCancelTaskCardProps {
     projectStatus: string
     closerName?: string | null
     salesOffice?: string | null
+    cancelReason?: string | null
+    dateMovedToPendingCancel?: string | null
   }
   className?: string
 }
@@ -121,6 +123,38 @@ export function PendingCancelTaskCard({ task, className }: PendingCancelTaskCard
                 or officially cancel the project.
               </p>
             </div>
+
+            {/* Cancellation Details */}
+            {(task.cancelReason || task.dateMovedToPendingCancel) && (
+              <div className="bg-white rounded-lg p-3 border border-gray-200 space-y-2">
+                {task.dateMovedToPendingCancel && (
+                  <div className="flex items-start gap-2 text-sm">
+                    <Calendar className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="font-medium text-gray-700">Moved to Pending Cancel:</span>{' '}
+                      <span className="text-gray-600">
+                        {new Date(task.dateMovedToPendingCancel).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit'
+                        })}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {task.cancelReason && (
+                  <div className="flex items-start gap-2 text-sm">
+                    <FileText className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="font-medium text-gray-700">Cancellation Reason:</span>
+                      <p className="text-gray-600 mt-1 whitespace-pre-wrap">{task.cancelReason}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {!showActions ? (
               <div className="flex gap-2">

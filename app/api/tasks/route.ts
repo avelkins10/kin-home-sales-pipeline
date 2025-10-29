@@ -373,7 +373,9 @@ export async function GET(req: Request) {
             PROJECT_FIELDS.CLOSER_NAME,
             PROJECT_FIELDS.SETTER_EMAIL,
             PROJECT_FIELDS.SALES_OFFICE,
-            PROJECT_FIELDS.OFFICE_RECORD_ID
+            PROJECT_FIELDS.OFFICE_RECORD_ID,
+            PROJECT_FIELDS.CANCEL_REASON,
+            PROJECT_FIELDS.DATE_MODIFIED
           ],
           where: projectsWhereClause
         });
@@ -399,7 +401,9 @@ export async function GET(req: Request) {
           PROJECT_FIELDS.CLOSER_NAME,
           PROJECT_FIELDS.SETTER_EMAIL,
           PROJECT_FIELDS.SALES_OFFICE,
-          PROJECT_FIELDS.OFFICE_RECORD_ID
+          PROJECT_FIELDS.OFFICE_RECORD_ID,
+          PROJECT_FIELDS.CANCEL_REASON,
+          PROJECT_FIELDS.DATE_MODIFIED
         ],
         where: projectsWhereClause
       });
@@ -551,7 +555,9 @@ export async function GET(req: Request) {
           customerName: p[PROJECT_FIELDS.CUSTOMER_NAME]?.value || 'Unknown',
           projectStatus: projectStatus,
           closerName: p[PROJECT_FIELDS.CLOSER_NAME]?.value || null,
-          salesOffice: p[PROJECT_FIELDS.SALES_OFFICE]?.value || null
+          salesOffice: p[PROJECT_FIELDS.SALES_OFFICE]?.value || null,
+          cancelReason: p[PROJECT_FIELDS.CANCEL_REASON]?.value || null,
+          dateModified: p[PROJECT_FIELDS.DATE_MODIFIED]?.value || null
         });
 
         // Check if project is cancelled (and not pending cancel)
@@ -781,8 +787,8 @@ export async function GET(req: Request) {
       })
       .map(([projectId, info]: [number, any]) => ({
         recordId: -projectId, // Negative ID to distinguish from real tasks
-        dateCreated: null, // Use project date if available
-        dateModified: null,
+        dateCreated: info.dateModified || null, // Use date modified as proxy for when moved to pending cancel
+        dateModified: info.dateModified || null,
         taskGroup: 0, // No task group for synthetic tasks
         status: 'Not Started' as const,
         name: 'Save Customer or Cancel Project',
@@ -801,6 +807,8 @@ export async function GET(req: Request) {
         customerName: info.customerName,
         closerName: info.closerName,
         salesOffice: info.salesOffice,
+        cancelReason: info.cancelReason || null, // Cancellation reason/notes
+        dateMovedToPendingCancel: info.dateModified || null, // When project was moved to pending cancel
         isPendingCancel: true // Flag to identify special tasks
       }));
 
