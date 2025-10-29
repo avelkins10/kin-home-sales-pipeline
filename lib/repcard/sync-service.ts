@@ -132,9 +132,17 @@ export async function syncCustomers(options: {
     // Fetch all customers with pagination
     let page = 1;
     let hasMore = true;
-    const MAX_PAGES = 200; // Safety limit (20,000 customers max)
+    const MAX_PAGES = 10; // Reduced limit: ~1000 customers per sync to avoid timeout
+    const MAX_DURATION_MS = 240000; // 4 minutes (leave 1 min buffer before 5 min timeout)
+    const syncStartTime = Date.now();
 
     while (hasMore && page <= MAX_PAGES) {
+      // Check timeout - exit gracefully before hitting 5 min limit
+      const elapsed = Date.now() - syncStartTime;
+      if (elapsed > MAX_DURATION_MS) {
+        console.log(`[RepCard Sync] ⏱️ Timeout protection: Stopping customers sync after ${(elapsed / 1000).toFixed(1)}s (page ${page})`);
+        break;
+      }
       try {
         const response = await repcardClient.getCustomers({
           page,
@@ -168,17 +176,21 @@ export async function syncCustomers(options: {
         // Batch check which users already exist
         if (setterUserIds.size > 0) {
           try {
-            const existingUsers = await sql`
+            const existingUsersResult = await sql`
               SELECT repcard_user_id FROM users 
               WHERE repcard_user_id = ANY(${Array.from(setterUserIds).map(String)}::text[])
             `;
-            const existingIds = new Set(existingUsers.map((u: any) => u.repcard_user_id));
+            // Handle @vercel/postgres result format
+            const existingUsers = Array.isArray(existingUsersResult) 
+              ? existingUsersResult 
+              : (existingUsersResult.rows || []);
+            const existingIds = new Set(existingUsers.map((u: any) => u?.repcard_user_id).filter(Boolean));
             
             // Only enrich users that don't exist yet (batch API calls with delay)
             const idsToEnrich = Array.from(setterUserIds).filter(id => !existingIds.has(id.toString()));
             
-            // Limit enrichment to avoid timeout (max 10 per page)
-            const idsToEnrichLimited = idsToEnrich.slice(0, 10);
+            // Limit enrichment to avoid timeout (max 5 per page - reduced from 10)
+            const idsToEnrichLimited = idsToEnrich.slice(0, 5);
             
             for (const userId of idsToEnrichLimited) {
               try {
@@ -373,9 +385,17 @@ export async function syncAppointments(options: {
     // Fetch all appointments with pagination
     let page = 1;
     let hasMore = true;
-    const MAX_PAGES = 200;
+    const MAX_PAGES = 10; // Reduced limit: ~1000 appointments per sync to avoid timeout
+    const MAX_DURATION_MS = 240000; // 4 minutes (leave 1 min buffer before 5 min timeout)
+    const syncStartTime = Date.now();
 
     while (hasMore && page <= MAX_PAGES) {
+      // Check timeout - exit gracefully before hitting 5 min limit
+      const elapsed = Date.now() - syncStartTime;
+      if (elapsed > MAX_DURATION_MS) {
+        console.log(`[RepCard Sync] ⏱️ Timeout protection: Stopping appointments sync after ${(elapsed / 1000).toFixed(1)}s (page ${page})`);
+        break;
+      }
       try {
         const response = await repcardClient.getAppointments({
           page,
@@ -417,8 +437,8 @@ export async function syncAppointments(options: {
               : (existingUsersResult.rows || []);
             const existingIds = new Set(existingUsers.map((u: any) => u?.repcard_user_id).filter(Boolean));
             
-            // Only enrich users that don't exist yet (limit to avoid timeout)
-            const idsToEnrich = Array.from(userIds).filter(id => !existingIds.has(id.toString())).slice(0, 10);
+            // Only enrich users that don't exist yet (limit to avoid timeout - max 5 per page)
+            const idsToEnrich = Array.from(userIds).filter(id => !existingIds.has(id.toString())).slice(0, 5);
             
             for (const userId of idsToEnrich) {
               try {
@@ -473,7 +493,8 @@ export async function syncAppointments(options: {
               lastRecordDate = updatedAt;
             }
 
-            // Get customer_id from our database
+            // Get customer_id from our database (batch this query if processing multiple appointments)
+            // For now, keep individual query but optimize later if needed
             const customerResult = await sql`
               SELECT id FROM repcard_customers
               WHERE repcard_customer_id = ${appointment.contact.id}
@@ -545,13 +566,13 @@ export async function syncAppointments(options: {
             }
 
             // Calculate is_within_48_hours if we have customer data
+            // Note: This could be optimized by batching, but individual query is fine for now
             let isWithin48Hours = false;
-            if (appointment.contact?.id) {
-              const customerCreatedResult = await sql`
-                SELECT created_at FROM repcard_customers 
-                WHERE repcard_customer_id = ${appointment.contact.id} 
-                LIMIT 1
-              `;
+            if (appointment.contact?.id && customerId) {
+              // Use customerId if available, otherwise query by repcard_customer_id
+              const customerCreatedResult = customerId 
+                ? await sql`SELECT created_at FROM repcard_customers WHERE id = ${customerId} LIMIT 1`
+                : await sql`SELECT created_at FROM repcard_customers WHERE repcard_customer_id = ${appointment.contact.id} LIMIT 1`;
               const customerCreatedRows = customerCreatedResult.rows || customerCreatedResult;
               if (customerCreatedRows.length > 0 && customerCreatedRows[0].created_at) {
                 const customerCreated = new Date(customerCreatedRows[0].created_at);

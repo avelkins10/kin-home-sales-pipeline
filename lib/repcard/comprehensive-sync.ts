@@ -827,9 +827,20 @@ export async function runComprehensiveSync(options: {
 } = {}): Promise<ComprehensiveSyncResult> {
   const startedAt = new Date().toISOString();
   const overallStartTime = Date.now();
+  const MAX_DURATION_MS = 240000; // 4 minutes (leave 1 min buffer before 5 min timeout)
 
   console.log('[RepCard Comprehensive Sync] Starting comprehensive sync...');
   console.log(`Options:`, options);
+  
+  // Helper to check if we should continue or exit early
+  const checkTimeout = () => {
+    const elapsed = Date.now() - overallStartTime;
+    if (elapsed > MAX_DURATION_MS) {
+      console.log(`[RepCard Comprehensive Sync] ⏱️ Timeout protection: Stopping sync after ${(elapsed / 1000).toFixed(1)}s`);
+      return false;
+    }
+    return true;
+  };
 
   const results: ComprehensiveSyncResult = {
     users: { entityType: 'users', recordsFetched: 0, recordsInserted: 0, recordsUpdated: 0, recordsFailed: 0, duration: 0 },
@@ -858,7 +869,7 @@ export async function runComprehensiveSync(options: {
     }
 
     // Step 3: Sync Customers (needed for foreign keys)
-    if (!options.skipCustomers) {
+    if (!options.skipCustomers && checkTimeout()) {
       console.log('[RepCard Comprehensive Sync] Step 3/7: Syncing customers...');
       const customersResult = await syncCustomers({
         startDate: options.startDate,
@@ -877,7 +888,7 @@ export async function runComprehensiveSync(options: {
     }
 
     // Step 4: Sync Appointments (depends on customers)
-    if (!options.skipAppointments) {
+    if (!options.skipAppointments && checkTimeout()) {
       console.log('[RepCard Comprehensive Sync] Step 4/7: Syncing appointments...');
       const appointmentsResult = await syncAppointments({
         fromDate: options.startDate,
@@ -896,7 +907,7 @@ export async function runComprehensiveSync(options: {
     }
 
     // Step 5: Sync Status Logs (depends on customers)
-    if (!options.skipStatusLogs) {
+    if (!options.skipStatusLogs && checkTimeout()) {
       console.log('[RepCard Comprehensive Sync] Step 5/7: Syncing status logs...');
       const statusLogsResult = await syncStatusLogs({
         fromDate: options.startDate,
@@ -915,7 +926,7 @@ export async function runComprehensiveSync(options: {
     }
 
     // Step 6: Sync Customer Attachments (depends on customers)
-    if (!options.skipCustomerAttachments) {
+    if (!options.skipCustomerAttachments && checkTimeout()) {
       console.log('[RepCard Comprehensive Sync] Step 6/7: Syncing customer attachments...');
       results.customerAttachments = await syncCustomerAttachments({
         fromDate: options.startDate,
@@ -925,7 +936,7 @@ export async function runComprehensiveSync(options: {
     }
 
     // Step 7: Sync Appointment Attachments (depends on appointments)
-    if (!options.skipAppointmentAttachments) {
+    if (!options.skipAppointmentAttachments && checkTimeout()) {
       console.log('[RepCard Comprehensive Sync] Step 7/7: Syncing appointment attachments...');
       results.appointmentAttachments = await syncAppointmentAttachments({
         fromDate: options.startDate,

@@ -1,4 +1,6 @@
 export const runtime = 'nodejs';
+// Increase timeout to 60 seconds for complex task queries with multiple QuickBase API calls
+export const maxDuration = 60;
 
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/guards';
@@ -78,8 +80,22 @@ interface TaskWithProject extends Task {
 export async function GET(req: Request) {
   const startedAt = Date.now();
   const reqId = req.headers.get('x-request-id') || Math.random().toString(36).substring(7);
+  const TIMEOUT_WARNING_MS = 50000; // Warn if we're approaching 60s timeout
+  const TIMEOUT_ERROR_MS = 58000; // Error out at 58s to avoid Vercel 504
 
   logApiRequest('GET', '/api/tasks', undefined, reqId);
+
+  // Helper to check if we're running out of time
+  const checkTimeout = () => {
+    const elapsed = Date.now() - startedAt;
+    if (elapsed > TIMEOUT_ERROR_MS) {
+      throw new Error(`Request timeout: operation took ${elapsed}ms, exceeding ${TIMEOUT_ERROR_MS}ms limit`);
+    }
+    if (elapsed > TIMEOUT_WARNING_MS) {
+      logInfo('[TASKS_API] Approaching timeout', { elapsed, reqId });
+    }
+    return elapsed;
+  };
 
   try {
     // Authentication
@@ -167,6 +183,7 @@ export async function GET(req: Request) {
     });
 
     // Query all incomplete tasks (with date filter)
+    checkTimeout(); // Check before expensive query
     const tasksResponse = await qbClient.queryRecords({
       from: QB_TABLE_TASKS,
       select: [
@@ -187,6 +204,7 @@ export async function GET(req: Request) {
       ],
       where: tasksWhereClause
     });
+    checkTimeout(); // Check after tasks query
 
     // Show sample of tasks pulled
     const sampleTasks = tasksResponse.data.slice(0, 5).map((t: any) => ({
@@ -225,6 +243,7 @@ export async function GET(req: Request) {
       reqId
     });
 
+    checkTimeout(); // Check before task groups query
     const BATCH_SIZE = 100;
     const allTaskGroups: any[] = [];
 
@@ -291,6 +310,7 @@ export async function GET(req: Request) {
       reqId
     });
 
+    checkTimeout(); // Check before projects query
     const allProjects: any[] = [];
 
     // Batch if we have many projects
@@ -509,6 +529,7 @@ export async function GET(req: Request) {
         reqId
       });
 
+      checkTimeout(); // Check before submissions query
       // Batch submissions query if we have many tasks
       if (taskIds.length > BATCH_SIZE) {
         logInfo('[TASKS_API] Batching submissions query', {
@@ -673,18 +694,26 @@ export async function GET(req: Request) {
     return NextResponse.json(tasksWithProject, { status: 200 });
 
   } catch (error) {
+    const elapsed = Date.now() - startedAt;
+    const errorMessage = (error as Error).message || 'Unknown error';
+    const isTimeout = errorMessage.includes('timeout') || elapsed > TIMEOUT_ERROR_MS;
+
     // CRITICAL: Console.error to ensure it shows in Vercel logs
     console.error('[TASKS_API] CRITICAL ERROR:', {
-      message: (error as Error).message,
+      message: errorMessage,
       name: (error as Error).name,
       stack: (error as Error).stack,
+      elapsed,
+      isTimeout,
       reqId
     });
 
     // Log detailed error information for debugging
     const errorDetails: any = {
-      message: (error as Error).message,
+      message: errorMessage,
       stack: (error as Error).stack,
+      elapsed,
+      isTimeout,
       reqId
     };
 
@@ -699,11 +728,24 @@ export async function GET(req: Request) {
 
     logError('Failed to fetch tasks', error as Error, errorDetails);
 
+    // Return 504 Gateway Timeout for timeout errors
+    if (isTimeout) {
+      return NextResponse.json({
+        error: 'Gateway Timeout',
+        message: 'The request took too long to complete. This can happen when there are many tasks to process.',
+        details: `Operation took ${elapsed}ms, exceeding the ${TIMEOUT_ERROR_MS}ms limit.`,
+        suggestion: 'Try filtering by a shorter date range or contact support if this persists.',
+        elapsed,
+        reqId
+      }, { status: 504 });
+    }
+
     // TEMPORARY: Always return error details for debugging
     const errorResponse: Record<string, any> = {
       error: 'Internal Server Error',
-      details: (error as Error).message,
+      details: errorMessage,
       errorName: (error as Error).name,
+      elapsed,
       stack: (error as Error).stack?.split('\n').slice(0, 10)
     };
 

@@ -76,6 +76,7 @@ export function TopNavbar() {
       subItems: [
         { name: 'Scheduling', href: '/operations/scheduling', icon: Calendar, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
         { name: 'Crew Performance', href: '/operations/crew-performance', icon: Users, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
+        { name: 'Field Analytics', href: '/operations/field-analytics', icon: BarChart3, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
         { name: 'Alerts', href: '/operations/alerts', icon: Bell, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
       ]
     },

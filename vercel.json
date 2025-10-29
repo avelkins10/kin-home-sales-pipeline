@@ -15,6 +15,8 @@
     "app/api/repcard/canvassing/trends/route.ts": { "maxDuration": 60, "memory": 1024 },
     "app/api/repcard/quality-aggregate/route.ts": { "maxDuration": 60, "memory": 1024 },
     "app/api/repcard/leaderboard/route.ts": { "maxDuration": 60, "memory": 1024 },
+    "app/api/tasks/route.ts": { "maxDuration": 60, "memory": 1024 },
+    "app/api/projects/route.ts": { "maxDuration": 60, "memory": 1024 },
     "app/api/**/route.ts": { "maxDuration": 15, "memory": 1024 }
   },
   "crons": [
