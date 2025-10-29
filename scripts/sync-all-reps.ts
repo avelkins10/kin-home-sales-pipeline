@@ -12,6 +12,20 @@
  * 3. Upsert into users table with repcard_user_id, quickbase_user_id, email, name, office
  * 4. password_hash stays NULL for non-app users (they can't login until invited)
  *
+ * PROTECTED FIELDS FOR EXISTING USERS (never overwritten):
+ * - name: User's display name (managed by admins in the app)
+ * - role: User's role - closer, setter, office_leader, etc. (managed by admins)
+ * - sales_office: Array of offices for access control (managed via office_assignments)
+ * - password_hash: Security field (never sync from external sources)
+ *
+ * For existing users, this script ONLY updates:
+ * - repcard_user_id, last_synced_at, sync_confidence (external IDs only)
+ *
+ * New users are created with initial values from external sources, but once created,
+ * the app becomes the source of truth for name, role, and office assignments.
+ *
+ * See lib/constants/protected-fields.ts for the complete list of protected fields.
+ *
  * Usage:
  *   npx ts-node scripts/sync-all-reps.ts
  *   npx ts-node scripts/sync-all-reps.ts --dry-run

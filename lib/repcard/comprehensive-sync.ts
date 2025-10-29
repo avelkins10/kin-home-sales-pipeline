@@ -1,6 +1,6 @@
 /**
  * Comprehensive RepCard Sync Service
- * 
+ *
  * Syncs ALL available RepCard data:
  * - Users/Reps
  * - Offices
@@ -9,8 +9,17 @@
  * - Status Logs
  * - Customer Attachments
  * - Appointment Attachments
- * 
+ *
  * This is the master sync service that pulls everything from RepCard
+ *
+ * PROTECTED FIELDS IN USERS TABLE (never overwritten):
+ * - name: User's display name (managed by admins in the app)
+ * - role: User's role (managed by admins in the app)
+ * - sales_office: Office array for access control (managed by admins)
+ * - password_hash: Security field
+ *
+ * RepCard data is synced to repcard_users table, then linked to users table
+ * via repcard_user_id only. This ensures app-managed fields are never overwritten.
  */
 
 import { sql } from '@/lib/db/client';
@@ -754,10 +763,20 @@ export async function linkRepCardUsersToUsers(): Promise<void> {
     
     const stats = statsBefore[0];
     console.log(`[RepCard Sync] Stats: ${stats?.repcard_count || 0} RepCard users with email, ${stats?.users_count || 0} users with email, ${stats?.already_linked || 0} already linked, ${stats?.ready_to_link || 0} ready to link`);
-    
+
+    // Link RepCard users to users table (SAFE - only updates repcard_user_id)
+    //
+    // PROTECTED FIELDS - DO NOT UPDATE:
+    // ✗ name - User's display name (managed by admins)
+    // ✗ role - User's role (managed by admins)
+    // ✗ sales_office - Office array for access control (managed by admins)
+    //
+    // SAFE TO UPDATE:
+    // ✓ repcard_user_id - External ID linking to RepCard
+    // ✓ last_synced_from_repcard_at - Sync timestamp
     const result = await sql`
       UPDATE users u
-      SET 
+      SET
         repcard_user_id = ru.repcard_user_id::text,
         last_synced_from_repcard_at = NOW()
       FROM repcard_users ru

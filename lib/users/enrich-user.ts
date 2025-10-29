@@ -7,6 +7,15 @@
  * - QuickBase Projects table
  *
  * Uses COALESCE strategy: Only fills missing fields, never overwrites existing data
+ *
+ * PROTECTED FIELDS (never overwritten by enrichment):
+ * - name: User's display name (managed by admins)
+ * - role: User's role (managed by admins)
+ * - sales_office: Office array for access control (managed by admins)
+ * - password_hash: Security field (never sync from external sources)
+ * - email: Primary identifier (should not change)
+ *
+ * See lib/constants/protected-fields.ts for complete protection rules.
  */
 
 import 'server-only';
@@ -78,8 +87,20 @@ export async function enrichUserFromContacts(
     const contact = data.data[0];
 
     // Update user with COALESCE (only fill missing fields)
-    // IMPORTANT: Only update external IDs and non-critical metadata
-    // Never overwrite name, role, sales_office - the app is the source of truth
+    //
+    // PROTECTED FIELDS - DO NOT UPDATE:
+    // ✗ name - User's display name (managed by admins)
+    // ✗ role - User's role (managed by admins)
+    // ✗ sales_office - Office array for access control (managed by admins)
+    // ✗ password_hash - Security field
+    // ✗ email - Primary identifier
+    //
+    // SAFE TO UPDATE (using COALESCE or direct update for counters):
+    // ✓ External IDs (quickbase_contact_id, repcard_user_id, etc.)
+    // ✓ Metadata (office, team, phone, profile_image_url)
+    // ✓ Counters (num_closer_projects, num_setter_projects)
+    //
+    // Note: 'office' (TEXT) is RepCard office metadata, different from 'sales_office' (TEXT[])
     await sql`
       UPDATE users
       SET
@@ -192,7 +213,10 @@ export async function enrichUserFromRepCard(
           )
         `;
       } else {
-        // User not found - create minimal record
+        // User not found - create minimal record with RepCard data
+        // NOTE: New users are created with initial values from RepCard, but once created,
+        // the app becomes the source of truth for name, role, and office assignments.
+        // No role or sales_office is set - user cannot login until invited by admin.
         const newUser = await sql`
           INSERT INTO users (
             email,
@@ -242,6 +266,16 @@ export async function enrichUserFromRepCard(
     }
 
     // Update with RepCard data (COALESCE - only fill missing fields)
+    //
+    // PROTECTED FIELDS - DO NOT UPDATE:
+    // ✗ name - User's display name (managed by admins)
+    // ✗ role - User's role (managed by admins)
+    // ✗ sales_office - Office array for access control (managed by admins)
+    //
+    // SAFE TO UPDATE (using COALESCE):
+    // ✓ office - RepCard office metadata (TEXT, different from sales_office array)
+    // ✓ team - RepCard team name
+    // ✓ profile_image_url - Profile picture
     if (user.rows.length > 0) {
       await sql`
         UPDATE users

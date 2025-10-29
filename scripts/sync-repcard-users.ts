@@ -11,6 +11,19 @@
  * 5. Logs all sync operations to user_sync_log table
  * 6. Provides detailed report of sync results
  *
+ * PROTECTED FIELDS (never overwritten):
+ * - name: User's display name (managed by admins in the app)
+ * - role: User's role (managed by admins in the app)
+ * - sales_office: Office array for access control (managed by admins)
+ * - password_hash: Security field
+ *
+ * This script ONLY updates:
+ * - repcard_user_id: External ID linking to RepCard
+ * - last_synced_at: Sync timestamp
+ * - sync_confidence: Match confidence score
+ *
+ * See lib/constants/protected-fields.ts for complete protection rules.
+ *
  * Usage:
  *   npm run sync:repcard              # Sync all users
  *   npm run sync:repcard -- --company-id=597  # Sync specific company
@@ -260,6 +273,8 @@ class RepCardUserSync {
       }
 
       // Update user with RepCard ID (unless dry run)
+      // SAFE - only updates external ID and sync metadata
+      // PROTECTED FIELDS (not updated): name, role, sales_office, password_hash
       if (!this.options.dryRun) {
         await sql`
           UPDATE users

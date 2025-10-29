@@ -97,7 +97,17 @@ export async function POST(
     }
 
     // Parse request body
-    const body = await req.json();
+    let body: { action?: string; notes?: string };
+    try {
+      body = await req.json();
+    } catch (error) {
+      logError('Failed to parse request body', error as Error, { reqId });
+      return NextResponse.json(
+        { error: 'Bad Request', message: 'Invalid JSON in request body' },
+        { status: 400 }
+      );
+    }
+
     const { action, notes } = body;
 
     if (!action || !['save', 'cancel'].includes(action)) {
@@ -107,7 +117,7 @@ export async function POST(
       );
     }
 
-    if (action === 'save' && !notes) {
+    if (action === 'save' && !notes?.trim()) {
       return NextResponse.json(
         { error: 'Bad Request', message: 'notes are required when saving a customer' },
         { status: 400 }
@@ -156,24 +166,57 @@ export async function POST(
       reqId
     });
     
-    await updateProject(numericId, {
-      [PROJECT_FIELDS.PROJECT_STATUS]: { value: newStatus }
-    });
-    
-    logInfo('[SAVE_OR_CANCEL] Project updated successfully in QuickBase', {
-      projectId: numericId,
-      newStatus,
-      reqId
-    });
+    try {
+      await updateProject(numericId, {
+        [PROJECT_FIELDS.PROJECT_STATUS]: { value: newStatus },
+        [PROJECT_FIELDS.DATE_MODIFIED]: { value: new Date().toISOString() }
+      });
+      
+      logInfo('[SAVE_OR_CANCEL] Project updated successfully in QuickBase', {
+        projectId: numericId,
+        newStatus,
+        reqId
+      });
+    } catch (error) {
+      logError('[SAVE_OR_CANCEL] Failed to update project in QuickBase', error as Error, {
+        projectId: numericId,
+        previousStatus: currentStatus,
+        newStatus,
+        action,
+        reqId
+      });
+      return NextResponse.json({
+        error: 'Internal Server Error',
+        message: 'Failed to update project status in QuickBase',
+        details: (error as Error).message
+      }, { status: 500 });
+    }
 
     // Create note in Install Communications for project coordinators
-    await createProjectNote(
-      project[PROJECT_FIELDS.PROJECT_ID]?.value || String(numericId),
-      numericId,
-      noteContent,
-      userEmail,
-      reqId
-    );
+    try {
+      await createProjectNote(
+        project[PROJECT_FIELDS.PROJECT_ID]?.value || String(numericId),
+        numericId,
+        noteContent,
+        userEmail,
+        reqId
+      );
+      logInfo('[SAVE_OR_CANCEL] Note created successfully in Install Communications', {
+        projectId: numericId,
+        action,
+        reqId
+      });
+    } catch (error) {
+      // Log error but don't fail the request - status update succeeded
+      logError('[SAVE_OR_CANCEL] Failed to create note in Install Communications', error as Error, {
+        projectId: numericId,
+        action,
+        noteContent,
+        userEmail,
+        reqId
+      });
+      // Continue execution - the status update was successful, note creation failure is non-critical
+    }
 
     logInfo('[SAVE_OR_CANCEL] Project status updated', {
       projectId: numericId,

@@ -1,16 +1,26 @@
 /**
  * Daily sync script to refresh all existing users from QuickBase Contacts table
- * 
+ *
  * This script queries all users from the local database and refreshes their data
  * from the QuickBase Contacts table using the existing enrichUserFromContacts() function.
- * 
+ *
+ * PROTECTED FIELDS (never overwritten):
+ * - name: User's display name (managed by admins in the app)
+ * - role: User's role - closer, setter, office_leader, etc. (managed by admins)
+ * - sales_office: Array of offices for access control (managed via office_assignments)
+ * - password_hash: Security field (never sync from external sources)
+ * - email: Primary identifier (should not change after creation)
+ *
+ * This script only updates external IDs and metadata using COALESCE (fill missing values only).
+ * See lib/constants/protected-fields.ts for the complete list of protected fields.
+ *
  * Usage:
  *   npm run sync:contacts                    # Full sync of all users
  *   npm run sync:contacts:dry-run          # Preview changes without updating
  *   npm run sync:contacts -- --limit=10    # Test with first 10 users
  *   npm run sync:contacts -- --force       # Force sync even if recently synced
  *   npm run sync:contacts -- --verbose     # Detailed logging
- * 
+ *
  * @author Kin Home Sales Pipeline Team
  * @version 1.0.0
  */
