@@ -18,9 +18,12 @@ export async function GET(request: NextRequest) {
     logApiRequest('GET', '/api/admin/repcard-debug', requestId);
 
     // Require authentication and super_admin role
-    const { session } = await requireAuth();
-    const userRole = session?.user?.role;
+    const auth = await requireAuth();
+    if (!auth.authorized) {
+      return auth.response;
+    }
 
+    const userRole = auth.session.user.role;
     if (userRole !== 'super_admin') {
       return NextResponse.json(
         { error: 'Forbidden - super_admin role required' },
