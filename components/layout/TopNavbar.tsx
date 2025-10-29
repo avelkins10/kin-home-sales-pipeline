@@ -32,7 +32,8 @@ import {
   MessageSquare,
   Phone,
   AlertTriangle,
-  RefreshCw
+  RefreshCw,
+  Bell
 } from 'lucide-react';
 import { Logo } from './Logo';
 
@@ -64,7 +65,9 @@ export function TopNavbar() {
     { name: 'Outreach', href: '/operations/outreach', icon: MessageSquare, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
     { name: 'Communications', href: '/operations/communications', icon: Phone, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
     { name: 'Escalations', href: '/operations/escalations', icon: AlertTriangle, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
+    { name: 'Alerts', href: '/operations/alerts', icon: Bell, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
     { name: 'Analytics', href: '/operations/analytics', icon: BarChart3, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
+    { name: 'Crew Performance', href: '/operations/crew-performance', icon: Users, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
     { name: 'Sync Monitoring', href: '/operations/sync-monitoring', icon: RefreshCw, roles: ['super_admin'] },
     { name: 'Settings', href: '/operations/settings', icon: Settings, roles: ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'] },
   ];
