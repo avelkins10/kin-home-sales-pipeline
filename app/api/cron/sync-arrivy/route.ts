@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
   try {
     // Get query parameters for custom date range (optional)
     const searchParams = request.nextUrl.searchParams;
-    const daysBack = parseInt(searchParams.get('days') || '7', 10);
+    const daysBack = parseInt(searchParams.get('days') || '3', 10); // Changed from 7 to 3 days since we run hourly
     const backfill = searchParams.get('backfill') === 'true';
     const syncEntities = searchParams.get('entities') === 'true';
 
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
     } else {
       // Normal mode: sync last N days
       startDate.setDate(startDate.getDate() - daysBack);
-      logInfo(`[Arrivy Cron] Running daily sync (last ${daysBack} days)`);
+      logInfo(`[Arrivy Cron] Running hourly sync (last ${daysBack} days)`);
     }
 
     const stats: SyncStats = {

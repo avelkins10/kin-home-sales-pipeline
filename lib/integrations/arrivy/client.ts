@@ -273,7 +273,7 @@ export class ArrivyClient {
 
   /**
    * List all tasks with optional filters
-   * 
+   *
    * NOTE: Arrivy API does not explicitly document pagination parameters.
    * If the API enforces an implicit limit (suspected ~1000 tasks per call),
    * the caller should implement adaptive date range sub-chunking to ensure
@@ -284,12 +284,12 @@ export class ArrivyClient {
     customer_id?: number;
     entity_ids?: number[];
     group_id?: number;
-    start_date?: string;
-    end_date?: string;
+    start_date?: string | Date;
+    end_date?: string | Date;
   }): Promise<ArrivyTask[]> {
     const startTime = Date.now();
     const endpoint = '/tasks';
-    
+
     // Build query string
     const queryParams = new URLSearchParams();
     if (filters) {
@@ -299,13 +299,23 @@ export class ArrivyClient {
         queryParams.append('entity_ids', filters.entity_ids.join(','));
       }
       if (filters.group_id) queryParams.append('group_id', filters.group_id.toString());
-      if (filters.start_date) queryParams.append('start_date', filters.start_date);
-      if (filters.end_date) queryParams.append('end_date', filters.end_date);
+      if (filters.start_date) {
+        const startDateStr = filters.start_date instanceof Date
+          ? filters.start_date.toISOString().split('T')[0]
+          : filters.start_date;
+        queryParams.append('start_date', startDateStr);
+      }
+      if (filters.end_date) {
+        const endDateStr = filters.end_date instanceof Date
+          ? filters.end_date.toISOString().split('T')[0]
+          : filters.end_date;
+        queryParams.append('end_date', endDateStr);
+      }
     }
 
     const queryString = queryParams.toString();
     const fullEndpoint = queryString ? `${endpoint}?${queryString}` : endpoint;
-    
+
     logArrivyRequest('GET', fullEndpoint, filters);
 
     return this.queueRequest(async () => {
@@ -323,6 +333,21 @@ export class ArrivyClient {
 
       return tasks;
     });
+  }
+
+  /**
+   * Alias for listTasks - for consistency with service layer naming
+   * Accepts Date objects or ISO strings for start_date and end_date
+   */
+  async getTasks(filters?: {
+    external_id?: string;
+    customer_id?: number;
+    entity_ids?: number[];
+    group_id?: number;
+    start_date?: string | Date;
+    end_date?: string | Date;
+  }): Promise<ArrivyTask[]> {
+    return this.listTasks(filters);
   }
 
   /**
@@ -450,6 +475,13 @@ export class ArrivyClient {
 
       return entities;
     });
+  }
+
+  /**
+   * Alias for listEntities - for consistency with service layer naming
+   */
+  async getEntities(): Promise<ArrivyEntity[]> {
+    return this.listEntities();
   }
 
   /**
