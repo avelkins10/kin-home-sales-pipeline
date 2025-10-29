@@ -125,41 +125,8 @@ AFTER INSERT OR UPDATE ON repcard_appointments
 FOR EACH ROW
 EXECUTE FUNCTION update_appointment_power_bill_status();
 
--- Update all existing appointments with calculated fields
-UPDATE repcard_appointments a
-SET 
-  office_id = COALESCE(
-    (SELECT office_id FROM repcard_customers WHERE repcard_customer_id::text = a.repcard_customer_id::text LIMIT 1),
-    (SELECT office_id FROM repcard_users WHERE repcard_user_id::text = a.setter_user_id::text LIMIT 1),
-    (SELECT office_id FROM repcard_users WHERE repcard_user_id::text = a.closer_user_id::text LIMIT 1)
-  ),
-  is_within_48_hours = CASE
-    WHEN EXISTS (
-      SELECT 1 FROM repcard_customers c
-      WHERE c.repcard_customer_id::text = a.repcard_customer_id::text
-        AND (a.created_at - c.created_at) <= INTERVAL '48 hours'
-    ) THEN TRUE
-    ELSE FALSE
-  END,
-  has_power_bill = CASE
-    WHEN EXISTS (
-      SELECT 1 FROM repcard_customer_attachments ca
-      WHERE ca.repcard_customer_id::text = a.repcard_customer_id::text
-        AND (ca.attachment_type ILIKE '%power%' OR ca.attachment_type ILIKE '%bill%' OR ca.file_name ILIKE '%power%' OR ca.file_name ILIKE '%bill%')
-    ) THEN TRUE
-    ELSE FALSE
-  END,
-  status_category = CASE
-    WHEN a.disposition IS NULL THEN 'pending'
-    WHEN LOWER(a.disposition) LIKE '%cancel%' THEN 'cancelled'
-    WHEN LOWER(a.disposition) LIKE '%reschedule%' THEN 'rescheduled'
-    WHEN LOWER(a.disposition) LIKE '%no.show%' OR LOWER(a.disposition) LIKE '%no_show%' THEN 'no_show'
-    WHEN LOWER(a.disposition) LIKE '%sat.closed%' OR LOWER(a.disposition) LIKE '%sat_closed%' OR LOWER(a.disposition) LIKE '%closed%' THEN 'sat_closed'
-    WHEN LOWER(a.disposition) LIKE '%sat.no.close%' OR LOWER(a.disposition) LIKE '%sat_no_close%' THEN 'sat_no_close'
-    WHEN a.completed_at IS NOT NULL THEN 'completed'
-    WHEN a.scheduled_at IS NOT NULL THEN 'scheduled'
-    ELSE 'pending'
-  END;
+-- Note: Bulk UPDATE of existing records is handled by the migration script
+-- Triggers will automatically populate these fields for new records going forward
 
 COMMIT;
 

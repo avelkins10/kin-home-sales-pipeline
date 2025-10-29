@@ -39,12 +39,23 @@ function calculateDaysWaiting(dateCreated: string | null): number {
  * - CRITICAL (Red): Task >7 days old OR project in "Rejected" status
  * - URGENT (Yellow): Task 3-7 days old OR latest submission "Needs Revision"
  * - NORMAL (Gray): Task <3 days old
+ * - Approved tasks are never critical (they're completed/approved)
  */
 export function getTaskUrgency(
   task: Task,
   projectStatus?: string
 ): TaskUrgency {
   const daysWaiting = calculateDaysWaiting(task.dateCreated);
+
+  // If task is approved, it's not critical - return normal urgency
+  const taskStatus = (task.status || '').toLowerCase().trim();
+  if (taskStatus === 'approved') {
+    return {
+      level: 'normal',
+      reason: 'Task approved - no action needed',
+      daysWaiting
+    };
+  }
 
   // Check if project is rejected
   const isProjectRejected = projectStatus?.toLowerCase().includes('reject') || false;

@@ -71,6 +71,15 @@ export default function TasksPage() {
       .filter((office): office is string => !!office)
   )).sort()
 
+  // Calculate status counts for tabs
+  const statusCounts = {
+    all: tasks.length,
+    not_started: tasks.filter((t: any) => (t.status || '').toLowerCase().trim() === 'not started').length,
+    in_progress: tasks.filter((t: any) => (t.status || '').toLowerCase().trim() === 'in progress').length,
+    approved: tasks.filter((t: any) => (t.status || '').toLowerCase().trim() === 'approved').length,
+    closed_by_ops: tasks.filter((t: any) => (t.status || '').toLowerCase().trim() === 'closed by ops').length,
+  }
+
   // Filter tasks by selected closer, office, and status
   const filteredTasks = tasks.filter((t: any) => {
     // Filter by closer
@@ -81,13 +90,19 @@ export default function TasksPage() {
     if (selectedOffice !== 'all' && t.salesOffice !== selectedOffice) {
       return false
     }
-    // Filter by status
+    // Filter by status - use task.status field, not projectStatus
     if (selectedStatus !== 'all') {
-      const projectStatus = t.projectStatus?.toLowerCase() || ''
-      if (selectedStatus === 'approved' && !projectStatus.includes('approved')) {
+      const taskStatus = (t.status || '').toLowerCase().trim()
+      if (selectedStatus === 'approved' && taskStatus !== 'approved') {
         return false
       }
-      if (selectedStatus === 'not_started' && projectStatus !== 'not started') {
+      if (selectedStatus === 'not_started' && taskStatus !== 'not started') {
+        return false
+      }
+      if (selectedStatus === 'in_progress' && taskStatus !== 'in progress') {
+        return false
+      }
+      if (selectedStatus === 'closed_by_ops' && taskStatus !== 'closed by ops') {
         return false
       }
     }
@@ -208,16 +223,66 @@ export default function TasksPage() {
               })}
             </select>
 
-            {/* Filter by Status */}
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          </div>
+
+          {/* Status Tabs */}
+          <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 pb-2">
+            <span className="text-sm font-medium text-gray-700 mr-2">Status:</span>
+            <Button
+              variant={selectedStatus === 'all' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedStatus('all')}
+              className={cn(
+                selectedStatus === 'all' && 'bg-blue-600 hover:bg-blue-700',
+                'rounded-md'
+              )}
             >
-              <option value="all">All Statuses</option>
-              <option value="approved">Approved</option>
-              <option value="not_started">Not Started</option>
-            </select>
+              All ({statusCounts.all})
+            </Button>
+            <Button
+              variant={selectedStatus === 'not_started' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedStatus('not_started')}
+              className={cn(
+                selectedStatus === 'not_started' && 'bg-blue-600 hover:bg-blue-700',
+                'rounded-md'
+              )}
+            >
+              Not Started ({statusCounts.not_started})
+            </Button>
+            <Button
+              variant={selectedStatus === 'in_progress' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedStatus('in_progress')}
+              className={cn(
+                selectedStatus === 'in_progress' && 'bg-blue-600 hover:bg-blue-700',
+                'rounded-md'
+              )}
+            >
+              In Progress ({statusCounts.in_progress})
+            </Button>
+            <Button
+              variant={selectedStatus === 'approved' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedStatus('approved')}
+              className={cn(
+                selectedStatus === 'approved' && 'bg-blue-600 hover:bg-blue-700',
+                'rounded-md'
+              )}
+            >
+              Approved ({statusCounts.approved})
+            </Button>
+            <Button
+              variant={selectedStatus === 'closed_by_ops' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedStatus('closed_by_ops')}
+              className={cn(
+                selectedStatus === 'closed_by_ops' && 'bg-blue-600 hover:bg-blue-700',
+                'rounded-md'
+              )}
+            >
+              Closed by Ops ({statusCounts.closed_by_ops})
+            </Button>
           </div>
 
           {/* Group by */}

@@ -132,11 +132,21 @@ export function TaskList({ tasks, groupBy = 'none', expandedOffices, toggleOffic
   if (groupBy === 'urgency') {
     const sortedTasks = sortTasksByUrgency(tasks)
     const critical = sortByDate(sortedTasks.filter(t => {
+      // Exclude approved tasks from critical - they're completed
+      const taskStatus = (t.status || '').toLowerCase().trim()
+      if (taskStatus === 'approved') {
+        return false
+      }
       const daysWaiting = t.dateCreated ? Math.ceil((Date.now() - new Date(t.dateCreated).getTime()) / (1000 * 60 * 60 * 24)) : 0
       const isRejected = typeof t.projectStatus === 'string' && t.projectStatus.toLowerCase().includes('reject')
       return daysWaiting > 7 || isRejected
     }))
     const urgent = sortByDate(sortedTasks.filter(t => {
+      // Exclude approved tasks from urgent - they're completed
+      const taskStatus = (t.status || '').toLowerCase().trim()
+      if (taskStatus === 'approved') {
+        return false
+      }
       const daysWaiting = t.dateCreated ? Math.ceil((Date.now() - new Date(t.dateCreated).getTime()) / (1000 * 60 * 60 * 24)) : 0
       const hasRevision = t.submissions?.[0]?.opsDisposition === 'Needs Revision'
       return (daysWaiting >= 3 && daysWaiting <= 7) || hasRevision
