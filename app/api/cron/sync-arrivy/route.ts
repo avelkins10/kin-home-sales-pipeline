@@ -16,6 +16,7 @@ import {
   type ArrivyTaskAttachmentData
 } from '@/lib/db/arrivy';
 import { getCustomerTrackerUrl } from '@/lib/integrations/arrivy/service';
+import { extractTaskType } from '@/lib/integrations/arrivy/utils';
 import type { ArrivyTask, ArrivyEntity, ArrivyTaskStatus } from '@/lib/integrations/arrivy/types';
 import { logInfo, logError } from '@/lib/logging/logger';
 
@@ -150,7 +151,7 @@ export async function GET(request: NextRequest) {
           customer_phone: task.customer_phone || null,
           customer_email: task.customer_email || null,
           customer_address: task.customer_address || null,
-          task_type: null, // Will be detected from template
+          task_type: extractTaskType(task), // ✅ Detect from template, title, or extra_fields
           scheduled_start: task.start_datetime ? new Date(task.start_datetime) : null,
           scheduled_end: task.end_datetime ? new Date(task.end_datetime) : null,
           assigned_entity_ids: task.entity_ids || [],
