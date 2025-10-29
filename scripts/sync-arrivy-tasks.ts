@@ -23,12 +23,14 @@
 import path from 'path';
 import { sql } from '@vercel/postgres';
 import { arrivyClient } from '@/lib/integrations/arrivy/client';
-import { 
-  upsertArrivyTask, 
+import {
+  upsertArrivyTask,
   upsertArrivyEntity,
   getArrivyTaskByArrivyId,
+  insertArrivyTaskStatus,
   type ArrivyTaskData,
-  type ArrivyEntityData 
+  type ArrivyEntityData,
+  type ArrivyTaskStatusData
 } from '@/lib/db/arrivy';
 import { getCustomerTrackerUrl } from '@/lib/integrations/arrivy/service';
 import type { ArrivyTask, ArrivyEntity } from '@/lib/integrations/arrivy/types';
@@ -388,6 +390,12 @@ class ArrivySyncService {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         await upsertArrivyTask(taskData);
+
+        // After successfully syncing the task, also sync its status history
+        if (!options.dryRun) {
+          await this.syncTaskStatusHistory(taskData.arrivy_task_id, options);
+        }
+
         return; // Success
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
@@ -412,6 +420,68 @@ class ArrivySyncService {
     // All retries exhausted
     if (lastError) {
       throw lastError;
+    }
+  }
+
+  /**
+   * Sync status history for a task
+   */
+  private async syncTaskStatusHistory(
+    arrivyTaskId: number,
+    options: SyncOptions
+  ): Promise<number> {
+    try {
+      if (!arrivyClient) {
+        throw new Error('Arrivy client not configured');
+      }
+
+      // Fetch status history from Arrivy
+      const statuses = await arrivyClient.getTaskStatuses(arrivyTaskId);
+
+      if (options.dryRun) {
+        if (options.verbose) {
+          console.log(`   📋 Would sync ${statuses.length} status entries for task ${arrivyTaskId}`);
+        }
+        return statuses.length;
+      }
+
+      // Insert each status into database
+      let syncedCount = 0;
+      for (const status of statuses) {
+        try {
+          const statusData: ArrivyTaskStatusData = {
+            arrivy_task_id: arrivyTaskId,
+            status_type: status.type,
+            reporter_id: status.reporter_id || null,
+            reporter_name: status.reporter_name || null,
+            reported_at: new Date(status.time),
+            notes: status.notes || null,
+            has_attachments: status.files && status.files.length > 0,
+            visible_to_customer: status.visible_to_customer !== false,
+            source: status.source || null,
+          };
+
+          await insertArrivyTaskStatus(statusData);
+          syncedCount++;
+        } catch (error) {
+          // Log error but continue with other statuses
+          if (options.verbose) {
+            console.error(`   ⚠️  Failed to sync status ${status.id}:`, error);
+          }
+        }
+      }
+
+      if (options.verbose && syncedCount > 0) {
+        console.log(`   📋 Synced ${syncedCount} status entries for task ${arrivyTaskId}`);
+      }
+
+      return syncedCount;
+    } catch (error) {
+      // Non-fatal error - log and continue
+      if (options.verbose) {
+        console.error(`   ⚠️  Failed to fetch status history for task ${arrivyTaskId}:`, error);
+      }
+      return 0;
     }
   }
 
@@ -446,16 +516,56 @@ class ArrivySyncService {
   private extractTaskType(task: ArrivyTask): string | null {
     // Try to extract task type from extra_fields first
     if (task.extra_fields?.task_type) {
-      return task.extra_fields.task_type;
+      return task.extra_fields.task_type.toLowerCase();
     }
 
-    // Try to infer from title
-    if (task.title) {
-      const title = task.title.toLowerCase();
-      if (title.includes('survey')) return 'survey';
-      if (title.includes('install')) return 'install';
-      if (title.includes('inspection')) return 'inspection';
-      if (title.includes('service')) return 'service';
+    // Check extra_fields for task-type indicators (e.g., "Notes for Surveyor" → survey)
+    if (task.extra_fields) {
+      const fieldKeys = Object.keys(task.extra_fields).join(' ').toLowerCase();
+      if (fieldKeys.includes('surveyor') || fieldKeys.includes('survey')) return 'survey';
+      if (fieldKeys.includes('install')) return 'install';
+      if (fieldKeys.includes('inspection') || fieldKeys.includes('inspector')) return 'inspection';
+    }
+
+    // Combine title and customer_name for pattern matching
+    const searchText = [
+      task.title || '',
+      task.customer_name || '',
+      task.description || ''
+    ].join(' ').toLowerCase();
+
+    // Check for specific task types with priority order
+    // 1. Survey (most common in this dataset)
+    if (searchText.includes('survey') || searchText.includes('site survey')) {
+      return 'survey';
+    }
+
+    // 2. Installation types
+    if (searchText.match(/\b(install|installation|pv|solar|roof\s*pv|panel|electrical)\b/)) {
+      if (searchText.includes('roof') || searchText.includes('pv') || searchText.includes('solar')) {
+        return 'install'; // Solar/PV installation
+      }
+      if (searchText.includes('electrical')) {
+        return 'install'; // Electrical installation
+      }
+      if (searchText.includes('install')) {
+        return 'install';
+      }
+    }
+
+    // 3. Inspection
+    if (searchText.match(/\b(inspection|inspect|audit)\b/)) {
+      return 'inspection';
+    }
+
+    // 4. Service/Maintenance
+    if (searchText.match(/\b(service|maintenance|repair|fix)\b/)) {
+      return 'service';
+    }
+
+    // 5. Booking/Appointment (appears in test data)
+    if (searchText.includes('booking')) {
+      return 'other'; // Generic appointment
     }
 
     // Try to infer from template
@@ -467,6 +577,7 @@ class ArrivySyncService {
       if (template.includes('service')) return 'service';
     }
 
+    // Default to null if no pattern matches
     return null;
   }
 
