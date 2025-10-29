@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     const octEnd = '2025-10-28';
 
     // 1. Fetch recent sync logs
-    const recentSyncsRaw = await sql`
+    const recentSyncsResult = await sql`
       SELECT
         entity_type,
         sync_type,
@@ -56,10 +56,10 @@ export async function GET(request: NextRequest) {
       ORDER BY started_at DESC
       LIMIT 10
     `;
-    const recentSyncs = Array.from(recentSyncsRaw);
+    const recentSyncs = recentSyncsResult.rows;
 
     // 2. Fetch recent customers from database
-    const recentCustomersRaw = await sql`
+    const recentCustomersResult = await sql`
       SELECT
         id,
         repcard_customer_id,
@@ -72,10 +72,10 @@ export async function GET(request: NextRequest) {
       ORDER BY created_at DESC
       LIMIT 20
     `;
-    const recentCustomers = Array.from(recentCustomersRaw);
+    const recentCustomers = recentCustomersResult.rows;
 
     // 3. Fetch recent appointments from database
-    const recentAppointmentsRaw = await sql`
+    const recentAppointmentsResult = await sql`
       SELECT
         id,
         repcard_appointment_id,
@@ -91,42 +91,42 @@ export async function GET(request: NextRequest) {
       ORDER BY created_at DESC
       LIMIT 20
     `;
-    const recentAppointments = Array.from(recentAppointmentsRaw);
+    const recentAppointments = recentAppointmentsResult.rows;
 
     // 4. Get today's data counts
-    const todayCustomersCountRaw = await sql`
+    const todayCustomersCountResult = await sql`
       SELECT COUNT(*) as count
       FROM repcard_customers
       WHERE DATE(created_at) = ${today}::date
     `;
-    const todayCustomersCount = parseInt(Array.from(todayCustomersCountRaw)[0].count);
+    const todayCustomersCount = parseInt(todayCustomersCountResult.rows[0].count);
 
-    const todayAppointmentsCountRaw = await sql`
+    const todayAppointmentsCountResult = await sql`
       SELECT COUNT(*) as count
       FROM repcard_appointments
       WHERE DATE(created_at) = ${today}::date
     `;
-    const todayAppointmentsCount = parseInt(Array.from(todayAppointmentsCountRaw)[0].count);
+    const todayAppointmentsCount = parseInt(todayAppointmentsCountResult.rows[0].count);
 
     // 5. Get October 2025 data counts
-    const octCustomersCountRaw = await sql`
+    const octCustomersCountResult = await sql`
       SELECT COUNT(*) as count
       FROM repcard_customers
       WHERE created_at >= ${octStart}::timestamp
         AND created_at <= (${octEnd}::timestamp + INTERVAL '1 day')
     `;
-    const octCustomersCount = parseInt(Array.from(octCustomersCountRaw)[0].count);
+    const octCustomersCount = parseInt(octCustomersCountResult.rows[0].count);
 
-    const octAppointmentsCountRaw = await sql`
+    const octAppointmentsCountResult = await sql`
       SELECT COUNT(*) as count
       FROM repcard_appointments
       WHERE created_at >= ${octStart}::timestamp
         AND created_at <= (${octEnd}::timestamp + INTERVAL '1 day')
     `;
-    const octAppointmentsCount = parseInt(Array.from(octAppointmentsCountRaw)[0].count);
+    const octAppointmentsCount = parseInt(octAppointmentsCountResult.rows[0].count);
 
     // 6. Get date range of all data
-    const dataRangesRaw = await sql`
+    const dataRangesResult = await sql`
       SELECT
         (SELECT MIN(created_at) FROM repcard_customers) as customers_min,
         (SELECT MAX(created_at) FROM repcard_customers) as customers_max,
@@ -135,7 +135,7 @@ export async function GET(request: NextRequest) {
         (SELECT COUNT(*) FROM repcard_customers) as total_customers,
         (SELECT COUNT(*) FROM repcard_appointments) as total_appointments
     `;
-    const dataRanges = Array.from(dataRangesRaw)[0];
+    const dataRanges = dataRangesResult.rows[0];
 
     // 7. Check user ID mappings for recent data
     const uniqueSetterIds = [
@@ -145,7 +145,7 @@ export async function GET(request: NextRequest) {
       ])
     ];
 
-    const userMappingsRaw = await sql`
+    const userMappingsResult = await sql`
       SELECT
         id,
         name,
@@ -154,7 +154,7 @@ export async function GET(request: NextRequest) {
       FROM users
       WHERE repcard_user_id = ANY(${uniqueSetterIds.map(String)}::text[])
     `;
-    const userMappings = Array.from(userMappingsRaw);
+    const userMappings = userMappingsResult.rows;
 
     // Create lookup map
     const userMappingLookup = new Map(
@@ -162,7 +162,7 @@ export async function GET(request: NextRequest) {
     );
 
     // 8. Get orphaned records count (setter_user_id not matching any user)
-    const orphanedCustomersRaw = await sql`
+    const orphanedCustomersResult = await sql`
       SELECT COUNT(*) as count
       FROM repcard_customers rc
       WHERE rc.setter_user_id IS NOT NULL
@@ -171,9 +171,9 @@ export async function GET(request: NextRequest) {
           WHERE u.repcard_user_id::text = rc.setter_user_id::text
         )
     `;
-    const orphanedCustomersCount = parseInt(Array.from(orphanedCustomersRaw)[0].count);
+    const orphanedCustomersCount = parseInt(orphanedCustomersResult.rows[0].count);
 
-    const orphanedAppointmentsRaw = await sql`
+    const orphanedAppointmentsResult = await sql`
       SELECT COUNT(*) as count
       FROM repcard_appointments ra
       WHERE ra.setter_user_id IS NOT NULL
@@ -182,7 +182,7 @@ export async function GET(request: NextRequest) {
           WHERE u.repcard_user_id::text = ra.setter_user_id::text
         )
     `;
-    const orphanedAppointmentsCount = parseInt(Array.from(orphanedAppointmentsRaw)[0].count);
+    const orphanedAppointmentsCount = parseInt(orphanedAppointmentsResult.rows[0].count);
 
     // 9. Try to fetch recent data from RepCard API (with error handling)
     let apiRecentCustomers = null;
@@ -210,21 +210,21 @@ export async function GET(request: NextRequest) {
     }
 
     // 10. Get database schema info
-    const customersColumnsRaw = await sql`
+    const customersColumnsResult = await sql`
       SELECT column_name, data_type
       FROM information_schema.columns
       WHERE table_name = 'repcard_customers'
       ORDER BY ordinal_position
     `;
-    const customersColumns = Array.from(customersColumnsRaw);
+    const customersColumns = customersColumnsResult.rows;
 
-    const appointmentsColumnsRaw = await sql`
+    const appointmentsColumnsResult = await sql`
       SELECT column_name, data_type
       FROM information_schema.columns
       WHERE table_name = 'repcard_appointments'
       ORDER BY ordinal_position
     `;
-    const appointmentsColumns = Array.from(appointmentsColumnsRaw);
+    const appointmentsColumns = appointmentsColumnsResult.rows;
 
     const response = {
       sync: {
