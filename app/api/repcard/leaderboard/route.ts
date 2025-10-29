@@ -201,7 +201,7 @@ export async function GET(request: NextRequest) {
     // Query users table (master table) - users should have repcard_user_id linked from sync
     if (officeIds && officeIds.length > 0) {
       // Use sql.query for office filtering with proper array parameters
-      // Fix: Handle NULL sales_office by using LEFT JOIN or checking office name matches
+      // Fix: Use LEFT JOIN to handle NULL sales_office, but only include users where office matches
       if (role !== 'all') {
         const result = await sql.query(
           `SELECT DISTINCT u.id, u.name, u.email, u.repcard_user_id, u.sales_office[1] as office, u.role
@@ -209,7 +209,7 @@ export async function GET(request: NextRequest) {
            LEFT JOIN offices o ON o.name = ANY(u.sales_office)
            WHERE u.repcard_user_id IS NOT NULL
              AND u.role = $1
-             AND (o.quickbase_office_id = ANY($2::int[]) OR u.sales_office IS NULL)
+             AND o.quickbase_office_id = ANY($2::int[])
            LIMIT 1000`,
           [role, officeIds]
         );
@@ -220,7 +220,7 @@ export async function GET(request: NextRequest) {
            FROM users u
            LEFT JOIN offices o ON o.name = ANY(u.sales_office)
            WHERE u.repcard_user_id IS NOT NULL
-             AND (o.quickbase_office_id = ANY($1::int[]) OR u.sales_office IS NULL)
+             AND o.quickbase_office_id = ANY($1::int[])
            LIMIT 1000`,
           [officeIds]
         );
