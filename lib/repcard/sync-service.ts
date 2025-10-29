@@ -167,43 +167,44 @@ export async function syncCustomers(options: {
 
         // Batch check which users already exist
         if (setterUserIds.size > 0) {
-          const existingUsers = await sql`
-            SELECT repcard_user_id FROM users 
-            WHERE repcard_user_id = ANY(${Array.from(setterUserIds).map(String)}::text[])
-          `;
-          const existingIds = new Set(existingUsers.map((u: any) => u.repcard_user_id));
-          
-          // Only enrich users that don't exist yet (batch API calls with delay)
-          const idsToEnrich = Array.from(setterUserIds).filter(id => !existingIds.has(id.toString()));
-          
-          // Limit enrichment to avoid timeout (max 10 per page)
-          const idsToEnrichLimited = idsToEnrich.slice(0, 10);
-          
-          for (const userId of idsToEnrichLimited) {
-            try {
-              const repcardUserResponse = await repcardClient.getUserDetails(userId);
-              const repcardUser = repcardUserResponse.result;
-              
-              if (repcardUser.email) {
-                await enrichUserFromRepCard(userId, {
-                  email: repcardUser.email,
-                  firstName: repcardUser.firstName,
-                  lastName: repcardUser.lastName,
-                  officeName: repcardUser.office,
-                  teamName: repcardUser.team,
-                  profileImage: repcardUser.image
-                });
+          try {
+            const existingUsers = await sql`
+              SELECT repcard_user_id FROM users 
+              WHERE repcard_user_id = ANY(${Array.from(setterUserIds).map(String)}::text[])
+            `;
+            const existingIds = new Set(existingUsers.map((u: any) => u.repcard_user_id));
+            
+            // Only enrich users that don't exist yet (batch API calls with delay)
+            const idsToEnrich = Array.from(setterUserIds).filter(id => !existingIds.has(id.toString()));
+            
+            // Limit enrichment to avoid timeout (max 10 per page)
+            const idsToEnrichLimited = idsToEnrich.slice(0, 10);
+            
+            for (const userId of idsToEnrichLimited) {
+              try {
+                const repcardUserResponse = await repcardClient.getUserDetails(userId);
+                const repcardUser = repcardUserResponse.result;
+                
+                if (repcardUser.email) {
+                  await enrichUserFromRepCard(userId, {
+                    email: repcardUser.email,
+                    firstName: repcardUser.firstName,
+                    lastName: repcardUser.lastName,
+                    officeName: repcardUser.office,
+                    teamName: repcardUser.team,
+                    profileImage: repcardUser.image
+                  });
+                }
+                
+                // Small delay to avoid rate limits
+                await new Promise(resolve => setTimeout(resolve, 100));
+              } catch (repcardError) {
+                console.warn(`[RepCard Sync] Could not enrich user ${userId}:`, repcardError);
               }
-              
-              // Small delay to avoid rate limits
-              await new Promise(resolve => setTimeout(resolve, 100));
-            } catch (repcardError) {
-              console.warn(`[RepCard Sync] Could not enrich user ${userId}:`, repcardError);
             }
-          }
           } catch (userCheckError) {
-            console.error(`[RepCard Sync] Error checking existing users for appointments:`, userCheckError);
-            // Continue processing appointments even if user check fails
+            console.error(`[RepCard Sync] Error checking existing users for customers:`, userCheckError);
+            // Continue processing customers even if user check fails
           }
         }
 
@@ -415,32 +416,32 @@ export async function syncAppointments(options: {
               ? existingUsersResult 
               : (existingUsersResult.rows || []);
             const existingIds = new Set(existingUsers.map((u: any) => u?.repcard_user_id).filter(Boolean));
-          
-          // Only enrich users that don't exist yet (limit to avoid timeout)
-          const idsToEnrich = Array.from(userIds).filter(id => !existingIds.has(id.toString())).slice(0, 10);
-          
-          for (const userId of idsToEnrich) {
-            try {
-              const repcardUserResponse = await repcardClient.getUserDetails(userId);
-              const repcardUser = repcardUserResponse.result;
-              
-              if (repcardUser.email) {
-                await enrichUserFromRepCard(userId, {
-                  email: repcardUser.email,
-                  firstName: repcardUser.firstName,
-                  lastName: repcardUser.lastName,
-                  officeName: repcardUser.office,
-                  teamName: repcardUser.team,
-                  profileImage: repcardUser.image
-                });
+            
+            // Only enrich users that don't exist yet (limit to avoid timeout)
+            const idsToEnrich = Array.from(userIds).filter(id => !existingIds.has(id.toString())).slice(0, 10);
+            
+            for (const userId of idsToEnrich) {
+              try {
+                const repcardUserResponse = await repcardClient.getUserDetails(userId);
+                const repcardUser = repcardUserResponse.result;
+                
+                if (repcardUser.email) {
+                  await enrichUserFromRepCard(userId, {
+                    email: repcardUser.email,
+                    firstName: repcardUser.firstName,
+                    lastName: repcardUser.lastName,
+                    officeName: repcardUser.office,
+                    teamName: repcardUser.team,
+                    profileImage: repcardUser.image
+                  });
+                }
+                
+                // Small delay to avoid rate limits
+                await new Promise(resolve => setTimeout(resolve, 100));
+              } catch (repcardError) {
+                console.warn(`[RepCard Sync] Could not enrich user ${userId}:`, repcardError);
               }
-              
-              // Small delay to avoid rate limits
-              await new Promise(resolve => setTimeout(resolve, 100));
-            } catch (repcardError) {
-              console.warn(`[RepCard Sync] Could not enrich user ${userId}:`, repcardError);
             }
-          }
           } catch (userCheckError) {
             console.error(`[RepCard Sync] Error checking existing users for appointments:`, userCheckError);
             // Continue processing appointments even if user check fails
