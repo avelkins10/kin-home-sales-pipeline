@@ -17,14 +17,26 @@ export default function TriggerSyncPage() {
   const [isDiagnosing, setIsDiagnosing] = useState(false);
   const [diagnosticResult, setDiagnosticResult] = useState<any>(null);
 
-  const triggerSync = async () => {
+  const triggerSync = async (options?: { skipUsers?: boolean; skipOffices?: boolean; skipStatusLogs?: boolean; skipAttachments?: boolean }) => {
     setIsSyncing(true);
     setError(null);
     setResult(null);
 
     try {
+      const params = new URLSearchParams();
+      params.set('skipCustomerAttachments', 'true');
+      params.set('skipAppointmentAttachments', 'true');
+      
+      if (options?.skipUsers) params.set('skipUsers', 'true');
+      if (options?.skipOffices) params.set('skipOffices', 'true');
+      if (options?.skipStatusLogs) params.set('skipStatusLogs', 'true');
+      if (options?.skipAttachments) {
+        params.set('skipCustomerAttachments', 'true');
+        params.set('skipAppointmentAttachments', 'true');
+      }
+
       const response = await fetch(
-        '/api/admin/repcard/comprehensive-sync?skipCustomerAttachments=true&skipAppointmentAttachments=true',
+        `/api/admin/repcard/comprehensive-sync?${params.toString()}`,
         {
           method: 'POST',
           headers: {
@@ -131,9 +143,9 @@ export default function TriggerSyncPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <Button 
-              onClick={triggerSync} 
+              onClick={() => triggerSync({ skipUsers: true, skipOffices: true, skipStatusLogs: true })}
               disabled={isSyncing || isLinking || isDiagnosing}
               className="w-full"
               size="lg"
@@ -144,15 +156,33 @@ export default function TriggerSyncPage() {
                   Syncing...
                 </>
               ) : (
-                'Start Comprehensive Sync'
+                'Sync Customers & Appointments'
               )}
             </Button>
+            <Button 
+              onClick={() => triggerSync()} 
+              disabled={isSyncing || isLinking || isDiagnosing}
+              variant="outline"
+              className="w-full"
+              size="lg"
+            >
+              {isSyncing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Syncing...
+                </>
+              ) : (
+                'Full Sync (All Data)'
+              )}
+            </Button>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
             <Button 
               onClick={linkUsers} 
               disabled={isSyncing || isLinking || isDiagnosing}
               variant="outline"
               className="w-full"
-              size="lg"
             >
               {isLinking ? (
                 <>
@@ -168,7 +198,6 @@ export default function TriggerSyncPage() {
               disabled={isSyncing || isLinking || isDiagnosing}
               variant="secondary"
               className="w-full"
-              size="lg"
             >
               {isDiagnosing ? (
                 <>
@@ -179,6 +208,13 @@ export default function TriggerSyncPage() {
                 'Diagnose Linking'
               )}
             </Button>
+          </div>
+          
+          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800">
+              <strong>💡 Tip:</strong> Click "Sync Customers & Appointments" to sync just those (users will be auto-enriched). 
+              Users are automatically linked when you sync customers/appointments!
+            </p>
           </div>
 
           {error && (
