@@ -21,7 +21,8 @@ export default function TasksPage() {
   const [sortBy, setSortBy] = useState<SortBy>('urgency')
   const [selectedCloser, setSelectedCloser] = useState<string>('all')
   const [selectedOffice, setSelectedOffice] = useState<string>('all')
-  const [selectedStatus, setSelectedStatus] = useState<string>('all')
+  // Default to showing actionable tasks (exclude approved) - most important are not started and pending cancels
+  const [selectedStatus, setSelectedStatus] = useState<string>('actionable')
   const [dateRange, setDateRange] = useState<DateRange>('all')
   const [expandedOffices, setExpandedOffices] = useState<Set<string>>(new Set())
 
@@ -96,6 +97,10 @@ export default function TasksPage() {
   // Calculate status counts for tabs
   const statusCounts = {
     all: tasks.length,
+    actionable: tasks.filter((t: any) => {
+      const taskStatus = (t.status || '').toLowerCase().trim()
+      return taskStatus !== 'approved' && taskStatus !== 'closed by ops'
+    }).length,
     not_started: tasks.filter((t: any) => (t.status || '').toLowerCase().trim() === 'not started').length,
     in_progress: tasks.filter((t: any) => (t.status || '').toLowerCase().trim() === 'in progress').length,
     approved: tasks.filter((t: any) => (t.status || '').toLowerCase().trim() === 'approved').length,
@@ -113,8 +118,20 @@ export default function TasksPage() {
       return false
     }
     // Filter by status - use task.status field, not projectStatus
-    if (selectedStatus !== 'all') {
-      const taskStatus = (t.status || '').toLowerCase().trim()
+    const taskStatus = (t.status || '').toLowerCase().trim()
+    
+    if (selectedStatus === 'actionable') {
+      // Show actionable tasks: not started, in progress, pending cancel (not approved/closed)
+      // This is the default - prioritize important tasks that need action
+      if (taskStatus === 'approved' || taskStatus === 'closed by ops') {
+        return false
+      }
+      // Always include pending cancel tasks (they're action items)
+      if (t.isPendingCancel) {
+        return true
+      }
+      return true // Include not started, in progress, etc.
+    } else if (selectedStatus !== 'all') {
       if (selectedStatus === 'approved' && taskStatus !== 'approved') {
         return false
       }
@@ -374,6 +391,17 @@ export default function TasksPage() {
           {/* Status Tabs */}
           <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 pb-2">
             <span className="text-sm font-medium text-gray-700 mr-2">Status:</span>
+            <Button
+              variant={selectedStatus === 'actionable' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedStatus('actionable')}
+              className={cn(
+                selectedStatus === 'actionable' && 'bg-blue-600 hover:bg-blue-700',
+                'rounded-md'
+              )}
+            >
+              Actionable ({statusCounts.actionable})
+            </Button>
             <Button
               variant={selectedStatus === 'all' ? 'default' : 'outline'}
               size="sm"
