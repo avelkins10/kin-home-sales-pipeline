@@ -4,7 +4,7 @@ export const maxDuration = 60;
 
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/guards';
-import { logApiRequest, logApiResponse, logError, logInfo } from '@/lib/logging/logger';
+import { logApiRequest, logApiResponse, logError, logInfo, logWarn } from '@/lib/logging/logger';
 import { qbClient } from '@/lib/quickbase/client';
 import {
   PROJECT_FIELDS,
@@ -429,35 +429,75 @@ export async function GET(req: Request) {
     });
 
     // STEP 4: Filter projects by user authorization
+    // Leadership roles see all projects in their assigned offices (team visibility)
     const authorizedProjectIds = new Set(
       allProjects
         .filter((project: any) => {
-          // For super_admin and regional without office filter, allow all
-          if (['super_admin', 'regional'].includes(userRole) && (!effectiveOfficeIds || effectiveOfficeIds.length === 0)) {
+          // super_admin: Always see all projects
+          if (userRole === 'super_admin') {
             return true;
           }
 
-          // For office-based roles, check office ID
-          if (effectiveOfficeIds && effectiveOfficeIds.length > 0) {
+          // regional: If no office assignments, see all. If assigned to offices, see those offices (their teams)
+          if (userRole === 'regional') {
+            if (!effectiveOfficeIds || effectiveOfficeIds.length === 0) {
+              return true; // No office assignments = see all projects
+            }
+            // Has office assignments = see projects in those offices (team visibility)
             const projectOfficeId = project[PROJECT_FIELDS.OFFICE_RECORD_ID]?.value;
             return effectiveOfficeIds.includes(projectOfficeId);
           }
 
-          // For reps, check email match
+          // office_leader, area_director, divisional: See all projects in their assigned offices (team visibility)
+          if (['office_leader', 'area_director', 'divisional'].includes(userRole)) {
+            if (effectiveOfficeIds && effectiveOfficeIds.length > 0) {
+              const projectOfficeId = project[PROJECT_FIELDS.OFFICE_RECORD_ID]?.value;
+              return effectiveOfficeIds.includes(projectOfficeId);
+            }
+            // No office assignments = see no projects (they need to be assigned to offices)
+            logWarn('[TASKS_API] Office-based role has no office assignments', {
+              userRole,
+              userId,
+              reqId
+            });
+            return false;
+          }
+
+          // team_lead: See projects for their managed users (direct team visibility)
+          if (userRole === 'team_lead') {
+            if (managedEmails && managedEmails.length > 0) {
+              const closerEmail = project[PROJECT_FIELDS.CLOSER_EMAIL]?.value?.toLowerCase();
+              const setterEmail = project[PROJECT_FIELDS.SETTER_EMAIL]?.value?.toLowerCase();
+              const managedLower = managedEmails.map(e => e.toLowerCase());
+              return managedLower.includes(closerEmail) || managedLower.includes(setterEmail);
+            }
+            // No managed users = see no projects
+            logWarn('[TASKS_API] Team lead has no managed users', {
+              userRole,
+              userId,
+              reqId
+            });
+            return false;
+          }
+
+          // reps (closer/setter): See only their own projects (email match)
           if (['closer', 'setter'].includes(userRole) && userEmail) {
             const closerEmail = project[PROJECT_FIELDS.CLOSER_EMAIL]?.value?.toLowerCase();
             const setterEmail = project[PROJECT_FIELDS.SETTER_EMAIL]?.value?.toLowerCase();
             return closerEmail === userEmail.toLowerCase() || setterEmail === userEmail.toLowerCase();
           }
 
-          // For team leads, check managed emails
-          if (userRole === 'team_lead' && managedEmails && managedEmails.length > 0) {
-            const closerEmail = project[PROJECT_FIELDS.CLOSER_EMAIL]?.value?.toLowerCase();
-            const setterEmail = project[PROJECT_FIELDS.SETTER_EMAIL]?.value?.toLowerCase();
-            const managedLower = managedEmails.map(e => e.toLowerCase());
-            return managedLower.includes(closerEmail) || managedLower.includes(setterEmail);
-          }
-
+          // Default: deny access
+          logWarn('[TASKS_API] Unknown role or missing authorization data', {
+            userRole,
+            userId,
+            hasEmail: !!userEmail,
+            hasManagedEmails: !!managedEmails,
+            managedEmailCount: managedEmails?.length || 0,
+            hasOfficeIds: !!effectiveOfficeIds,
+            officeIdCount: effectiveOfficeIds?.length || 0,
+            reqId
+          });
           return false;
         })
         .map((p: any) => p[PROJECT_FIELDS.RECORD_ID]?.value)
@@ -483,6 +523,15 @@ export async function GET(req: Request) {
       userRole: userRole,
       userEmail: userEmail,
       effectiveOfficeIds: effectiveOfficeIds,
+      officeCount: effectiveOfficeIds?.length || 0,
+      managedEmailsCount: managedEmails?.length || 0,
+      authorizationStrategy: 
+        userRole === 'super_admin' ? 'all_projects' :
+        userRole === 'regional' && (!effectiveOfficeIds || effectiveOfficeIds.length === 0) ? 'all_projects' :
+        ['office_leader', 'area_director', 'divisional', 'regional'].includes(userRole) ? 'office_based_team_visibility' :
+        userRole === 'team_lead' ? 'managed_users_team_visibility' :
+        ['closer', 'setter'].includes(userRole) ? 'personal_projects_only' :
+        'unknown',
       authorizedProjectsSample: authorizedProjectsSample,
       reqId
     });
