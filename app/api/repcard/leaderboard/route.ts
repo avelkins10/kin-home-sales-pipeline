@@ -348,75 +348,116 @@ export async function GET(request: NextRequest) {
       
       if (metric === 'doors_knocked') {
         // Query database for customers (much faster than API, no rate limits)
-        // Fix: Cast repcard_user_id to INTEGER for comparison
+        // Fix: Query customers first, then join to users to filter by role
+        // This ensures we don't miss customers created by closers who have setter_user_id
         const customerCountsRaw = await sql`
           SELECT
-            setter_user_id::text as setter_user_id,
-            COUNT(*) as count
-          FROM repcard_customers
-          WHERE setter_user_id::text = ANY(${repcardUserIds.map(String)}::text[])
-            AND created_at >= ${calculatedStartDate}::timestamp
-            AND created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day')
-          GROUP BY setter_user_id
+            u.id as user_id,
+            u.name as user_name,
+            u.email as user_email,
+            u.repcard_user_id::text as repcard_user_id,
+            u.sales_office[1] as office,
+            u.role,
+            COUNT(c.repcard_customer_id) as count
+          FROM repcard_customers c
+          INNER JOIN users u ON u.repcard_user_id::text = c.setter_user_id::text
+          WHERE u.repcard_user_id IS NOT NULL
+            AND c.created_at >= ${calculatedStartDate}::timestamp
+            AND c.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day')
+            ${role !== 'all' ? sql`AND u.role = ${role}` : sql``}
+          GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
         `;
         const customerCounts = Array.from(customerCountsRaw);
 
-        // Create lookup map for fast access
-        const countsMap = new Map(
-          customerCounts.map((row: any) => [row.setter_user_id, parseInt(row.count)])
-        );
-
-        // Count customers per user (doors knocked = customers created by user)
-        leaderboardEntries = (users as any[]).map((user: any) => {
-          const count = countsMap.get(user.repcard_user_id?.toString()) || 0;
-          return {
+        // Map directly to leaderboard entries
+        leaderboardEntries = customerCounts.map((row: any) => ({
+          rank: 0,
+          userId: row.user_id,
+          userName: row.user_name,
+          userEmail: row.user_email,
+          office: row.office,
+          role: row.role,
+          metricValue: parseInt(row.count),
+          metricType: metric
+        }));
+        
+        // If no results and role filter is applied, also check users that might have been filtered out
+        if (leaderboardEntries.length === 0 && role !== 'all') {
+          // Fallback: get all users and create entries with 0 counts
+          const allUsers = await sql`
+            SELECT id, name, email, repcard_user_id, sales_office[1] as office, role
+            FROM users
+            WHERE repcard_user_id IS NOT NULL AND role = ${role}
+            LIMIT 1000
+          `;
+          leaderboardEntries = Array.from(allUsers).map((user: any) => ({
             rank: 0,
             userId: user.id,
             userName: user.name,
             userEmail: user.email,
             office: user.office,
             role: user.role,
-            metricValue: count,
+            metricValue: 0,
             metricType: metric
-          };
-        });
+          }));
+        }
       } else if (metric === 'appointments_set') {
         // Query database for appointments (much faster than API, no rate limits)
-        // Fix: Cast setter_user_id to TEXT for comparison
-        // Use scheduled_at if available, otherwise fall back to created_at
+        // Fix: Query appointments first, then join to users to filter by role
         const appointmentCountsRaw = await sql`
           SELECT
-            setter_user_id::text as setter_user_id,
-            COUNT(*) as count
-          FROM repcard_appointments
-          WHERE setter_user_id::text = ANY(${repcardUserIds.map(String)}::text[])
+            u.id as user_id,
+            u.name as user_name,
+            u.email as user_email,
+            u.repcard_user_id::text as repcard_user_id,
+            u.sales_office[1] as office,
+            u.role,
+            COUNT(a.repcard_appointment_id) as count
+          FROM repcard_appointments a
+          INNER JOIN users u ON u.repcard_user_id::text = a.setter_user_id::text
+          WHERE u.repcard_user_id IS NOT NULL
             AND (
-              (scheduled_at IS NOT NULL AND scheduled_at >= ${calculatedStartDate}::timestamp AND scheduled_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+              (a.scheduled_at IS NOT NULL AND a.scheduled_at >= ${calculatedStartDate}::timestamp AND a.scheduled_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
               OR
-              (scheduled_at IS NULL AND created_at >= ${calculatedStartDate}::timestamp AND created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+              (a.scheduled_at IS NULL AND a.created_at >= ${calculatedStartDate}::timestamp AND a.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
             )
-          GROUP BY setter_user_id
+            ${role !== 'all' ? sql`AND u.role = ${role}` : sql``}
+          GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
         `;
         const appointmentCounts = Array.from(appointmentCountsRaw);
 
-        // Create lookup map for fast access
-        const countsMap = new Map(
-          appointmentCounts.map((row: any) => [row.setter_user_id, parseInt(row.count)])
-        );
-
-        leaderboardEntries = (users as any[]).map((user: any) => {
-          const count = countsMap.get(user.repcard_user_id?.toString()) || 0;
-          return {
+        // Map directly to leaderboard entries
+        leaderboardEntries = appointmentCounts.map((row: any) => ({
+          rank: 0,
+          userId: row.user_id,
+          userName: row.user_name,
+          userEmail: row.user_email,
+          office: row.office,
+          role: row.role,
+          metricValue: parseInt(row.count),
+          metricType: metric
+        }));
+        
+        // If no results and role filter is applied, also check users that might have been filtered out
+        if (leaderboardEntries.length === 0 && role !== 'all') {
+          // Fallback: get all users and create entries with 0 counts
+          const allUsers = await sql`
+            SELECT id, name, email, repcard_user_id, sales_office[1] as office, role
+            FROM users
+            WHERE repcard_user_id IS NOT NULL AND role = ${role}
+            LIMIT 1000
+          `;
+          leaderboardEntries = Array.from(allUsers).map((user: any) => ({
             rank: 0,
             userId: user.id,
             userName: user.name,
             userEmail: user.email,
             office: user.office,
             role: user.role,
-            metricValue: count,
+            metricValue: 0,
             metricType: metric
-          };
-        });
+          }));
+        }
       } else if (metric === 'sales_closed' || metric === 'revenue') {
         // Query synced status logs from database (much faster than API calls)
         // Filter for "sold" statuses - check both old_status and new_status transitions
