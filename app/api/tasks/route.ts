@@ -134,10 +134,15 @@ export async function GET(req: Request) {
     }
 
     // Get assigned office IDs for office-based roles
+    // NOTE: super_admin should NOT fetch offices - they should see all projects
     let effectiveOfficeIds: number[] | undefined;
     if (['office_leader', 'area_director', 'divisional', 'regional'].includes(userRole)) {
       effectiveOfficeIds = await getAssignedOffices(userId);
       logInfo('[TASKS_API] Fetched offices from database', { userId, role: userRole, officeCount: effectiveOfficeIds?.length || 0, reqId });
+    } else if (userRole === 'super_admin') {
+      // Explicitly ensure super_admin has no office filter to see all projects
+      effectiveOfficeIds = undefined;
+      logInfo('[TASKS_API] Super admin - no office filter, will see all projects', { userId, role: userRole, reqId });
     }
 
     // Parse query parameters for filtering
@@ -227,6 +232,13 @@ export async function GET(req: Request) {
     });
 
     if (tasksResponse.data.length === 0) {
+      logInfo('[TASKS_API] No incomplete tasks found in QuickBase', {
+        range,
+        dateFilter,
+        tasksWhereClause,
+        userRole,
+        reqId
+      });
       logApiResponse('GET', '/api/tasks', Date.now() - startedAt, { tasks: 0 }, reqId);
       return NextResponse.json([], { status: 200 });
     }
@@ -506,13 +518,27 @@ export async function GET(req: Request) {
     const allTasks = tasksResponse.data.filter((task: any) => {
       const taskGroupId = task[TASK_FIELDS.TASK_GROUP]?.value;
       const projectId = taskGroupToProjectMap.get(taskGroupId);
-      return projectId && authorizedProjectIds.has(projectId);
+      const isAuthorized = projectId && authorizedProjectIds.has(projectId);
+      
+      // Log unlinked tasks for debugging
+      if (!projectId) {
+        logInfo('[TASKS_API] Task has no linked project', {
+          taskId: task[TASK_FIELDS.RECORD_ID]?.value,
+          taskGroupId,
+          reqId
+        });
+      }
+      
+      return isAuthorized;
     });
 
     logInfo('[TASKS_API] Tasks filtered by authorization', {
       totalTasksQueried: tasksResponse.data.length,
       authorizedTasks: allTasks.length,
       filteredOutTasks: tasksResponse.data.length - allTasks.length,
+      authorizedProjectIds: authorizedProjectIds.size,
+      userRole,
+      effectiveOfficeIds: effectiveOfficeIds?.length || 0,
       reqId
     });
 
