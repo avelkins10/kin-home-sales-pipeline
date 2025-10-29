@@ -1,8 +1,8 @@
 'use client';
 
-import { signIn } from 'next-auth/react';
+import { signIn, useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const { data: session, status } = useSession();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (status === 'authenticated' && session) {
+      router.replace('/');
+    }
+  }, [status, session, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,13 +37,24 @@ export default function LoginPage() {
 
       if (result?.error) {
         toast.error('Invalid credentials. Please try again.');
-      } else {
+        setIsLoading(false);
+      } else if (result?.ok !== false) {
+        // Success - result.ok is true or undefined (both mean success when no error)
         toast.success('Login successful!');
-        router.push('/');
+        // Force session update, then redirect with full page reload
+        // Using window.location ensures middleware sees the session cookie
+        router.refresh();
+        // Use setTimeout to ensure cookie is set before redirect
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 300);
+      } else {
+        // Fallback - if result.ok is explicitly false
+        toast.error('Login failed. Please try again.');
+        setIsLoading(false);
       }
     } catch (error) {
       toast.error('An error occurred. Please try again.');
-    } finally {
       setIsLoading(false);
     }
   };

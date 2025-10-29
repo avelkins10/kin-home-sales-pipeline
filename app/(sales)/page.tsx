@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DashboardMetrics } from '@/components/dashboard/DashboardMetrics';
+import { RepCardMetricsCard } from '@/components/dashboard/RepCardMetricsCard';
 import { UrgentAlerts } from '@/components/dashboard/UrgentAlerts';
 import { RecentProjects } from '@/components/dashboard/RecentProjects';
 import { NotificationsFeed } from '@/components/dashboard/NotificationsFeed';
@@ -244,6 +245,16 @@ export default function DashboardPage() {
           {/* <LeverImpactMatrix userId={session.user.quickbaseUserId} /> */}
         </Suspense>
       )}
+
+      {/* RepCard Metrics - Full Width (if user has RepCard data) */}
+      <Suspense fallback={<Skeleton className="h-48 w-full" />}>
+        <RepCardMetricsCard
+          userId={session.user.id}
+          role={session.user.role}
+          timeRange={timeRange}
+          customDateRange={customDateRange}
+        />
+      </Suspense>
 
       {/* Two Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mobile:gap-6">

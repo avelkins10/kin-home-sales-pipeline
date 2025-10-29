@@ -140,16 +140,31 @@ export default function BaseballCard({
   const { data: userStats, isLoading: statsLoading, error: statsError, refetch: refetchStats } = useQuery({
     queryKey: ['baseball-card-stats', userId, defaultStartDate, defaultEndDate],
     queryFn: async (): Promise<UserStatsResponse | { hasRepcardData: false; message: string; user: any }> => {
-      const response = await fetch(
-        `${getBaseUrl()}/api/repcard/users/${userId}/stats?startDate=${defaultStartDate}&endDate=${defaultEndDate}`
-      );
-      if (!response.ok) {
-        throw new Error(`Failed to fetch user stats: ${response.statusText}`);
+      try {
+        const response = await fetch(
+          `${getBaseUrl()}/api/repcard/users/${userId}/stats?startDate=${defaultStartDate}&endDate=${defaultEndDate}`
+        );
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: response.statusText }));
+          throw new Error(errorData.error || `Failed to fetch user stats: ${response.status} ${response.statusText}`);
+        }
+        const data = await response.json();
+        
+        // Check if RepCard data is missing
+        if (data.hasRepcardData === false) {
+          return data;
+        }
+        
+        return data;
+      } catch (error) {
+        console.error('[BaseballCard] Error fetching user stats:', error);
+        throw error;
       }
-      return response.json();
     },
     enabled: !!userId,
     staleTime: 15 * 60 * 1000, // 15 minutes
+    retry: 2, // Retry failed requests twice
+    retryDelay: 1000, // Wait 1 second between retries
   });
 
   // Query 2: Overall Leaderboard Rank

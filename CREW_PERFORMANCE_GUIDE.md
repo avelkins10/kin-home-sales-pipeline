@@ -145,3 +145,4 @@ WHERE event_type = 'TASK_RATING'
 - Goal setting and tracking per crew member
 - Integration with QuickBase for project context
 
+

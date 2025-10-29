@@ -1,0 +1,28 @@
+[ArrivyClient] Arrivy credentials not configured. Set ARRIVY_AUTH_KEY and ARRIVY_AUTH_TOKEN.
+🚀 Starting BACKFILL sync to production database...
+📅 Date range: Oct 22, 2025 - Present
+⚠️  Database: postgresql://neondb_owner:npg_Fz3GX7tOdheE@ep-rasp...
+
+
+❌ Backfill sync failed: Error: Arrivy client not configured. Check ARRIVY_AUTH_KEY and ARRIVY_AUTH_TOKEN
+    at runBackfillSync (/Users/austinelkins/Rep_Dashboard/run-backfill-sync.ts:53:13)
+    at <anonymous> (/Users/austinelkins/Rep_Dashboard/run-backfill-sync.ts:240:1)
+    at Object.<anonymous> (/Users/austinelkins/Rep_Dashboard/run-backfill-sync.ts:240:17)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object.transformer (/Users/austinelkins/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/register-D46fvsV_.cjs:3:1104)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at cjsLoader (node:internal/modules/esm/translators:268:5)
+Error: Arrivy client not configured. Check ARRIVY_AUTH_KEY and ARRIVY_AUTH_TOKEN
+    at runBackfillSync (/Users/austinelkins/Rep_Dashboard/run-backfill-sync.ts:53:13)
+    at <anonymous> (/Users/austinelkins/Rep_Dashboard/run-backfill-sync.ts:240:1)
+    at Object.<anonymous> (/Users/austinelkins/Rep_Dashboard/run-backfill-sync.ts:240:17)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object.transformer (/Users/austinelkins/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/register-D46fvsV_.cjs:3:1104)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at cjsLoader (node:internal/modules/esm/translators:268:5)

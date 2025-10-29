@@ -105,8 +105,8 @@ export function ConfigurableLeaderboard({
       }
       return response.json();
     },
-    refetchInterval: 900000, // 15 minutes
-    staleTime: 900000, // 15 minutes
+    refetchInterval: 30000, // Auto-refresh every 30 seconds for near real-time updates
+    staleTime: 60000, // Consider data stale after 1 minute
     enabled: true
   });
 

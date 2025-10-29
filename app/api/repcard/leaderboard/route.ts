@@ -198,6 +198,7 @@ export async function GET(request: NextRequest) {
     // Fetch users
     let users: any[];
 
+    // Query users table (master table) - users should have repcard_user_id linked from sync
     if (officeIds && officeIds.length > 0) {
       // Use sql.query for office filtering with proper array parameters
       if (role !== 'all') {
@@ -359,8 +360,8 @@ export async function GET(request: NextRequest) {
             COUNT(*) as count
           FROM repcard_appointments
           WHERE setter_user_id = ANY(${repcardUserIds.map(String)}::text[])
-            AND appointment_date >= ${calculatedStartDate}::date
-            AND appointment_date <= ${calculatedEndDate}::date
+            AND scheduled_at >= ${calculatedStartDate}::timestamp
+            AND scheduled_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day')
           GROUP BY setter_user_id
         `;
         const appointmentCounts = Array.from(appointmentCountsRaw);
@@ -384,75 +385,54 @@ export async function GET(request: NextRequest) {
           };
         });
       } else if (metric === 'sales_closed' || metric === 'revenue') {
-        // Fetch customer status logs from RepCard to find sales
-        // NOTE: We'll need to filter for "sold" or "closed" status types
-        // For now, fetch all customers and their status logs
-        let allStatusLogs: any[] = [];
-        let page = 1;
-        let hasMore = true;
+        // Query synced status logs from database (much faster than API calls)
+        // Filter for "sold" statuses - check both old_status and new_status transitions
+        const statusLogsRaw = await sql`
+          SELECT
+            sl.changed_by_user_id,
+            sl.repcard_customer_id,
+            sl.new_status,
+            sl.old_status,
+            sl.changed_at,
+            c.raw_data->'customFields'->>'systemCost' as system_cost
+          FROM repcard_status_logs sl
+          LEFT JOIN repcard_customers c ON c.repcard_customer_id = sl.repcard_customer_id
+          WHERE sl.changed_by_user_id = ANY(${repcardUserIds.map(String)}::text[])
+            AND sl.changed_at >= ${calculatedStartDate}::timestamp
+            AND sl.changed_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day')
+            AND (
+              LOWER(sl.new_status) LIKE '%sold%' OR
+              LOWER(sl.new_status) LIKE '%closed%' OR
+              LOWER(sl.new_status) LIKE '%won%' OR
+              LOWER(sl.new_status) LIKE '%install%'
+            )
+        `;
+        const statusLogs = Array.from(statusLogsRaw);
 
-        while (hasMore) {
-          try {
-            const response = await repcardClient.getCustomerStatusLogs({
-              userIds: repcardUserIds.join(','),
-              fromDate: calculatedStartDate,
-              toDate: calculatedEndDate,
-              page,
-              perPage: 100
-            });
-
-            allStatusLogs.push(...response.result.data);
-            hasMore = response.result.currentPage < (response.result.totalPages || 1);
-            page++;
-          } catch (error) {
-            console.error(`Failed to fetch status logs page ${page}:`, error);
-            hasMore = false;
+        // Group sales by user
+        const salesByUser = new Map<string, { count: number; revenue: number }>();
+        
+        for (const log of statusLogs) {
+          const userId = log.changed_by_user_id?.toString();
+          if (!userId) continue;
+          
+          if (!salesByUser.has(userId)) {
+            salesByUser.set(userId, { count: 0, revenue: 0 });
+          }
+          
+          const userSales = salesByUser.get(userId)!;
+          userSales.count++;
+          
+          // Add revenue if available
+          if (log.system_cost) {
+            const cost = parseFloat(log.system_cost) || 0;
+            userSales.revenue += cost;
           }
         }
 
-        // Filter for "sold" statuses (customize based on actual status names in RepCard)
-        // Common status names: "Sold", "Closed", "Won", "Installed", etc.
-        const soldStatuses = allStatusLogs.filter((log: any) => {
-          const statusName = log.statusTo?.statusName?.toLowerCase() || '';
-          return statusName.includes('sold') ||
-                 statusName.includes('closed') ||
-                 statusName.includes('won') ||
-                 statusName.includes('install');
-        });
-
-        // For revenue, we need to fetch the customers to get systemCost
-        const soldCustomerIds = [...new Set(soldStatuses.map((log: any) => log.customerId))];
-        const customers = await Promise.all(
-          soldCustomerIds.slice(0, 50).map(async (customerId: number) => { // Limit to avoid too many requests
-            try {
-              const customer = await repcardClient.getCustomerById(customerId);
-              return customer.result;
-            } catch (error) {
-              console.error(`Failed to fetch customer ${customerId}:`, error);
-              return null;
-            }
-          })
-        );
-
         leaderboardEntries = (users as any[]).map((user: any) => {
-          // Find sales for this user
-          const userSales = soldStatuses.filter((log: any) =>
-            log.userId?.toString() === user.repcard_user_id?.toString()
-          );
-
-          let metricValue = 0;
-          if (metric === 'sales_closed') {
-            metricValue = userSales.length;
-          } else {
-            // Revenue: sum up systemCost from customers
-            const userCustomerIds = userSales.map((log: any) => log.customerId);
-            metricValue = customers
-              .filter((c: any) => c && userCustomerIds.includes(c.id))
-              .reduce((sum: number, c: any) =>
-                sum + (c.customFields?.systemCost || 0), 0
-              );
-          }
-
+          const userSales = salesByUser.get(user.repcard_user_id?.toString()) || { count: 0, revenue: 0 };
+          
           return {
             rank: 0,
             userId: user.id,
@@ -460,7 +440,7 @@ export async function GET(request: NextRequest) {
             userEmail: user.email,
             office: user.office,
             role: user.role,
-            metricValue,
+            metricValue: metric === 'sales_closed' ? userSales.count : userSales.revenue,
             metricType: metric
           };
         });

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { runIncrementalSync } from '@/lib/repcard/sync-service';
+import { runComprehensiveSync } from '@/lib/repcard/comprehensive-sync';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300; // 5 minutes max
@@ -7,7 +7,9 @@ export const maxDuration = 300; // 5 minutes max
 /**
  * Vercel Cron endpoint for automatic RepCard data syncing
  *
- * Runs incremental sync every 10-15 minutes to keep data fresh
+ * Runs comprehensive incremental sync every 5-10 minutes to keep data fresh
+ * Syncs: users, offices, customers, appointments, status logs, attachments
+ * 
  * Vercel will call this endpoint automatically based on vercel.json cron config
  *
  * Authentication: Uses CRON_SECRET env variable to verify requests from Vercel
@@ -26,26 +28,66 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log('[RepCard Cron] Starting automatic incremental sync...');
+    console.log('[RepCard Cron] Starting automatic comprehensive incremental sync...');
     const startTime = Date.now();
 
-    // Run incremental sync
-    const results = await runIncrementalSync();
+    // Run comprehensive incremental sync (skips attachments for speed - run full sync less frequently)
+    const result = await runComprehensiveSync({
+      incremental: true,
+      skipCustomerAttachments: true, // Skip attachments in frequent syncs (too slow)
+      skipAppointmentAttachments: true
+    });
 
     const duration = Date.now() - startTime;
-    const hasErrors = results.some(r => r.error);
+    const hasErrors = !!(
+      result.users.error ||
+      result.offices.error ||
+      result.customers.error ||
+      result.appointments.error ||
+      result.statusLogs.error ||
+      result.customerAttachments.error ||
+      result.appointmentAttachments.error
+    );
 
     // Log summary
     const summary = {
       duration,
-      totalFetched: results.reduce((sum, r) => sum + r.recordsFetched, 0),
-      totalInserted: results.reduce((sum, r) => sum + r.recordsInserted, 0),
-      totalUpdated: results.reduce((sum, r) => sum + r.recordsUpdated, 0),
-      totalFailed: results.reduce((sum, r) => sum + r.recordsFailed, 0),
+      totalFetched: 
+        result.users.recordsFetched +
+        result.offices.recordsFetched +
+        result.customers.recordsFetched +
+        result.appointments.recordsFetched +
+        result.statusLogs.recordsFetched +
+        result.customerAttachments.recordsFetched +
+        result.appointmentAttachments.recordsFetched,
+      totalInserted:
+        result.users.recordsInserted +
+        result.offices.recordsInserted +
+        result.customers.recordsInserted +
+        result.appointments.recordsInserted +
+        result.statusLogs.recordsInserted +
+        result.customerAttachments.recordsInserted +
+        result.appointmentAttachments.recordsInserted,
+      totalUpdated:
+        result.users.recordsUpdated +
+        result.offices.recordsUpdated +
+        result.customers.recordsUpdated +
+        result.appointments.recordsUpdated +
+        result.statusLogs.recordsUpdated +
+        result.customerAttachments.recordsUpdated +
+        result.appointmentAttachments.recordsUpdated,
+      totalFailed:
+        result.users.recordsFailed +
+        result.offices.recordsFailed +
+        result.customers.recordsFailed +
+        result.appointments.recordsFailed +
+        result.statusLogs.recordsFailed +
+        result.customerAttachments.recordsFailed +
+        result.appointmentAttachments.recordsFailed,
       hasErrors
     };
 
-    console.log('[RepCard Cron] Sync completed:', summary);
+    console.log('[RepCard Cron] Comprehensive sync completed:', summary);
 
     // Return appropriate status
     if (hasErrors) {
@@ -53,7 +95,7 @@ export async function GET(request: NextRequest) {
         {
           success: false,
           message: 'Sync completed with errors',
-          results,
+          result,
           summary
         },
         { status: 206 } // 206 Partial Content
@@ -62,8 +104,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Incremental sync completed successfully',
-      results,
+      message: 'Comprehensive incremental sync completed successfully',
+      result,
       summary
     });
 

@@ -49,7 +49,9 @@ export function AppointmentRatesCard({
       const response = await fetch(`${getBaseUrl()}/api/repcard/leaderboard?${params}`);
       if (!response.ok) throw new Error('Failed to fetch doors data');
       return response.json();
-    }
+    },
+    refetchInterval: 30000, // Auto-refresh every 30 seconds
+    staleTime: 60000
   });
 
   // Fetch appointments set data
@@ -73,7 +75,9 @@ export function AppointmentRatesCard({
       const response = await fetch(`${getBaseUrl()}/api/repcard/leaderboard?${params}`);
       if (!response.ok) throw new Error('Failed to fetch appointments data');
       return response.json();
-    }
+    },
+    refetchInterval: 30000, // Auto-refresh every 30 seconds
+    staleTime: 60000
   });
 
   const isLoading = doorsLoading || appointmentsLoading;
