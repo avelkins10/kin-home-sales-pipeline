@@ -66,7 +66,7 @@ export default function RepCardDebugPage() {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch('/api/operations/settings/repcard-debug');
+      const response = await fetch('/api/admin/repcard-debug');
 
       if (!response.ok) {
         const errorData = await response.json();

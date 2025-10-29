@@ -1,4 +1,4 @@
-// app/api/operations/settings/repcard-debug/route.ts
+// app/api/admin/repcard-debug/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/guards';
 import { sql } from '@/lib/db/client';
@@ -8,23 +8,22 @@ import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
 export const runtime = 'nodejs';
 
 /**
- * GET /api/operations/settings/repcard-debug
+ * GET /api/admin/repcard-debug
  * Get comprehensive RepCard diagnostic data
  */
 export async function GET(request: NextRequest) {
   const requestId = crypto.randomUUID();
 
   try {
-    logApiRequest('GET', '/api/operations/settings/repcard-debug', requestId);
+    logApiRequest('GET', '/api/admin/repcard-debug', requestId);
 
-    // Require authentication and operations role
+    // Require authentication and super_admin role
     const { session } = await requireAuth();
     const userRole = session?.user?.role;
-    const operationsRoles = ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'];
 
-    if (!userRole || !operationsRoles.includes(userRole)) {
+    if (userRole !== 'super_admin') {
       return NextResponse.json(
-        { error: 'Forbidden - operations role required' },
+        { error: 'Forbidden - super_admin role required' },
         { status: 403 }
       );
     }
