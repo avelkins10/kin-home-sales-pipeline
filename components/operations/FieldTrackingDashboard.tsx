@@ -3,20 +3,25 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, MapPin, List } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { RefreshCw, MapPin, List, Search, Wrench, ClipboardCheck, Settings } from 'lucide-react';
 import type { FieldTrackingDashboardData } from '@/lib/types/operations';
 import { FieldTrackingTaskCard } from './FieldTrackingTaskCard';
 import { FieldTrackingActivityFeed } from './FieldTrackingActivityFeed';
 import { FieldTrackingDetailModal } from './FieldTrackingDetailModal';
+import { FieldTrackingFilterBar, type FieldTrackingFilterState } from './FieldTrackingFilterBar';
+import { FieldTrackingAlertBanners } from './FieldTrackingAlertBanners';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface FieldTrackingDashboardProps {
-  data: FieldTrackingDashboardData;
+  data: any; // Extended FieldTrackingDashboardData with taskCounts
+  filters: FieldTrackingFilterState;
+  onFilterChange: (filters: FieldTrackingFilterState) => void;
   isLoading: boolean;
   onRefresh: () => void;
 }
 
-export function FieldTrackingDashboard({ data, isLoading, onRefresh }: FieldTrackingDashboardProps) {
+export function FieldTrackingDashboard({ data, filters, onFilterChange, isLoading, onRefresh }: FieldTrackingDashboardProps) {
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
@@ -24,7 +29,7 @@ export function FieldTrackingDashboard({ data, isLoading, onRefresh }: FieldTrac
     return <FieldTrackingDashboardSkeleton />;
   }
 
-  const { tasks, entities, metrics } = data;
+  const { tasks, entities, metrics, taskCounts } = data;
 
   return (
     <div className="space-y-6">
@@ -68,9 +73,63 @@ export function FieldTrackingDashboard({ data, isLoading, onRefresh }: FieldTrac
         />
       </div>
 
-      {/* Header with View Toggle */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Field Operations</h2>
+      {/* Filter Bar */}
+      <FieldTrackingFilterBar
+        filters={filters}
+        onFilterChange={onFilterChange}
+        crewMembers={entities}
+        taskCounts={taskCounts}
+      />
+
+      {/* Alert Banners for Critical Tasks */}
+      <FieldTrackingAlertBanners
+        tasks={tasks}
+        onTaskClick={(taskId) => setSelectedTaskId(taskId)}
+      />
+
+      {/* Header with Quick Filters and View Toggle */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <h2 className="text-2xl font-bold">Field Operations</h2>
+          {/* Today/Tomorrow Quick Filters */}
+          <div className="flex gap-1 border-l pl-3">
+            <Button
+              variant={filters.dateFilter === 'today' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => onFilterChange({ ...filters, dateFilter: 'today' })}
+            >
+              Today
+              <Badge variant={filters.dateFilter === 'today' ? 'secondary' : 'outline'} className="ml-2">
+                {tasks.filter((t: any) => {
+                  if (!t.scheduled_start) return false;
+                  const taskDate = new Date(t.scheduled_start);
+                  const today = new Date();
+                  return taskDate.getDate() === today.getDate() &&
+                         taskDate.getMonth() === today.getMonth() &&
+                         taskDate.getFullYear() === today.getFullYear();
+                }).length}
+              </Badge>
+            </Button>
+            <Button
+              variant={filters.dateFilter === 'tomorrow' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => onFilterChange({ ...filters, dateFilter: 'tomorrow' })}
+            >
+              Tomorrow
+              <Badge variant={filters.dateFilter === 'tomorrow' ? 'secondary' : 'outline'} className="ml-2">
+                {tasks.filter((t: any) => {
+                  if (!t.scheduled_start) return false;
+                  const taskDate = new Date(t.scheduled_start);
+                  const tomorrow = new Date();
+                  tomorrow.setDate(tomorrow.getDate() + 1);
+                  return taskDate.getDate() === tomorrow.getDate() &&
+                         taskDate.getMonth() === tomorrow.getMonth() &&
+                         taskDate.getFullYear() === tomorrow.getFullYear();
+                }).length}
+              </Badge>
+            </Button>
+          </div>
+        </div>
         <div className="flex gap-2">
           <Button
             variant={viewMode === 'list' ? 'default' : 'outline'}
@@ -96,6 +155,83 @@ export function FieldTrackingDashboard({ data, isLoading, onRefresh }: FieldTrac
         </div>
       </div>
 
+      {/* Task Type Tabs */}
+      <div className="border-b">
+        <div className="flex gap-1 overflow-x-auto pb-px">
+          <Button
+            variant={filters.taskType === 'all' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => onFilterChange({ ...filters, taskType: 'all' })}
+            className="gap-2 whitespace-nowrap"
+          >
+            <List className="h-4 w-4" />
+            All Tasks
+            <Badge variant={filters.taskType === 'all' ? 'secondary' : 'outline'} className="ml-1">
+              {taskCounts?.byType['all'] || 0}
+            </Badge>
+          </Button>
+          <Button
+            variant={filters.taskType === 'survey' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => onFilterChange({ ...filters, taskType: 'survey' })}
+            className="gap-2 whitespace-nowrap"
+          >
+            <Search className="h-4 w-4" />
+            Surveys
+            <Badge variant={filters.taskType === 'survey' ? 'secondary' : 'outline'} className="ml-1">
+              {taskCounts?.byType['survey'] || 0}
+            </Badge>
+          </Button>
+          <Button
+            variant={filters.taskType === 'install' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => onFilterChange({ ...filters, taskType: 'install' })}
+            className="gap-2 whitespace-nowrap"
+          >
+            <Wrench className="h-4 w-4" />
+            Installs
+            <Badge variant={filters.taskType === 'install' ? 'secondary' : 'outline'} className="ml-1">
+              {taskCounts?.byType['install'] || 0}
+            </Badge>
+          </Button>
+          <Button
+            variant={filters.taskType === 'inspection' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => onFilterChange({ ...filters, taskType: 'inspection' })}
+            className="gap-2 whitespace-nowrap"
+          >
+            <ClipboardCheck className="h-4 w-4" />
+            Inspections
+            <Badge variant={filters.taskType === 'inspection' ? 'secondary' : 'outline'} className="ml-1">
+              {taskCounts?.byType['inspection'] || 0}
+            </Badge>
+          </Button>
+          <Button
+            variant={filters.taskType === 'service' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => onFilterChange({ ...filters, taskType: 'service' })}
+            className="gap-2 whitespace-nowrap"
+          >
+            <Settings className="h-4 w-4" />
+            Service
+            <Badge variant={filters.taskType === 'service' ? 'secondary' : 'outline'} className="ml-1">
+              {taskCounts?.byType['service'] || 0}
+            </Badge>
+          </Button>
+          <Button
+            variant={filters.taskType === 'other' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => onFilterChange({ ...filters, taskType: 'other' })}
+            className="gap-2 whitespace-nowrap"
+          >
+            Other
+            <Badge variant={filters.taskType === 'other' ? 'secondary' : 'outline'} className="ml-1">
+              {taskCounts?.byType['other'] || 0}
+            </Badge>
+          </Button>
+        </div>
+      </div>
+
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Task List */}
@@ -107,10 +243,11 @@ export function FieldTrackingDashboard({ data, isLoading, onRefresh }: FieldTrac
               </CardContent>
             </Card>
           ) : (
-            tasks.map((task) => (
+            tasks.map((task: any) => (
               <FieldTrackingTaskCard
                 key={task.id}
                 task={task}
+                crewMembers={entities}
                 onClick={() => setSelectedTaskId(task.quickbase_project_id)}
               />
             ))

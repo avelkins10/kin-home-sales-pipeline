@@ -3,17 +3,39 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Clock, MapPin, User, ExternalLink, Copy } from 'lucide-react';
-import type { FieldTrackingTask } from '@/lib/types/operations';
+import { Clock, MapPin, User, ExternalLink, Copy, Phone, Mail, MessageSquare } from 'lucide-react';
+import { FieldTrackingTaskStatusBadge } from './FieldTrackingTaskStatusBadge';
+import type { FieldTrackingTask, FieldTrackingEntity } from '@/lib/types/operations';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
 interface FieldTrackingTaskCardProps {
   task: FieldTrackingTask;
   onClick: () => void;
+  crewMembers?: FieldTrackingEntity[]; // Pass crew members for contact info
 }
 
-export function FieldTrackingTaskCard({ task, onClick }: FieldTrackingTaskCardProps) {
+export function FieldTrackingTaskCard({ task, onClick, crewMembers = [] }: FieldTrackingTaskCardProps) {
+  // Get assigned crew members with contact info
+  const assignedCrew = crewMembers.filter(crew =>
+    task.assigned_entity_ids?.includes(crew.arrivy_entity_id)
+  );
+
+  const handleCall = (e: React.MouseEvent, phone: string) => {
+    e.stopPropagation();
+    window.location.href = `tel:${phone}`;
+  };
+
+  const handleSMS = (e: React.MouseEvent, phone: string) => {
+    e.stopPropagation();
+    window.location.href = `sms:${phone}`;
+  };
+
+  const handleEmail = (e: React.MouseEvent, email: string) => {
+    e.stopPropagation();
+    window.location.href = `mailto:${email}`;
+  };
+
   const getStatusColor = (status: string | null) => {
     switch (status) {
       case 'NOT_STARTED':
@@ -74,9 +96,11 @@ export function FieldTrackingTaskCard({ task, onClick }: FieldTrackingTaskCardPr
             <Badge variant="outline" className={getTaskTypeColor(task.task_type)}>
               {task.task_type?.toUpperCase() || 'TASK'}
             </Badge>
-            <Badge variant="outline" className={getStatusColor(task.current_status)}>
-              {task.current_status || 'PENDING'}
-            </Badge>
+            <FieldTrackingTaskStatusBadge
+              status={task.current_status}
+              showIcon={true}
+              animate={true}
+            />
           </div>
           <div className="flex gap-1">
             {task.tracker_url && (
@@ -135,6 +159,55 @@ export function FieldTrackingTaskCard({ task, onClick }: FieldTrackingTaskCardPr
           {task.latest_status && task.latest_status_time && (
             <div className="text-xs text-gray-500 mt-2 pt-2 border-t">
               Last update: {task.latest_status} at {format(new Date(task.latest_status_time), 'h:mm a')}
+            </div>
+          )}
+
+          {/* Crew Contact Buttons */}
+          {assignedCrew.length > 0 && (
+            <div className="mt-3 pt-3 border-t">
+              <div className="text-xs font-medium text-gray-600 mb-2">Contact Crew:</div>
+              <div className="flex flex-wrap gap-2">
+                {assignedCrew.map((crew) => (
+                  <div key={crew.id} className="flex items-center gap-1 px-2 py-1 bg-gray-50 rounded border">
+                    <span className="text-xs font-medium">{crew.name}</span>
+                    <div className="flex gap-1 ml-1 border-l pl-1">
+                      {crew.phone && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => handleCall(e, crew.phone!)}
+                            className="h-6 w-6 p-0"
+                            title="Call"
+                          >
+                            <Phone className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => handleSMS(e, crew.phone!)}
+                            className="h-6 w-6 p-0"
+                            title="Send SMS"
+                          >
+                            <MessageSquare className="h-3 w-3" />
+                          </Button>
+                        </>
+                      )}
+                      {crew.email && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => handleEmail(e, crew.email!)}
+                          className="h-6 w-6 p-0"
+                          title="Send Email"
+                        >
+                          <Mail className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

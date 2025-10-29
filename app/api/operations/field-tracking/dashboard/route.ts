@@ -5,15 +5,129 @@ import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/guards';
 import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
 import { getFieldTrackingData } from '@/lib/integrations/arrivy/service';
-import { getArrivyEvents } from '@/lib/db/arrivy';
+import { getArrivyEvents, getFieldTrackingTasks } from '@/lib/db/arrivy';
 import { listArrivyEntities } from '@/lib/db/arrivy';
-import type { FieldTrackingDashboardData } from '@/lib/types/operations';
+import type { FieldTrackingDashboardData, FieldTrackingTask } from '@/lib/types/operations';
 
 // Simple in-memory cache for field tracking dashboard data
 const fieldTrackingCache = new Map<string, { data: FieldTrackingDashboardData; timestamp: number }>();
 
 // Cache TTL (30 seconds for real-time feel)
 const CACHE_TTL = 30 * 1000;
+
+/**
+ * Helper function to filter and sort tasks with enhanced filtering
+ */
+async function getFieldTrackingDataWithFilters(
+  coordinatorEmail: string | undefined,
+  role: string,
+  filters: {
+    search?: string;
+    status?: string;
+    taskType?: string;
+    crewMember?: string;
+    dateRange?: { start: Date; end: Date };
+    sortBy?: string;
+    sortOrder?: string;
+  }
+) {
+  // Fetch tasks with basic filters
+  let tasks = await getFieldTrackingTasks({
+    coordinatorEmail,
+    search: filters.search,
+    status: filters.status,
+    taskType: filters.taskType,
+    dateRange: filters.dateRange,
+    limit: 500, // Fetch more for client-side filtering
+  });
+
+  // Filter by crew member if specified
+  if (filters.crewMember) {
+    const crewMemberId = parseInt(filters.crewMember);
+    tasks = tasks.filter((task) => {
+      if (!task.assigned_entity_ids) return false;
+      return task.assigned_entity_ids.includes(crewMemberId);
+    });
+  }
+
+  // Sort tasks
+  if (filters.sortBy) {
+    const sortOrder = filters.sortOrder === 'desc' ? -1 : 1;
+    tasks.sort((a, b) => {
+      let aVal: any;
+      let bVal: any;
+
+      switch (filters.sortBy) {
+        case 'scheduled_start':
+          aVal = a.scheduled_start ? new Date(a.scheduled_start).getTime() : 0;
+          bVal = b.scheduled_start ? new Date(b.scheduled_start).getTime() : 0;
+          break;
+        case 'status':
+          aVal = a.current_status || '';
+          bVal = b.current_status || '';
+          break;
+        case 'customer_name':
+          aVal = a.customer_name || '';
+          bVal = b.customer_name || '';
+          break;
+        case 'task_type':
+          aVal = a.task_type || '';
+          bVal = b.task_type || '';
+          break;
+        default:
+          return 0;
+      }
+
+      if (aVal < bVal) return -sortOrder;
+      if (aVal > bVal) return sortOrder;
+      return 0;
+    });
+  }
+
+  // Calculate metrics
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const completedTasks = tasks.filter((t) => t.current_status === 'COMPLETE');
+  let avgCompletionTime: number | undefined;
+
+  if (completedTasks.length > 0) {
+    const completionTimes = completedTasks
+      .filter((t) => t.scheduled_start && t.latest_status_time)
+      .map((t) => {
+        const start = new Date(t.scheduled_start!).getTime();
+        const complete = new Date(t.latest_status_time!).getTime();
+        return (complete - start) / (1000 * 60);
+      })
+      .filter((time) => time > 0 && time < 24 * 60);
+
+    if (completionTimes.length > 0) {
+      avgCompletionTime = Math.round(
+        completionTimes.reduce((sum, time) => sum + time, 0) / completionTimes.length
+      );
+    }
+  }
+
+  const metrics = {
+    total: tasks.length,
+    inProgress: tasks.filter((t) => ['ENROUTE', 'STARTED'].includes(t.current_status || '')).length,
+    completedToday: tasks.filter(
+      (t) =>
+        t.current_status === 'COMPLETE' &&
+        t.latest_status_time &&
+        new Date(t.latest_status_time) >= todayStart
+    ).length,
+    delayed: tasks.filter(
+      (t) =>
+        t.scheduled_start &&
+        new Date(t.scheduled_start) < now &&
+        !['COMPLETE', 'CANCELLED'].includes(t.current_status || '')
+    ).length,
+    avgCompletionTime,
+  };
+
+  return { tasks, metrics };
+}
 
 export async function GET(req: Request) {
   const startedAt = Date.now();
@@ -27,25 +141,90 @@ export async function GET(req: Request) {
     // Check if user has operations role
     const { role, email, name } = auth.session.user as any;
     const allowedRoles = ['operations_coordinator', 'operations_manager', 'office_leader', 'regional', 'super_admin'];
-    
+
     if (!allowedRoles.includes(role)) {
-      return NextResponse.json({ 
-        error: 'Access denied. Operations role required.' 
+      return NextResponse.json({
+        error: 'Access denied. Operations role required.'
       }, { status: 403 });
     }
 
-    const cacheKey = `field-tracking:${email}`;
+    // Parse filter parameters from URL
+    const { searchParams } = new URL(req.url);
+    const search = searchParams.get('search') || undefined;
+    const status = searchParams.get('status') === 'all' ? undefined : searchParams.get('status') || undefined;
+    const taskType = searchParams.get('taskType') === 'all' ? undefined : searchParams.get('taskType') || undefined;
+    const crewMember = searchParams.get('crewMember') === 'all' ? undefined : searchParams.get('crewMember') || undefined;
+    const dateFilter = searchParams.get('dateFilter') || 'today';
+    const sortBy = searchParams.get('sortBy') || 'scheduled_start';
+    const sortOrder = searchParams.get('sortOrder') || 'asc';
 
-    // Check cache first
-    const cached = fieldTrackingCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      logApiResponse('GET', '/api/operations/field-tracking/dashboard', Date.now() - startedAt, { cached: true }, reqId);
-      return NextResponse.json(cached.data, { status: 200 });
+    // Convert date filter to date range
+    let dateRange: { start: Date; end: Date } | undefined;
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000 - 1);
+
+    switch (dateFilter) {
+      case 'today':
+        dateRange = { start: todayStart, end: todayEnd };
+        break;
+      case 'tomorrow':
+        const tomorrowStart = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+        const tomorrowEnd = new Date(tomorrowStart.getTime() + 24 * 60 * 60 * 1000 - 1);
+        dateRange = { start: tomorrowStart, end: tomorrowEnd };
+        break;
+      case 'this_week':
+        const weekStart = new Date(todayStart);
+        weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Start of week (Sunday)
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 7);
+        dateRange = { start: weekStart, end: weekEnd };
+        break;
+      case 'overdue':
+        dateRange = { start: new Date('2020-01-01'), end: new Date(now.getTime() - 1) };
+        break;
+      case 'all':
+      default:
+        dateRange = undefined;
+        break;
     }
 
-    // Fetch field tracking data
+    // Create cache key based on filters
+    const cacheKey = `field-tracking:${email}:${JSON.stringify({
+      search,
+      status,
+      taskType,
+      crewMember,
+      dateFilter,
+      sortBy,
+      sortOrder,
+    })}`;
+
+    // Check cache first (only use cache if no filters applied for real-time feel)
+    const hasFilters = search || status || taskType || crewMember || dateFilter !== 'today';
+    if (!hasFilters) {
+      const cached = fieldTrackingCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        logApiResponse('GET', '/api/operations/field-tracking/dashboard', Date.now() - startedAt, { cached: true }, reqId);
+        return NextResponse.json(cached.data, { status: 200 });
+      }
+    }
+
+    // Fetch field tracking data with filters
     const coordinatorEmail = role === 'operations_coordinator' ? email : undefined;
-    const { tasks, metrics } = await getFieldTrackingData(coordinatorEmail, role);
+    const { tasks, metrics } = await getFieldTrackingDataWithFilters(
+      coordinatorEmail,
+      role,
+      {
+        search,
+        status,
+        taskType,
+        crewMember,
+        dateRange,
+        sortBy,
+        sortOrder,
+      }
+    );
 
     // Fetch entities (crew members)
     const entities = await listArrivyEntities();
@@ -61,8 +240,25 @@ export async function GET(req: Request) {
       timestamp: event.event_time,
     }));
 
+    // Calculate task counts by status and type for FilterBar
+    const taskCounts = {
+      total: tasks.length,
+      byStatus: tasks.reduce((acc, task) => {
+        const status = task.current_status || 'unknown';
+        acc[status] = (acc[status] || 0) + 1;
+        acc['all'] = (acc['all'] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>),
+      byType: tasks.reduce((acc, task) => {
+        const type = task.task_type || 'other';
+        acc[type] = (acc[type] || 0) + 1;
+        acc['all'] = (acc['all'] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>),
+    };
+
     // Combine into dashboard data
-    const dashboardData: FieldTrackingDashboardData = {
+    const dashboardData: any = {
       tasks,
       entities,
       events: mappedEvents,
@@ -74,6 +270,7 @@ export async function GET(req: Request) {
         crews_active: entities.filter(e => e.extra_fields?.status === 'active').length,
         avg_completion_time: metrics.avgCompletionTime,
       },
+      taskCounts, // Add task counts for FilterBar
     };
 
     // Cache the result

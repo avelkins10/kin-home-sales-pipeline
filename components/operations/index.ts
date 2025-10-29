@@ -49,6 +49,9 @@ export { FieldTrackingTaskCard } from './FieldTrackingTaskCard';
 export { FieldTrackingActivityFeed } from './FieldTrackingActivityFeed';
 export { FieldTrackingActivityFilters } from './FieldTrackingActivityFilters';
 export { FieldTrackingDetailModal } from './FieldTrackingDetailModal';
+export { FieldTrackingFilterBar } from './FieldTrackingFilterBar';
+export { FieldTrackingAlertBanners } from './FieldTrackingAlertBanners';
+export { FieldTrackingTaskStatusBadge } from './FieldTrackingTaskStatusBadge';
 
 // Crew Performance Components
 export { CrewPerformanceTable } from './CrewPerformanceTable';

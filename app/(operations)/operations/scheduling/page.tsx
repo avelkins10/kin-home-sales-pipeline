@@ -1,17 +1,56 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { FieldTrackingDashboard } from '@/components/operations';
 import type { FieldTrackingDashboardData } from '@/lib/types/operations';
+import type { FieldTrackingFilterState } from '@/components/operations/FieldTrackingFilterBar';
 import { toast } from 'sonner';
 
 export default function SchedulingPage() {
-  // Fetch field tracking dashboard data
-  const { data, isLoading, error, refetch } = useQuery<FieldTrackingDashboardData>({
-    queryKey: ['field-tracking-dashboard'],
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Initialize filters from URL params
+  const [filters, setFilters] = useState<FieldTrackingFilterState>({
+    search: searchParams.get('search') || '',
+    status: (searchParams.get('status') as any) || 'all',
+    taskType: (searchParams.get('taskType') as any) || 'all',
+    crewMember: searchParams.get('crewMember') || 'all',
+    dateFilter: (searchParams.get('dateFilter') as any) || 'today',
+    sortBy: (searchParams.get('sortBy') as any) || 'scheduled_start',
+    sortOrder: (searchParams.get('sortOrder') as any) || 'asc',
+  });
+
+  // Update URL when filters change
+  useEffect(() => {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value && value !== 'all' && value !== '') {
+        params.set(key, value.toString());
+      }
+    });
+    const newUrl = params.toString() ? `/operations/scheduling?${params.toString()}` : '/operations/scheduling';
+    router.replace(newUrl, { scroll: false });
+  }, [filters, router]);
+
+  // Build API URL with filter params
+  const buildApiUrl = () => {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value && value !== '') {
+        params.set(key, value.toString());
+      }
+    });
+    return `/api/operations/field-tracking/dashboard?${params.toString()}`;
+  };
+
+  // Fetch field tracking dashboard data with filters
+  const { data, isLoading, error, refetch } = useQuery<any>({
+    queryKey: ['field-tracking-dashboard', filters],
     queryFn: async () => {
-      const response = await fetch('/api/operations/field-tracking/dashboard');
+      const response = await fetch(buildApiUrl());
       if (!response.ok) {
         throw new Error('Failed to load field tracking data');
       }
@@ -53,7 +92,14 @@ export default function SchedulingPage() {
             crews_active: 0,
             avg_completion_time: 0,
           },
+          taskCounts: {
+            total: 0,
+            byStatus: {},
+            byType: {},
+          },
         }}
+        filters={filters}
+        onFilterChange={setFilters}
         isLoading={isLoading}
         onRefresh={() => refetch()}
       />
