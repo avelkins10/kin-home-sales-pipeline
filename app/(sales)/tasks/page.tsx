@@ -170,27 +170,43 @@ export default function TasksPage() {
 
   // Apply sorting to filtered tasks
   const sortedTasks = useMemo(() => {
+    if (!Array.isArray(filteredTasks) || filteredTasks.length === 0) {
+      return []
+    }
+    
     let sorted = [...filteredTasks]
     
     switch (sortBy) {
       case 'date-newest':
         sorted.sort((a, b) => {
-          const dateA = a.dateCreated ? new Date(a.dateCreated).getTime() : 0
-          const dateB = b.dateCreated ? new Date(b.dateCreated).getTime() : 0
-          return dateB - dateA // Newest first
+          try {
+            const dateA = a?.dateCreated ? new Date(a.dateCreated).getTime() : 0
+            const dateB = b?.dateCreated ? new Date(b.dateCreated).getTime() : 0
+            if (isNaN(dateA)) return 1 // Invalid dates go to end
+            if (isNaN(dateB)) return -1
+            return dateB - dateA // Newest first
+          } catch {
+            return 0 // If date parsing fails, maintain order
+          }
         })
         break
       case 'date-oldest':
         sorted.sort((a, b) => {
-          const dateA = a.dateCreated ? new Date(a.dateCreated).getTime() : 0
-          const dateB = b.dateCreated ? new Date(b.dateCreated).getTime() : 0
-          return dateA - dateB // Oldest first
+          try {
+            const dateA = a?.dateCreated ? new Date(a.dateCreated).getTime() : 0
+            const dateB = b?.dateCreated ? new Date(b.dateCreated).getTime() : 0
+            if (isNaN(dateA)) return 1 // Invalid dates go to end
+            if (isNaN(dateB)) return -1
+            return dateA - dateB // Oldest first
+          } catch {
+            return 0 // If date parsing fails, maintain order
+          }
         })
         break
       case 'name':
         sorted.sort((a, b) => {
-          const nameA = (a.name || '').toLowerCase()
-          const nameB = (b.name || '').toLowerCase()
+          const nameA = (a?.name || '').toLowerCase()
+          const nameB = (b?.name || '').toLowerCase()
           return nameA.localeCompare(nameB)
         })
         break
