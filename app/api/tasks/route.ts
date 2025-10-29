@@ -429,19 +429,58 @@ export async function GET(req: Request) {
     });
 
     // Create project lookup map (only for authorized projects)
+    // Also identify cancelled projects that need their tasks closed
     const projectMap = new Map();
+    const cancelledProjectIds: number[] = [];
+    
     allProjects.forEach((p: any) => {
       const recordId = p[PROJECT_FIELDS.RECORD_ID]?.value;
+      const projectStatus = p[PROJECT_FIELDS.PROJECT_STATUS]?.value || '';
+      
       if (recordId && authorizedProjectIds.has(recordId)) {
         projectMap.set(recordId, {
           projectId: p[PROJECT_FIELDS.PROJECT_ID]?.value || recordId,
           customerName: p[PROJECT_FIELDS.CUSTOMER_NAME]?.value || 'Unknown',
-          projectStatus: p[PROJECT_FIELDS.PROJECT_STATUS]?.value || '',
+          projectStatus: projectStatus,
           closerName: p[PROJECT_FIELDS.CLOSER_NAME]?.value || null,
           salesOffice: p[PROJECT_FIELDS.SALES_OFFICE]?.value || null
         });
+
+        // Check if project is cancelled (and not pending cancel)
+        const isCancelled = typeof projectStatus === 'string' && 
+          (projectStatus.toLowerCase().includes('cancel') || projectStatus === 'Cancelled') &&
+          !projectStatus.toLowerCase().includes('pending');
+        
+        if (isCancelled) {
+          cancelledProjectIds.push(recordId);
+        }
       }
     });
+
+    // Auto-close tasks for cancelled projects (in background, don't block response)
+    if (cancelledProjectIds.length > 0) {
+      const { closeTasksForCancelledProject } = await import('@/lib/quickbase/queries');
+      
+      // Process in background without blocking the response
+      Promise.all(
+        cancelledProjectIds.map(projectId => 
+          closeTasksForCancelledProject(projectId, reqId).catch(error => {
+            logError('[TASKS_API] Failed to close tasks for cancelled project', error as Error, {
+              projectId,
+              reqId
+            });
+          })
+        )
+      ).catch(error => {
+        logError('[TASKS_API] Background task closure failed', error as Error, { reqId });
+      });
+
+      logInfo('[TASKS_API] Queued task closure for cancelled projects', {
+        cancelledProjectCount: cancelledProjectIds.length,
+        cancelledProjectIds: cancelledProjectIds.slice(0, 10), // Log first 10
+        reqId
+      });
+    }
 
     // Filter tasks to only authorized projects
     const allTasks = tasksResponse.data.filter((task: any) => {
