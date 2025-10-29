@@ -8,6 +8,7 @@
 import { sql } from '@/lib/db/client';
 import { repcardClient } from './client';
 import type { RepCardCustomer, RepCardAppointment, RepCardCustomerStatusLog } from './types';
+import { enrichUserFromRepCard } from '@/lib/users/enrich-user';
 
 export interface SyncResult {
   entityType: 'customers' | 'appointments' | 'status_logs';
@@ -148,14 +149,49 @@ export async function syncCustomers(options: {
         // Process each customer
         for (const customer of customers) {
           try {
-            // Extract setter_user_id from customer data
-            // Based on RepCard API, the userId field might be in different places
-            const setterUserId = (customer as any).userId || customer.assignedUserId;
+            // Extract setter_user_id from customer data (RepCard user ID)
+            const setterUserId = (customer as any).userId || customer.assignedUserId || (customer as any).setterUserId || (customer as any).setter_user_id;
 
             // Track latest updated_at for incremental sync
             const updatedAt = new Date(customer.updatedAt);
             if (!lastRecordDate || updatedAt > lastRecordDate) {
               lastRecordDate = updatedAt;
+            }
+
+            // Look up/enrich user in users table when we have setter_user_id
+            if (setterUserId) {
+              try {
+                // First, check if user already has this repcard_user_id
+                const existingUser = await sql`
+                  SELECT id, email, repcard_user_id FROM users WHERE repcard_user_id = ${setterUserId.toString()}
+                `;
+                
+                if (existingUser.length === 0) {
+                  // Not found by repcard_user_id - try to fetch RepCard user details
+                  try {
+                    const repcardUserResponse = await repcardClient.getUserDetails(setterUserId);
+                    const repcardUser = repcardUserResponse.result;
+                    
+                    if (repcardUser.email) {
+                      // Enrich user from RepCard (will match by email or create)
+                      await enrichUserFromRepCard(setterUserId, {
+                        email: repcardUser.email,
+                        firstName: repcardUser.firstName,
+                        lastName: repcardUser.lastName,
+                        officeName: repcardUser.office,
+                        teamName: repcardUser.team,
+                        profileImage: repcardUser.image
+                      });
+                    }
+                  } catch (repcardError) {
+                    // If we can't fetch user details, skip enrichment for this customer
+                    console.warn(`[RepCard Sync] Could not fetch RepCard user ${setterUserId} for enrichment:`, repcardError);
+                  }
+                }
+              } catch (enrichError) {
+                // Log but don't fail the customer sync
+                console.warn(`[RepCard Sync] Error enriching user for setter ${setterUserId}:`, enrichError);
+              }
             }
 
             // Upsert customer into database
@@ -345,6 +381,73 @@ export async function syncAppointments(options: {
 
             // Extract disposition from status
             const disposition = appointment.status?.title || appointment.status?.category?.title || null;
+
+            // Extract user IDs (RepCard user IDs)
+            const setterUserId = appointment.userId; // setter (who created the customer/appointment)
+            const closerUserId = appointment.closerId; // closer (who runs the appointment)
+
+            // Enrich users table for both setter and closer
+            // Setter enrichment
+            if (setterUserId) {
+              try {
+                const existingSetter = await sql`
+                  SELECT id, email, repcard_user_id FROM users WHERE repcard_user_id = ${setterUserId.toString()}
+                `;
+                
+                if (existingSetter.length === 0) {
+                  try {
+                    const repcardUserResponse = await repcardClient.getUserDetails(setterUserId);
+                    const repcardUser = repcardUserResponse.result;
+                    
+                    if (repcardUser.email) {
+                      await enrichUserFromRepCard(setterUserId, {
+                        email: repcardUser.email,
+                        firstName: repcardUser.firstName,
+                        lastName: repcardUser.lastName,
+                        officeName: repcardUser.office,
+                        teamName: repcardUser.team,
+                        profileImage: repcardUser.image
+                      });
+                    }
+                  } catch (repcardError) {
+                    console.warn(`[RepCard Sync] Could not fetch RepCard setter ${setterUserId}:`, repcardError);
+                  }
+                }
+              } catch (enrichError) {
+                console.warn(`[RepCard Sync] Error enriching setter ${setterUserId}:`, enrichError);
+              }
+            }
+
+            // Closer enrichment
+            if (closerUserId && closerUserId !== setterUserId) {
+              try {
+                const existingCloser = await sql`
+                  SELECT id, email, repcard_user_id FROM users WHERE repcard_user_id = ${closerUserId.toString()}
+                `;
+                
+                if (existingCloser.length === 0) {
+                  try {
+                    const repcardUserResponse = await repcardClient.getUserDetails(closerUserId);
+                    const repcardUser = repcardUserResponse.result;
+                    
+                    if (repcardUser.email) {
+                      await enrichUserFromRepCard(closerUserId, {
+                        email: repcardUser.email,
+                        firstName: repcardUser.firstName,
+                        lastName: repcardUser.lastName,
+                        officeName: repcardUser.office,
+                        teamName: repcardUser.team,
+                        profileImage: repcardUser.image
+                      });
+                    }
+                  } catch (repcardError) {
+                    console.warn(`[RepCard Sync] Could not fetch RepCard closer ${closerUserId}:`, repcardError);
+                  }
+                }
+              } catch (enrichError) {
+                console.warn(`[RepCard Sync] Error enriching closer ${closerUserId}:`, enrichError);
+              }
+            }
 
             // Upsert appointment
             const result = await sql`
