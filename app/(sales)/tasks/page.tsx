@@ -131,45 +131,51 @@ export default function TasksPage() {
   }
 
   // Filter tasks by selected closer, office, and status
-  const filteredTasks = tasksArray.filter((t: any) => {
-    // Filter by closer
-    if (selectedCloser !== 'all' && t.closerName !== selectedCloser) {
-      return false
+  const filteredTasks = useMemo(() => {
+    if (!Array.isArray(tasksArray) || tasksArray.length === 0) {
+      return []
     }
-    // Filter by office
-    if (selectedOffice !== 'all' && t.salesOffice !== selectedOffice) {
-      return false
-    }
-    // Filter by status - use task.status field, not projectStatus
-    const taskStatus = (t.status || '').toLowerCase().trim()
     
-    if (selectedStatus === 'actionable') {
-      // Show actionable tasks: not started, in progress, pending cancel (not approved/closed)
-      // This is the default - prioritize important tasks that need action
-      if (taskStatus === 'approved' || taskStatus === 'closed by ops') {
+    return tasksArray.filter((t: any) => {
+      // Filter by closer
+      if (selectedCloser !== 'all' && t.closerName !== selectedCloser) {
         return false
       }
-      // Always include pending cancel tasks (they're action items)
-      if (t.isPendingCancel) {
-        return true
-      }
-      return true // Include not started, in progress, etc.
-    } else if (selectedStatus !== 'all') {
-      if (selectedStatus === 'approved' && taskStatus !== 'approved') {
+      // Filter by office
+      if (selectedOffice !== 'all' && t.salesOffice !== selectedOffice) {
         return false
       }
-      if (selectedStatus === 'not_started' && taskStatus !== 'not started') {
-        return false
+      // Filter by status - use task.status field, not projectStatus
+      const taskStatus = (t.status || '').toLowerCase().trim()
+      
+      if (selectedStatus === 'actionable') {
+        // Show actionable tasks: not started, in progress, pending cancel (not approved/closed)
+        // This is the default - prioritize important tasks that need action
+        if (taskStatus === 'approved' || taskStatus === 'closed by ops') {
+          return false
+        }
+        // Always include pending cancel tasks (they're action items)
+        if (t.isPendingCancel) {
+          return true
+        }
+        return true // Include not started, in progress, etc.
+      } else if (selectedStatus !== 'all') {
+        if (selectedStatus === 'approved' && taskStatus !== 'approved') {
+          return false
+        }
+        if (selectedStatus === 'not_started' && taskStatus !== 'not started') {
+          return false
+        }
+        if (selectedStatus === 'in_progress' && taskStatus !== 'in progress') {
+          return false
+        }
+        if (selectedStatus === 'closed_by_ops' && taskStatus !== 'closed by ops') {
+          return false
+        }
       }
-      if (selectedStatus === 'in_progress' && taskStatus !== 'in progress') {
-        return false
-      }
-      if (selectedStatus === 'closed_by_ops' && taskStatus !== 'closed by ops') {
-        return false
-      }
-    }
-    return true
-  })
+      return true
+    })
+  }, [tasksArray, selectedCloser, selectedOffice, selectedStatus])
 
   // Apply sorting to filtered tasks
   const sortedTasks = useMemo(() => {
