@@ -180,6 +180,18 @@ export async function GET(req: Request) {
         const tomorrowEnd = new Date(Date.UTC(utcYear, utcMonth, utcDate + 1, 23, 59, 59, 999));
         dateRange = { start: tomorrowStart, end: tomorrowEnd };
         break;
+      case 'yesterday':
+        // Create UTC date range for yesterday
+        const yesterdayStart = new Date(Date.UTC(utcYear, utcMonth, utcDate - 1, 0, 0, 0, 0));
+        const yesterdayEnd = new Date(Date.UTC(utcYear, utcMonth, utcDate - 1, 23, 59, 59, 999));
+        dateRange = { start: yesterdayStart, end: yesterdayEnd };
+        break;
+      case 'last_7_days':
+        // Last 7 days including today
+        const last7Start = new Date(Date.UTC(utcYear, utcMonth, utcDate - 6, 0, 0, 0, 0));
+        const last7End = new Date(Date.UTC(utcYear, utcMonth, utcDate, 23, 59, 59, 999));
+        dateRange = { start: last7Start, end: last7End };
+        break;
       case 'this_week':
         // Start of week (Sunday) in UTC
         const todayUTC = new Date(Date.UTC(utcYear, utcMonth, utcDate, 0, 0, 0, 0));
@@ -187,6 +199,18 @@ export async function GET(req: Request) {
         const weekStart = new Date(Date.UTC(utcYear, utcMonth, utcDate - dayOfWeek, 0, 0, 0, 0));
         const weekEnd = new Date(Date.UTC(utcYear, utcMonth, utcDate + (6 - dayOfWeek), 23, 59, 59, 999));
         dateRange = { start: weekStart, end: weekEnd };
+        break;
+      case 'last_week':
+        // Last week (Sunday to Saturday)
+        const lastWeekStart = new Date(Date.UTC(utcYear, utcMonth, utcDate - new Date(Date.UTC(utcYear, utcMonth, utcDate)).getUTCDay() - 7, 0, 0, 0, 0));
+        const lastWeekEnd = new Date(Date.UTC(utcYear, utcMonth, utcDate - new Date(Date.UTC(utcYear, utcMonth, utcDate)).getUTCDay() - 1, 23, 59, 59, 999));
+        dateRange = { start: lastWeekStart, end: lastWeekEnd };
+        break;
+      case 'last_30_days':
+        // Last 30 days including today
+        const last30Start = new Date(Date.UTC(utcYear, utcMonth, utcDate - 29, 0, 0, 0, 0));
+        const last30End = new Date(Date.UTC(utcYear, utcMonth, utcDate, 23, 59, 59, 999));
+        dateRange = { start: last30Start, end: last30End };
         break;
       case 'overdue':
         // Tasks scheduled before today

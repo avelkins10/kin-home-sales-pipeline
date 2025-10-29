@@ -20,7 +20,7 @@ export interface FieldTrackingFilterState {
   status: FieldTrackingTaskStatus | 'all';
   taskType: FieldTrackingTaskType | 'all';
   crewMember: string | 'all'; // entity_id or 'all'
-  dateFilter: 'today' | 'tomorrow' | 'this_week' | 'overdue' | 'all';
+  dateFilter: 'today' | 'tomorrow' | 'yesterday' | 'this_week' | 'last_week' | 'last_7_days' | 'last_30_days' | 'overdue' | 'all';
   sortBy: 'scheduled_start' | 'status' | 'customer_name' | 'task_type';
   sortOrder: 'asc' | 'desc';
 }
@@ -60,7 +60,11 @@ const TASK_TYPE_OPTIONS: { value: FieldTrackingTaskType | 'all'; label: string }
 const DATE_FILTER_OPTIONS = [
   { value: 'today', label: 'Today' },
   { value: 'tomorrow', label: 'Tomorrow' },
+  { value: 'yesterday', label: 'Yesterday' },
+  { value: 'last_7_days', label: 'Last 7 Days' },
   { value: 'this_week', label: 'This Week' },
+  { value: 'last_week', label: 'Last Week' },
+  { value: 'last_30_days', label: 'Last 30 Days' },
   { value: 'overdue', label: 'Overdue' },
   { value: 'all', label: 'All Dates' },
 ] as const;
