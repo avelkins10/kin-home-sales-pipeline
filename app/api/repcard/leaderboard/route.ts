@@ -457,6 +457,51 @@ export async function GET(request: NextRequest) {
           metricType: metric
         }));
         
+        // CRITICAL FIX: If INNER JOIN returns 0 results, fallback to show ALL users
+        if (leaderboardEntries.length === 0) {
+          console.log(`[RepCard Leaderboard] ⚠️ INNER JOIN returned 0 entries for appointments_set`);
+          console.log(`[RepCard Leaderboard] Falling back to LEFT JOIN to show all users`);
+          
+          const fallbackQuery = await sql`
+            SELECT
+              u.id as user_id,
+              u.name as user_name,
+              u.email as user_email,
+              u.repcard_user_id::text as repcard_user_id,
+              u.sales_office[1] as office,
+              u.role,
+              COUNT(a.repcard_appointment_id) as count
+            FROM users u
+            LEFT JOIN repcard_appointments a ON u.repcard_user_id::text = a.setter_user_id::text
+              AND (
+                (a.scheduled_at IS NOT NULL AND a.scheduled_at >= ${calculatedStartDate}::timestamp AND a.scheduled_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                OR
+                (a.scheduled_at IS NULL AND a.created_at >= ${calculatedStartDate}::timestamp AND a.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+              )
+            ${officeIds && officeIds.length > 0 ? sql`
+              LEFT JOIN offices o ON o.name = ANY(u.sales_office)
+            ` : sql``}
+            WHERE u.repcard_user_id IS NOT NULL
+              ${role !== 'all' ? sql`AND u.role = ${role}` : sql``}
+              ${officeIds && officeIds.length > 0 ? sql`AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR u.sales_office IS NULL)` : sql``}
+            GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+            ORDER BY count DESC
+            LIMIT 1000
+          `;
+          const fallbackResults = Array.from(fallbackQuery);
+          leaderboardEntries = fallbackResults.map((row: any) => ({
+            rank: 0,
+            userId: row.user_id,
+            userName: row.user_name,
+            userEmail: row.user_email,
+            office: row.office,
+            role: row.role,
+            metricValue: parseInt(row.count) || 0,
+            metricType: metric
+          }));
+          console.log(`[RepCard Leaderboard] ✅ Fallback returned ${leaderboardEntries.length} users`);
+        }
+        
         // If no results and role filter is applied, also check users that might have been filtered out
         if (leaderboardEntries.length === 0 && role !== 'all') {
           // Fallback: get all users and create entries with 0 counts
