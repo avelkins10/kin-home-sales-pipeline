@@ -1890,3 +1890,738 @@ export async function getCrewTaskCompletionStats(
   }
 }
 
+// =============================================================================
+// FIELD OPERATIONS ANALYTICS QUERIES
+// =============================================================================
+
+/**
+ * Get comprehensive task performance analytics
+ * Includes task type breakdown, duration stats, completion rates, delay patterns
+ */
+export async function getTaskPerformanceAnalytics(filters: {
+  startDate?: string;
+  endDate?: string;
+  taskType?: string;
+  entityId?: number;
+}): Promise<{
+  overview: {
+    total_tasks: number;
+    completed: number;
+    cancelled: number;
+    no_shows: number;
+    completion_rate: number;
+    avg_duration_minutes: number;
+    on_time_percentage: number;
+  };
+  by_task_type: Array<{
+    task_type: string;
+    count: number;
+    completed: number;
+    avg_duration: number;
+    completion_rate: number;
+  }>;
+  duration_distribution: Array<{
+    task_type: string;
+    min_duration: number;
+    avg_duration: number;
+    max_duration: number;
+    p50_duration: number; // median
+    p90_duration: number;
+  }>;
+  daily_trends: Array<{
+    date: string;
+    total: number;
+    completed: number;
+    completion_rate: number;
+  }>;
+  delay_patterns: Array<{
+    hour_of_day: number;
+    avg_delay_minutes: number;
+    delayed_count: number;
+    total_count: number;
+  }>;
+}> {
+  try {
+    const { startDate, endDate, taskType, entityId } = filters;
+
+    // Build date filter
+    let dateFilter = '';
+    if (startDate && endDate) {
+      dateFilter = `AND t.scheduled_start >= '${startDate}' AND t.scheduled_start < '${endDate}'`;
+    } else if (startDate) {
+      dateFilter = `AND t.scheduled_start >= '${startDate}'`;
+    }
+
+    // Build task type filter
+    const taskTypeFilter = taskType ? `AND t.task_type = '${taskType}'` : '';
+
+    // Build entity filter
+    const entityFilter = entityId
+      ? `AND EXISTS (
+          SELECT 1 FROM arrivy_task_entities te
+          WHERE te.arrivy_task_id = t.arrivy_task_id
+          AND te.arrivy_entity_id = ${entityId}
+        )`
+      : '';
+
+    // Overview query
+    const overviewQuery = `
+      WITH task_durations AS (
+        SELECT
+          t.arrivy_task_id,
+          t.current_status,
+          EXTRACT(EPOCH FROM (s_complete.reported_at - s_start.reported_at)) / 60 as duration_minutes,
+          CASE
+            WHEN s_complete.reported_at <= t.scheduled_end THEN true
+            ELSE false
+          END as on_time
+        FROM arrivy_tasks t
+        LEFT JOIN arrivy_task_status s_start ON s_start.arrivy_task_id = t.arrivy_task_id
+          AND s_start.status_type = 'STARTED'
+        LEFT JOIN arrivy_task_status s_complete ON s_complete.arrivy_task_id = t.arrivy_task_id
+          AND s_complete.status_type = 'COMPLETE'
+        WHERE t.scheduled_start IS NOT NULL
+        ${dateFilter}
+        ${taskTypeFilter}
+        ${entityFilter}
+      )
+      SELECT
+        COUNT(*) as total_tasks,
+        SUM(CASE WHEN current_status = 'COMPLETE' THEN 1 ELSE 0 END) as completed,
+        SUM(CASE WHEN current_status = 'CANCELLED' THEN 1 ELSE 0 END) as cancelled,
+        SUM(CASE WHEN current_status = 'NOSHOW' THEN 1 ELSE 0 END) as no_shows,
+        ROUND(
+          SUM(CASE WHEN current_status = 'COMPLETE' THEN 1 ELSE 0 END)::numeric /
+          NULLIF(COUNT(*), 0) * 100,
+          1
+        ) as completion_rate,
+        ROUND(AVG(duration_minutes), 1) as avg_duration_minutes,
+        ROUND(
+          SUM(CASE WHEN on_time = true THEN 1 ELSE 0 END)::numeric /
+          NULLIF(SUM(CASE WHEN duration_minutes IS NOT NULL THEN 1 ELSE 0 END), 0) * 100,
+          1
+        ) as on_time_percentage
+      FROM task_durations
+    `;
+
+    // By task type query
+    const byTypeQuery = `
+      WITH task_durations AS (
+        SELECT
+          t.task_type,
+          t.current_status,
+          EXTRACT(EPOCH FROM (s_complete.reported_at - s_start.reported_at)) / 60 as duration_minutes
+        FROM arrivy_tasks t
+        LEFT JOIN arrivy_task_status s_start ON s_start.arrivy_task_id = t.arrivy_task_id
+          AND s_start.status_type = 'STARTED'
+        LEFT JOIN arrivy_task_status s_complete ON s_complete.arrivy_task_id = t.arrivy_task_id
+          AND s_complete.status_type = 'COMPLETE'
+        WHERE t.scheduled_start IS NOT NULL
+        AND t.task_type IS NOT NULL
+        ${dateFilter}
+        ${taskTypeFilter}
+        ${entityFilter}
+      )
+      SELECT
+        task_type,
+        COUNT(*) as count,
+        SUM(CASE WHEN current_status = 'COMPLETE' THEN 1 ELSE 0 END) as completed,
+        ROUND(AVG(duration_minutes), 1) as avg_duration,
+        ROUND(
+          SUM(CASE WHEN current_status = 'COMPLETE' THEN 1 ELSE 0 END)::numeric /
+          COUNT(*) * 100,
+          1
+        ) as completion_rate
+      FROM task_durations
+      GROUP BY task_type
+      ORDER BY count DESC
+    `;
+
+    // Duration distribution query
+    const durationDistQuery = `
+      WITH task_durations AS (
+        SELECT
+          t.task_type,
+          EXTRACT(EPOCH FROM (s_complete.reported_at - s_start.reported_at)) / 60 as duration_minutes
+        FROM arrivy_tasks t
+        LEFT JOIN arrivy_task_status s_start ON s_start.arrivy_task_id = t.arrivy_task_id
+          AND s_start.status_type = 'STARTED'
+        LEFT JOIN arrivy_task_status s_complete ON s_complete.arrivy_task_id = t.arrivy_task_id
+          AND s_complete.status_type = 'COMPLETE'
+        WHERE t.scheduled_start IS NOT NULL
+        AND t.task_type IS NOT NULL
+        AND s_start.reported_at IS NOT NULL
+        AND s_complete.reported_at IS NOT NULL
+        ${dateFilter}
+        ${taskTypeFilter}
+        ${entityFilter}
+      )
+      SELECT
+        task_type,
+        MIN(duration_minutes) as min_duration,
+        ROUND(AVG(duration_minutes), 1) as avg_duration,
+        MAX(duration_minutes) as max_duration,
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY duration_minutes) as p50_duration,
+        PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY duration_minutes) as p90_duration
+      FROM task_durations
+      GROUP BY task_type
+      ORDER BY task_type
+    `;
+
+    // Daily trends query
+    const dailyTrendsQuery = `
+      SELECT
+        t.scheduled_start::date as date,
+        COUNT(*) as total,
+        SUM(CASE WHEN t.current_status = 'COMPLETE' THEN 1 ELSE 0 END) as completed,
+        ROUND(
+          SUM(CASE WHEN t.current_status = 'COMPLETE' THEN 1 ELSE 0 END)::numeric /
+          COUNT(*) * 100,
+          1
+        ) as completion_rate
+      FROM arrivy_tasks t
+      WHERE t.scheduled_start IS NOT NULL
+      ${dateFilter}
+      ${taskTypeFilter}
+      ${entityFilter}
+      GROUP BY t.scheduled_start::date
+      ORDER BY date
+    `;
+
+    // Delay patterns query
+    const delayPatternsQuery = `
+      WITH delays AS (
+        SELECT
+          EXTRACT(HOUR FROM t.scheduled_start) as hour_of_day,
+          CASE
+            WHEN s_complete.reported_at > t.scheduled_end
+            THEN EXTRACT(EPOCH FROM (s_complete.reported_at - t.scheduled_end)) / 60
+            ELSE 0
+          END as delay_minutes
+        FROM arrivy_tasks t
+        LEFT JOIN arrivy_task_status s_complete ON s_complete.arrivy_task_id = t.arrivy_task_id
+          AND s_complete.status_type = 'COMPLETE'
+        WHERE t.scheduled_start IS NOT NULL
+        AND t.scheduled_end IS NOT NULL
+        ${dateFilter}
+        ${taskTypeFilter}
+        ${entityFilter}
+      )
+      SELECT
+        hour_of_day::integer,
+        ROUND(AVG(delay_minutes), 1) as avg_delay_minutes,
+        SUM(CASE WHEN delay_minutes > 0 THEN 1 ELSE 0 END)::integer as delayed_count,
+        COUNT(*)::integer as total_count
+      FROM delays
+      WHERE hour_of_day IS NOT NULL
+      GROUP BY hour_of_day
+      ORDER BY hour_of_day
+    `;
+
+    const [overviewResult, byTypeResult, durationDistResult, dailyTrendsResult, delayPatternsResult] = await Promise.all([
+      sql.query(overviewQuery),
+      sql.query(byTypeQuery),
+      sql.query(durationDistQuery),
+      sql.query(dailyTrendsQuery),
+      sql.query(delayPatternsQuery)
+    ]);
+
+    return {
+      overview: overviewResult.rows[0] || {
+        total_tasks: 0,
+        completed: 0,
+        cancelled: 0,
+        no_shows: 0,
+        completion_rate: 0,
+        avg_duration_minutes: 0,
+        on_time_percentage: 0,
+      },
+      by_task_type: byTypeResult.rows.map((row: any) => ({
+        task_type: row.task_type,
+        count: parseInt(row.count),
+        completed: parseInt(row.completed),
+        avg_duration: parseFloat(row.avg_duration) || 0,
+        completion_rate: parseFloat(row.completion_rate) || 0,
+      })),
+      duration_distribution: durationDistResult.rows.map((row: any) => ({
+        task_type: row.task_type,
+        min_duration: parseFloat(row.min_duration) || 0,
+        avg_duration: parseFloat(row.avg_duration) || 0,
+        max_duration: parseFloat(row.max_duration) || 0,
+        p50_duration: parseFloat(row.p50_duration) || 0,
+        p90_duration: parseFloat(row.p90_duration) || 0,
+      })),
+      daily_trends: dailyTrendsResult.rows.map((row: any) => ({
+        date: row.date.toISOString().split('T')[0],
+        total: parseInt(row.total),
+        completed: parseInt(row.completed),
+        completion_rate: parseFloat(row.completion_rate) || 0,
+      })),
+      delay_patterns: delayPatternsResult.rows.map((row: any) => ({
+        hour_of_day: row.hour_of_day,
+        avg_delay_minutes: parseFloat(row.avg_delay_minutes) || 0,
+        delayed_count: row.delayed_count,
+        total_count: row.total_count,
+      })),
+    };
+  } catch (error) {
+    logError('Failed to get task performance analytics', error as Error, filters);
+    throw error;
+  }
+}
+
+/**
+ * Get exception and quality insights analytics
+ * Includes exception breakdown, trends, crew correlation, quality scores
+ */
+export async function getExceptionAnalytics(filters: {
+  startDate?: string;
+  endDate?: string;
+  entityId?: number;
+}): Promise<{
+  overview: {
+    total_exceptions: number;
+    exception_rate: number;
+    late_count: number;
+    no_show_count: number;
+    other_exception_count: number;
+    avg_quality_score: number;
+  };
+  by_exception_type: Array<{
+    event_type: string;
+    event_sub_type: string | null;
+    count: number;
+    percentage: number;
+  }>;
+  exception_trends: Array<{
+    date: string;
+    total_exceptions: number;
+    late: number;
+    no_show: number;
+    other: number;
+  }>;
+  by_crew: Array<{
+    entity_name: string;
+    total_exceptions: number;
+    late_count: number;
+    no_show_count: number;
+    exception_rate: number;
+    quality_score: number;
+  }>;
+  root_causes: Array<{
+    cause: string;
+    count: number;
+  }>;
+}> {
+  try {
+    const { startDate, endDate, entityId } = filters;
+
+    // Build date filter
+    let dateFilter = '';
+    if (startDate && endDate) {
+      dateFilter = `AND e.event_time >= '${startDate}' AND e.event_time < '${endDate}'`;
+    } else if (startDate) {
+      dateFilter = `AND e.event_time >= '${startDate}'`;
+    }
+
+    // Build entity filter
+    const entityFilter = entityId
+      ? `AND EXISTS (
+          SELECT 1 FROM arrivy_task_entities te
+          WHERE te.arrivy_task_id = e.arrivy_task_id
+          AND te.arrivy_entity_id = ${entityId}
+        )`
+      : '';
+
+    // Overview query
+    const overviewQuery = `
+      WITH task_counts AS (
+        SELECT COUNT(DISTINCT arrivy_task_id) as total_tasks
+        FROM arrivy_events e
+        WHERE 1=1
+        ${dateFilter}
+        ${entityFilter}
+      ),
+      exception_counts AS (
+        SELECT
+          COUNT(*) as total_exceptions,
+          SUM(CASE WHEN event_type = 'LATE' THEN 1 ELSE 0 END) as late_count,
+          SUM(CASE WHEN event_type = 'NOSHOW' THEN 1 ELSE 0 END) as no_show_count,
+          SUM(CASE WHEN event_type NOT IN ('LATE', 'NOSHOW') AND event_type LIKE '%EXCEPTION%' THEN 1 ELSE 0 END) as other_exception_count
+        FROM arrivy_events e
+        WHERE event_type IN ('LATE', 'NOSHOW')
+           OR event_type LIKE '%EXCEPTION%'
+        ${dateFilter}
+        ${entityFilter}
+      ),
+      ratings AS (
+        SELECT AVG(CAST(extra_fields->>'rating' AS NUMERIC)) as avg_rating
+        FROM arrivy_events e
+        WHERE event_type = 'TASK_RATING'
+        AND extra_fields->>'rating' IS NOT NULL
+        ${dateFilter}
+        ${entityFilter}
+      )
+      SELECT
+        ec.total_exceptions,
+        ROUND(
+          ec.total_exceptions::numeric /
+          NULLIF(tc.total_tasks, 0) * 100,
+          1
+        ) as exception_rate,
+        ec.late_count,
+        ec.no_show_count,
+        ec.other_exception_count,
+        ROUND(COALESCE(r.avg_rating * 20, 75), 1) as avg_quality_score
+      FROM exception_counts ec
+      CROSS JOIN task_counts tc
+      LEFT JOIN ratings r ON true
+    `;
+
+    // By exception type query
+    const byTypeQuery = `
+      WITH total AS (
+        SELECT COUNT(*) as total_count
+        FROM arrivy_events e
+        WHERE event_type IN ('LATE', 'NOSHOW')
+           OR event_type LIKE '%EXCEPTION%'
+        ${dateFilter}
+        ${entityFilter}
+      )
+      SELECT
+        e.event_type,
+        e.event_sub_type,
+        COUNT(*) as count,
+        ROUND(COUNT(*)::numeric / t.total_count * 100, 1) as percentage
+      FROM arrivy_events e
+      CROSS JOIN total t
+      WHERE e.event_type IN ('LATE', 'NOSHOW')
+         OR e.event_type LIKE '%EXCEPTION%'
+      ${dateFilter}
+      ${entityFilter}
+      GROUP BY e.event_type, e.event_sub_type, t.total_count
+      ORDER BY count DESC
+    `;
+
+    // Exception trends query
+    const trendsQuery = `
+      SELECT
+        e.event_time::date as date,
+        COUNT(*) as total_exceptions,
+        SUM(CASE WHEN event_type = 'LATE' THEN 1 ELSE 0 END) as late,
+        SUM(CASE WHEN event_type = 'NOSHOW' THEN 1 ELSE 0 END) as no_show,
+        SUM(CASE WHEN event_type NOT IN ('LATE', 'NOSHOW') THEN 1 ELSE 0 END) as other
+      FROM arrivy_events e
+      WHERE event_type IN ('LATE', 'NOSHOW')
+         OR event_type LIKE '%EXCEPTION%'
+      ${dateFilter}
+      ${entityFilter}
+      GROUP BY e.event_time::date
+      ORDER BY date
+    `;
+
+    // By crew query
+    const byCrewQuery = `
+      WITH crew_tasks AS (
+        SELECT
+          ent.name as entity_name,
+          COUNT(DISTINCT t.arrivy_task_id) as total_tasks,
+          SUM(CASE WHEN t.current_status = 'COMPLETE' THEN 1 ELSE 0 END) as completed_tasks
+        FROM arrivy_entities ent
+        JOIN arrivy_task_entities te ON te.arrivy_entity_id = ent.arrivy_entity_id
+        JOIN arrivy_tasks t ON t.arrivy_task_id = te.arrivy_task_id
+        WHERE t.scheduled_start IS NOT NULL
+        ${startDate ? `AND t.scheduled_start >= '${startDate}'` : ''}
+        ${endDate ? `AND t.scheduled_start < '${endDate}'` : ''}
+        GROUP BY ent.name
+      ),
+      crew_exceptions AS (
+        SELECT
+          ent.name as entity_name,
+          COUNT(*) as total_exceptions,
+          SUM(CASE WHEN e.event_type = 'LATE' THEN 1 ELSE 0 END) as late_count,
+          SUM(CASE WHEN e.event_type = 'NOSHOW' THEN 1 ELSE 0 END) as no_show_count
+        FROM arrivy_entities ent
+        JOIN arrivy_task_entities te ON te.arrivy_entity_id = ent.arrivy_entity_id
+        JOIN arrivy_events e ON e.arrivy_task_id = te.arrivy_task_id
+        WHERE e.event_type IN ('LATE', 'NOSHOW')
+           OR e.event_type LIKE '%EXCEPTION%'
+        ${dateFilter}
+        GROUP BY ent.name
+      ),
+      crew_ratings AS (
+        SELECT
+          ent.name as entity_name,
+          AVG(CAST(e.extra_fields->>'rating' AS NUMERIC)) as avg_rating
+        FROM arrivy_entities ent
+        JOIN arrivy_task_entities te ON te.arrivy_entity_id = ent.arrivy_entity_id
+        JOIN arrivy_events e ON e.arrivy_task_id = te.arrivy_task_id
+        WHERE e.event_type = 'TASK_RATING'
+        AND e.extra_fields->>'rating' IS NOT NULL
+        ${dateFilter}
+        GROUP BY ent.name
+      )
+      SELECT
+        ct.entity_name,
+        COALESCE(ce.total_exceptions, 0) as total_exceptions,
+        COALESCE(ce.late_count, 0) as late_count,
+        COALESCE(ce.no_show_count, 0) as no_show_count,
+        ROUND(
+          COALESCE(ce.total_exceptions, 0)::numeric /
+          NULLIF(ct.total_tasks, 0) * 100,
+          1
+        ) as exception_rate,
+        ROUND(
+          COALESCE(cr.avg_rating * 20, 75) +
+          (25 - (COALESCE(ce.total_exceptions, 0)::numeric / NULLIF(ct.total_tasks, 0) * 100)),
+          1
+        ) as quality_score
+      FROM crew_tasks ct
+      LEFT JOIN crew_exceptions ce ON ce.entity_name = ct.entity_name
+      LEFT JOIN crew_ratings cr ON cr.entity_name = ct.entity_name
+      ORDER BY exception_rate DESC
+    `;
+
+    // Root causes query (extract from event messages)
+    const rootCausesQuery = `
+      SELECT
+        LOWER(message) as cause,
+        COUNT(*) as count
+      FROM arrivy_events e
+      WHERE (event_type IN ('LATE', 'NOSHOW') OR event_type LIKE '%EXCEPTION%')
+      AND message IS NOT NULL
+      ${dateFilter}
+      ${entityFilter}
+      GROUP BY LOWER(message)
+      ORDER BY count DESC
+      LIMIT 10
+    `;
+
+    const [overviewResult, byTypeResult, trendsResult, byCrewResult, rootCausesResult] = await Promise.all([
+      sql.query(overviewQuery),
+      sql.query(byTypeQuery),
+      sql.query(trendsQuery),
+      sql.query(byCrewQuery),
+      sql.query(rootCausesQuery)
+    ]);
+
+    return {
+      overview: overviewResult.rows[0] || {
+        total_exceptions: 0,
+        exception_rate: 0,
+        late_count: 0,
+        no_show_count: 0,
+        other_exception_count: 0,
+        avg_quality_score: 75,
+      },
+      by_exception_type: byTypeResult.rows.map((row: any) => ({
+        event_type: row.event_type,
+        event_sub_type: row.event_sub_type,
+        count: parseInt(row.count),
+        percentage: parseFloat(row.percentage),
+      })),
+      exception_trends: trendsResult.rows.map((row: any) => ({
+        date: row.date.toISOString().split('T')[0],
+        total_exceptions: parseInt(row.total_exceptions),
+        late: parseInt(row.late),
+        no_show: parseInt(row.no_show),
+        other: parseInt(row.other),
+      })),
+      by_crew: byCrewResult.rows.map((row: any) => ({
+        entity_name: row.entity_name,
+        total_exceptions: parseInt(row.total_exceptions),
+        late_count: parseInt(row.late_count),
+        no_show_count: parseInt(row.no_show_count),
+        exception_rate: parseFloat(row.exception_rate),
+        quality_score: parseFloat(row.quality_score),
+      })),
+      root_causes: rootCausesResult.rows.map((row: any) => ({
+        cause: row.cause,
+        count: parseInt(row.count),
+      })),
+    };
+  } catch (error) {
+    logError('Failed to get exception analytics', error as Error, filters);
+    throw error;
+  }
+}
+
+/**
+ * Get workload distribution analytics
+ * Shows how tasks are distributed across crew, capacity utilization, balance metrics
+ */
+export async function getWorkloadDistribution(filters: {
+  date?: string; // Specific date to analyze
+  includeScheduled?: boolean; // Include future scheduled tasks
+}): Promise<{
+  overview: {
+    total_active_tasks: number;
+    total_crew_members: number;
+    avg_tasks_per_crew: number;
+    workload_imbalance_score: number; // std deviation
+    over_capacity_count: number;
+    under_capacity_count: number;
+  };
+  by_crew: Array<{
+    entity_name: string;
+    active_tasks: number;
+    scheduled_tasks: number;
+    completed_today: number;
+    capacity_percentage: number; // vs ideal distribution
+    status: 'over' | 'balanced' | 'under';
+  }>;
+  hourly_distribution: Array<{
+    hour: number;
+    total_scheduled: number;
+    crew_count: number;
+    avg_tasks_per_crew: number;
+  }>;
+}> {
+  try {
+    const { date, includeScheduled } = filters;
+    const targetDate = date || new Date().toISOString().split('T')[0];
+
+    // Overview query
+    const overviewQuery = `
+      WITH crew_workload AS (
+        SELECT
+          ent.arrivy_entity_id,
+          COUNT(DISTINCT t.arrivy_task_id) FILTER (
+            WHERE t.current_status NOT IN ('COMPLETE', 'CANCELLED', 'NOSHOW')
+            AND t.scheduled_start::date <= '${targetDate}'::date
+          ) as active_tasks
+        FROM arrivy_entities ent
+        LEFT JOIN arrivy_task_entities te ON te.arrivy_entity_id = ent.arrivy_entity_id
+        LEFT JOIN arrivy_tasks t ON t.arrivy_task_id = te.arrivy_task_id
+        GROUP BY ent.arrivy_entity_id
+      ),
+      workload_stats AS (
+        SELECT
+          COUNT(*) as total_crew,
+          SUM(active_tasks) as total_active,
+          AVG(active_tasks) as avg_tasks,
+          STDDEV(active_tasks) as stddev_tasks
+        FROM crew_workload
+      )
+      SELECT
+        total_active::integer,
+        total_crew::integer,
+        ROUND(avg_tasks, 1) as avg_tasks_per_crew,
+        ROUND(COALESCE(stddev_tasks, 0), 2) as workload_imbalance_score,
+        (SELECT COUNT(*) FROM crew_workload WHERE active_tasks > avg_tasks * 1.5)::integer as over_capacity_count,
+        (SELECT COUNT(*) FROM crew_workload WHERE active_tasks < avg_tasks * 0.5 AND avg_tasks > 0)::integer as under_capacity_count
+      FROM workload_stats
+    `;
+
+    // By crew query
+    const byCrewQuery = `
+      WITH ideal_load AS (
+        SELECT AVG(task_count) as ideal
+        FROM (
+          SELECT
+            COUNT(DISTINCT t.arrivy_task_id) as task_count
+          FROM arrivy_entities ent
+          LEFT JOIN arrivy_task_entities te ON te.arrivy_entity_id = ent.arrivy_entity_id
+          LEFT JOIN arrivy_tasks t ON t.arrivy_task_id = te.arrivy_task_id
+            AND t.current_status NOT IN ('COMPLETE', 'CANCELLED', 'NOSHOW')
+            AND t.scheduled_start::date <= '${targetDate}'::date
+          GROUP BY ent.arrivy_entity_id
+        ) counts
+      )
+      SELECT
+        ent.name as entity_name,
+        COUNT(DISTINCT t.arrivy_task_id) FILTER (
+          WHERE t.current_status NOT IN ('COMPLETE', 'CANCELLED', 'NOSHOW')
+          AND t.scheduled_start::date <= '${targetDate}'::date
+        )::integer as active_tasks,
+        ${includeScheduled ? `
+        COUNT(DISTINCT t.arrivy_task_id) FILTER (
+          WHERE t.current_status NOT IN ('COMPLETE', 'CANCELLED', 'NOSHOW')
+          AND t.scheduled_start::date > '${targetDate}'::date
+        )::integer as scheduled_tasks,
+        ` : '0 as scheduled_tasks,'}
+        COUNT(DISTINCT s.arrivy_task_id) FILTER (
+          WHERE s.status_type = 'COMPLETE'
+          AND s.reported_at::date = '${targetDate}'::date
+        )::integer as completed_today,
+        ROUND(
+          (COUNT(DISTINCT t.arrivy_task_id) FILTER (
+            WHERE t.current_status NOT IN ('COMPLETE', 'CANCELLED', 'NOSHOW')
+            AND t.scheduled_start::date <= '${targetDate}'::date
+          )::numeric / NULLIF(ideal.ideal, 0)) * 100,
+          1
+        ) as capacity_percentage,
+        CASE
+          WHEN COUNT(DISTINCT t.arrivy_task_id) FILTER (
+            WHERE t.current_status NOT IN ('COMPLETE', 'CANCELLED', 'NOSHOW')
+            AND t.scheduled_start::date <= '${targetDate}'::date
+          ) > ideal.ideal * 1.5 THEN 'over'
+          WHEN COUNT(DISTINCT t.arrivy_task_id) FILTER (
+            WHERE t.current_status NOT IN ('COMPLETE', 'CANCELLED', 'NOSHOW')
+            AND t.scheduled_start::date <= '${targetDate}'::date
+          ) < ideal.ideal * 0.5 AND ideal.ideal > 0 THEN 'under'
+          ELSE 'balanced'
+        END as status
+      FROM arrivy_entities ent
+      CROSS JOIN ideal_load ideal
+      LEFT JOIN arrivy_task_entities te ON te.arrivy_entity_id = ent.arrivy_entity_id
+      LEFT JOIN arrivy_tasks t ON t.arrivy_task_id = te.arrivy_task_id
+      LEFT JOIN arrivy_task_status s ON s.arrivy_task_id = t.arrivy_task_id
+      GROUP BY ent.name, ideal.ideal
+      ORDER BY active_tasks DESC
+    `;
+
+    // Hourly distribution query
+    const hourlyQuery = `
+      SELECT
+        EXTRACT(HOUR FROM t.scheduled_start)::integer as hour,
+        COUNT(DISTINCT t.arrivy_task_id)::integer as total_scheduled,
+        COUNT(DISTINCT te.arrivy_entity_id)::integer as crew_count,
+        ROUND(
+          COUNT(DISTINCT t.arrivy_task_id)::numeric /
+          NULLIF(COUNT(DISTINCT te.arrivy_entity_id), 0),
+          1
+        ) as avg_tasks_per_crew
+      FROM arrivy_tasks t
+      JOIN arrivy_task_entities te ON te.arrivy_task_id = t.arrivy_task_id
+      WHERE t.scheduled_start::date = '${targetDate}'::date
+      GROUP BY EXTRACT(HOUR FROM t.scheduled_start)
+      ORDER BY hour
+    `;
+
+    const [overviewResult, byCrewResult, hourlyResult] = await Promise.all([
+      sql.query(overviewQuery),
+      sql.query(byCrewQuery),
+      sql.query(hourlyQuery)
+    ]);
+
+    return {
+      overview: overviewResult.rows[0] || {
+        total_active_tasks: 0,
+        total_crew_members: 0,
+        avg_tasks_per_crew: 0,
+        workload_imbalance_score: 0,
+        over_capacity_count: 0,
+        under_capacity_count: 0,
+      },
+      by_crew: byCrewResult.rows.map((row: any) => ({
+        entity_name: row.entity_name,
+        active_tasks: row.active_tasks,
+        scheduled_tasks: row.scheduled_tasks,
+        completed_today: row.completed_today,
+        capacity_percentage: parseFloat(row.capacity_percentage) || 0,
+        status: row.status as 'over' | 'balanced' | 'under',
+      })),
+      hourly_distribution: hourlyResult.rows.map((row: any) => ({
+        hour: row.hour,
+        total_scheduled: row.total_scheduled,
+        crew_count: row.crew_count,
+        avg_tasks_per_crew: parseFloat(row.avg_tasks_per_crew) || 0,
+      })),
+    };
+  } catch (error) {
+    logError('Failed to get workload distribution', error as Error, filters);
+    throw error;
+  }
+}
+
