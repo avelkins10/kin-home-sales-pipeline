@@ -167,11 +167,15 @@ export async function syncCustomers(options: {
 
         // Batch check which users already exist
         if (setterUserIds.size > 0) {
-          const existingUsers = await sql`
+          const existingUsersResult = await sql`
             SELECT repcard_user_id FROM users 
             WHERE repcard_user_id = ANY(${Array.from(setterUserIds).map(String)}::text[])
           `;
-          const existingIds = new Set(existingUsers.map((u: any) => u.repcard_user_id));
+          // Handle @vercel/postgres result format (can be { rows: [...] } or array)
+          const existingUsers = Array.isArray(existingUsersResult) 
+            ? existingUsersResult 
+            : (existingUsersResult.rows || []);
+          const existingIds = new Set(existingUsers.map((u: any) => u?.repcard_user_id || u?.repcard_user_id));
           
           // Only enrich users that don't exist yet (batch API calls with delay)
           const idsToEnrich = Array.from(setterUserIds).filter(id => !existingIds.has(id.toString()));
@@ -401,11 +405,15 @@ export async function syncAppointments(options: {
 
         // Batch check which users already exist
         if (userIds.size > 0) {
-          const existingUsers = await sql`
+          const existingUsersResult = await sql`
             SELECT repcard_user_id FROM users 
             WHERE repcard_user_id = ANY(${Array.from(userIds).map(String)}::text[])
           `;
-          const existingIds = new Set(existingUsers.map((u: any) => u.repcard_user_id));
+          // Handle @vercel/postgres result format (can be { rows: [...] } or array)
+          const existingUsers = Array.isArray(existingUsersResult) 
+            ? existingUsersResult 
+            : (existingUsersResult.rows || []);
+          const existingIds = new Set(existingUsers.map((u: any) => u?.repcard_user_id || u?.repcard_user_id));
           
           // Only enrich users that don't exist yet (limit to avoid timeout)
           const idsToEnrich = Array.from(userIds).filter(id => !existingIds.has(id.toString())).slice(0, 10);

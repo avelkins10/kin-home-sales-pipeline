@@ -550,6 +550,12 @@ export async function processWebhookEvent(
         notificationCreated = await createNotificationForCriticalEvent(payload);
         break;
 
+      case 'TASK_PRIMARY_ADDRESS_UPDATED':
+      case 'TASK_TEMPLATE_EXTRA_FIELDS_UPDATED':
+        // These events modify task data - refresh from Arrivy API
+        await handleTaskDataChangeEvent(payload);
+        break;
+
       case 'TASK_RATING':
         await handleTaskRatingEvent(payload);
         break;
