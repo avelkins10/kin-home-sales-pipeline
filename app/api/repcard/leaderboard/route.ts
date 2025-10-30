@@ -512,6 +512,115 @@ export async function GET(request: NextRequest) {
           metricType: metric
         }));
         
+        // CRITICAL FIX: If INNER JOIN returns 0 results, fallback to show ALL users
+        if (leaderboardEntries.length === 0) {
+          console.log(`[RepCard Leaderboard] ⚠️ INNER JOIN returned 0 entries for doors_knocked`);
+          console.log(`[RepCard Leaderboard] Falling back to LEFT JOIN to show all users`);
+          
+          let fallbackQuery;
+          
+          if (officeIds && officeIds.length > 0) {
+            if (role !== 'all') {
+              fallbackQuery = await sql`
+                SELECT
+                  u.id as user_id,
+                  u.name as user_name,
+                  u.email as user_email,
+                  u.repcard_user_id::text as repcard_user_id,
+                  u.sales_office[1] as office,
+                  u.role,
+                  COUNT(c.repcard_customer_id) as count
+                FROM users u
+                LEFT JOIN repcard_customers c ON u.repcard_user_id::text = c.setter_user_id::text
+                  AND c.created_at >= ${calculatedStartDate}::timestamp
+                  AND c.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day')
+                LEFT JOIN offices o ON o.name = ANY(u.sales_office)
+                WHERE u.repcard_user_id IS NOT NULL
+                  AND u.role = ${role}
+                  AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR u.sales_office IS NULL)
+                GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+                ORDER BY count DESC
+                LIMIT 1000
+              `;
+            } else {
+              fallbackQuery = await sql`
+                SELECT
+                  u.id as user_id,
+                  u.name as user_name,
+                  u.email as user_email,
+                  u.repcard_user_id::text as repcard_user_id,
+                  u.sales_office[1] as office,
+                  u.role,
+                  COUNT(c.repcard_customer_id) as count
+                FROM users u
+                LEFT JOIN repcard_customers c ON u.repcard_user_id::text = c.setter_user_id::text
+                  AND c.created_at >= ${calculatedStartDate}::timestamp
+                  AND c.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day')
+                LEFT JOIN offices o ON o.name = ANY(u.sales_office)
+                WHERE u.repcard_user_id IS NOT NULL
+                  AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR u.sales_office IS NULL)
+                GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+                ORDER BY count DESC
+                LIMIT 1000
+              `;
+            }
+          } else {
+            if (role !== 'all') {
+              fallbackQuery = await sql`
+                SELECT
+                  u.id as user_id,
+                  u.name as user_name,
+                  u.email as user_email,
+                  u.repcard_user_id::text as repcard_user_id,
+                  u.sales_office[1] as office,
+                  u.role,
+                  COUNT(c.repcard_customer_id) as count
+                FROM users u
+                LEFT JOIN repcard_customers c ON u.repcard_user_id::text = c.setter_user_id::text
+                  AND c.created_at >= ${calculatedStartDate}::timestamp
+                  AND c.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day')
+                WHERE u.repcard_user_id IS NOT NULL
+                  AND u.role = ${role}
+                GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+                ORDER BY count DESC
+                LIMIT 1000
+              `;
+            } else {
+              fallbackQuery = await sql`
+                SELECT
+                  u.id as user_id,
+                  u.name as user_name,
+                  u.email as user_email,
+                  u.repcard_user_id::text as repcard_user_id,
+                  u.sales_office[1] as office,
+                  u.role,
+                  COUNT(c.repcard_customer_id) as count
+                FROM users u
+                LEFT JOIN repcard_customers c ON u.repcard_user_id::text = c.setter_user_id::text
+                  AND c.created_at >= ${calculatedStartDate}::timestamp
+                  AND c.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day')
+                WHERE u.repcard_user_id IS NOT NULL
+                GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+                ORDER BY count DESC
+                LIMIT 1000
+              `;
+            }
+          }
+          
+          const fallbackResults = Array.from(fallbackQuery);
+          leaderboardEntries = fallbackResults.map((row: any) => ({
+            rank: 0,
+            userId: row.user_id,
+            userName: row.user_name,
+            userEmail: row.user_email,
+            office: row.office,
+            role: row.role,
+            metricValue: parseInt(row.count) || 0,
+            metricType: metric
+          }));
+          console.log(`[RepCard Leaderboard] ✅ Fallback returned ${leaderboardEntries.length} users`);
+        }
+        
         // If no results and role filter is applied, also check users that might have been filtered out
         if (leaderboardEntries.length === 0 && role !== 'all') {
           // Fallback: get all users and create entries with 0 counts
