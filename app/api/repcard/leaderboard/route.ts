@@ -422,37 +422,163 @@ export async function GET(request: NextRequest) {
     const shouldSkipOfficeFilter = officeIds === undefined && officeFilterFailed;
     
     if (metric === 'quality_score' || metric === 'appointment_speed' || metric === 'attachment_rate') {
-      // Use quality metrics service - call per user to get individual metrics
-      const userMetricsPromises = users.map(async (user) => {
-        try {
-          const userMetrics = await getQualityMetricsForUsers({
-            repcardUserIds: [user.repcard_user_id],
-            startDate: calculatedStartDate,
-            endDate: calculatedEndDate,
-            useCache: true
-          });
-          
-          let metricValue = 0;
-          if (metric === 'quality_score') {
-            metricValue = calculateCompositeQualityScore(userMetrics);
-          } else if (metric === 'appointment_speed') {
-            metricValue = userMetrics.appointmentSpeed.percentageWithin24Hours;
-          } else if (metric === 'attachment_rate') {
-            metricValue = userMetrics.attachmentRate.percentageWithAttachments;
-          }
+      // Calculate quality metrics from database instead of API to avoid rate limiting
+      const repcardUserIds = users.map((u: any) => u.repcard_user_id).filter(Boolean);
+      
+      if (metric === 'appointment_speed') {
+        // Calculate appointment speed: % of appointments scheduled within 24 hours of customer creation
+        const speedQuery = await sql`
+          SELECT
+            u.id as user_id,
+            u.name as user_name,
+            u.email as user_email,
+            u.repcard_user_id::text as repcard_user_id,
+            u.sales_office[1] as office,
+            u.role,
+            COUNT(DISTINCT a.repcard_appointment_id) as total_appointments,
+            COUNT(DISTINCT CASE 
+              WHEN c.created_at IS NOT NULL 
+                AND a.scheduled_at IS NOT NULL
+                AND EXTRACT(EPOCH FROM (a.scheduled_at - c.created_at)) / 3600 < 24
+              THEN a.repcard_appointment_id
+            END) as appointments_within_24h
+          FROM users u
+          LEFT JOIN repcard_appointments a ON u.repcard_user_id::text = a.setter_user_id::text
+            AND (
+              (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
+              OR
+              (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
+            )
+          LEFT JOIN repcard_customers c ON a.repcard_customer_id::text = c.repcard_customer_id::text
+          WHERE u.repcard_user_id IS NOT NULL
+            AND u.repcard_user_id::text = ANY(${repcardUserIds}::text[])
+          GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+        `;
+        
+        const speedResults = Array.from(speedQuery);
+        leaderboardEntries = speedResults.map((row: any) => {
+          const total = parseInt(row.total_appointments) || 0;
+          const within24h = parseInt(row.appointments_within_24h) || 0;
+          const percentage = total > 0 ? (within24h / total) * 100 : 0;
           
           return {
-            rank: 0, // Will be set after sorting
-            userId: user.id,
-            userName: user.name,
-            userEmail: user.email,
-            office: user.office,
-            role: user.role,
-            metricValue,
+            rank: 0,
+            userId: row.user_id,
+            userName: row.user_name,
+            userEmail: row.user_email,
+            office: row.office,
+            role: row.role,
+            metricValue: percentage,
             metricType: metric
           };
-        } catch (error) {
-          // Return zero metrics for failed users
+        });
+      } else if (metric === 'attachment_rate') {
+        // Calculate attachment rate: % of customers with attachments
+        const attachmentQuery = await sql`
+          SELECT
+            u.id as user_id,
+            u.name as user_name,
+            u.email as user_email,
+            u.repcard_user_id::text as repcard_user_id,
+            u.sales_office[1] as office,
+            u.role,
+            COUNT(DISTINCT c.repcard_customer_id) as total_customers,
+            COUNT(DISTINCT CASE WHEN att.id IS NOT NULL THEN c.repcard_customer_id END) as customers_with_attachments
+          FROM users u
+          LEFT JOIN repcard_customers c ON u.repcard_user_id::text = c.setter_user_id::text
+            AND c.created_at::date >= ${calculatedStartDate}::date
+            AND c.created_at::date <= ${calculatedEndDate}::date
+          LEFT JOIN repcard_customer_attachments att ON c.repcard_customer_id::text = att.repcard_customer_id::text
+          WHERE u.repcard_user_id IS NOT NULL
+            AND u.repcard_user_id::text = ANY(${repcardUserIds}::text[])
+          GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+        `;
+        
+        const attachmentResults = Array.from(attachmentQuery);
+        leaderboardEntries = attachmentResults.map((row: any) => {
+          const total = parseInt(row.total_customers) || 0;
+          const withAttachments = parseInt(row.customers_with_attachments) || 0;
+          const percentage = total > 0 ? (withAttachments / total) * 100 : 0;
+          
+          return {
+            rank: 0,
+            userId: row.user_id,
+            userName: row.user_name,
+            userEmail: row.user_email,
+            office: row.office,
+            role: row.role,
+            metricValue: percentage,
+            metricType: metric
+          };
+        });
+      } else if (metric === 'quality_score') {
+        // Calculate composite quality score from appointment speed and attachment rate
+        // Get both metrics, then calculate composite score
+        const [speedQuery, attachmentQuery] = await Promise.all([
+          sql`
+            SELECT
+              u.id as user_id,
+              COUNT(DISTINCT a.repcard_appointment_id) as total_appointments,
+              COUNT(DISTINCT CASE 
+                WHEN c.created_at IS NOT NULL 
+                  AND a.scheduled_at IS NOT NULL
+                  AND EXTRACT(EPOCH FROM (a.scheduled_at - c.created_at)) / 3600 < 24
+                THEN a.repcard_appointment_id
+              END) as appointments_within_24h
+            FROM users u
+            LEFT JOIN repcard_appointments a ON u.repcard_user_id::text = a.setter_user_id::text
+              AND (
+                (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
+                OR
+                (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
+              )
+            LEFT JOIN repcard_customers c ON a.repcard_customer_id::text = c.repcard_customer_id::text
+            WHERE u.repcard_user_id IS NOT NULL
+              AND u.repcard_user_id::text = ANY(${repcardUserIds}::text[])
+            GROUP BY u.id
+          `,
+          sql`
+            SELECT
+              u.id as user_id,
+              COUNT(DISTINCT c.repcard_customer_id) as total_customers,
+              COUNT(DISTINCT CASE WHEN att.id IS NOT NULL THEN c.repcard_customer_id END) as customers_with_attachments
+            FROM users u
+            LEFT JOIN repcard_customers c ON u.repcard_user_id::text = c.setter_user_id::text
+              AND c.created_at::date >= ${calculatedStartDate}::date
+              AND c.created_at::date <= ${calculatedEndDate}::date
+            LEFT JOIN repcard_customer_attachments att ON c.repcard_customer_id::text = att.repcard_customer_id::text
+            WHERE u.repcard_user_id IS NOT NULL
+              AND u.repcard_user_id::text = ANY(${repcardUserIds}::text[])
+            GROUP BY u.id
+          `
+        ]);
+        
+        const speedResults = Array.from(speedQuery);
+        const attachmentResults = Array.from(attachmentQuery);
+        
+        // Create maps for fast lookup
+        const speedMap = new Map();
+        speedResults.forEach((row: any) => {
+          const total = parseInt(row.total_appointments) || 0;
+          const within24h = parseInt(row.appointments_within_24h) || 0;
+          speedMap.set(row.user_id, total > 0 ? (within24h / total) * 100 : 0);
+        });
+        
+        const attachmentMap = new Map();
+        attachmentResults.forEach((row: any) => {
+          const total = parseInt(row.total_customers) || 0;
+          const withAttachments = parseInt(row.customers_with_attachments) || 0;
+          attachmentMap.set(row.user_id, total > 0 ? (withAttachments / total) * 100 : 0);
+        });
+        
+        // Calculate composite score for each user
+        leaderboardEntries = users.map((user: any) => {
+          const appointmentSpeed = speedMap.get(user.id) || 0;
+          const attachmentRate = attachmentMap.get(user.id) || 0;
+          
+          // Simplified composite score: 60% appointment speed, 40% attachment rate
+          const compositeScore = (appointmentSpeed * 0.6) + (attachmentRate * 0.4);
+          
           return {
             rank: 0,
             userId: user.id,
@@ -460,13 +586,11 @@ export async function GET(request: NextRequest) {
             userEmail: user.email,
             office: user.office,
             role: user.role,
-            metricValue: 0,
+            metricValue: Math.max(0, Math.min(100, compositeScore)),
             metricType: metric
           };
-        }
-      });
-      
-      leaderboardEntries = await Promise.all(userMetricsPromises);
+        });
+      }
     } else {
       // Fetch data from RepCard or QuickBase
       const repcardUserIds = (users as any[]).map((u: any) => u.repcard_user_id);
@@ -892,31 +1016,30 @@ export async function GET(request: NextRequest) {
             }
           } else {
             console.log(`[RepCard Leaderboard] Fallback: Skipping office filter (officeIds cleared or shouldSkipOfficeFilter=true)`);
-            if (role !== 'all') {
-              fallbackQuery = await sql`
-                SELECT
-                  u.id as user_id,
-                  u.name as user_name,
-                  u.email as user_email,
-                  u.repcard_user_id::text as repcard_user_id,
-                  u.sales_office[1] as office,
-                  u.role,
-                  COUNT(a.repcard_appointment_id) as count
-                FROM users u
-                LEFT JOIN repcard_appointments a ON u.repcard_user_id::text = a.setter_user_id::text
-                  AND (
-                    (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
-                    OR
-                    (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
-                  )
-                WHERE u.repcard_user_id IS NOT NULL
-                  AND u.role = ${role}
-                GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
-                ORDER BY count DESC
-                LIMIT 1000
-              `;
+            
+            // Use the users we already fetched instead of querying again
+            // This ensures we're working with the same user set
+            const userIds = users.map((u: any) => u.id).filter(Boolean);
+            
+            if (userIds.length === 0) {
+              console.log(`[RepCard Leaderboard] ⚠️ No users available for fallback query`);
+              // Create entries from users array with 0 counts
+              leaderboardEntries = users.map((user: any) => ({
+                rank: 0,
+                userId: user.id,
+                userName: user.name,
+                userEmail: user.email,
+                office: user.office,
+                role: user.role,
+                metricValue: 0,
+                metricType: metric
+              }));
             } else {
-              fallbackQuery = await sql`
+              // Query appointments for the users we already have
+              // Use repcard_user_ids instead of user ids for better matching
+              const repcardUserIds = users.map((u: any) => u.repcard_user_id).filter(Boolean);
+              
+              const appointmentCountsRaw = await sql`
                 SELECT
                   u.id as user_id,
                   u.name as user_name,
@@ -932,27 +1055,41 @@ export async function GET(request: NextRequest) {
                     OR
                     (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
                   )
-                WHERE u.repcard_user_id IS NOT NULL
+                WHERE u.repcard_user_id::text = ANY(${repcardUserIds}::text[])
                 GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
                 ORDER BY count DESC
-                LIMIT 1000
               `;
+              
+              const fallbackResults = Array.from(appointmentCountsRaw);
+              console.log(`[RepCard Leaderboard] Fallback query returned ${fallbackResults.length} users`);
+              
+              // If fallback still returns 0, create entries from users array
+              if (fallbackResults.length === 0) {
+                console.log(`[RepCard Leaderboard] ⚠️ Fallback query returned 0 results, creating entries from users array`);
+                leaderboardEntries = users.map((user: any) => ({
+                  rank: 0,
+                  userId: user.id,
+                  userName: user.name,
+                  userEmail: user.email,
+                  office: user.office,
+                  role: user.role,
+                  metricValue: 0,
+                  metricType: metric
+                }));
+              } else {
+                leaderboardEntries = fallbackResults.map((row: any) => ({
+                  rank: 0,
+                  userId: row.user_id,
+                  userName: row.user_name,
+                  userEmail: row.user_email,
+                  office: row.office,
+                  role: row.role,
+                  metricValue: parseInt(row.count) || 0,
+                  metricType: metric
+                }));
+              }
             }
-          }
-          
-          const fallbackResults = Array.from(fallbackQuery);
-          console.log(`[RepCard Leaderboard] Fallback query returned ${fallbackResults.length} users`);
-          leaderboardEntries = fallbackResults.map((row: any) => ({
-            rank: 0,
-            userId: row.user_id,
-            userName: row.user_name,
-            userEmail: row.user_email,
-            office: row.office,
-            role: row.role,
-            metricValue: parseInt(row.count) || 0,
-            metricType: metric
-          }));
-          console.log(`[RepCard Leaderboard] ✅ Fallback returned ${leaderboardEntries.length} users`);
+            console.log(`[RepCard Leaderboard] ✅ Fallback returned ${leaderboardEntries.length} users`);
         }
         
         // If no results and role filter is applied, also check users that might have been filtered out
