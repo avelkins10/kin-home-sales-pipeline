@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('[RepCard Settings] Error fetching leaderboard configs:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch leaderboard configurations' },
+      { error: 'Failed to fetch leaderboard configurations', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }

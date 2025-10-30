@@ -112,7 +112,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('[RepCard Settings] Error fetching metrics:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch metric definitions' },
+      { error: 'Failed to fetch metric definitions', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }

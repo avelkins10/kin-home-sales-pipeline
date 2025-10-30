@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('[RepCard Settings] Error fetching analytics configs:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch analytics configurations' },
+      { error: 'Failed to fetch analytics configurations', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }
