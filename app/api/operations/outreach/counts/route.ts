@@ -5,6 +5,7 @@ import { qbClient } from '@/lib/quickbase/client';
 import { OUTREACH_RECORD_FIELDS, QB_TABLE_OUTREACH_RECORDS } from '@/lib/constants/fieldIds';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/operations/outreach/counts
