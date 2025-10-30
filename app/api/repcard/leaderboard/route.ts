@@ -334,9 +334,11 @@ export async function GET(request: NextRequest) {
       
       // If office filtering returns 0 users, fall back to all users (office filter might be too restrictive)
       // BUT also log WHY it's filtering out users
+      let officeFilterFailed = false;
       if (users.length === 0) {
         console.log(`[RepCard Leaderboard] ⚠️ Office filter returned 0 users for officeIds: ${officeIds}`);
         console.log(`[RepCard Leaderboard] Falling back to all users to ensure data is shown`);
+        officeFilterFailed = true;
         
         // Debug: Check how many users match office filter vs total
         const totalUsers = await sql`
@@ -363,6 +365,10 @@ export async function GET(request: NextRequest) {
           users = Array.from(result);
         }
         console.log(`[RepCard Leaderboard] ✅ Fallback returned ${users.length} users`);
+        
+        // CRITICAL: Clear officeIds so metric queries don't use broken office filter
+        officeIds = undefined;
+        console.log(`[RepCard Leaderboard] ⚠️ Clearing officeIds filter for metric queries due to office filter failure`);
       }
     } else {
       // No office filter - use sql template
