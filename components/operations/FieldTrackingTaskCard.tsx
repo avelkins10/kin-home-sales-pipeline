@@ -57,18 +57,22 @@ export function FieldTrackingTaskCard({ task, onClick, crewMembers = [] }: Field
   };
 
   const getTaskTypeColor = (type: string | null) => {
-    switch (type) {
-      case 'survey':
-        return 'bg-purple-100 text-purple-800';
-      case 'install':
-        return 'bg-blue-100 text-blue-800';
-      case 'inspection':
-        return 'bg-green-100 text-green-800';
-      case 'service':
-        return 'bg-orange-100 text-orange-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+    if (!type) return 'bg-gray-100 text-gray-800';
+
+    const lowerType = type.toLowerCase();
+
+    // Match against category (first part before dash)
+    if (lowerType.includes('survey')) {
+      return 'bg-purple-100 text-purple-800';
+    } else if (lowerType.includes('installation')) {
+      return 'bg-blue-100 text-blue-800';
+    } else if (lowerType.includes('inspection')) {
+      return 'bg-green-100 text-green-800';
+    } else if (lowerType.includes('service')) {
+      return 'bg-orange-100 text-orange-800';
     }
+
+    return 'bg-gray-100 text-gray-800';
   };
 
   const copyTrackerUrl = (e: React.MouseEvent) => {
@@ -94,7 +98,7 @@ export function FieldTrackingTaskCard({ task, onClick, crewMembers = [] }: Field
         <div className="flex items-start justify-between mb-3">
           <div className="flex gap-2">
             <Badge variant="outline" className={getTaskTypeColor(task.task_type)}>
-              {task.task_type?.toUpperCase() || 'TASK'}
+              {task.task_type || 'TASK'}
             </Badge>
             <FieldTrackingTaskStatusBadge
               status={task.current_status}
@@ -136,12 +140,20 @@ export function FieldTrackingTaskCard({ task, onClick, crewMembers = [] }: Field
           </div>
 
           {task.scheduled_start && (
-            <div className="flex items-center text-sm text-gray-600">
-              <Clock className="mr-2 h-4 w-4" />
-              {format(new Date(task.scheduled_start), 'MMM d, yyyy h:mm a')}
-              <span className="text-xs text-gray-500 ml-1">
-                ({Intl.DateTimeFormat().resolvedOptions().timeZone})
-              </span>
+            <div className="flex flex-col text-sm text-gray-600">
+              <div className="flex items-center">
+                <Clock className="mr-2 h-4 w-4" />
+                <span className="font-medium">Appointment:</span>
+                <span className="ml-1">{format(new Date(task.scheduled_start), 'MMM d, yyyy h:mm a')}</span>
+              </div>
+              {task.start_datetime_window_start && task.start_datetime_window_end && (
+                <div className="flex items-center ml-6 mt-1 text-xs text-gray-500">
+                  <span className="font-medium">Arrival Window:</span>
+                  <span className="ml-1">
+                    {format(new Date(task.start_datetime_window_start), 'h:mm a')} - {format(new Date(task.start_datetime_window_end), 'h:mm a')}
+                  </span>
+                </div>
+              )}
             </div>
           )}
 

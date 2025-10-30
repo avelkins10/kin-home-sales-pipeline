@@ -246,14 +246,26 @@ export async function GET(request: NextRequest) {
         const dataCheck = await sql`
           SELECT 
             (SELECT COUNT(*) FROM repcard_customers WHERE created_at::date >= ${calculatedStartDate}::date AND created_at::date <= ${calculatedEndDate}::date) as customers,
-            (SELECT COUNT(*) FROM repcard_appointments WHERE scheduled_at::date >= ${calculatedStartDate}::date AND scheduled_at::date <= ${calculatedEndDate}::date) as appointments,
+            (SELECT COUNT(*) FROM repcard_appointments WHERE (
+              (scheduled_at IS NOT NULL AND scheduled_at::date >= ${calculatedStartDate}::date AND scheduled_at::date <= ${calculatedEndDate}::date)
+              OR
+              (scheduled_at IS NULL AND created_at::date >= ${calculatedStartDate}::date AND created_at::date <= ${calculatedEndDate}::date)
+            )) as appointments,
+            (SELECT COUNT(*) FROM repcard_appointments a
+             INNER JOIN users u ON u.repcard_user_id::text = a.setter_user_id::text
+             WHERE (
+               (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
+               OR
+               (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
+             )) as matched_appointments,
             (SELECT MIN(created_at) FROM repcard_customers) as earliest_customer,
             (SELECT MAX(created_at) FROM repcard_customers) as latest_customer
         `;
         const check = Array.isArray(dataCheck) ? dataCheck[0] : dataCheck.rows?.[0];
         console.log(`[RepCard Leaderboard] DEBUG - Data in date range:`, {
           customers: check?.customers || 0,
-          appointments: check?.appointments || 0,
+          appointments_total: check?.appointments || 0,
+          appointments_matched: check?.matched_appointments || 0,
           earliest_customer: check?.earliest_customer,
           latest_customer: check?.latest_customer,
           query_range: `${calculatedStartDate} to ${calculatedEndDate}`

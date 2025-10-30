@@ -979,6 +979,8 @@ export interface FieldTrackingTask {
   task_type: FieldTrackingTaskType | null;
   scheduled_start: Date | null;
   scheduled_end: Date | null;
+  start_datetime_window_start: Date | null;
+  start_datetime_window_end: Date | null;
   assigned_entity_ids: number[] | null;
   current_status: FieldTrackingTaskStatus | null;
   tracker_url: string | null;
