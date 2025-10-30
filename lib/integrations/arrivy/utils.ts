@@ -56,29 +56,6 @@ export function extractTaskType(task: ArrivyTask): string {
   if (groupName.includes('inspection')) return 'Inspections - General';
 
   // 5. Check title keywords (least reliable - often just customer names)
-
-  // Surveys
-  if (template.includes('site survey')) return 'Surveys - Site Survey';
-  if (template.includes('survey')) return 'Surveys - General';
-
-  // Installations (with specific subcategories)
-  if (template.includes('solar install - full install')) return 'Installations - Full Install';
-  if (template.includes('solar install - modules only')) return 'Installations - Modules Only';
-  if (template.includes('solar install - tie-in only')) return 'Installations - Tie-In Only';
-  if (template.includes('electrical upgrade') || template.includes('mpu')) return 'Installations - Electrical Upgrade (MPU)';
-  if (template.includes('roof work')) return 'Installations - Roof Work';
-  if (template.includes('install')) return 'Installations - General';
-
-  // Inspections
-  if (template.includes('electrical inspection')) return 'Inspections - Electrical';
-  if (template.includes('final inspection')) return 'Inspections - Final';
-  if (template.includes('inspection')) return 'Inspections - General';
-
-  // Service/Maintenance
-  if (template.includes('service') || template.includes('maintenance')) return 'Service - General';
-  if (template.includes('activity')) return 'Service - Activity';
-
-  // 5. Check title keywords (least reliable - often just customer names)
   const title = task.title?.toLowerCase() || '';
 
   if (title.includes('site survey')) return 'Surveys - Site Survey';
