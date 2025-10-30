@@ -1191,7 +1191,7 @@ export async function GET(request: NextRequest) {
           };
         });
       }
-    }
+    } // End of else block for RepCard/QuickBase data fetching (closes else from line 594)
     
     // Sort by metric value (descending) and assign ranks
     leaderboardEntries.sort((a, b) => b.metricValue - a.metricValue);
