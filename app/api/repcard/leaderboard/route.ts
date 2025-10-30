@@ -240,6 +240,27 @@ export async function GET(request: NextRequest) {
       
       // Log for debugging
       console.log(`[RepCard Leaderboard] Date range: ${calculatedStartDate} to ${calculatedEndDate} (timeRange: ${timeRange})`);
+      
+      // DEBUG: Check if ANY data exists in the date range
+      try {
+        const dataCheck = await sql`
+          SELECT 
+            (SELECT COUNT(*) FROM repcard_customers WHERE created_at::date >= ${calculatedStartDate}::date AND created_at::date <= ${calculatedEndDate}::date) as customers,
+            (SELECT COUNT(*) FROM repcard_appointments WHERE scheduled_at::date >= ${calculatedStartDate}::date AND scheduled_at::date <= ${calculatedEndDate}::date) as appointments,
+            (SELECT MIN(created_at) FROM repcard_customers) as earliest_customer,
+            (SELECT MAX(created_at) FROM repcard_customers) as latest_customer
+        `;
+        const check = Array.isArray(dataCheck) ? dataCheck[0] : dataCheck.rows?.[0];
+        console.log(`[RepCard Leaderboard] DEBUG - Data in date range:`, {
+          customers: check?.customers || 0,
+          appointments: check?.appointments || 0,
+          earliest_customer: check?.earliest_customer,
+          latest_customer: check?.latest_customer,
+          query_range: `${calculatedStartDate} to ${calculatedEndDate}`
+        });
+      } catch (debugError) {
+        console.error('[RepCard Leaderboard] DEBUG query failed:', debugError);
+      }
     } catch (error) {
       const duration = Date.now() - start;
       logApiResponse('GET', path, duration, { status: 400, cached: false, requestId });
@@ -518,6 +539,8 @@ export async function GET(request: NextRequest) {
         }
         
         const customerCounts = Array.from(customerCountsRaw);
+        
+        console.log(`[RepCard Leaderboard] doors_knocked query returned ${customerCounts.length} users with data`);
 
         // Map directly to leaderboard entries
         leaderboardEntries = customerCounts.map((row: any) => ({
@@ -534,6 +557,7 @@ export async function GET(request: NextRequest) {
         // CRITICAL FIX: If INNER JOIN returns 0 results, fallback to show ALL users
         if (leaderboardEntries.length === 0) {
           console.log(`[RepCard Leaderboard] ⚠️ INNER JOIN returned 0 entries for doors_knocked`);
+          console.log(`[RepCard Leaderboard] Date range: ${calculatedStartDate} to ${calculatedEndDate}`);
           console.log(`[RepCard Leaderboard] Falling back to LEFT JOIN to show all users`);
           
           let fallbackQuery;
@@ -551,7 +575,7 @@ export async function GET(request: NextRequest) {
                   COUNT(c.repcard_customer_id) as count
                 FROM users u
                 LEFT JOIN repcard_customers c ON u.repcard_user_id::text = c.setter_user_id::text
-                  AND c.created_at >= ${calculatedStartDate}::date
+                  AND c.created_at::date >= ${calculatedStartDate}::date
                   AND c.created_at::date <= ${calculatedEndDate}::date
                 LEFT JOIN offices o ON o.name = ANY(u.sales_office)
                 WHERE u.repcard_user_id IS NOT NULL
@@ -573,7 +597,7 @@ export async function GET(request: NextRequest) {
                   COUNT(c.repcard_customer_id) as count
                 FROM users u
                 LEFT JOIN repcard_customers c ON u.repcard_user_id::text = c.setter_user_id::text
-                  AND c.created_at >= ${calculatedStartDate}::date
+                  AND c.created_at::date >= ${calculatedStartDate}::date
                   AND c.created_at::date <= ${calculatedEndDate}::date
                 LEFT JOIN offices o ON o.name = ANY(u.sales_office)
                 WHERE u.repcard_user_id IS NOT NULL
@@ -596,7 +620,7 @@ export async function GET(request: NextRequest) {
                   COUNT(c.repcard_customer_id) as count
                 FROM users u
                 LEFT JOIN repcard_customers c ON u.repcard_user_id::text = c.setter_user_id::text
-                  AND c.created_at >= ${calculatedStartDate}::date
+                  AND c.created_at::date >= ${calculatedStartDate}::date
                   AND c.created_at::date <= ${calculatedEndDate}::date
                 WHERE u.repcard_user_id IS NOT NULL
                   AND u.role = ${role}
@@ -616,7 +640,7 @@ export async function GET(request: NextRequest) {
                   COUNT(c.repcard_customer_id) as count
                 FROM users u
                 LEFT JOIN repcard_customers c ON u.repcard_user_id::text = c.setter_user_id::text
-                  AND c.created_at >= ${calculatedStartDate}::date
+                  AND c.created_at::date >= ${calculatedStartDate}::date
                   AND c.created_at::date <= ${calculatedEndDate}::date
                 WHERE u.repcard_user_id IS NOT NULL
                 GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
