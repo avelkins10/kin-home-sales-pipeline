@@ -451,7 +451,7 @@ export async function GET(request: NextRequest) {
               INNER JOIN users u ON u.repcard_user_id::text = c.setter_user_id::text
               LEFT JOIN offices o ON o.name = ANY(u.sales_office)
               WHERE u.repcard_user_id IS NOT NULL
-                AND c.created_at >= ${calculatedStartDate}::date
+                AND c.created_at::date >= ${calculatedStartDate}::date
                 AND c.created_at::date <= ${calculatedEndDate}::date
                 AND u.role = ${role}
                 AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR u.sales_office IS NULL)
@@ -471,7 +471,7 @@ export async function GET(request: NextRequest) {
               INNER JOIN users u ON u.repcard_user_id::text = c.setter_user_id::text
               LEFT JOIN offices o ON o.name = ANY(u.sales_office)
               WHERE u.repcard_user_id IS NOT NULL
-                AND c.created_at >= ${calculatedStartDate}::date
+                AND c.created_at::date >= ${calculatedStartDate}::date
                 AND c.created_at::date <= ${calculatedEndDate}::date
                 AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR u.sales_office IS NULL)
               GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
@@ -492,7 +492,7 @@ export async function GET(request: NextRequest) {
               FROM repcard_customers c
               INNER JOIN users u ON u.repcard_user_id::text = c.setter_user_id::text
               WHERE u.repcard_user_id IS NOT NULL
-                AND c.created_at >= ${calculatedStartDate}::date
+                AND c.created_at::date >= ${calculatedStartDate}::date
                 AND c.created_at::date <= ${calculatedEndDate}::date
                 AND u.role = ${role}
               GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
@@ -510,7 +510,7 @@ export async function GET(request: NextRequest) {
               FROM repcard_customers c
               INNER JOIN users u ON u.repcard_user_id::text = c.setter_user_id::text
               WHERE u.repcard_user_id IS NOT NULL
-                AND c.created_at >= ${calculatedStartDate}::date
+                AND c.created_at::date >= ${calculatedStartDate}::date
                 AND c.created_at::date <= ${calculatedEndDate}::date
               GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
             `;
