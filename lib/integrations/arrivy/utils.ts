@@ -84,12 +84,31 @@ export function extractTaskType(task: ArrivyTask): string {
 
 /**
  * Detect task type from attached forms
- * Checks extra_fields for form-related data
+ * Checks extra_fields for form-related data and field indicators
  */
 function detectFromForms(task: ArrivyTask): string | null {
   if (!task.extra_fields) return null;
 
-  // Common form field names to check
+  // MOST RELIABLE: Check for "Notes for [Role]" fields (template-specific form fields)
+  const fieldKeys = Object.keys(task.extra_fields).join('|').toLowerCase();
+
+  if (fieldKeys.includes('notes for surveyor')) return 'Surveys - Site Survey';
+  if (fieldKeys.includes('surveyor')) return 'Surveys - General';
+
+  if (fieldKeys.includes('notes for installer')) return 'Installations - General';
+  if (fieldKeys.includes('installer')) return 'Installations - General';
+
+  if (fieldKeys.includes('notes for inspector')) return 'Inspections - General';
+  if (fieldKeys.includes('inspector')) return 'Inspections - General';
+
+  if (fieldKeys.includes('notes for service tech')) return 'Service - General';
+  if (fieldKeys.includes('service tech')) return 'Service - General';
+
+  // Check for Solar/PV specific indicators
+  if (fieldKeys.includes('solar') || fieldKeys.includes('pv system')) return 'Installations - Solar';
+  if (fieldKeys.includes('electrical') || fieldKeys.includes('mpu')) return 'Installations - Electrical Upgrade (MPU)';
+
+  // Check form field values
   const formFields = [
     'form_name',
     'form_type',
