@@ -120,19 +120,72 @@ export async function GET(request: NextRequest) {
     
     // Extract and validate parameters
     const { searchParams } = new URL(request.url);
-    const role = (searchParams.get('role') || 'all') as LeaderboardRole;
-    const metric = (searchParams.get('metric') || 'quality_score') as LeaderboardMetric;
-    const timeRange = searchParams.get('timeRange') || 'month';
+    const configId = searchParams.get('configId'); // Optional: use configuration
+    let role = (searchParams.get('role') || 'all') as LeaderboardRole;
+    let metric = (searchParams.get('metric') || 'quality_score') as LeaderboardMetric;
+    let timeRange = searchParams.get('timeRange') || 'month';
     const startDate = searchParams.get('startDate') || undefined;
     const endDate = searchParams.get('endDate') || undefined;
-    const officeIds = searchParams.get('officeIds')?.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+    let officeIds = searchParams.get('officeIds')?.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
     const page = Math.max(parseInt(searchParams.get('page') || '1'), 1);
     
-    // Validate parameters
+    // If configId is provided, load configuration
+    let config: any = null;
+    if (configId) {
+      try {
+        const configResult = await sql`
+          SELECT * FROM repcard_leaderboard_config
+          WHERE id = ${configId} AND enabled = true
+        `;
+        const configData = Array.isArray(configResult) ? configResult[0] : configResult.rows?.[0];
+        if (configData) {
+          config = configData;
+          // Override parameters with config values if not explicitly provided
+          if (!searchParams.get('role')) role = (config.roles?.[0] || 'all') as LeaderboardRole;
+          if (!searchParams.get('metric')) metric = config.rank_by_metric as LeaderboardMetric;
+          if (!searchParams.get('timeRange')) timeRange = config.date_range_default || 'month';
+          if (config.office_ids && config.office_ids.length > 0 && !officeIds) {
+            officeIds = config.office_ids;
+          }
+        }
+      } catch (error) {
+        console.error('[RepCard Leaderboard] Error loading config:', error);
+        // Continue without config if load fails
+      }
+    }
+    
+    // Validate parameters - dynamically fetch valid metrics from database
     const validRoles: LeaderboardRole[] = ['setter', 'closer', 'all'];
-    const validMetrics: LeaderboardMetric[] = ['doors_knocked', 'appointments_set', 'sales_closed', 'revenue', 'quality_score', 'appointment_speed', 'attachment_rate'];
     const validTimeRanges = ['today', 'week', 'month', 'quarter', 'ytd', 'custom', 'last_30', 'last_90', 'last_12_months'];
+    
+    // Get valid metrics from database (enabled and leaderboard_supported)
+    let validMetrics: string[] = [];
+    try {
+      const metricsResult = await sql`
+        SELECT metric_key FROM repcard_metric_definitions
+        WHERE enabled = true AND leaderboard_supported = true
+      `;
+      validMetrics = Array.isArray(metricsResult) 
+        ? metricsResult.map((m: any) => m.metric_key)
+        : metricsResult.rows?.map((m: any) => m.metric_key) || [];
+    } catch (error) {
+      console.error('[RepCard Leaderboard] Error fetching metrics:', error);
+      // Fallback to hardcoded list if database query fails
+      validMetrics = ['doors_knocked', 'appointments_set', 'sales_closed', 'revenue', 'quality_score', 'appointment_speed', 'attachment_rate'];
+    }
+    
+    // If config is provided, validate metric is in enabled_metrics
+    if (config && config.enabled_metrics && config.enabled_metrics.length > 0) {
+      if (!config.enabled_metrics.includes(metric)) {
+        const duration = Date.now() - start;
+        logApiResponse('GET', path, duration, { status: 400, cached: false, requestId });
+        return NextResponse.json(
+          { error: `Metric ${metric} is not enabled in this leaderboard configuration. Enabled metrics: ${config.enabled_metrics.join(', ')}` },
+          { status: 400 }
+        );
+      }
+    }
     
     if (!validRoles.includes(role)) {
       const duration = Date.now() - start;
@@ -177,8 +230,8 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    // Build cache key
-    const cacheKey = `${role}:${metric}:${timeRange}:${calculatedStartDate}:${calculatedEndDate}:${officeIds ? officeIds.map(String).join(',') : 'all'}:${limit}:${page}`;
+    // Build cache key (include configId if present)
+    const cacheKey = `${configId || 'manual'}:${role}:${metric}:${timeRange}:${calculatedStartDate}:${calculatedEndDate}:${officeIds ? officeIds.map(String).join(',') : 'all'}:${limit}:${page}`;
     
     // Check cache
     cleanCache();
@@ -828,7 +881,9 @@ export async function GET(request: NextRequest) {
         limit,
         totalPages,
         cached: false,
-        calculatedAt: new Date().toISOString()
+        calculatedAt: new Date().toISOString(),
+        configId: configId || undefined,
+        configName: config?.name || undefined
       }
     };
     

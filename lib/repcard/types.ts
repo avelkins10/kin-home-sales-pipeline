@@ -177,6 +177,89 @@ export interface RepCardCalendarEvent {
   updatedAt: string;
 }
 
+export interface RepCardCalendar {
+  id: number;
+  name: string;
+  companyId: number;
+  status: 'active' | 'inactive';
+  setters?: RepCardUserMinimal[];
+  closers?: RepCardUserMinimal[];
+  dispatchers?: RepCardUserMinimal[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RepCardCustomField {
+  id: number;
+  internalName: string;
+  displayName: string;
+  type: string; // 'number', 'text', 'date', 'select', etc.
+  dataType: string;
+  optionValues?: string[] | null;
+  companyId?: number;
+}
+
+export interface RepCardLeaderboard {
+  _id: string; // MongoDB ID
+  leaderboard_name: string;
+  company_id: number;
+  status: boolean;
+  is_default: boolean;
+  stats: {
+    headers: Array<{
+      _id: string;
+      stat_name: string;
+      mapped_field: string;
+      short_name: string;
+      rank_by: boolean;
+      stat_unit?: string | null;
+    }>;
+    stats: Array<{
+      item_id: number;
+      item_type: 'user';
+      item_rank: number;
+      item_title: string;
+      customer_count?: number;
+      door_knocks?: number;
+      lead_count?: number;
+      appointment_count?: number;
+      avg_door_knocks_per_day?: number;
+      avg_distance_per_knocks?: number;
+      avg_rating?: number;
+      video_viewed?: number;
+      review_count?: number;
+      referral_count?: number;
+      engagement_count?: number;
+      card_sent_count?: number;
+      recruit_count?: number;
+      contact_count?: Record<string, number>;
+      office?: Array<{
+        office_name: string;
+        item_id: number;
+      }>;
+      team?: Array<{
+        team_name: string;
+        item_id: number;
+      }>;
+      [key: string]: any; // Allow additional metrics
+    }>;
+    sub_total?: Record<string, any>;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RepCardTeam {
+  _id?: string; // MongoDB ID if present
+  id: number;
+  team_name: string;
+  office_id: number;
+  team_logo?: string;
+  company_id?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface RepCardLeaderboardEntry {
   userId: number;
   userName: string;
@@ -363,6 +446,17 @@ export interface RepCardCustomerAttachmentQueryParams {
   customerIds?: string; // comma-separated IDs
 }
 
+export interface RepCardCustomerNoteQueryParams {
+  customerId?: number;
+  userId?: number;
+  page?: number;
+  perPage?: number;
+}
+
+export interface RepCardCalendarQueryParams {
+  status?: 'active' | 'inactive';
+}
+
 export interface RepCardAppointmentAttachmentQueryParams {
   perPage?: number;
   page?: number;
@@ -475,7 +569,9 @@ export interface LeaderboardResponse {
     limit: number; 
     totalPages: number; 
     cached: boolean; 
-    calculatedAt: string 
+    calculatedAt: string;
+    configId?: string;
+    configName?: string;
   };
 }
 

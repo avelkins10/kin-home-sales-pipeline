@@ -39,6 +39,7 @@ export interface ConfigurableLeaderboardProps {
   defaultMetric?: LeaderboardMetric;
   defaultTimeRange?: TimeRange;
   defaultOfficeIds?: number[];
+  configId?: string; // Optional: use a saved configuration
   showFilters?: boolean;
   showExport?: boolean;
   showRefresh?: boolean;
@@ -56,6 +57,7 @@ export function ConfigurableLeaderboard({
   defaultMetric = 'quality_score',
   defaultTimeRange = 'month',
   defaultOfficeIds = [],
+  configId,
   showFilters = true,
   showExport = true,
   showRefresh = true,
@@ -81,7 +83,7 @@ export function ConfigurableLeaderboard({
 
   // Fetch leaderboard data
   const { data, error, isLoading, refetch } = useQuery<LeaderboardResponse>({
-    queryKey: ['configurable-leaderboard', role, metric, timeRange, customDateRange, selectedOfficeIds, limit],
+    queryKey: ['configurable-leaderboard', configId, role, metric, timeRange, customDateRange, selectedOfficeIds, limit],
     queryFn: async () => {
       const params = new URLSearchParams({
         role,
@@ -89,6 +91,11 @@ export function ConfigurableLeaderboard({
         timeRange,
         limit: limit.toString()
       });
+
+      // Add configId if provided
+      if (configId) {
+        params.append('configId', configId);
+      }
 
       if (selectedOfficeIds.length > 0) {
         params.append('officeIds', selectedOfficeIds.join(','));

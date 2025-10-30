@@ -18,6 +18,13 @@ import {
   RepCardAttachmentResponse,
   RepCardCustomerAttachment,
   RepCardAppointmentAttachment,
+  RepCardCustomerNote,
+  RepCardCustomerStatus,
+  RepCardCalendar,
+  RepCardCustomField,
+  RepCardLeaderboard,
+  RepCardPaginatedResponse,
+  RepCardApiResponse,
 } from './types';
 
 export interface RepCardUser {
@@ -375,6 +382,90 @@ export class RepCardClient {
 
     const endpoint = `/appointments/attachments${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
     return this.request<RepCardAttachmentResponse<RepCardAppointmentAttachment>['result']>(endpoint);
+  }
+
+  /**
+   * Get customer notes with filtering
+   * @param params Query parameters for filtering notes
+   */
+  async getCustomerNotes(params?: {
+    customerId?: number;
+    userId?: number;
+    page?: number;
+    perPage?: number;
+  }): Promise<RepCardPaginatedResponse<RepCardCustomerNote>> {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          // Convert camelCase to snake_case
+          const apiKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+          searchParams.append(apiKey, value.toString());
+        }
+      });
+    }
+
+    const endpoint = `/customers/notes${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    return this.request(endpoint);
+  }
+
+  /**
+   * Get customer status definitions
+   */
+  async getCustomerStatuses(): Promise<RepCardApiResponse<RepCardCustomerStatus[]>> {
+    return this.request('/customers/status');
+  }
+
+  /**
+   * Get calendar lists
+   * @param params Query parameters
+   */
+  async getCalendars(params?: {
+    status?: 'active' | 'inactive';
+  }): Promise<RepCardApiResponse<RepCardCalendar[]>> {
+    const searchParams = new URLSearchParams();
+    if (params?.status) {
+      searchParams.append('status', params.status);
+    }
+
+    const endpoint = `/calendar/lists${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    return this.request(endpoint);
+  }
+
+  /**
+   * Get calendar details with setters, closers, dispatchers
+   * @param calendarId Calendar ID
+   */
+  async getCalendarDetails(calendarId: number): Promise<RepCardApiResponse<RepCardCalendar>> {
+    return this.request(`/calendar/${calendarId}?with=setters,closers,dispatchers`);
+  }
+
+  /**
+   * Get custom fields for a specific entity type
+   * @param entityType Entity type: 'lead', 'customer', 'recruit', 'other'
+   */
+  async getCustomFields(entityType: 'lead' | 'customer' | 'recruit' | 'other'): Promise<RepCardApiResponse<RepCardCustomField[]>> {
+    return this.request(`/custom-fields/${entityType}`);
+  }
+
+  /**
+   * Get leaderboards with date filtering
+   * @param params Query parameters for filtering leaderboards
+   */
+  async getLeaderboards(params?: {
+    fromDate?: string; // YYYY-MM-DD
+    toDate?: string; // YYYY-MM-DD
+  }): Promise<RepCardApiResponse<RepCardLeaderboard[]>> {
+    const searchParams = new URLSearchParams();
+    if (params?.fromDate) {
+      searchParams.append('from_date', params.fromDate);
+    }
+    if (params?.toDate) {
+      searchParams.append('to_date', params.toDate);
+    }
+
+    const endpoint = `/leaderboards${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    return this.request(endpoint);
   }
 }
 
