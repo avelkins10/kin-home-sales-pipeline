@@ -6,16 +6,16 @@ import type { ArrivyTask } from './types';
  *
  * Returns format: "Category - Subcategory" (e.g., "Surveys - Site Survey", "Installations - Full Install")
  *
- * Detection priority:
- * 1. extra_fields.task_type (explicit)
- * 2. Form detection (Site Survey Form, Install Verification Form, etc.)
- * 3. Group membership (e.g., "Site Survey - Location" groups)
- * 4. Template name with specific subcategories
- * 5. Title keyword inference
+ * Detection priority (OPTIMIZED):
+ * 1. extra_fields.task_type (explicit manual override)
+ * 2. Template name/ID (PRIMARY - Arrivy's explicit categorization mechanism)
+ * 3. Form detection from extra_fields (indirect but reliable - form fields come from template)
+ * 4. Group membership (e.g., "Site Survey - Location" groups)
+ * 5. Title keyword inference (least reliable - often customer names)
  * 6. Default to 'Service - General'
  */
 export function extractTaskType(task: ArrivyTask): string {
-  // 1. Check explicit task_type in extra_fields
+  // 1. Check explicit task_type in extra_fields (manual override - highest priority)
   if (task.extra_fields?.task_type) {
     const explicitType = task.extra_fields.task_type.toLowerCase();
     // If it already has the category format, return as-is
@@ -26,19 +26,36 @@ export function extractTaskType(task: ArrivyTask): string {
     return enhanceTaskType(explicitType);
   }
 
-  // 2. Check for form indicators in extra_fields
+  // 2. Check template name/ID (PRIMARY DETECTION - Arrivy's explicit categorization)
+  // Templates are specifically designed to categorize tasks in Arrivy
+  // Template can be string (name) or number (ID) - handle both
+  if (task.template || task.template_id) {
+    // If template is a string, it's the template name (most reliable)
+    if (typeof task.template === 'string' && task.template.trim()) {
+      const templateName = task.template.toLowerCase();
+      const templateType = detectFromTemplateName(templateName);
+      if (templateType) return templateType;
+    }
+    
+    // If template is numeric ID, we can't parse it directly
+    // But we can check if template_id matches known patterns
+    // For now, fall through to form detection (form fields come from template)
+  }
+
+  // 3. Check for form indicators in extra_fields (indirect template detection)
+  // Form fields like "Notes for Surveyor" exist because of the template
+  // This is reliable because templates define which form fields are available
   const formType = detectFromForms(task);
   if (formType) return formType;
 
-  // 3. Check group membership
+  // 4. Check group membership
   const groupName = task.group?.name?.toLowerCase() || '';
   if (groupName.includes('site survey')) return 'Surveys - Site Survey';
   if (groupName.includes('survey')) return 'Surveys - General';
   if (groupName.includes('install')) return 'Installations - General';
   if (groupName.includes('inspection')) return 'Inspections - General';
 
-  // 4. Check template name with specific subcategories
-  const template = (typeof task.template === 'string' ? task.template : String(task.template || '')).toLowerCase();
+  // 5. Check title keywords (least reliable - often just customer names)
 
   // Surveys
   if (template.includes('site survey')) return 'Surveys - Site Survey';
@@ -61,7 +78,7 @@ export function extractTaskType(task: ArrivyTask): string {
   if (template.includes('service') || template.includes('maintenance')) return 'Service - General';
   if (template.includes('activity')) return 'Service - Activity';
 
-  // 5. Check title keywords
+  // 5. Check title keywords (least reliable - often just customer names)
   const title = task.title?.toLowerCase() || '';
 
   if (title.includes('site survey')) return 'Surveys - Site Survey';
@@ -78,8 +95,41 @@ export function extractTaskType(task: ArrivyTask): string {
   if (title.includes('final inspection')) return 'Inspections - Final';
   if (title.includes('inspection')) return 'Inspections - General';
 
-  // 6. Default
+  // 6. Default fallback
   return 'Service - General';
+}
+
+/**
+ * Detect task type from template name
+ * Templates are Arrivy's explicit categorization mechanism
+ */
+function detectFromTemplateName(templateName: string): string | null {
+  if (!templateName || templateName.trim() === '') return null;
+
+  const lower = templateName.toLowerCase();
+
+  // Surveys (most specific first)
+  if (lower.includes('site survey')) return 'Surveys - Site Survey';
+  if (lower.includes('survey')) return 'Surveys - General';
+
+  // Installations (most specific first)
+  if (lower.includes('solar install - full install')) return 'Installations - Full Install';
+  if (lower.includes('solar install - modules only')) return 'Installations - Modules Only';
+  if (lower.includes('solar install - tie-in only')) return 'Installations - Tie-In Only';
+  if (lower.includes('electrical upgrade') || lower.includes('mpu')) return 'Installations - Electrical Upgrade (MPU)';
+  if (lower.includes('roof work')) return 'Installations - Roof Work';
+  if (lower.includes('install')) return 'Installations - General';
+
+  // Inspections (most specific first)
+  if (lower.includes('electrical inspection')) return 'Inspections - Electrical';
+  if (lower.includes('final inspection')) return 'Inspections - Final';
+  if (lower.includes('inspection')) return 'Inspections - General';
+
+  // Service/Maintenance
+  if (lower.includes('service') || lower.includes('maintenance')) return 'Service - General';
+  if (lower.includes('activity')) return 'Service - Activity';
+
+  return null;
 }
 
 /**
