@@ -169,10 +169,20 @@ export async function GET(request: NextRequest) {
       validMetrics = Array.isArray(metricsResult) 
         ? metricsResult.map((m: any) => m.metric_key)
         : metricsResult.rows?.map((m: any) => m.metric_key) || [];
+      
+      // Log for debugging
+      console.log(`[RepCard Leaderboard] Found ${validMetrics.length} valid metrics from database:`, validMetrics);
+      
+      // If no metrics found, use fallback
+      if (validMetrics.length === 0) {
+        console.warn('[RepCard Leaderboard] No metrics found in database, using fallback list');
+        validMetrics = ['doors_knocked', 'appointments_set', 'sales_closed', 'revenue', 'quality_score', 'appointment_speed', 'attachment_rate'];
+      }
     } catch (error) {
       console.error('[RepCard Leaderboard] Error fetching metrics:', error);
       // Fallback to hardcoded list if database query fails
       validMetrics = ['doors_knocked', 'appointments_set', 'sales_closed', 'revenue', 'quality_score', 'appointment_speed', 'attachment_rate'];
+      console.log('[RepCard Leaderboard] Using fallback metrics:', validMetrics);
     }
     
     // If config is provided, validate metric is in enabled_metrics
@@ -199,8 +209,14 @@ export async function GET(request: NextRequest) {
     if (!validMetrics.includes(metric)) {
       const duration = Date.now() - start;
       logApiResponse('GET', path, duration, { status: 400, cached: false, requestId });
+      console.error(`[RepCard Leaderboard] Invalid metric requested: ${metric}`);
+      console.error(`[RepCard Leaderboard] Valid metrics: ${validMetrics.join(', ')}`);
       return NextResponse.json(
-        { error: `Invalid metric. Must be one of: ${validMetrics.join(', ')}` },
+        { 
+          error: `Invalid metric. Must be one of: ${validMetrics.join(', ')}`,
+          requestedMetric: metric,
+          validMetrics: validMetrics
+        },
         { status: 400 }
       );
     }
