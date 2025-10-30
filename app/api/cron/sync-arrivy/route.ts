@@ -171,9 +171,13 @@ export async function GET(request: NextRequest) {
           stats.tasksUpdated++;
         }
 
-        // Step 4: Sync status history for each task
+        // Step 4: Sync status history for each task AND update current_status
         try {
           const statusHistory = await arrivyClient.getTaskStatuses(task.id);
+
+          // Get the latest status from history (most recent)
+          let latestStatus: string | null = null;
+          let latestStatusTime: Date | null = null;
 
           for (const status of statusHistory) {
             const statusData: ArrivyTaskStatusData = {
@@ -191,7 +195,39 @@ export async function GET(request: NextRequest) {
             await insertArrivyTaskStatus(statusData);
             stats.statusHistorySynced++;
 
-            // Step 5: Sync attachments for this status (Phase 2 feature)
+            // Track latest status
+            const statusTime = new Date(status.time);
+            if (!latestStatusTime || statusTime > latestStatusTime) {
+              latestStatusTime = statusTime;
+              latestStatus = status.type;
+            }
+          }
+
+          // Update current_status from latest status history (more reliable than task.status)
+          // Fallback to task.status if no history exists
+          const finalStatus = latestStatus || task.status || 'NOT_STARTED';
+          if (finalStatus !== task.status) {
+            await sql`
+              UPDATE arrivy_tasks
+              SET current_status = ${finalStatus}, updated_at = NOW()
+              WHERE arrivy_task_id = ${task.id}
+            `;
+            logInfo(`[Arrivy Cron] Updated current_status: ${task.status} -> ${finalStatus}`, {
+              task_id: task.id,
+              old_status: task.status,
+              new_status: finalStatus,
+              from_history: !!latestStatus,
+            });
+          }
+        } catch (error) {
+          logError(`Failed to sync status history for task ${task.id}`, error as Error, { taskId: task.id });
+          stats.errors++;
+        }
+
+        // Step 5: Sync attachments for status history
+        try {
+          const statusHistory = await arrivyClient.getTaskStatuses(task.id);
+          for (const status of statusHistory) {
             if (status.files && status.files.length > 0) {
               for (const file of status.files) {
                 try {
