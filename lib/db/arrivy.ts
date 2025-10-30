@@ -27,6 +27,8 @@ export interface ArrivyTaskData {
   task_type?: string | null;
   scheduled_start?: Date | null;
   scheduled_end?: Date | null;
+  start_datetime_window_start?: Date | null;
+  start_datetime_window_end?: Date | null;
   assigned_entity_ids?: number[] | null;
   current_status?: string | null;
   tracker_url?: string | null;
@@ -61,6 +63,8 @@ export async function upsertArrivyTask(taskData: ArrivyTaskData): Promise<Arrivy
         task_type,
         scheduled_start,
         scheduled_end,
+        start_datetime_window_start,
+        start_datetime_window_end,
         assigned_entity_ids,
         current_status,
         tracker_url,
@@ -79,6 +83,8 @@ export async function upsertArrivyTask(taskData: ArrivyTaskData): Promise<Arrivy
         ${taskData.task_type ?? null},
         ${taskData.scheduled_start ?? null},
         ${taskData.scheduled_end ?? null},
+        ${taskData.start_datetime_window_start ?? null},
+        ${taskData.start_datetime_window_end ?? null},
         ${taskData.assigned_entity_ids && taskData.assigned_entity_ids.length > 0
           ? taskData.assigned_entity_ids
           : null},
@@ -100,6 +106,8 @@ export async function upsertArrivyTask(taskData: ArrivyTaskData): Promise<Arrivy
         task_type = COALESCE(EXCLUDED.task_type, arrivy_tasks.task_type),
         scheduled_start = COALESCE(EXCLUDED.scheduled_start, arrivy_tasks.scheduled_start),
         scheduled_end = COALESCE(EXCLUDED.scheduled_end, arrivy_tasks.scheduled_end),
+        start_datetime_window_start = COALESCE(EXCLUDED.start_datetime_window_start, arrivy_tasks.start_datetime_window_start),
+        start_datetime_window_end = COALESCE(EXCLUDED.start_datetime_window_end, arrivy_tasks.start_datetime_window_end),
         assigned_entity_ids = COALESCE(EXCLUDED.assigned_entity_ids, arrivy_tasks.assigned_entity_ids),
         current_status = COALESCE(EXCLUDED.current_status, arrivy_tasks.current_status),
         tracker_url = COALESCE(EXCLUDED.tracker_url, arrivy_tasks.tracker_url),

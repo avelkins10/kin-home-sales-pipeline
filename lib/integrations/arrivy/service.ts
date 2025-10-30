@@ -133,6 +133,13 @@ export async function syncProjectToArrivy(
     // Generate tracker URL
     const trackerUrl = getCustomerTrackerUrl(arrivyTask.id, arrivyTask.url_safe_id);
 
+    // Calculate arrival window
+    const arrivalWindow = calculateArrivalWindow(
+      projectData.scheduledStart,
+      arrivyTask.time_window_start,
+      arrivyTask.duration
+    );
+
     // Store task in local database
     const taskData: ArrivyTaskData = {
       arrivy_task_id: arrivyTask.id,
@@ -146,6 +153,8 @@ export async function syncProjectToArrivy(
       task_type: projectData.taskType,
       scheduled_start: projectData.scheduledStart,
       scheduled_end: projectData.scheduledEnd,
+      start_datetime_window_start: arrivalWindow.start,
+      start_datetime_window_end: arrivalWindow.end,
       assigned_entity_ids: arrivyTask.entity_ids || [],
       current_status: arrivyTask.status || 'NOT_STARTED',
       tracker_url: trackerUrl,
@@ -375,6 +384,14 @@ async function ensureTaskExists(arrivyTaskId: number, eventType: string): Promis
     // Generate tracker URL
     const trackerUrl = getCustomerTrackerUrl(arrivyTask.id, arrivyTask.url_safe_id);
 
+    // Calculate arrival window
+    const scheduledStart = arrivyTask.start_datetime ? new Date(arrivyTask.start_datetime) : null;
+    const arrivalWindow = calculateArrivalWindow(
+      scheduledStart,
+      arrivyTask.time_window_start,
+      arrivyTask.duration
+    );
+
     // Create task in database
     const taskData: ArrivyTaskData = {
       arrivy_task_id: arrivyTask.id,
@@ -386,8 +403,10 @@ async function ensureTaskExists(arrivyTaskId: number, eventType: string): Promis
       customer_email: arrivyTask.customer_email,
       customer_address: formatTaskAddress(arrivyTask),
       task_type: extractTaskType(arrivyTask),
-      scheduled_start: arrivyTask.start_datetime ? new Date(arrivyTask.start_datetime) : undefined,
+      scheduled_start: scheduledStart ?? undefined,
       scheduled_end: arrivyTask.end_datetime ? new Date(arrivyTask.end_datetime) : undefined,
+      start_datetime_window_start: arrivalWindow.start,
+      start_datetime_window_end: arrivalWindow.end,
       assigned_entity_ids: arrivyTask.entity_ids || [],
       current_status: arrivyTask.status || 'NOT_STARTED',
       tracker_url: trackerUrl,
@@ -671,6 +690,14 @@ async function handleTaskCreatedEvent(payload: ArrivyWebhookPayload): Promise<vo
     // Generate tracker URL
     const trackerUrl = getCustomerTrackerUrl(task.id, task.url_safe_id);
 
+    // Calculate arrival window
+    const scheduledStart = task.start_datetime ? new Date(task.start_datetime) : null;
+    const arrivalWindow = calculateArrivalWindow(
+      scheduledStart,
+      task.time_window_start,
+      task.duration
+    );
+
     // Map task data to database schema
     const taskData: ArrivyTaskData = {
       arrivy_task_id: task.id,
@@ -682,8 +709,10 @@ async function handleTaskCreatedEvent(payload: ArrivyWebhookPayload): Promise<vo
       customer_email: task.customer_email,
       customer_address: formatTaskAddress(task),
       task_type: extractTaskType(task),
-      scheduled_start: task.start_datetime ? new Date(task.start_datetime) : undefined,
+      scheduled_start: scheduledStart ?? undefined,
       scheduled_end: task.end_datetime ? new Date(task.end_datetime) : undefined,
+      start_datetime_window_start: arrivalWindow.start,
+      start_datetime_window_end: arrivalWindow.end,
       assigned_entity_ids: task.entity_ids || [],
       current_status: task.status || 'NOT_STARTED',
       tracker_url: trackerUrl,
@@ -785,6 +814,14 @@ async function handleTaskRescheduledEvent(payload: ArrivyWebhookPayload): Promis
       });
     }
 
+    // Calculate arrival window
+    const scheduledStart = task.start_datetime ? new Date(task.start_datetime) : null;
+    const arrivalWindow = calculateArrivalWindow(
+      scheduledStart,
+      task.time_window_start,
+      task.duration
+    );
+
     // Update task with new schedule
     await upsertArrivyTask({
       arrivy_task_id: task.id,
@@ -796,8 +833,10 @@ async function handleTaskRescheduledEvent(payload: ArrivyWebhookPayload): Promis
       customer_email: task.customer_email,
       customer_address: formatTaskAddress(task),
       task_type: extractTaskType(task),
-      scheduled_start: task.start_datetime ? new Date(task.start_datetime) : null,
+      scheduled_start: scheduledStart,
       scheduled_end: task.end_datetime ? new Date(task.end_datetime) : null,
+      start_datetime_window_start: arrivalWindow.start,
+      start_datetime_window_end: arrivalWindow.end,
       assigned_entity_ids: task.entity_ids || [],
       current_status: task.status || 'NOT_STARTED',
       tracker_url: existingTask?.tracker_url || getCustomerTrackerUrl(task.id, task.url_safe_id),
@@ -853,6 +892,14 @@ async function handleTaskDataChangeEvent(payload: ArrivyWebhookPayload): Promise
 
     const existingTask = await getArrivyTaskByArrivyId(OBJECT_ID);
 
+    // Calculate arrival window
+    const scheduledStart = task.start_datetime ? new Date(task.start_datetime) : null;
+    const arrivalWindow = calculateArrivalWindow(
+      scheduledStart,
+      task.time_window_start,
+      task.duration
+    );
+
     // Update task with latest data
     await upsertArrivyTask({
       arrivy_task_id: task.id,
@@ -864,8 +911,10 @@ async function handleTaskDataChangeEvent(payload: ArrivyWebhookPayload): Promise
       customer_email: task.customer_email,
       customer_address: formatTaskAddress(task),
       task_type: extractTaskType(task),
-      scheduled_start: task.start_datetime ? new Date(task.start_datetime) : null,
+      scheduled_start: scheduledStart,
       scheduled_end: task.end_datetime ? new Date(task.end_datetime) : null,
+      start_datetime_window_start: arrivalWindow.start,
+      start_datetime_window_end: arrivalWindow.end,
       assigned_entity_ids: task.entity_ids || [],
       current_status: task.status || 'NOT_STARTED',
       tracker_url: existingTask?.tracker_url || getCustomerTrackerUrl(task.id, task.url_safe_id),

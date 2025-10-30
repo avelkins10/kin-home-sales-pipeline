@@ -152,6 +152,31 @@ function enhanceTaskType(basicType: string): string {
 }
 
 /**
+ * Calculate arrival window times from Arrivy task data
+ * Arrivy uses time_window_start (minutes before scheduled_start) and duration
+ */
+export function calculateArrivalWindow(
+  scheduledStart: Date | null,
+  timeWindowStart?: number,
+  duration?: number
+): { start: Date | null; end: Date | null } {
+  if (!scheduledStart || timeWindowStart === undefined) {
+    return { start: null, end: null };
+  }
+
+  // time_window_start is minutes BEFORE scheduled_start
+  const windowStart = new Date(scheduledStart.getTime() - (timeWindowStart * 60 * 1000));
+  
+  // Window end is scheduled_start + duration (if available)
+  // Otherwise use scheduled_start as end
+  const windowEnd = duration 
+    ? new Date(scheduledStart.getTime() + (duration * 60 * 1000))
+    : scheduledStart;
+
+  return { start: windowStart, end: windowEnd };
+}
+
+/**
  * Format full address from Arrivy task data
  */
 export function formatTaskAddress(task: ArrivyTask): string | undefined {
