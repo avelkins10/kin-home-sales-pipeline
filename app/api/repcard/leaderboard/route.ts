@@ -1014,6 +1014,22 @@ export async function GET(request: NextRequest) {
                 LIMIT 1000
               `;
             }
+            
+            // Process fallbackQuery immediately after setting it
+            if (fallbackQuery) {
+              const fallbackResults = Array.from(fallbackQuery);
+              console.log(`[RepCard Leaderboard] Fallback query returned ${fallbackResults.length} users`);
+              leaderboardEntries = fallbackResults.map((row: any) => ({
+                rank: 0,
+                userId: row.user_id,
+                userName: row.user_name,
+                userEmail: row.user_email,
+                office: row.office,
+                role: row.role,
+                metricValue: parseInt(row.count) || 0,
+                metricType: metric
+              }));
+            }
           } else {
             console.log(`[RepCard Leaderboard] Fallback: Skipping office filter (officeIds cleared or shouldSkipOfficeFilter=true)`);
             
@@ -1089,6 +1105,7 @@ export async function GET(request: NextRequest) {
                 }));
               }
             }
+            
             console.log(`[RepCard Leaderboard] ✅ Fallback returned ${leaderboardEntries.length} users`);
         }
         
