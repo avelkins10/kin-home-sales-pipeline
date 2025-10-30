@@ -275,10 +275,15 @@ export default function FieldAnalyticsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="survey">Survey</SelectItem>
-                  <SelectItem value="install">Install</SelectItem>
-                  <SelectItem value="inspection">Inspection</SelectItem>
-                  <SelectItem value="service">Service</SelectItem>
+                  <SelectItem value="Surveys - Site Survey">Surveys - Site Survey</SelectItem>
+                  <SelectItem value="Surveys - General">Surveys - General</SelectItem>
+                  <SelectItem value="Installations - General">Installations - General</SelectItem>
+                  <SelectItem value="Installations - Full Install">Installations - Full Install</SelectItem>
+                  <SelectItem value="Installations - Solar">Installations - Solar</SelectItem>
+                  <SelectItem value="Inspections - General">Inspections - General</SelectItem>
+                  <SelectItem value="Inspections - Electrical">Inspections - Electrical</SelectItem>
+                  <SelectItem value="Inspections - Final">Inspections - Final</SelectItem>
+                  <SelectItem value="Service - General">Service - General</SelectItem>
                 </SelectContent>
               </Select>
             </div>
