@@ -25,40 +25,87 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category');
     const enabled = searchParams.get('enabled');
 
-    let query = `
-      SELECT 
-        id,
-        metric_key,
-        display_name,
-        description,
-        category,
-        data_source,
-        unit,
-        format,
-        aggregation_type,
-        enabled,
-        leaderboard_supported,
-        analytics_supported,
-        config
-      FROM repcard_metric_definitions
-      WHERE 1=1
-    `;
-    const params: any[] = [];
-    let paramIndex = 1;
-
-    if (category) {
-      query += ` AND category = $${paramIndex++}`;
-      params.push(category);
+    let metrics;
+    if (category && enabled !== null) {
+      metrics = await sql`
+        SELECT 
+          id,
+          metric_key,
+          display_name,
+          description,
+          category,
+          data_source,
+          unit,
+          format,
+          aggregation_type,
+          enabled,
+          leaderboard_supported,
+          analytics_supported,
+          config
+        FROM repcard_metric_definitions
+        WHERE category = ${category} AND enabled = ${enabled === 'true'}
+        ORDER BY category, display_name
+      `;
+    } else if (category) {
+      metrics = await sql`
+        SELECT 
+          id,
+          metric_key,
+          display_name,
+          description,
+          category,
+          data_source,
+          unit,
+          format,
+          aggregation_type,
+          enabled,
+          leaderboard_supported,
+          analytics_supported,
+          config
+        FROM repcard_metric_definitions
+        WHERE category = ${category}
+        ORDER BY category, display_name
+      `;
+    } else if (enabled !== null) {
+      metrics = await sql`
+        SELECT 
+          id,
+          metric_key,
+          display_name,
+          description,
+          category,
+          data_source,
+          unit,
+          format,
+          aggregation_type,
+          enabled,
+          leaderboard_supported,
+          analytics_supported,
+          config
+        FROM repcard_metric_definitions
+        WHERE enabled = ${enabled === 'true'}
+        ORDER BY category, display_name
+      `;
+    } else {
+      metrics = await sql`
+        SELECT 
+          id,
+          metric_key,
+          display_name,
+          description,
+          category,
+          data_source,
+          unit,
+          format,
+          aggregation_type,
+          enabled,
+          leaderboard_supported,
+          analytics_supported,
+          config
+        FROM repcard_metric_definitions
+        ORDER BY category, display_name
+      `;
     }
-
-    if (enabled !== null) {
-      query += ` AND enabled = $${paramIndex++}`;
-      params.push(enabled === 'true');
-    }
-
-    query += ` ORDER BY category, display_name`;
-
-    const metrics = await sql.query(query, params);
 
     return NextResponse.json({ metrics: metrics.rows || metrics });
 
@@ -96,38 +143,37 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const updateFields: string[] = [];
-    const updateValues: any[] = [];
-    let paramIndex = 1;
-
-    if (enabled !== undefined) {
-      updateFields.push(`enabled = $${paramIndex++}`);
-      updateValues.push(enabled);
-    }
-
-    if (config !== undefined) {
-      updateFields.push(`config = $${paramIndex++}`);
-      updateValues.push(JSON.stringify(config));
-    }
-
-    if (updateFields.length === 0) {
+    if (enabled === undefined && config === undefined) {
       return NextResponse.json(
         { error: 'No fields to update' },
         { status: 400 }
       );
     }
 
-    updateFields.push(`updated_at = NOW()`);
-    updateValues.push(metric_key);
-
-    const query = `
-      UPDATE repcard_metric_definitions
-      SET ${updateFields.join(', ')}
-      WHERE metric_key = $${paramIndex}
-      RETURNING *
-    `;
-
-    const result = await sql.query(query, updateValues);
+    let result;
+    if (enabled !== undefined && config !== undefined) {
+      result = await sql`
+        UPDATE repcard_metric_definitions
+        SET enabled = ${enabled}, config = ${JSON.stringify(config)}, updated_at = NOW()
+        WHERE metric_key = ${metric_key}
+        RETURNING *
+      `;
+    } else if (enabled !== undefined) {
+      result = await sql`
+        UPDATE repcard_metric_definitions
+        SET enabled = ${enabled}, updated_at = NOW()
+        WHERE metric_key = ${metric_key}
+        RETURNING *
+      `;
+    } else {
+      result = await sql`
+        UPDATE repcard_metric_definitions
+        SET config = ${JSON.stringify(config)}, updated_at = NOW()
+        WHERE metric_key = ${metric_key}
+        RETURNING *
+      `;
+    }
+    
     const metric = result.rows?.[0];
 
     if (!metric) {

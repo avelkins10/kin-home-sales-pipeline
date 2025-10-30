@@ -195,70 +195,70 @@ export async function PUT(request: NextRequest) {
       `;
     }
 
-    // Build dynamic update query
-    const updateFields: string[] = [];
+    // Build dynamic update query using template literal
+    const updateParts: string[] = [];
     const updateValues: any[] = [];
-    let paramIndex = 1;
-
+    
     if (updates.name !== undefined) {
-      updateFields.push(`name = $${paramIndex++}`);
+      updateParts.push(`name = $${updateValues.length + 1}`);
       updateValues.push(updates.name);
     }
     if (updates.description !== undefined) {
-      updateFields.push(`description = $${paramIndex++}`);
+      updateParts.push(`description = $${updateValues.length + 1}`);
       updateValues.push(updates.description);
     }
     if (updates.leaderboard_type !== undefined) {
-      updateFields.push(`leaderboard_type = $${paramIndex++}`);
+      updateParts.push(`leaderboard_type = $${updateValues.length + 1}`);
       updateValues.push(updates.leaderboard_type);
     }
     if (updates.enabled_metrics !== undefined) {
-      updateFields.push(`enabled_metrics = $${paramIndex++}`);
+      updateParts.push(`enabled_metrics = $${updateValues.length + 1}`);
       updateValues.push(updates.enabled_metrics);
     }
     if (updates.rank_by_metric !== undefined) {
-      updateFields.push(`rank_by_metric = $${paramIndex++}`);
+      updateParts.push(`rank_by_metric = $${updateValues.length + 1}`);
       updateValues.push(updates.rank_by_metric);
     }
     if (updates.display_order !== undefined) {
-      updateFields.push(`display_order = $${paramIndex++}`);
+      updateParts.push(`display_order = $${updateValues.length + 1}`);
       updateValues.push(updates.display_order);
     }
     if (updates.date_range_default !== undefined) {
-      updateFields.push(`date_range_default = $${paramIndex++}`);
+      updateParts.push(`date_range_default = $${updateValues.length + 1}`);
       updateValues.push(updates.date_range_default);
     }
     if (updates.roles !== undefined) {
-      updateFields.push(`roles = $${paramIndex++}`);
+      updateParts.push(`roles = $${updateValues.length + 1}`);
       updateValues.push(updates.roles.length > 0 ? updates.roles : null);
     }
     if (updates.office_ids !== undefined) {
-      updateFields.push(`office_ids = $${paramIndex++}`);
+      updateParts.push(`office_ids = $${updateValues.length + 1}`);
       updateValues.push(updates.office_ids.length > 0 ? updates.office_ids : null);
     }
     if (updates.is_default !== undefined) {
-      updateFields.push(`is_default = $${paramIndex++}`);
+      updateParts.push(`is_default = $${updateValues.length + 1}`);
       updateValues.push(updates.is_default);
     }
     if (updates.enabled !== undefined) {
-      updateFields.push(`enabled = $${paramIndex++}`);
+      updateParts.push(`enabled = $${updateValues.length + 1}`);
       updateValues.push(updates.enabled);
     }
 
-    if (updateFields.length === 0) {
+    if (updateParts.length === 0) {
       return NextResponse.json(
         { error: 'No fields to update' },
         { status: 400 }
       );
     }
 
-    updateFields.push(`updated_at = NOW()`);
+    updateParts.push(`updated_at = NOW()`);
     updateValues.push(id);
 
+    // Use raw query since @vercel/postgres doesn't support dynamic SET clauses well
     const query = `
       UPDATE repcard_leaderboard_config
-      SET ${updateFields.join(', ')}
-      WHERE id = $${paramIndex}
+      SET ${updateParts.join(', ')}
+      WHERE id = $${updateValues.length}
       RETURNING *
     `;
 
