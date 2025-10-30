@@ -28,9 +28,12 @@ export function RepCardQualityMetricsCard({
   const { data: appointmentSpeedData, isLoading: speedLoading } = useQuery({
     queryKey: ['repcard-quality', 'speed', timeRange, customDateRange, officeIds],
     queryFn: async () => {
+      // Normalize timeRange: if it's 'custom' but no customDateRange, use 'last_12_months'
+      const effectiveTimeRange = (timeRange === 'custom' && !customDateRange) ? 'last_12_months' : timeRange;
+      
       const params = new URLSearchParams({
         metric: 'appointment_speed',
-        timeRange,
+        timeRange: effectiveTimeRange,
         role: 'all'
       });
       
@@ -38,7 +41,7 @@ export function RepCardQualityMetricsCard({
         params.append('officeIds', officeIds.join(','));
       }
       
-      if (customDateRange) {
+      if (effectiveTimeRange === 'custom' && customDateRange) {
         params.set('startDate', customDateRange.startDate);
         params.set('endDate', customDateRange.endDate);
       }
@@ -54,9 +57,12 @@ export function RepCardQualityMetricsCard({
   const { data: attachmentRateData, isLoading: attachmentLoading } = useQuery({
     queryKey: ['repcard-quality', 'attachment', timeRange, customDateRange, officeIds],
     queryFn: async () => {
+      // Normalize timeRange: if it's 'custom' but no customDateRange, use 'last_12_months'
+      const effectiveTimeRange = (timeRange === 'custom' && !customDateRange) ? 'last_12_months' : timeRange;
+      
       const params = new URLSearchParams({
         metric: 'attachment_rate',
-        timeRange,
+        timeRange: effectiveTimeRange,
         role: 'all'
       });
       
@@ -64,7 +70,7 @@ export function RepCardQualityMetricsCard({
         params.append('officeIds', officeIds.join(','));
       }
       
-      if (customDateRange) {
+      if (effectiveTimeRange === 'custom' && customDateRange) {
         params.set('startDate', customDateRange.startDate);
         params.set('endDate', customDateRange.endDate);
       }
@@ -80,9 +86,12 @@ export function RepCardQualityMetricsCard({
   const { data: qualityScoreData, isLoading: qualityLoading } = useQuery({
     queryKey: ['repcard-quality', 'score', timeRange, customDateRange, officeIds],
     queryFn: async () => {
+      // Normalize timeRange: if it's 'custom' but no customDateRange, use 'last_12_months'
+      const effectiveTimeRange = (timeRange === 'custom' && !customDateRange) ? 'last_12_months' : timeRange;
+      
       const params = new URLSearchParams({
         metric: 'quality_score',
-        timeRange,
+        timeRange: effectiveTimeRange,
         role: 'all'
       });
       
@@ -90,7 +99,7 @@ export function RepCardQualityMetricsCard({
         params.append('officeIds', officeIds.join(','));
       }
       
-      if (customDateRange) {
+      if (effectiveTimeRange === 'custom' && customDateRange) {
         params.set('startDate', customDateRange.startDate);
         params.set('endDate', customDateRange.endDate);
       }

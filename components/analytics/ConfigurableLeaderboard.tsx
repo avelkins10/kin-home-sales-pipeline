@@ -85,10 +85,13 @@ export function ConfigurableLeaderboard({
   const { data, error, isLoading, refetch } = useQuery<LeaderboardResponse>({
     queryKey: ['configurable-leaderboard', configId, role, metric, timeRange, customDateRange, selectedOfficeIds, limit],
     queryFn: async () => {
+      // Normalize timeRange: if it's 'custom' but no customDateRange, use 'last_12_months'
+      const effectiveTimeRange = (timeRange === 'custom' && !customDateRange) ? 'last_12_months' : timeRange;
+      
       const params = new URLSearchParams({
         role,
         metric,
-        timeRange,
+        timeRange: effectiveTimeRange,
         limit: limit.toString()
       });
 
@@ -101,7 +104,7 @@ export function ConfigurableLeaderboard({
         params.append('officeIds', selectedOfficeIds.join(','));
       }
 
-      if (timeRange === 'custom' && customDateRange) {
+      if (effectiveTimeRange === 'custom' && customDateRange) {
         params.append('startDate', customDateRange.startDate);
         params.append('endDate', customDateRange.endDate);
       }
