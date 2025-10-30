@@ -9,6 +9,7 @@ import { logInfo, logError } from '@/lib/logging/logger';
 import type { ArrivyTask } from '@/lib/integrations/arrivy/types';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 /**

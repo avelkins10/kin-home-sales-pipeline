@@ -5,6 +5,7 @@ import { getPCNotificationPreferences, updatePCNotificationPreferences } from '@
 import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/operations/settings/notification-preferences

@@ -6,6 +6,7 @@ import { TASK_GROUP_FIELDS, TASK_FIELDS } from '@/lib/constants/fieldIds';
 import { TaskGroup, Task } from '@/lib/types/task';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   const startedAt = Date.now();

@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth/config';
 import { sql } from '@/lib/db/client';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 // Cache implementation
 const trendsCache = new Map<string, { data: any; timestamp: number }>();

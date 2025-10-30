@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth/next-auth.config';
 import { sql } from '@/lib/db/client';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 /**
  * POST /api/admin/fix-my-role

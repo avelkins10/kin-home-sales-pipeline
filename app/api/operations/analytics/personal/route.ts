@@ -10,6 +10,7 @@ import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
 import { PCAnalyticsData } from '@/lib/types/operations';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 // In-memory cache for analytics data
 const cache = new Map<string, { data: PCAnalyticsData; timestamp: number }>();

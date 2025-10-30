@@ -1,4 +1,5 @@
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic';
 // Increase timeout to 60 seconds for complex project queries with QuickBase API calls
 export const maxDuration = 60
 

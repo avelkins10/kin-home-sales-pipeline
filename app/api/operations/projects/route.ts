@@ -5,6 +5,7 @@ import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
 import type { OperationsMilestone } from '@/lib/types/operations';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/operations/projects

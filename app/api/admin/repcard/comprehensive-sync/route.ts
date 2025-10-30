@@ -4,6 +4,7 @@ import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
 import { runComprehensiveSync } from '@/lib/repcard/comprehensive-sync';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 minutes (Vercel Pro plan max)
 
 /**

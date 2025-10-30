@@ -17,6 +17,7 @@ import {
 import { cache, invalidateForUser } from './cache';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const CACHE_TTL = 30 * 1000; // 30 seconds
 

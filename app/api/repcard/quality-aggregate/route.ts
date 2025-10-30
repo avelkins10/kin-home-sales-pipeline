@@ -5,6 +5,7 @@ import { getQualityMetricsForUsers } from '@/lib/repcard/qualityMetrics';
 import { sql } from '@/lib/db/client';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 // Cache implementation
 const qualityCache = new Map<string, { data: any; timestamp: number }>();

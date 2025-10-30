@@ -5,6 +5,7 @@ import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
 import { PCBulkMessagingRecipient } from '@/lib/types/operations';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   const reqId = `recipients-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;

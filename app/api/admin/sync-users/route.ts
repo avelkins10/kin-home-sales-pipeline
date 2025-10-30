@@ -11,6 +11,7 @@ import { sendSyncFailureNotification, sendSyncTimeoutNotification } from '@/lib/
 import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 interface ManualSyncRequest {
   force?: boolean;

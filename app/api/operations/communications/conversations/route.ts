@@ -6,6 +6,7 @@ import { PCCommunicationsData, PCConversationFilters } from '@/lib/types/operati
 import { getConversationsCache, setConversationsCache } from '@/lib/cache/communications';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   const reqId = `conversations-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;

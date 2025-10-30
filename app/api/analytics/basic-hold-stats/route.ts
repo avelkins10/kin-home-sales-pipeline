@@ -5,6 +5,9 @@ import { authOptions } from '@/lib/auth/config';
 import { getBasicHoldStatistics } from '@/lib/analytics/basicHoldStats';
 import { logAIRequest, logAIError } from '@/lib/analytics/aiMetrics';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);

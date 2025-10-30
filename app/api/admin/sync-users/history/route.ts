@@ -9,6 +9,7 @@ import { getSyncRunHistory, getSyncRunStats } from '@/lib/sync/syncRunLogger';
 import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {

@@ -9,6 +9,7 @@ import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
 import { CrewPerformanceDashboardData } from '@/lib/types/operations';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 // In-memory cache for crew performance data
 const cache = new Map<string, { data: CrewPerformanceDashboardData; timestamp: number }>();

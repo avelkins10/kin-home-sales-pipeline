@@ -1,4 +1,5 @@
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic';
 
 // app/api/calendar/events/route.ts
 import { NextResponse } from 'next/server';

@@ -6,6 +6,7 @@ import { extractTaskType } from '@/lib/integrations/arrivy/utils';
 import type { ArrivyTask } from '@/lib/integrations/arrivy/types';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 /**

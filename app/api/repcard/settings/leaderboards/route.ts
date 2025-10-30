@@ -3,6 +3,9 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/next-auth.config';
 import { sql } from '@/lib/db/client';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/repcard/settings/leaderboards
  * List all leaderboard configurations

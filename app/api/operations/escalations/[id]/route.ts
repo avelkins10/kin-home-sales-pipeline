@@ -12,6 +12,7 @@ import { PCEscalationAction } from '@/lib/types/operations';
 import { invalidateForUser } from '../cache';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 /**
  * PATCH /api/operations/escalations/[id]

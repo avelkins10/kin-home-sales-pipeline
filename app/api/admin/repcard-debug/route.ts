@@ -6,6 +6,7 @@ import { RepCardClient } from '@/lib/repcard/client';
 import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/admin/repcard-debug
