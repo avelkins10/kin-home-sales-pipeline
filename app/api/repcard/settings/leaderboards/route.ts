@@ -195,74 +195,80 @@ export async function PUT(request: NextRequest) {
       `;
     }
 
-    // Build dynamic update query using template literal
-    const updateParts: string[] = [];
-    const updateValues: any[] = [];
-    
+    // Build dynamic update query using template literal approach
+    // @vercel/postgres works best with template literals, so we'll build individual UPDATE clauses
+    const updateClauses: string[] = [];
+    const updateParams: any[] = [];
+    let paramIndex = 1;
+
     if (updates.name !== undefined) {
-      updateParts.push(`name = $${updateValues.length + 1}`);
-      updateValues.push(updates.name);
+      updateClauses.push(`name = $${paramIndex++}`);
+      updateParams.push(updates.name);
     }
     if (updates.description !== undefined) {
-      updateParts.push(`description = $${updateValues.length + 1}`);
-      updateValues.push(updates.description);
+      updateClauses.push(`description = $${paramIndex++}`);
+      updateParams.push(updates.description);
     }
     if (updates.leaderboard_type !== undefined) {
-      updateParts.push(`leaderboard_type = $${updateValues.length + 1}`);
-      updateValues.push(updates.leaderboard_type);
+      updateClauses.push(`leaderboard_type = $${paramIndex++}`);
+      updateParams.push(updates.leaderboard_type);
     }
     if (updates.enabled_metrics !== undefined) {
-      updateParts.push(`enabled_metrics = $${updateValues.length + 1}`);
-      updateValues.push(updates.enabled_metrics);
+      updateClauses.push(`enabled_metrics = $${paramIndex++}::text[]`);
+      updateParams.push(updates.enabled_metrics);
     }
     if (updates.rank_by_metric !== undefined) {
-      updateParts.push(`rank_by_metric = $${updateValues.length + 1}`);
-      updateValues.push(updates.rank_by_metric);
+      updateClauses.push(`rank_by_metric = $${paramIndex++}`);
+      updateParams.push(updates.rank_by_metric);
     }
     if (updates.display_order !== undefined) {
-      updateParts.push(`display_order = $${updateValues.length + 1}`);
-      updateValues.push(updates.display_order);
+      updateClauses.push(`display_order = $${paramIndex++}`);
+      updateParams.push(updates.display_order);
     }
     if (updates.date_range_default !== undefined) {
-      updateParts.push(`date_range_default = $${updateValues.length + 1}`);
-      updateValues.push(updates.date_range_default);
+      updateClauses.push(`date_range_default = $${paramIndex++}`);
+      updateParams.push(updates.date_range_default);
     }
     if (updates.roles !== undefined) {
-      updateParts.push(`roles = $${updateValues.length + 1}`);
-      updateValues.push(updates.roles.length > 0 ? updates.roles : null);
+      updateClauses.push(`roles = $${paramIndex++}::text[]`);
+      updateParams.push(updates.roles.length > 0 ? updates.roles : null);
     }
     if (updates.office_ids !== undefined) {
-      updateParts.push(`office_ids = $${updateValues.length + 1}`);
-      updateValues.push(updates.office_ids.length > 0 ? updates.office_ids : null);
+      updateClauses.push(`office_ids = $${paramIndex++}::integer[]`);
+      updateParams.push(updates.office_ids.length > 0 ? updates.office_ids : null);
     }
     if (updates.is_default !== undefined) {
-      updateParts.push(`is_default = $${updateValues.length + 1}`);
-      updateValues.push(updates.is_default);
+      updateClauses.push(`is_default = $${paramIndex++}`);
+      updateParams.push(updates.is_default);
     }
     if (updates.enabled !== undefined) {
-      updateParts.push(`enabled = $${updateValues.length + 1}`);
-      updateValues.push(updates.enabled);
+      updateClauses.push(`enabled = $${paramIndex++}`);
+      updateParams.push(updates.enabled);
     }
 
-    if (updateParts.length === 0) {
+    if (updateClauses.length === 0) {
       return NextResponse.json(
         { error: 'No fields to update' },
         { status: 400 }
       );
     }
 
-    updateParts.push(`updated_at = NOW()`);
-    updateValues.push(id);
+    updateClauses.push(`updated_at = NOW()`);
+    const whereParamIndex = paramIndex++;
+    updateParams.push(id);
 
-    // Use raw query since @vercel/postgres doesn't support dynamic SET clauses well
+    // Build query string - @vercel/postgres supports sql.query() with positional params
     const query = `
       UPDATE repcard_leaderboard_config
-      SET ${updateParts.join(', ')}
-      WHERE id = $${updateValues.length}
+      SET ${updateClauses.join(', ')}
+      WHERE id = $${whereParamIndex}
       RETURNING *
     `;
 
-    const result = await sql.query(query, updateValues);
+    // Use sql.query with positional parameters
+    // Note: @vercel/postgres may not support this directly, but many files use it
+    // If this fails, we'll need to use a different approach
+    const result = await (sql as any).query(query, updateParams);
     const config = result.rows?.[0] || result[0];
 
     if (!config) {
@@ -277,7 +283,11 @@ export async function PUT(request: NextRequest) {
   } catch (error: any) {
     console.error('[RepCard Settings] Error updating leaderboard config:', error);
     return NextResponse.json(
-      { error: 'Failed to update leaderboard configuration' },
+      { 
+        error: 'Failed to update leaderboard configuration',
+        details: error instanceof Error ? error.message : String(error),
+        code: error.code
+      },
       { status: 500 }
     );
   }
