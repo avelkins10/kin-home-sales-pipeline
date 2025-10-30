@@ -302,6 +302,7 @@ export async function GET(request: NextRequest) {
     
     // Fetch users
     let users: any[];
+    let officeFilterFailed = false; // Track if office filter failed (for use in metric queries)
 
     // Query users table (master table) - users should have repcard_user_id linked from sync
     if (officeIds && officeIds.length > 0) {
@@ -334,7 +335,6 @@ export async function GET(request: NextRequest) {
       
       // If office filtering returns 0 users, fall back to all users (office filter might be too restrictive)
       // BUT also log WHY it's filtering out users
-      let officeFilterFailed = false;
       if (users.length === 0) {
         console.log(`[RepCard Leaderboard] ⚠️ Office filter returned 0 users for officeIds: ${officeIds}`);
         console.log(`[RepCard Leaderboard] Falling back to all users to ensure data is shown`);
@@ -418,6 +418,9 @@ export async function GET(request: NextRequest) {
     // Fetch metric data based on selected metric
     let leaderboardEntries: LeaderboardEntry[] = [];
     
+    // Track if office filter failed (so we can skip office filtering in metric queries)
+    const shouldSkipOfficeFilter = officeIds === undefined && officeFilterFailed;
+    
     if (metric === 'quality_score' || metric === 'appointment_speed' || metric === 'attachment_rate') {
       // Use quality metrics service - call per user to get individual metrics
       const userMetricsPromises = users.map(async (user) => {
@@ -474,7 +477,7 @@ export async function GET(request: NextRequest) {
         // This ensures we don't miss customers created by closers who have setter_user_id
         let customerCountsRaw;
         
-        if (officeIds && officeIds.length > 0) {
+        if (officeIds && officeIds.length > 0 && !shouldSkipOfficeFilter) {
           // With office filter
           if (role !== 'all') {
             customerCountsRaw = await sql`
@@ -707,7 +710,7 @@ export async function GET(request: NextRequest) {
         // Fix: Query appointments first, then join to users to filter by role
         let appointmentCountsRaw;
         
-        if (officeIds && officeIds.length > 0) {
+        if (officeIds && officeIds.length > 0 && !shouldSkipOfficeFilter) {
           // With office filter
           if (role !== 'all') {
             appointmentCountsRaw = await sql`
@@ -829,11 +832,14 @@ export async function GET(request: NextRequest) {
           console.log(`[RepCard Leaderboard] ⚠️ INNER JOIN returned 0 entries for appointments_set`);
           console.log(`[RepCard Leaderboard] Date range: ${calculatedStartDate} to ${calculatedEndDate}`);
           console.log(`[RepCard Leaderboard] Role filter: ${role}, Office IDs: ${officeIds?.join(',') || 'none'}`);
+          console.log(`[RepCard Leaderboard] shouldSkipOfficeFilter: ${shouldSkipOfficeFilter}, officeFilterFailed: ${officeFilterFailed}`);
           console.log(`[RepCard Leaderboard] Falling back to LEFT JOIN to show all users`);
           
           let fallbackQuery;
           
-          if (officeIds && officeIds.length > 0) {
+          // Skip office filter if it already failed (shouldSkipOfficeFilter) OR if officeIds was cleared
+          if (officeIds && officeIds.length > 0 && !shouldSkipOfficeFilter) {
+            console.log(`[RepCard Leaderboard] Fallback: Using office filter`);
             if (role !== 'all') {
               fallbackQuery = await sql`
                 SELECT
@@ -885,6 +891,7 @@ export async function GET(request: NextRequest) {
               `;
             }
           } else {
+            console.log(`[RepCard Leaderboard] Fallback: Skipping office filter (officeIds cleared or shouldSkipOfficeFilter=true)`);
             if (role !== 'all') {
               fallbackQuery = await sql`
                 SELECT
@@ -934,6 +941,7 @@ export async function GET(request: NextRequest) {
           }
           
           const fallbackResults = Array.from(fallbackQuery);
+          console.log(`[RepCard Leaderboard] Fallback query returned ${fallbackResults.length} users`);
           leaderboardEntries = fallbackResults.map((row: any) => ({
             rank: 0,
             userId: row.user_id,
