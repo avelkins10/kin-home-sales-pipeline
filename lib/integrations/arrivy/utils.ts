@@ -38,7 +38,7 @@ export function extractTaskType(task: ArrivyTask): string {
   if (groupName.includes('inspection')) return 'Inspections - General';
 
   // 4. Check template name with specific subcategories
-  const template = task.template?.toLowerCase() || '';
+  const template = (typeof task.template === 'string' ? task.template : String(task.template || '')).toLowerCase();
 
   // Surveys
   if (template.includes('site survey')) return 'Surveys - Site Survey';
