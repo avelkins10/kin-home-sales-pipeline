@@ -112,41 +112,36 @@ ALTER TABLE repcard_users ADD COLUMN IF NOT EXISTS team_name TEXT;
 CREATE INDEX IF NOT EXISTS idx_repcard_users_team ON repcard_users(team_id);
 
 -- Leaderboard Snapshots (store historical leaderboard data)
-CREATE TABLE IF NOT EXISTS repcard_leaderboard_snapshots (
-  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-  snapshot_date DATE NOT NULL,
-  leaderboard_name TEXT NOT NULL,
-  leaderboard_id TEXT NOT NULL, -- RepCard leaderboard _id (MongoDB ObjectId)
-  company_id INTEGER NOT NULL,
-  user_id TEXT REFERENCES users(id),
-  repcard_user_id INTEGER NOT NULL,
-  -- Metrics from D2D Leaderboard
-  customer_count INTEGER DEFAULT 0,
-  door_knocks INTEGER DEFAULT 0,
-  lead_count INTEGER DEFAULT 0,
-  appointment_count INTEGER DEFAULT 0,
-  avg_door_knocks_per_day NUMERIC DEFAULT 0,
-  avg_distance_per_knocks NUMERIC DEFAULT 0,
-  -- Metrics from Overview Leaderboard
-  avg_rating NUMERIC DEFAULT 0,
-  video_viewed INTEGER DEFAULT 0,
-  -- Metrics from Engagements Leaderboard
-  review_count INTEGER DEFAULT 0,
-  referral_count INTEGER DEFAULT 0,
-  engagement_count INTEGER DEFAULT 0,
-  card_sent_count INTEGER DEFAULT 0,
-  -- Metrics from Recruiting Leaderboard
-  recruit_count INTEGER DEFAULT 0,
-  -- Ranking
-  item_rank INTEGER,
-  office_id INTEGER,
-  office_name TEXT,
-  team_id INTEGER,
-  team_name TEXT,
-  raw_data JSONB,
-  synced_at TIMESTAMP DEFAULT NOW(),
-  UNIQUE(snapshot_date, leaderboard_name, repcard_user_id)
-);
+-- Note: Table may already exist from migration 014, so we'll alter it if needed
+-- Add new columns if table exists (safe to re-run)
+ALTER TABLE repcard_leaderboard_snapshots ADD COLUMN IF NOT EXISTS company_id INTEGER;
+ALTER TABLE repcard_leaderboard_snapshots ADD COLUMN IF NOT EXISTS leaderboard_name TEXT;
+ALTER TABLE repcard_leaderboard_snapshots ADD COLUMN IF NOT EXISTS leaderboard_id TEXT;
+ALTER TABLE repcard_leaderboard_snapshots ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id);
+ALTER TABLE repcard_leaderboard_snapshots ADD COLUMN IF NOT EXISTS customer_count INTEGER DEFAULT 0;
+ALTER TABLE repcard_leaderboard_snapshots ADD COLUMN IF NOT EXISTS door_knocks INTEGER DEFAULT 0;
+ALTER TABLE repcard_leaderboard_snapshots ADD COLUMN IF NOT EXISTS lead_count INTEGER DEFAULT 0;
+ALTER TABLE repcard_leaderboard_snapshots ADD COLUMN IF NOT EXISTS appointment_count INTEGER DEFAULT 0;
+ALTER TABLE repcard_leaderboard_snapshots ADD COLUMN IF NOT EXISTS avg_door_knocks_per_day NUMERIC DEFAULT 0;
+ALTER TABLE repcard_leaderboard_snapshots ADD COLUMN IF NOT EXISTS avg_distance_per_knocks NUMERIC DEFAULT 0;
+ALTER TABLE repcard_leaderboard_snapshots ADD COLUMN IF NOT EXISTS avg_rating NUMERIC DEFAULT 0;
+ALTER TABLE repcard_leaderboard_snapshots ADD COLUMN IF NOT EXISTS video_viewed INTEGER DEFAULT 0;
+ALTER TABLE repcard_leaderboard_snapshots ADD COLUMN IF NOT EXISTS review_count INTEGER DEFAULT 0;
+ALTER TABLE repcard_leaderboard_snapshots ADD COLUMN IF NOT EXISTS referral_count INTEGER DEFAULT 0;
+ALTER TABLE repcard_leaderboard_snapshots ADD COLUMN IF NOT EXISTS engagement_count INTEGER DEFAULT 0;
+ALTER TABLE repcard_leaderboard_snapshots ADD COLUMN IF NOT EXISTS card_sent_count INTEGER DEFAULT 0;
+ALTER TABLE repcard_leaderboard_snapshots ADD COLUMN IF NOT EXISTS recruit_count INTEGER DEFAULT 0;
+ALTER TABLE repcard_leaderboard_snapshots ADD COLUMN IF NOT EXISTS item_rank INTEGER;
+ALTER TABLE repcard_leaderboard_snapshots ADD COLUMN IF NOT EXISTS office_name TEXT;
+ALTER TABLE repcard_leaderboard_snapshots ADD COLUMN IF NOT EXISTS team_id INTEGER;
+ALTER TABLE repcard_leaderboard_snapshots ADD COLUMN IF NOT EXISTS team_name TEXT;
+
+-- Update existing rows to have leaderboard_name if null (default to 'custom' for existing rows)
+UPDATE repcard_leaderboard_snapshots SET leaderboard_name = COALESCE(leaderboard_name, 'custom') WHERE leaderboard_name IS NULL;
+
+-- Drop old unique constraint if it exists and create new one
+DROP INDEX IF EXISTS idx_repcard_leaderboard_snapshots_composite;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_repcard_lb_snapshots_unique ON repcard_leaderboard_snapshots(snapshot_date, COALESCE(leaderboard_name, 'custom'), repcard_user_id);
 
 CREATE INDEX IF NOT EXISTS idx_repcard_lb_snapshots_date ON repcard_leaderboard_snapshots(snapshot_date);
 CREATE INDEX IF NOT EXISTS idx_repcard_lb_snapshots_leaderboard ON repcard_leaderboard_snapshots(leaderboard_name);
