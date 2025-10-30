@@ -17,6 +17,7 @@
     "sync:arrivy:recent": "tsx scripts/sync-arrivy-tasks.ts --start-date=$(date -v-30d +%Y-%m-%d)",
     "migrate:sync-runs": "node scripts/run-user-sync-runs-migration.js",
     "migrate:repcard": "node scripts/run-repcard-migration.js",
+    "migrate:repcard-complete": "node scripts/run-repcard-migrations.js",
     "migrate:arrivy": "node scripts/run-arrivy-migration.js"
   },
   "dependencies": {
