@@ -299,8 +299,19 @@ export async function GET(req: Request) {
         return acc;
       }, {} as Record<string, number>),
       byType: tasks.reduce((acc, task) => {
-        const type = task.task_type || 'other';
-        acc[type] = (acc[type] || 0) + 1;
+        const taskType = task.task_type || 'other';
+        const lowerType = taskType.toLowerCase();
+
+        // Map detailed types to simple categories for tab counts
+        let category = 'other';
+        if (lowerType.includes('survey')) category = 'survey';
+        else if (lowerType.includes('installation')) category = 'install';
+        else if (lowerType.includes('inspection')) category = 'inspection';
+        else if (lowerType.includes('service')) category = 'service';
+
+        // Count by both category and exact type
+        acc[category] = (acc[category] || 0) + 1;
+        acc[taskType] = (acc[taskType] || 0) + 1;
         acc['all'] = (acc['all'] || 0) + 1;
         return acc;
       }, {} as Record<string, number>),

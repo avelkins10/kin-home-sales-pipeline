@@ -796,6 +796,15 @@ export async function GET(request: NextRequest) {
         }
         
         const appointmentCounts = Array.from(appointmentCountsRaw);
+        
+        console.log(`[RepCard Leaderboard] appointments_set query returned ${appointmentCounts.length} users with data`);
+        if (appointmentCounts.length > 0) {
+          console.log(`[RepCard Leaderboard] Sample appointment data:`, appointmentCounts.slice(0, 3).map((r: any) => ({
+            user: r.user_name,
+            count: r.count,
+            repcard_user_id: r.repcard_user_id
+          })));
+        }
 
         // Map directly to leaderboard entries
         leaderboardEntries = appointmentCounts.map((row: any) => ({
@@ -812,6 +821,8 @@ export async function GET(request: NextRequest) {
         // CRITICAL FIX: If INNER JOIN returns 0 results, fallback to show ALL users
         if (leaderboardEntries.length === 0) {
           console.log(`[RepCard Leaderboard] ⚠️ INNER JOIN returned 0 entries for appointments_set`);
+          console.log(`[RepCard Leaderboard] Date range: ${calculatedStartDate} to ${calculatedEndDate}`);
+          console.log(`[RepCard Leaderboard] Role filter: ${role}, Office IDs: ${officeIds?.join(',') || 'none'}`);
           console.log(`[RepCard Leaderboard] Falling back to LEFT JOIN to show all users`);
           
           let fallbackQuery;
@@ -830,9 +841,9 @@ export async function GET(request: NextRequest) {
                 FROM users u
                 LEFT JOIN repcard_appointments a ON u.repcard_user_id::text = a.setter_user_id::text
                   AND (
-                    (a.scheduled_at IS NOT NULL AND a.scheduled_at >= ${calculatedStartDate}::timestamp AND a.scheduled_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                    (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                     OR
-                    (a.scheduled_at IS NULL AND a.created_at >= ${calculatedStartDate}::timestamp AND a.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                    (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
                   )
                 LEFT JOIN offices o ON o.name = ANY(u.sales_office)
                 WHERE u.repcard_user_id IS NOT NULL
@@ -855,9 +866,9 @@ export async function GET(request: NextRequest) {
                 FROM users u
                 LEFT JOIN repcard_appointments a ON u.repcard_user_id::text = a.setter_user_id::text
                   AND (
-                    (a.scheduled_at IS NOT NULL AND a.scheduled_at >= ${calculatedStartDate}::timestamp AND a.scheduled_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                    (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                     OR
-                    (a.scheduled_at IS NULL AND a.created_at >= ${calculatedStartDate}::timestamp AND a.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                    (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
                   )
                 LEFT JOIN offices o ON o.name = ANY(u.sales_office)
                 WHERE u.repcard_user_id IS NOT NULL
@@ -881,9 +892,9 @@ export async function GET(request: NextRequest) {
                 FROM users u
                 LEFT JOIN repcard_appointments a ON u.repcard_user_id::text = a.setter_user_id::text
                   AND (
-                    (a.scheduled_at IS NOT NULL AND a.scheduled_at >= ${calculatedStartDate}::timestamp AND a.scheduled_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                    (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                     OR
-                    (a.scheduled_at IS NULL AND a.created_at >= ${calculatedStartDate}::timestamp AND a.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                    (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
                   )
                 WHERE u.repcard_user_id IS NOT NULL
                   AND u.role = ${role}
@@ -904,9 +915,9 @@ export async function GET(request: NextRequest) {
                 FROM users u
                 LEFT JOIN repcard_appointments a ON u.repcard_user_id::text = a.setter_user_id::text
                   AND (
-                    (a.scheduled_at IS NOT NULL AND a.scheduled_at >= ${calculatedStartDate}::timestamp AND a.scheduled_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                    (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                     OR
-                    (a.scheduled_at IS NULL AND a.created_at >= ${calculatedStartDate}::timestamp AND a.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                    (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
                   )
                 WHERE u.repcard_user_id IS NOT NULL
                 GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role

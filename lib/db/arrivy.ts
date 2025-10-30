@@ -1236,8 +1236,17 @@ export async function getFieldTrackingTasks(filters: {
     }
 
     if (taskType) {
-      query += ` AND LOWER(t.task_type) = LOWER($${paramIndex})`;
-      params.push(taskType);
+      // Support both exact match and category-based filtering
+      // If taskType is simple (survey, install, etc), do partial match
+      // If taskType is detailed (Surveys - Site Survey), do exact match
+      const isDetailedType = taskType.includes(' - ');
+      if (isDetailedType) {
+        query += ` AND LOWER(t.task_type) = LOWER($${paramIndex})`;
+        params.push(taskType);
+      } else {
+        query += ` AND LOWER(t.task_type) LIKE LOWER($${paramIndex})`;
+        params.push(`%${taskType}%`);
+      }
       paramIndex++;
     }
 
