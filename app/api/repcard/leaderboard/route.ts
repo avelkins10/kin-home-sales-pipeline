@@ -237,6 +237,9 @@ export async function GET(request: NextRequest) {
       const dateRange = calculateDateRange(timeRange, startDate, endDate);
       calculatedStartDate = dateRange.startDate;
       calculatedEndDate = dateRange.endDate;
+      
+      // Log for debugging
+      console.log(`[RepCard Leaderboard] Date range: ${calculatedStartDate} to ${calculatedEndDate} (timeRange: ${timeRange})`);
     } catch (error) {
       const duration = Date.now() - start;
       logApiResponse('GET', path, duration, { status: 400, cached: false, requestId });
@@ -448,8 +451,8 @@ export async function GET(request: NextRequest) {
               INNER JOIN users u ON u.repcard_user_id::text = c.setter_user_id::text
               LEFT JOIN offices o ON o.name = ANY(u.sales_office)
               WHERE u.repcard_user_id IS NOT NULL
-                AND c.created_at >= ${calculatedStartDate}::timestamp
-                AND c.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day')
+                AND c.created_at >= ${calculatedStartDate}::date
+                AND c.created_at::date <= ${calculatedEndDate}::date
                 AND u.role = ${role}
                 AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR u.sales_office IS NULL)
               GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
@@ -468,8 +471,8 @@ export async function GET(request: NextRequest) {
               INNER JOIN users u ON u.repcard_user_id::text = c.setter_user_id::text
               LEFT JOIN offices o ON o.name = ANY(u.sales_office)
               WHERE u.repcard_user_id IS NOT NULL
-                AND c.created_at >= ${calculatedStartDate}::timestamp
-                AND c.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day')
+                AND c.created_at >= ${calculatedStartDate}::date
+                AND c.created_at::date <= ${calculatedEndDate}::date
                 AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR u.sales_office IS NULL)
               GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
             `;
@@ -489,8 +492,8 @@ export async function GET(request: NextRequest) {
               FROM repcard_customers c
               INNER JOIN users u ON u.repcard_user_id::text = c.setter_user_id::text
               WHERE u.repcard_user_id IS NOT NULL
-                AND c.created_at >= ${calculatedStartDate}::timestamp
-                AND c.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day')
+                AND c.created_at >= ${calculatedStartDate}::date
+                AND c.created_at::date <= ${calculatedEndDate}::date
                 AND u.role = ${role}
               GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
             `;
@@ -507,8 +510,8 @@ export async function GET(request: NextRequest) {
               FROM repcard_customers c
               INNER JOIN users u ON u.repcard_user_id::text = c.setter_user_id::text
               WHERE u.repcard_user_id IS NOT NULL
-                AND c.created_at >= ${calculatedStartDate}::timestamp
-                AND c.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day')
+                AND c.created_at >= ${calculatedStartDate}::date
+                AND c.created_at::date <= ${calculatedEndDate}::date
               GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
             `;
           }
@@ -548,8 +551,8 @@ export async function GET(request: NextRequest) {
                   COUNT(c.repcard_customer_id) as count
                 FROM users u
                 LEFT JOIN repcard_customers c ON u.repcard_user_id::text = c.setter_user_id::text
-                  AND c.created_at >= ${calculatedStartDate}::timestamp
-                  AND c.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day')
+                  AND c.created_at >= ${calculatedStartDate}::date
+                  AND c.created_at::date <= ${calculatedEndDate}::date
                 LEFT JOIN offices o ON o.name = ANY(u.sales_office)
                 WHERE u.repcard_user_id IS NOT NULL
                   AND u.role = ${role}
@@ -570,8 +573,8 @@ export async function GET(request: NextRequest) {
                   COUNT(c.repcard_customer_id) as count
                 FROM users u
                 LEFT JOIN repcard_customers c ON u.repcard_user_id::text = c.setter_user_id::text
-                  AND c.created_at >= ${calculatedStartDate}::timestamp
-                  AND c.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day')
+                  AND c.created_at >= ${calculatedStartDate}::date
+                  AND c.created_at::date <= ${calculatedEndDate}::date
                 LEFT JOIN offices o ON o.name = ANY(u.sales_office)
                 WHERE u.repcard_user_id IS NOT NULL
                   AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR u.sales_office IS NULL)
@@ -593,8 +596,8 @@ export async function GET(request: NextRequest) {
                   COUNT(c.repcard_customer_id) as count
                 FROM users u
                 LEFT JOIN repcard_customers c ON u.repcard_user_id::text = c.setter_user_id::text
-                  AND c.created_at >= ${calculatedStartDate}::timestamp
-                  AND c.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day')
+                  AND c.created_at >= ${calculatedStartDate}::date
+                  AND c.created_at::date <= ${calculatedEndDate}::date
                 WHERE u.repcard_user_id IS NOT NULL
                   AND u.role = ${role}
                 GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
@@ -613,8 +616,8 @@ export async function GET(request: NextRequest) {
                   COUNT(c.repcard_customer_id) as count
                 FROM users u
                 LEFT JOIN repcard_customers c ON u.repcard_user_id::text = c.setter_user_id::text
-                  AND c.created_at >= ${calculatedStartDate}::timestamp
-                  AND c.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day')
+                  AND c.created_at >= ${calculatedStartDate}::date
+                  AND c.created_at::date <= ${calculatedEndDate}::date
                 WHERE u.repcard_user_id IS NOT NULL
                 GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
                 ORDER BY count DESC
@@ -679,9 +682,9 @@ export async function GET(request: NextRequest) {
               LEFT JOIN offices o ON o.name = ANY(u.sales_office)
               WHERE u.repcard_user_id IS NOT NULL
                 AND (
-                  (a.scheduled_at IS NOT NULL AND a.scheduled_at >= ${calculatedStartDate}::timestamp AND a.scheduled_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                  (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                   OR
-                  (a.scheduled_at IS NULL AND a.created_at >= ${calculatedStartDate}::timestamp AND a.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                  (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
                 )
                 AND u.role = ${role}
                 AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR u.sales_office IS NULL)
@@ -702,9 +705,9 @@ export async function GET(request: NextRequest) {
               LEFT JOIN offices o ON o.name = ANY(u.sales_office)
               WHERE u.repcard_user_id IS NOT NULL
                 AND (
-                  (a.scheduled_at IS NOT NULL AND a.scheduled_at >= ${calculatedStartDate}::timestamp AND a.scheduled_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                  (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                   OR
-                  (a.scheduled_at IS NULL AND a.created_at >= ${calculatedStartDate}::timestamp AND a.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                  (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
                 )
                 AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR u.sales_office IS NULL)
               GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
@@ -726,9 +729,9 @@ export async function GET(request: NextRequest) {
               INNER JOIN users u ON u.repcard_user_id::text = a.setter_user_id::text
               WHERE u.repcard_user_id IS NOT NULL
                 AND (
-                  (a.scheduled_at IS NOT NULL AND a.scheduled_at >= ${calculatedStartDate}::timestamp AND a.scheduled_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                  (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                   OR
-                  (a.scheduled_at IS NULL AND a.created_at >= ${calculatedStartDate}::timestamp AND a.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                  (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
                 )
                 AND u.role = ${role}
               GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
@@ -747,9 +750,9 @@ export async function GET(request: NextRequest) {
               INNER JOIN users u ON u.repcard_user_id::text = a.setter_user_id::text
               WHERE u.repcard_user_id IS NOT NULL
                 AND (
-                  (a.scheduled_at IS NOT NULL AND a.scheduled_at >= ${calculatedStartDate}::timestamp AND a.scheduled_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                  (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                   OR
-                  (a.scheduled_at IS NULL AND a.created_at >= ${calculatedStartDate}::timestamp AND a.created_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day'))
+                  (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
                 )
               GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
             `;
@@ -926,8 +929,8 @@ export async function GET(request: NextRequest) {
           FROM repcard_status_logs sl
           LEFT JOIN repcard_customers c ON c.repcard_customer_id = sl.repcard_customer_id
           WHERE sl.changed_by_user_id::text = ANY(${repcardUserIds.map(String)}::text[])
-            AND sl.changed_at >= ${calculatedStartDate}::timestamp
-            AND sl.changed_at <= (${calculatedEndDate}::timestamp + INTERVAL '1 day')
+            AND sl.changed_at::date >= ${calculatedStartDate}::date
+            AND sl.changed_at::date <= ${calculatedEndDate}::date
             AND (
               LOWER(sl.new_status) LIKE '%sold%' OR
               LOWER(sl.new_status) LIKE '%closed%' OR
