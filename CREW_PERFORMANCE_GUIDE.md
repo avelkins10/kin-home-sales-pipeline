@@ -146,3 +146,4 @@ WHERE event_type = 'TASK_RATING'
 - Integration with QuickBase for project context
 
 
+

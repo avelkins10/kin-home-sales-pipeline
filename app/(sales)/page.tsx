@@ -267,6 +267,7 @@ export default function DashboardPage() {
               role={session.user.role}
               timeRange={timeRange}
               customDateRange={customDateRange}
+              scope={isManager ? scope : 'personal'}
             />
           </Suspense>
         </div>

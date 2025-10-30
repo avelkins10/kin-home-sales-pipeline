@@ -14,6 +14,7 @@ interface DashboardMetricsProps {
   role: string;
   timeRange?: TimeRange; // Optional, defaults to 'lifetime'
   customDateRange?: { startDate: string; endDate: string };
+  scope?: 'personal' | 'team'; // Optional, defaults to 'team'
 }
 
 interface DashboardMetricsData {
@@ -66,11 +67,11 @@ function MetricsSkeleton() {
   );
 }
 
-export function DashboardMetrics({ userId, role, timeRange = 'lifetime', customDateRange }: DashboardMetricsProps) {
+export function DashboardMetrics({ userId, role, timeRange = 'lifetime', customDateRange, scope = 'team' }: DashboardMetricsProps) {
   const { data: metrics, isLoading } = useQuery<DashboardMetricsData>({
-    queryKey: ['dashboard-metrics', userId, role, timeRange, customDateRange],
+    queryKey: ['dashboard-metrics', userId, role, timeRange, customDateRange, scope],
     queryFn: async () => {
-      let url = `${getBaseUrl()}/api/dashboard/metrics?timeRange=${timeRange}`;
+      let url = `${getBaseUrl()}/api/dashboard/metrics?timeRange=${timeRange}&scope=${scope}`;
       if (timeRange === 'custom' && customDateRange) {
         url += `&startDate=${customDateRange.startDate}&endDate=${customDateRange.endDate}`;
       }
