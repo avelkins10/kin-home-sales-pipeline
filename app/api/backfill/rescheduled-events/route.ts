@@ -4,6 +4,7 @@ import { sql } from '@vercel/postgres';
 import { arrivyClient } from '@/lib/integrations/arrivy/client';
 import { upsertArrivyTask, getArrivyTaskByArrivyId } from '@/lib/db/arrivy';
 import { getCustomerTrackerUrl } from '@/lib/integrations/arrivy/service';
+import { extractTaskType, formatTaskAddress } from '@/lib/integrations/arrivy/utils';
 import { logInfo, logError } from '@/lib/logging/logger';
 import type { ArrivyTask } from '@/lib/integrations/arrivy/types';
 
@@ -66,28 +67,6 @@ export async function GET() {
 
         const existingTask = await getArrivyTaskByArrivyId(taskId);
 
-        // Helper functions
-        const formatAddress = (task: ArrivyTask): string | undefined => {
-          const parts = [
-            task.customer_address_line_1,
-            task.customer_city,
-            task.customer_state,
-            task.customer_zipcode
-          ].filter(Boolean);
-          return parts.length > 0 ? parts.join(', ') : undefined;
-        };
-
-        const extractTaskType = (task: ArrivyTask): string => {
-          if (task.extra_fields?.task_type) {
-            return task.extra_fields.task_type;
-          }
-          const title = task.title?.toLowerCase() || '';
-          if (title.includes('survey')) return 'survey';
-          if (title.includes('install')) return 'install';
-          if (title.includes('inspection')) return 'inspection';
-          return 'service';
-        };
-
         // Update task
         await upsertArrivyTask({
           arrivy_task_id: task.id,
@@ -97,7 +76,7 @@ export async function GET() {
           customer_name: task.customer_name,
           customer_phone: task.customer_phone,
           customer_email: task.customer_email,
-          customer_address: formatAddress(task),
+          customer_address: formatTaskAddress(task),
           task_type: extractTaskType(task),
           scheduled_start: task.start_datetime ? new Date(task.start_datetime) : null,
           scheduled_end: task.end_datetime ? new Date(task.end_datetime) : null,

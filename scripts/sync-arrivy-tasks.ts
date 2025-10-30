@@ -35,6 +35,7 @@ import {
   type ArrivyTaskAttachmentData
 } from '@/lib/db/arrivy';
 import { getCustomerTrackerUrl } from '@/lib/integrations/arrivy/service';
+import { extractTaskType, formatTaskAddress } from '@/lib/integrations/arrivy/utils';
 import type { ArrivyTask, ArrivyEntity } from '@/lib/integrations/arrivy/types';
 
 interface SyncOptions {
@@ -342,8 +343,8 @@ class ArrivySyncService {
         customer_name: task.customer_name || null,
         customer_phone: task.customer_phone || task.customer_mobile_number || null,
         customer_email: task.customer_email || null,
-        customer_address: this.formatAddress(task),
-        task_type: this.extractTaskType(task),
+        customer_address: formatTaskAddress(task) || null,
+        task_type: extractTaskType(task),
         scheduled_start: task.start_datetime ? new Date(task.start_datetime) : null,
         scheduled_end: task.end_datetime ? new Date(task.end_datetime) : null,
         assigned_entity_ids: task.entity_ids || [],
@@ -534,85 +535,6 @@ class ArrivySyncService {
     ];
 
     return retryablePatterns.some(pattern => pattern.test(errorMessage));
-  }
-
-  private formatAddress(task: ArrivyTask): string | null {
-    const parts = [
-      task.customer_address_line_1,
-      task.customer_city,
-      task.customer_state,
-      task.customer_zipcode,
-    ].filter(Boolean);
-
-    return parts.length > 0 ? parts.join(', ') : null;
-  }
-
-  private extractTaskType(task: ArrivyTask): string | null {
-    // Try to extract task type from extra_fields first
-    if (task.extra_fields?.task_type) {
-      return task.extra_fields.task_type.toLowerCase();
-    }
-
-    // Check extra_fields for task-type indicators (e.g., "Notes for Surveyor" → survey)
-    if (task.extra_fields) {
-      const fieldKeys = Object.keys(task.extra_fields).join(' ').toLowerCase();
-      if (fieldKeys.includes('surveyor') || fieldKeys.includes('survey')) return 'survey';
-      if (fieldKeys.includes('install')) return 'install';
-      if (fieldKeys.includes('inspection') || fieldKeys.includes('inspector')) return 'inspection';
-    }
-
-    // Combine title and customer_name for pattern matching
-    const searchText = [
-      task.title || '',
-      task.customer_name || '',
-      task.description || ''
-    ].join(' ').toLowerCase();
-
-    // Check for specific task types with priority order
-    // 1. Survey (most common in this dataset)
-    if (searchText.includes('survey') || searchText.includes('site survey')) {
-      return 'survey';
-    }
-
-    // 2. Installation types
-    if (searchText.match(/\b(install|installation|pv|solar|roof\s*pv|panel|electrical)\b/)) {
-      if (searchText.includes('roof') || searchText.includes('pv') || searchText.includes('solar')) {
-        return 'install'; // Solar/PV installation
-      }
-      if (searchText.includes('electrical')) {
-        return 'install'; // Electrical installation
-      }
-      if (searchText.includes('install')) {
-        return 'install';
-      }
-    }
-
-    // 3. Inspection
-    if (searchText.match(/\b(inspection|inspect|audit)\b/)) {
-      return 'inspection';
-    }
-
-    // 4. Service/Maintenance
-    if (searchText.match(/\b(service|maintenance|repair|fix)\b/)) {
-      return 'service';
-    }
-
-    // 5. Booking/Appointment (appears in test data)
-    if (searchText.includes('booking')) {
-      return 'other'; // Generic appointment
-    }
-
-    // Try to infer from template
-    if (task.template) {
-      const template = String(task.template).toLowerCase();
-      if (template.includes('survey')) return 'survey';
-      if (template.includes('install')) return 'install';
-      if (template.includes('inspection')) return 'inspection';
-      if (template.includes('service')) return 'service';
-    }
-
-    // Default to null if no pattern matches
-    return null;
   }
 
   private generateDateRanges(options: SyncOptions): DateRange[] {

@@ -28,6 +28,7 @@ import { logError, logInfo, logArrivyWebhook } from '@/lib/logging/logger';
 import { createNotification, getNotificationsForUser } from '@/lib/db/notifications';
 import { shouldSendEmailNotification } from '@/lib/db/pcNotificationPreferences';
 import type { ArrivyFieldAlertMetadata } from '@/lib/types/notification';
+import { extractTaskType, formatTaskAddress } from './utils';
 
 /**
  * Arrivy Service Layer
@@ -371,30 +372,6 @@ async function ensureTaskExists(arrivyTaskId: number, eventType: string): Promis
       return false;
     }
 
-    // Helper function to format address
-    const formatAddress = (task: ArrivyTask): string | undefined => {
-      const parts = [
-        task.customer_address_line_1,
-        task.customer_city,
-        task.customer_state,
-        task.customer_zipcode
-      ].filter(Boolean);
-      return parts.length > 0 ? parts.join(', ') : undefined;
-    };
-
-    // Helper function to extract task type
-    const extractTaskType = (task: ArrivyTask): string => {
-      if (task.extra_fields?.task_type) {
-        return task.extra_fields.task_type;
-      }
-      // Try to infer from title
-      const title = task.title?.toLowerCase() || '';
-      if (title.includes('survey')) return 'survey';
-      if (title.includes('install')) return 'install';
-      if (title.includes('inspection')) return 'inspection';
-      return 'service'; // default
-    };
-
     // Generate tracker URL
     const trackerUrl = getCustomerTrackerUrl(arrivyTask.id, arrivyTask.url_safe_id);
 
@@ -407,7 +384,7 @@ async function ensureTaskExists(arrivyTaskId: number, eventType: string): Promis
       customer_name: arrivyTask.customer_name,
       customer_phone: arrivyTask.customer_phone,
       customer_email: arrivyTask.customer_email,
-      customer_address: formatAddress(arrivyTask),
+      customer_address: formatTaskAddress(arrivyTask),
       task_type: extractTaskType(arrivyTask),
       scheduled_start: arrivyTask.start_datetime ? new Date(arrivyTask.start_datetime) : undefined,
       scheduled_end: arrivyTask.end_datetime ? new Date(arrivyTask.end_datetime) : undefined,
@@ -691,30 +668,6 @@ async function handleTaskCreatedEvent(payload: ArrivyWebhookPayload): Promise<vo
       throw new Error('Failed to fetch task details - no task returned');
     }
 
-    // Helper function to format address
-    const formatAddress = (task: ArrivyTask): string | undefined => {
-      const parts = [
-        task.customer_address_line_1,
-        task.customer_city,
-        task.customer_state,
-        task.customer_zipcode
-      ].filter(Boolean);
-      return parts.length > 0 ? parts.join(', ') : undefined;
-    };
-
-    // Helper function to extract task type
-    const extractTaskType = (task: ArrivyTask): string => {
-      if (task.extra_fields?.task_type) {
-        return task.extra_fields.task_type;
-      }
-      // Try to infer from title
-      const title = task.title?.toLowerCase() || '';
-      if (title.includes('survey')) return 'survey';
-      if (title.includes('install')) return 'install';
-      if (title.includes('inspection')) return 'inspection';
-      return 'service'; // default
-    };
-
     // Generate tracker URL
     const trackerUrl = getCustomerTrackerUrl(task.id, task.url_safe_id);
 
@@ -727,7 +680,7 @@ async function handleTaskCreatedEvent(payload: ArrivyWebhookPayload): Promise<vo
       customer_name: task.customer_name,
       customer_phone: task.customer_phone,
       customer_email: task.customer_email,
-      customer_address: formatAddress(task),
+      customer_address: formatTaskAddress(task),
       task_type: extractTaskType(task),
       scheduled_start: task.start_datetime ? new Date(task.start_datetime) : undefined,
       scheduled_end: task.end_datetime ? new Date(task.end_datetime) : undefined,
@@ -832,28 +785,6 @@ async function handleTaskRescheduledEvent(payload: ArrivyWebhookPayload): Promis
       });
     }
 
-    // Helper functions
-    const formatAddress = (task: ArrivyTask): string | undefined => {
-      const parts = [
-        task.customer_address_line_1,
-        task.customer_city,
-        task.customer_state,
-        task.customer_zipcode
-      ].filter(Boolean);
-      return parts.length > 0 ? parts.join(', ') : undefined;
-    };
-
-    const extractTaskType = (task: ArrivyTask): string => {
-      if (task.extra_fields?.task_type) {
-        return task.extra_fields.task_type;
-      }
-      const title = task.title?.toLowerCase() || '';
-      if (title.includes('survey')) return 'survey';
-      if (title.includes('install')) return 'install';
-      if (title.includes('inspection')) return 'inspection';
-      return 'service';
-    };
-
     // Update task with new schedule
     await upsertArrivyTask({
       arrivy_task_id: task.id,
@@ -863,7 +794,7 @@ async function handleTaskRescheduledEvent(payload: ArrivyWebhookPayload): Promis
       customer_name: task.customer_name,
       customer_phone: task.customer_phone,
       customer_email: task.customer_email,
-      customer_address: formatAddress(task),
+      customer_address: formatTaskAddress(task),
       task_type: extractTaskType(task),
       scheduled_start: task.start_datetime ? new Date(task.start_datetime) : null,
       scheduled_end: task.end_datetime ? new Date(task.end_datetime) : null,
@@ -922,28 +853,6 @@ async function handleTaskDataChangeEvent(payload: ArrivyWebhookPayload): Promise
 
     const existingTask = await getArrivyTaskByArrivyId(OBJECT_ID);
 
-    // Helper functions
-    const formatAddress = (task: ArrivyTask): string | undefined => {
-      const parts = [
-        task.customer_address_line_1,
-        task.customer_city,
-        task.customer_state,
-        task.customer_zipcode
-      ].filter(Boolean);
-      return parts.length > 0 ? parts.join(', ') : undefined;
-    };
-
-    const extractTaskType = (task: ArrivyTask): string => {
-      if (task.extra_fields?.task_type) {
-        return task.extra_fields.task_type;
-      }
-      const title = task.title?.toLowerCase() || '';
-      if (title.includes('survey')) return 'survey';
-      if (title.includes('install')) return 'install';
-      if (title.includes('inspection')) return 'inspection';
-      return 'service';
-    };
-
     // Update task with latest data
     await upsertArrivyTask({
       arrivy_task_id: task.id,
@@ -953,7 +862,7 @@ async function handleTaskDataChangeEvent(payload: ArrivyWebhookPayload): Promise
       customer_name: task.customer_name,
       customer_phone: task.customer_phone,
       customer_email: task.customer_email,
-      customer_address: formatAddress(task),
+      customer_address: formatTaskAddress(task),
       task_type: extractTaskType(task),
       scheduled_start: task.start_datetime ? new Date(task.start_datetime) : null,
       scheduled_end: task.end_datetime ? new Date(task.end_datetime) : null,
