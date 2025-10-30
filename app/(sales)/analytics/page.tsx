@@ -22,6 +22,8 @@ import { CanvassingOverviewCard } from '@/components/analytics/CanvassingOvervie
 import { DoorsKnockedTrendsCard } from '@/components/analytics/DoorsKnockedTrendsCard';
 import { AppointmentRatesCard } from '@/components/analytics/AppointmentRatesCard';
 import { LeadQualityAnalysisCard } from '@/components/analytics/LeadQualityAnalysisCard';
+import { RepCardOverviewCard } from '@/components/analytics/RepCardOverviewCard';
+import { RepCardQualityMetricsCard } from '@/components/analytics/RepCardQualityMetricsCard';
 // import { CancellationAnalysisCard } from '@/components/analytics/CancellationAnalysisCard';
 // import { HoldAnalysisCard } from '@/components/analytics/HoldAnalysisCard';
 import { PeriodComparisonCard } from '@/components/analytics/PeriodComparisonCard';
@@ -78,7 +80,7 @@ export default function AnalyticsPage() {
       });
     }
 
-    if (tabParam && ['overview', 'performance', 'comparisons', 'analysis', 'leaderboards', 'canvassing'].includes(tabParam)) {
+    if (tabParam && ['overview', 'performance', 'comparisons', 'analysis', 'leaderboards', 'canvassing', 'repcard'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [searchParams]);
@@ -565,6 +567,93 @@ export default function AnalyticsPage() {
                 timeRange={timeRange}
                 customDateRange={customDateRange}
                 officeIds={selectedOfficeIds}
+              />
+            </>
+          }
+          repcardContent={
+            <>
+              {/* RepCard Overview - Full Width */}
+              <RepCardOverviewCard
+                userId={session.user.id}
+                role={session.user.role}
+                timeRange={timeRange}
+                customDateRange={customDateRange}
+                officeIds={selectedOfficeIds}
+              />
+
+              {/* Quality Metrics - Full Width */}
+              <RepCardQualityMetricsCard
+                userId={session.user.id}
+                role={session.user.role}
+                timeRange={timeRange}
+                customDateRange={customDateRange}
+                officeIds={selectedOfficeIds}
+              />
+
+              {/* RepCard Leaderboards - Side by Side */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Top Setters - Doors Knocked */}
+                <ConfigurableLeaderboard
+                  defaultRole="setter"
+                  defaultMetric="doors_knocked"
+                  defaultTimeRange={timeRange}
+                  defaultOfficeIds={selectedOfficeIds}
+                  title="Top Setters - Doors Knocked"
+                  description="Leading setters by door knocking activity"
+                  limit={25}
+                  collapsible={true}
+                  defaultOpen={true}
+                  showFilters={true}
+                  showExport={true}
+                  showRefresh={true}
+                />
+
+                {/* Quality Leaders */}
+                <ConfigurableLeaderboard
+                  defaultRole="all"
+                  defaultMetric="quality_score"
+                  defaultTimeRange={timeRange}
+                  defaultOfficeIds={selectedOfficeIds}
+                  title="Quality Leaders"
+                  description="Reps with highest quality scores"
+                  limit={25}
+                  collapsible={true}
+                  defaultOpen={true}
+                  showFilters={true}
+                  showExport={true}
+                  showRefresh={true}
+                />
+              </div>
+
+              {/* Additional RepCard Leaderboards */}
+              <ConfigurableLeaderboard
+                defaultRole="setter"
+                defaultMetric="appointment_speed"
+                defaultTimeRange={timeRange}
+                defaultOfficeIds={selectedOfficeIds}
+                title="Appointment Speed Leaders"
+                description="Setters who schedule appointments fastest"
+                limit={25}
+                collapsible={true}
+                defaultOpen={false}
+                showFilters={true}
+                showExport={true}
+                showRefresh={true}
+              />
+
+              <ConfigurableLeaderboard
+                defaultRole="all"
+                defaultMetric="attachment_rate"
+                defaultTimeRange={timeRange}
+                defaultOfficeIds={selectedOfficeIds}
+                title="Power Bill Rate Leaders"
+                description="Reps with highest power bill attachment rates"
+                limit={25}
+                collapsible={true}
+                defaultOpen={false}
+                showFilters={true}
+                showExport={true}
+                showRefresh={true}
               />
             </>
           }

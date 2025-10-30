@@ -2,7 +2,7 @@
 
 import { ReactNode } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BarChart3, Users, TrendingUp, AlertTriangle, Trophy, DoorOpen } from 'lucide-react';
+import { BarChart3, Users, TrendingUp, AlertTriangle, Trophy, DoorOpen, Zap } from 'lucide-react';
 
 interface AnalyticsTabsProps {
   overviewContent: ReactNode;
@@ -11,6 +11,7 @@ interface AnalyticsTabsProps {
   analysisContent: ReactNode;
   leaderboardsContent: ReactNode;
   canvassingContent: ReactNode;
+  repcardContent: ReactNode;
   value?: string;
   onTabChange?: (value: string) => void;
 }
@@ -22,6 +23,7 @@ export function AnalyticsTabs({
   analysisContent,
   leaderboardsContent,
   canvassingContent,
+  repcardContent,
   value = 'overview',
   onTabChange
 }: AnalyticsTabsProps) {
@@ -31,7 +33,7 @@ export function AnalyticsTabs({
       className="w-full"
       onValueChange={onTabChange}
     >
-      <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 h-auto p-1.5 bg-slate-100 rounded-xl mb-8 shadow-sm">
+      <TabsList className="grid w-full grid-cols-3 md:grid-cols-7 h-auto p-1.5 bg-slate-100 rounded-xl mb-8 shadow-sm">
         <TabsTrigger
           value="overview"
           className="flex items-center justify-center gap-2 py-3 px-4 data-[state=active]:bg-white data-[state=active]:shadow-md rounded-lg transition-all duration-200 font-medium text-sm"
@@ -74,6 +76,13 @@ export function AnalyticsTabs({
           <DoorOpen className="h-4 w-4" />
           <span className="hidden sm:inline">Canvassing</span>
         </TabsTrigger>
+        <TabsTrigger
+          value="repcard"
+          className="flex items-center justify-center gap-2 py-3 px-4 data-[state=active]:bg-white data-[state=active]:shadow-md rounded-lg transition-all duration-200 font-medium text-sm"
+        >
+          <Zap className="h-4 w-4" />
+          <span className="hidden sm:inline">RepCard</span>
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="overview" className="mt-0 space-y-6 animate-in fade-in-50 duration-200">
@@ -98,6 +107,10 @@ export function AnalyticsTabs({
 
       <TabsContent value="canvassing" className="mt-0 space-y-6 animate-in fade-in-50 duration-200">
         {canvassingContent}
+      </TabsContent>
+
+      <TabsContent value="repcard" className="mt-0 space-y-6 animate-in fade-in-50 duration-200">
+        {repcardContent}
       </TabsContent>
     </Tabs>
   );
