@@ -59,14 +59,68 @@ export async function GET(request: Request) {
           arrivyTask.duration
         );
 
-        // Detect task type
+        // Detect task type - log detection process for debugging
         const newTaskType = extractTaskType(arrivyTask);
+        
+        // Enhanced debug: Show why detection succeeded/failed
+        const detectionDebug = {
+          explicit_task_type: arrivyTask.extra_fields?.task_type || null,
+          template_name: typeof arrivyTask.template === 'string' ? arrivyTask.template : null,
+          template_id: arrivyTask.template_id || null,
+          template_detected: typeof arrivyTask.template === 'string' && arrivyTask.template.trim() !== '',
+          details_keywords: arrivyTask.details ? {
+            has_survey: arrivyTask.details.toLowerCase().includes('survey'),
+            has_install: arrivyTask.details.toLowerCase().includes('install'),
+            has_inspection: arrivyTask.details.toLowerCase().includes('inspection'),
+            preview: arrivyTask.details.substring(0, 100)
+          } : null,
+          group_name: arrivyTask.group?.name || null,
+          title: arrivyTask.title || null,
+          extra_fields_sample: Object.entries(arrivyTask.extra_fields || {}).slice(0, 10).map(([k, v]) => ({
+            key: k,
+            value_preview: typeof v === 'string' ? v.substring(0, 50) : String(v).substring(0, 50)
+          })),
+          final_detected_type: newTaskType
+        };
 
-        // Determine what changed
+        // Determine what changed - always update if there's a difference
         const statusChanged = updateStatus && latestStatus !== dbTask.current_status;
         const typeChanged = updateType && newTaskType !== dbTask.task_type;
 
-        if (statusChanged || typeChanged) {
+        // Debug template detection
+        const templateInfo = {
+          template: arrivyTask.template,
+          template_type: typeof arrivyTask.template,
+          template_id: arrivyTask.template_id,
+          has_template_name: typeof arrivyTask.template === 'string' && arrivyTask.template.trim() !== '',
+          extra_fields_task_type: arrivyTask.extra_fields?.task_type,
+          extra_fields_keys: Object.keys(arrivyTask.extra_fields || {}),
+          group_name: arrivyTask.group?.name,
+          title: arrivyTask.title,
+        };
+
+        // Log debug info
+        console.log(`[Fix Task] ${dbTask.customer_name} (${dbTask.arrivy_task_id}):`, {
+          db_status: dbTask.current_status,
+          arrivy_status: arrivyTask.status,
+          latest_from_history: latestStatus,
+          db_type: dbTask.task_type,
+          detected_type: newTaskType,
+          ...templateInfo,
+          status_changed: statusChanged,
+          type_changed: typeChanged,
+        });
+
+        // Always update if there's a change OR if status is Unknown/null
+        const needsStatusUpdate = updateStatus && (
+          statusChanged || 
+          !dbTask.current_status || 
+          dbTask.current_status === 'UNKNOWN' ||
+          dbTask.current_status === 'Unknown'
+        );
+        const needsTypeUpdate = updateType && (typeChanged || !dbTask.task_type);
+
+        if (needsStatusUpdate || needsTypeUpdate) {
           // Get existing task to preserve QuickBase links
           const { rows: existing } = await sql`
             SELECT quickbase_project_id, quickbase_record_id, tracker_url
@@ -108,12 +162,21 @@ export async function GET(request: Request) {
             new_status: latestStatus,
             old_type: dbTask.task_type,
             new_type: newTaskType,
-            status_changed: statusChanged,
-            type_changed: typeChanged,
+            status_changed: needsStatusUpdate,
+            type_changed: needsTypeUpdate,
             arrivy_status: arrivyTask.status,
             latest_status_from_history: latestStatus,
+            template: arrivyTask.template,
             template_id: arrivyTask.template_id,
+            template_type: typeof arrivyTask.template,
+            has_template_name: typeof arrivyTask.template === 'string' && arrivyTask.template.trim() !== '',
             extra_fields_keys: Object.keys(arrivyTask.extra_fields || {}),
+            extra_fields_sample: Object.keys(arrivyTask.extra_fields || {}).slice(0, 5),
+            extra_fields_task_type: arrivyTask.extra_fields?.task_type,
+            group_name: arrivyTask.group?.name,
+            title: arrivyTask.title,
+            details: arrivyTask.details?.substring(0, 200),
+            detection_debug: detectionDebug,
           });
         } else {
           results.push({

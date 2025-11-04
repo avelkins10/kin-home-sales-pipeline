@@ -3,6 +3,7 @@ export const runtime = 'nodejs';
 export const maxDuration = 300; // 5 minutes for large syncs
 
 import { NextRequest, NextResponse } from 'next/server';
+import { sql } from '@vercel/postgres';
 import { arrivyClient } from '@/lib/integrations/arrivy/client';
 import {
   upsertArrivyTask,
@@ -206,15 +207,22 @@ export async function GET(request: NextRequest) {
           // Update current_status from latest status history (more reliable than task.status)
           // Fallback to task.status if no history exists
           const finalStatus = latestStatus || task.status || 'NOT_STARTED';
-          if (finalStatus !== task.status) {
+          
+          // Compare against database status, not API status (API can be stale)
+          // Re-fetch task to get latest DB status (after upsert)
+          const dbTask = await getArrivyTaskByArrivyId(task.id);
+          const dbStatus = dbTask?.current_status || 'NOT_STARTED';
+          
+          if (finalStatus !== dbStatus) {
             await sql`
               UPDATE arrivy_tasks
               SET current_status = ${finalStatus}, updated_at = NOW()
               WHERE arrivy_task_id = ${task.id}
             `;
-            logInfo(`[Arrivy Cron] Updated current_status: ${task.status} -> ${finalStatus}`, {
+            logInfo(`[Arrivy Cron] Updated current_status: ${dbStatus} -> ${finalStatus}`, {
               task_id: task.id,
-              old_status: task.status,
+              old_db_status: dbStatus,
+              api_status: task.status,
               new_status: finalStatus,
               from_history: !!latestStatus,
             });

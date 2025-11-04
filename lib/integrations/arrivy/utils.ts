@@ -48,14 +48,28 @@ export function extractTaskType(task: ArrivyTask): string {
   const formType = detectFromForms(task);
   if (formType) return formType;
 
-  // 4. Check group membership
+  // 4. Check details field for keywords (often contains task description)
+  const details = task.details?.toLowerCase() || '';
+  if (details.includes('site survey') || details.includes('property survey')) return 'Surveys - Site Survey';
+  if (details.includes('survey')) return 'Surveys - General';
+  if (details.includes('full install') || details.includes('complete install')) return 'Installations - Full Install';
+  if (details.includes('modules only') || details.includes('panels only')) return 'Installations - Modules Only';
+  if (details.includes('tie-in') || details.includes('tie in')) return 'Installations - Tie-In Only';
+  if (details.includes('mpu') || details.includes('electrical upgrade') || details.includes('main panel')) return 'Installations - Electrical Upgrade (MPU)';
+  if (details.includes('roof work') || details.includes('roofing')) return 'Installations - Roof Work';
+  if (details.includes('install') || details.includes('installation')) return 'Installations - General';
+  if (details.includes('electrical inspection')) return 'Inspections - Electrical';
+  if (details.includes('final inspection') || details.includes('building inspection')) return 'Inspections - Final';
+  if (details.includes('inspection')) return 'Inspections - General';
+
+  // 5. Check group membership
   const groupName = task.group?.name?.toLowerCase() || '';
   if (groupName.includes('site survey')) return 'Surveys - Site Survey';
   if (groupName.includes('survey')) return 'Surveys - General';
   if (groupName.includes('install')) return 'Installations - General';
   if (groupName.includes('inspection')) return 'Inspections - General';
 
-  // 5. Check title keywords (least reliable - often just customer names)
+  // 6. Check title keywords (often contains task type)
   const title = task.title?.toLowerCase() || '';
 
   if (title.includes('site survey')) return 'Surveys - Site Survey';
@@ -72,7 +86,26 @@ export function extractTaskType(task: ArrivyTask): string {
   if (title.includes('final inspection')) return 'Inspections - Final';
   if (title.includes('inspection')) return 'Inspections - General';
 
-  // 6. Default fallback
+  // 7. Check external_id pattern (QuickBase project IDs might contain type hints)
+  // Format: projectId_taskId (e.g., "725_bvbqgs5yc")
+  // This is less reliable but can help as last resort
+  const externalId = task.external_id?.toLowerCase() || '';
+  // Note: External IDs are usually opaque, but checking just in case
+
+  // 8. Default fallback - ONLY if absolutely no signals found
+  // Log a warning so we can debug why detection failed
+  if (process.env.NODE_ENV === 'development') {
+    console.warn('[extractTaskType] No type signals found, defaulting to Service - General', {
+      task_id: task.id,
+      template: task.template,
+      template_id: task.template_id,
+      title: task.title,
+      has_extra_fields: !!task.extra_fields,
+      extra_fields_keys: task.extra_fields ? Object.keys(task.extra_fields) : [],
+      group_name: task.group?.name,
+    });
+  }
+  
   return 'Service - General';
 }
 
@@ -118,31 +151,55 @@ function detectFromForms(task: ArrivyTask): string | null {
 
   // MOST RELIABLE: Check for "Notes for [Role]" fields (template-specific form fields)
   const fieldKeys = Object.keys(task.extra_fields).join('|').toLowerCase();
+  
+  // Also check field values (not just keys) for additional signals
+  const fieldValues = Object.values(task.extra_fields)
+    .map(v => typeof v === 'string' ? v : JSON.stringify(v))
+    .join('|')
+    .toLowerCase();
+  
+  const allFields = `${fieldKeys}|${fieldValues}`;
 
-  if (fieldKeys.includes('notes for surveyor')) return 'Surveys - Site Survey';
-  if (fieldKeys.includes('surveyor')) return 'Surveys - General';
+  // Survey detection
+  if (allFields.includes('notes for surveyor') || allFields.includes('surveyor notes')) return 'Surveys - Site Survey';
+  if (allFields.includes('surveyor') || allFields.includes('site survey')) return 'Surveys - Site Survey';
+  if (allFields.includes('survey')) return 'Surveys - General';
 
-  if (fieldKeys.includes('notes for installer')) return 'Installations - General';
-  if (fieldKeys.includes('installer')) return 'Installations - General';
+  // Installation detection
+  if (allFields.includes('notes for installer') || allFields.includes('installer notes')) return 'Installations - General';
+  if (allFields.includes('full install') || allFields.includes('complete install')) return 'Installations - Full Install';
+  if (allFields.includes('modules only') || allFields.includes('panels only')) return 'Installations - Modules Only';
+  if (allFields.includes('tie-in') || allFields.includes('tie in')) return 'Installations - Tie-In Only';
+  if (allFields.includes('mpu') || allFields.includes('main panel upgrade')) return 'Installations - Electrical Upgrade (MPU)';
+  if (allFields.includes('electrical upgrade')) return 'Installations - Electrical Upgrade (MPU)';
+  if (allFields.includes('roof work') || allFields.includes('roofing')) return 'Installations - Roof Work';
+  if (allFields.includes('installer') || allFields.includes('install') || allFields.includes('installation')) return 'Installations - General';
 
-  if (fieldKeys.includes('notes for inspector')) return 'Inspections - General';
-  if (fieldKeys.includes('inspector')) return 'Inspections - General';
+  // Inspection detection
+  if (allFields.includes('notes for inspector') || allFields.includes('inspector notes')) return 'Inspections - General';
+  if (allFields.includes('electrical inspection')) return 'Inspections - Electrical';
+  if (allFields.includes('final inspection') || allFields.includes('building inspection')) return 'Inspections - Final';
+  if (allFields.includes('inspector') || allFields.includes('inspection')) return 'Inspections - General';
 
-  if (fieldKeys.includes('notes for service tech')) return 'Service - General';
-  if (fieldKeys.includes('service tech')) return 'Service - General';
+  // Service detection (lower priority - only if explicitly service-related)
+  if (allFields.includes('notes for service tech') || allFields.includes('service tech notes')) return 'Service - General';
+  if (allFields.includes('service tech') && !allFields.includes('install') && !allFields.includes('survey')) return 'Service - General';
 
   // Check for Solar/PV specific indicators
-  if (fieldKeys.includes('solar') || fieldKeys.includes('pv system')) return 'Installations - Solar';
-  if (fieldKeys.includes('electrical') || fieldKeys.includes('mpu')) return 'Installations - Electrical Upgrade (MPU)';
+  if (allFields.includes('solar') || allFields.includes('pv system') || allFields.includes('photovoltaic')) {
+    if (allFields.includes('install')) return 'Installations - General';
+    return 'Installations - Solar';
+  }
 
-  // Check form field values
+  // Check form field values for form names
   const formFields = [
     'form_name',
     'form_type',
     'forms',
     'attached_forms',
     'document_name',
-    'template_form'
+    'template_form',
+    'form_title'
   ];
 
   for (const field of formFields) {
@@ -151,11 +208,12 @@ function detectFromForms(task: ArrivyTask): string | null {
 
     const formName = (typeof value === 'string' ? value : JSON.stringify(value)).toLowerCase();
 
-    if (formName.includes('site survey form')) return 'Surveys - Site Survey';
-    if (formName.includes('survey form')) return 'Surveys - General';
-    if (formName.includes('install verification form')) return 'Installations - General';
-    if (formName.includes('mpu verification form')) return 'Installations - Electrical Upgrade (MPU)';
-    if (formName.includes('field check-in')) return 'Service - Field Check-In';
+    if (formName.includes('site survey form') || formName.includes('site survey')) return 'Surveys - Site Survey';
+    if (formName.includes('survey form') || formName.includes('survey')) return 'Surveys - General';
+    if (formName.includes('install verification form') || formName.includes('install form')) return 'Installations - General';
+    if (formName.includes('mpu verification form') || formName.includes('mpu form')) return 'Installations - Electrical Upgrade (MPU)';
+    if (formName.includes('inspection form') || formName.includes('inspection')) return 'Inspections - General';
+    if (formName.includes('field check-in') || formName.includes('service form')) return 'Service - Field Check-In';
   }
 
   return null;

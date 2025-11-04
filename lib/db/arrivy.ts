@@ -933,9 +933,27 @@ export interface ArrivyTaskStatusRecord extends ArrivyTaskStatusData {
 
 /**
  * Insert a new task status update
+ * Uses composite key (arrivy_task_id + status_type + reported_at) to prevent duplicates
+ * Returns null if status already exists (idempotent)
  */
-export async function insertArrivyTaskStatus(statusData: ArrivyTaskStatusData): Promise<ArrivyTaskStatusRecord> {
+export async function insertArrivyTaskStatus(statusData: ArrivyTaskStatusData): Promise<ArrivyTaskStatusRecord | null> {
   try {
+    // Check if this status already exists to prevent duplicates
+    // Use composite check: same task + same status type + same timestamp (within 1 second tolerance)
+    const existing = await sql<ArrivyTaskStatusRecord>`
+      SELECT * FROM arrivy_task_status
+      WHERE arrivy_task_id = ${statusData.arrivy_task_id}
+        AND status_type = ${statusData.status_type}
+        AND ABS(EXTRACT(EPOCH FROM (reported_at - ${statusData.reported_at}))) < 1
+      LIMIT 1
+    `;
+
+    if (existing.rows.length > 0) {
+      // Status already exists - return existing record (idempotent)
+      return existing.rows[0];
+    }
+
+    // Insert new status
     const result = await sql<ArrivyTaskStatusRecord>`
       INSERT INTO arrivy_task_status (
         arrivy_task_id,
@@ -1212,7 +1230,30 @@ export async function getFieldTrackingTasks(filters: {
   try {
     let query = `
       SELECT 
-        t.*,
+        t.id,
+        t.arrivy_task_id,
+        t.url_safe_id,
+        t.quickbase_project_id,
+        t.quickbase_record_id,
+        t.customer_name,
+        t.customer_phone,
+        t.customer_email,
+        t.customer_address,
+        t.task_type,
+        t.scheduled_start,
+        t.scheduled_end,
+        t.start_datetime_window_start,
+        t.start_datetime_window_end,
+        t.assigned_entity_ids,
+        -- CRITICAL: Use latest status from history table, fall back to current_status column
+        COALESCE(s.status_type, t.current_status, 'NOT_STARTED') as current_status,
+        t.tracker_url,
+        t.business_tracker_url,
+        t.template_id,
+        t.extra_fields,
+        t.created_at,
+        t.updated_at,
+        t.synced_at,
         s.status_type as latest_status,
         s.reported_at as latest_status_time,
         ARRAY_AGG(e.name) FILTER (WHERE e.name IS NOT NULL) as entity_names
@@ -1259,7 +1300,8 @@ export async function getFieldTrackingTasks(filters: {
     }
 
     if (status) {
-      query += ` AND t.current_status = $${paramIndex}`;
+      // Filter using the computed status (from history) not the stale column
+      query += ` AND COALESCE(s.status_type, t.current_status, 'NOT_STARTED') = $${paramIndex}`;
       params.push(status);
       paramIndex++;
     }
