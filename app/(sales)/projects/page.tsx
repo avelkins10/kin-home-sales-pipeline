@@ -10,6 +10,7 @@ import { SortDropdown } from '@/components/projects/SortDropdown'
 import { OwnershipFilterToggle } from '@/components/projects/OwnershipFilterToggle'
 import { TaskFilterToggle } from '@/components/projects/TaskFilterToggle'
 import { OfficeFilterDropdown } from '@/components/projects/OfficeFilterDropdown'
+import { StateFilterDropdown } from '@/components/projects/StateFilterDropdown'
 import { SetterFilterDropdown } from '@/components/projects/SetterFilterDropdown'
 import { CloserFilterDropdown } from '@/components/projects/CloserFilterDropdown'
 import { DateFilterDropdown } from '@/components/projects/DateFilterDropdown'
@@ -22,7 +23,8 @@ interface ProjectsPageProps {
     sort?: string
     memberEmail?: string
     ownership?: string // NEW: Ownership filter (all | my-projects | team-projects)
-    office?: string // NEW: Office filter
+    office?: string // NEW: Office filter (can be comma-separated for multiple)
+    state?: string // NEW: State filter
     setter?: string // NEW: Setter filter
     closer?: string // NEW: Closer filter
     withTasks?: string // NEW: Task filter
@@ -69,6 +71,7 @@ export default function ProjectsPage({ searchParams }: ProjectsPageProps) {
             <SetterFilterDropdown isFetching={isFetching && fetchReason === 'manual'} />
             <CloserFilterDropdown isFetching={isFetching && fetchReason === 'manual'} />
             <OfficeFilterDropdown isFetching={isFetching && fetchReason === 'manual'} />
+            <StateFilterDropdown isFetching={isFetching && fetchReason === 'manual'} />
             <DateFilterDropdown isFetching={isFetching && fetchReason === 'manual'} />
           </div>
 
@@ -98,7 +101,8 @@ export default function ProjectsPage({ searchParams }: ProjectsPageProps) {
             sort={searchParams.sort || 'default'}
             memberEmail={searchParams.memberEmail}
             ownership={searchParams.ownership || 'all'} // NEW: Pass ownership filter
-            office={searchParams.office} // NEW: Pass office filter
+            office={searchParams.office} // NEW: Pass office filter (can be comma-separated)
+            state={searchParams.state} // NEW: Pass state filter
             setter={searchParams.setter} // NEW: Pass setter filter
             closer={searchParams.closer} // NEW: Pass closer filter
             withTasks={searchParams.withTasks} // NEW: Pass task filter

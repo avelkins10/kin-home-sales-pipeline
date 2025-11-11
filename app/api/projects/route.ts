@@ -52,7 +52,8 @@ export async function GET(req: Request) {
     const sort = searchParams.get('sort') || undefined;
     const memberEmail = searchParams.get('memberEmail') || undefined;
     const ownership = searchParams.get('ownership') || 'all';
-    const office = searchParams.get('office') || undefined;
+    const office = searchParams.get('office') || undefined; // Can be comma-separated for multiple offices
+    const state = searchParams.get('state') || undefined;
     const setter = searchParams.get('setter') || undefined;
     const closer = searchParams.get('closer') || undefined;
     const withTasks = searchParams.get('withTasks') === 'true';
@@ -113,7 +114,7 @@ export async function GET(req: Request) {
     }
 
     // Check cache first
-    const cacheKey = `${userId}:${role}:${view || 'all'}:${search || ''}:${sort || 'default'}:${memberEmail || ''}:${ownership}:${office || ''}:${setter || ''}:${closer || ''}:${withTasks}:${dateFilter || ''}:${startDate || ''}:${endDate || ''}`;
+    const cacheKey = `${userId}:${role}:${view || 'all'}:${search || ''}:${sort || 'default'}:${memberEmail || ''}:${ownership}:${office || ''}:${state || ''}:${setter || ''}:${closer || ''}:${withTasks}:${dateFilter || ''}:${startDate || ''}:${endDate || ''}`;
     const cached = getCachedProjects(cacheKey);
     if (cached) {
       const duration = Date.now() - startedAt;
@@ -138,7 +139,7 @@ export async function GET(req: Request) {
     // from the office_assignments table, ensuring immediate visibility
     // of newly assigned offices without requiring logout/login.
     logInfo('[OFFICE_RESOLUTION] Fetching offices from database for user', { userId, role, reqId });
-    const projects = await getProjectsForUserList(userId, role, view, search, sort, undefined, memberEmail, effectiveOwnership, office, setter, closer, reqId, withTasks, dateFilter, startDate, endDate);
+    const projects = await getProjectsForUserList(userId, role, view, search, sort, undefined, memberEmail, effectiveOwnership, office, state, setter, closer, reqId, withTasks, dateFilter, startDate, endDate);
     checkTimeout(); // Check after query completes
 
     // Cache the result

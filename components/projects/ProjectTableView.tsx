@@ -18,7 +18,8 @@ interface ProjectTableViewProps {
   sort: string;
   memberEmail?: string;
   ownership?: string; // NEW: Ownership filter (all | my-projects | team-projects)
-  office?: string; // NEW: Office filter
+  office?: string; // NEW: Office filter (can be comma-separated for multiple)
+  state?: string; // NEW: State filter
   setter?: string; // NEW: Setter filter
   closer?: string; // NEW: Closer filter
   withTasks?: string; // NEW: Task filter
@@ -28,11 +29,11 @@ interface ProjectTableViewProps {
   onFetchingChange?: (isFetching: boolean, reason?: 'manual' | 'background') => void;
 }
 
-export function ProjectTableView({ userId, role, userEmail, view, search, sort, memberEmail, ownership = 'all', office, setter, closer, withTasks, dateFilter, startDate, endDate, onFetchingChange }: ProjectTableViewProps) {
+export function ProjectTableView({ userId, role, userEmail, view, search, sort, memberEmail, ownership = 'all', office, state, setter, closer, withTasks, dateFilter, startDate, endDate, onFetchingChange }: ProjectTableViewProps) {
   const [isManualRefetch, setIsManualRefetch] = React.useState(false);
 
   const { data: projects, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: projectsListKey(userId, role, view, search, sort, memberEmail, ownership, office, setter, closer, withTasks, dateFilter, startDate, endDate),
+    queryKey: projectsListKey(userId, role, view, search, sort, memberEmail, ownership, office, state, setter, closer, withTasks, dateFilter, startDate, endDate),
     queryFn: async () => {
       const params = new URLSearchParams();
       if (view && view !== 'all') params.set('view', view);
@@ -41,6 +42,7 @@ export function ProjectTableView({ userId, role, userEmail, view, search, sort, 
       if (memberEmail) params.set('memberEmail', memberEmail);
       if (ownership && ownership !== 'all') params.set('ownership', ownership);
       if (office) params.set('office', office);
+      if (state) params.set('state', state);
       if (setter) params.set('setter', setter);
       if (closer) params.set('closer', closer);
       if (withTasks === 'true') params.set('withTasks', 'true');

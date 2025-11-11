@@ -314,8 +314,8 @@ export function buildRoleClause(
  * Lean selector for list view - only essential fields for performance
  * @param officeIds - Office IDs to filter by (QuickBase Record IDs from Field 810). If not provided, will be fetched from office_assignments table for office-based roles.
  */
-export async function getProjectsForUserList(userId: string, role: string, view?: string, search?: string, sort?: string, officeIds?: number[], memberEmail?: string, ownership?: string, officeFilter?: string, setterFilter?: string, closerFilter?: string, reqId?: string, withTasks?: boolean, dateFilter?: string, startDate?: string, endDate?: string) {
-  console.log('[getProjectsForUserList] START - userId:', userId, 'role:', role, 'view:', view, 'search:', search, 'sort:', sort, 'ownership:', ownership, 'officeFilter:', officeFilter, 'setterFilter:', setterFilter, 'closerFilter:', closerFilter, 'officeIds:', officeIds, 'withTasks:', withTasks, 'dateFilter:', dateFilter, 'startDate:', startDate, 'endDate:', endDate, 'reqId:', reqId);
+export async function getProjectsForUserList(userId: string, role: string, view?: string, search?: string, sort?: string, officeIds?: number[], memberEmail?: string, ownership?: string, officeFilter?: string, stateFilter?: string, setterFilter?: string, closerFilter?: string, reqId?: string, withTasks?: boolean, dateFilter?: string, startDate?: string, endDate?: string) {
+  console.log('[getProjectsForUserList] START - userId:', userId, 'role:', role, 'view:', view, 'search:', search, 'sort:', sort, 'ownership:', ownership, 'officeFilter:', officeFilter, 'stateFilter:', stateFilter, 'setterFilter:', setterFilter, 'closerFilter:', closerFilter, 'officeIds:', officeIds, 'withTasks:', withTasks, 'dateFilter:', dateFilter, 'startDate:', startDate, 'endDate:', endDate, 'reqId:', reqId);
 
   // Get user email for email-based filtering (needed for ownership filter)
   let userEmail: string | null = null;
@@ -359,14 +359,37 @@ export async function getProjectsForUserList(userId: string, role: string, view?
   }
 
   // Add office filter if provided (for office-based filtering)
+  // Supports multiple offices as comma-separated string
   let officeFilterClause: string | undefined;
   if (officeFilter) {
-    const sanitizedOffice = sanitizeQbLiteral(officeFilter);
-    officeFilterClause = `{${PROJECT_FIELDS.SALES_OFFICE}.EX.'${sanitizedOffice}'}`;
+    const offices = officeFilter.split(',').map(o => o.trim()).filter(Boolean);
+    if (offices.length === 1) {
+      const sanitizedOffice = sanitizeQbLiteral(offices[0]);
+      officeFilterClause = `{${PROJECT_FIELDS.SALES_OFFICE}.EX.'${sanitizedOffice}'}`;
+    } else if (offices.length > 1) {
+      // Multiple offices: use OR clause
+      const officeConditions = offices.map(office => {
+        const sanitized = sanitizeQbLiteral(office);
+        return `{${PROJECT_FIELDS.SALES_OFFICE}.EX.'${sanitized}'}`;
+      });
+      officeFilterClause = `(${officeConditions.join(' OR ')})`;
+    }
     if (process.env.NODE_ENV !== 'production') {
-      console.log('[getProjectsForUserList] Filtering by office:', officeFilter);
+      console.log('[getProjectsForUserList] Filtering by office(s):', offices);
     } else {
-      console.log('[getProjectsForUserList] Filtering by office');
+      console.log('[getProjectsForUserList] Filtering by office(s)');
+    }
+  }
+
+  // Add state filter if provided
+  let stateFilterClause: string | undefined;
+  if (stateFilter) {
+    const sanitizedState = sanitizeQbLiteral(stateFilter);
+    stateFilterClause = `{${PROJECT_FIELDS.CUSTOMER_STATE}.EX.'${sanitizedState}'}`;
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[getProjectsForUserList] Filtering by state:', stateFilter);
+    } else {
+      console.log('[getProjectsForUserList] Filtering by state');
     }
   }
 
@@ -513,6 +536,9 @@ export async function getProjectsForUserList(userId: string, role: string, view?
   }
   if (officeFilterClause) {
     whereClause = `(${whereClause}) AND (${officeFilterClause})`;
+  }
+  if (stateFilterClause) {
+    whereClause = `(${whereClause}) AND (${stateFilterClause})`;
   }
   if (setterFilterClause) {
     whereClause = `(${whereClause}) AND (${setterFilterClause})`;

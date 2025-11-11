@@ -11,6 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuCheckboxItem,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { PROJECT_FIELDS } from '@/lib/constants/fieldIds';
@@ -25,7 +26,9 @@ export function OfficeFilterDropdown({ isFetching = false }: OfficeFilterDropdow
   const searchParams = useSearchParams();
   const { data: session } = useSession();
 
-  const currentOffice = searchParams.get('office') || 'all';
+  // Parse multiple offices from query params (comma-separated)
+  const officeParam = searchParams.get('office') || '';
+  const selectedOffices = officeParam ? officeParam.split(',').filter(Boolean) : [];
 
   // Fetch projects to get unique offices
   const { data: projects = [] } = useQuery({
@@ -49,13 +52,28 @@ export function OfficeFilterDropdown({ isFetching = false }: OfficeFilterDropdow
     )
   ).sort();
 
-  const handleOfficeChange = (office: string) => {
+  const handleOfficeToggle = (office: string) => {
     const params = new URLSearchParams(searchParams.toString());
+    let newSelectedOffices: string[];
 
     if (office === 'all') {
+      // Clear all offices
       params.delete('office');
     } else {
-      params.set('office', office);
+      // Toggle this office
+      if (selectedOffices.includes(office)) {
+        // Remove office
+        newSelectedOffices = selectedOffices.filter(o => o !== office);
+      } else {
+        // Add office
+        newSelectedOffices = [...selectedOffices, office];
+      }
+
+      if (newSelectedOffices.length === 0) {
+        params.delete('office');
+      } else {
+        params.set('office', newSelectedOffices.join(','));
+      }
     }
 
     router.push(`/projects?${params.toString()}`);
@@ -68,8 +86,19 @@ export function OfficeFilterDropdown({ isFetching = false }: OfficeFilterDropdow
     ).length;
   };
 
-  const selectedOfficeLabel = currentOffice === 'all' ? 'All Offices' : currentOffice;
-  const selectedCount = getOfficeCount(currentOffice);
+  const getTotalSelectedCount = () => {
+    if (selectedOffices.length === 0) return projects.length;
+    return projects.filter((p: QuickbaseProject) =>
+      selectedOffices.includes(p[PROJECT_FIELDS.SALES_OFFICE]?.value)
+    ).length;
+  };
+
+  const selectedOfficeLabel = 
+    selectedOffices.length === 0 
+      ? 'All Offices' 
+      : selectedOffices.length === 1 
+        ? selectedOffices[0]
+        : `${selectedOffices.length} Offices`;
 
   return (
     <DropdownMenu>
@@ -92,49 +121,43 @@ export function OfficeFilterDropdown({ isFetching = false }: OfficeFilterDropdow
           <div className="flex items-center gap-2">
             {projects.length > 0 && (
               <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-slate-100 text-slate-600">
-                {selectedCount}
+                {getTotalSelectedCount()}
               </span>
             )}
             <ChevronDown className="h-4 w-4 text-slate-400" />
           </div>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-56">
-        <DropdownMenuItem
-          onClick={() => handleOfficeChange('all')}
-          className={cn(
-            'cursor-pointer',
-            currentOffice === 'all' && 'bg-slate-100'
-          )}
+      <DropdownMenuContent align="start" className="w-56 max-h-[300px] overflow-y-auto">
+        <DropdownMenuCheckboxItem
+          checked={selectedOffices.length === 0}
+          onCheckedChange={() => handleOfficeToggle('all')}
+          className="cursor-pointer"
         >
           <div className="flex items-center justify-between w-full">
             <span>All Offices</span>
             <div className="flex items-center gap-2">
               <span className="text-xs text-slate-500">{projects.length}</span>
-              {currentOffice === 'all' && <Check className="h-4 w-4 text-indigo-600" />}
             </div>
           </div>
-        </DropdownMenuItem>
+        </DropdownMenuCheckboxItem>
 
         {offices.length > 0 && <DropdownMenuSeparator />}
 
         {offices.map((office: string) => (
-          <DropdownMenuItem
+          <DropdownMenuCheckboxItem
             key={office}
-            onClick={() => handleOfficeChange(office)}
-            className={cn(
-              'cursor-pointer',
-              currentOffice === office && 'bg-slate-100'
-            )}
+            checked={selectedOffices.includes(office)}
+            onCheckedChange={() => handleOfficeToggle(office)}
+            className="cursor-pointer"
           >
             <div className="flex items-center justify-between w-full">
               <span>{office}</span>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-slate-500">{getOfficeCount(office)}</span>
-                {currentOffice === office && <Check className="h-4 w-4 text-indigo-600" />}
               </div>
             </div>
-          </DropdownMenuItem>
+          </DropdownMenuCheckboxItem>
         ))}
       </DropdownMenuContent>
     </DropdownMenu>

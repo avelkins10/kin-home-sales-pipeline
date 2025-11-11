@@ -170,7 +170,7 @@ export function ProjectFilterChips({ isFetching = false }: ProjectFilterChipsPro
       )}
 
       {/* Active Filters Display */}
-      {(currentOwnership !== 'all' || searchParams.get('memberEmail') || searchParams.get('office') || searchParams.get('setter') || searchParams.get('closer') || withTasks || searchParams.get('dateFilter')) && (
+      {(currentOwnership !== 'all' || searchParams.get('memberEmail') || searchParams.get('office') || searchParams.get('state') || searchParams.get('setter') || searchParams.get('closer') || withTasks || searchParams.get('dateFilter')) && (
         <div className="flex items-center gap-2 mb-3">
           <span className="text-sm text-gray-600 font-medium">Active Filters:</span>
           <div className="flex gap-2 flex-wrap">
@@ -188,16 +188,43 @@ export function ProjectFilterChips({ isFetching = false }: ProjectFilterChipsPro
               </Badge>
             )}
             {searchParams.get('office') && (
+              (() => {
+                const officeParam = searchParams.get('office') || '';
+                const offices = officeParam.split(',').filter(Boolean);
+                return offices.map((office) => (
+                  <Badge
+                    key={office}
+                    variant="secondary"
+                    className="px-3 py-1.5 cursor-pointer hover:bg-gray-200 transition-colors flex items-center gap-2"
+                    onClick={() => {
+                      const params = new URLSearchParams(searchParams.toString());
+                      const currentOffices = (params.get('office') || '').split(',').filter(Boolean);
+                      const newOffices = currentOffices.filter(o => o !== office);
+                      if (newOffices.length === 0) {
+                        params.delete('office');
+                      } else {
+                        params.set('office', newOffices.join(','));
+                      }
+                      router.push(`/projects?${params.toString()}`);
+                    }}
+                  >
+                    <span className="text-sm">Office: {office}</span>
+                    <X className="h-3 w-3" />
+                  </Badge>
+                ));
+              })()
+            )}
+            {searchParams.get('state') && (
               <Badge
                 variant="secondary"
                 className="px-3 py-1.5 cursor-pointer hover:bg-gray-200 transition-colors flex items-center gap-2"
                 onClick={() => {
                   const params = new URLSearchParams(searchParams.toString());
-                  params.delete('office');
+                  params.delete('state');
                   router.push(`/projects?${params.toString()}`);
                 }}
               >
-                <span className="text-sm">Office: {searchParams.get('office')}</span>
+                <span className="text-sm">State: {searchParams.get('state')}</span>
                 <X className="h-3 w-3" />
               </Badge>
             )}
