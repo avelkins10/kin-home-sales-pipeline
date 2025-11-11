@@ -146,6 +146,30 @@ export default function RepCardSyncPage() {
     },
   });
 
+  // Link users mutation
+  const linkUsersMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/admin/link-repcard-users', { method: 'POST' });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ message: 'Unknown error' }));
+        throw new Error(error.message || error.error || 'Failed to link users');
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast.success('Users linked successfully', {
+        description: 'Users have been linked to RepCard by email'
+      });
+      queryClient.invalidateQueries({ queryKey: ['repcard-sync-status'] });
+      queryClient.invalidateQueries({ queryKey: ['repcard-diagnostic'] });
+    },
+    onError: (error) => {
+      toast.error('Failed to link users', {
+        description: error.message
+      });
+    },
+  });
+
   const toggleRowExpansion = (runId: string) => {
     setExpandedRows(prev => {
       const newSet = new Set(prev);
@@ -390,7 +414,7 @@ export default function RepCardSyncPage() {
             <Button
               variant="outline"
               onClick={() => incrementalSyncMutation.mutate()}
-              disabled={fullSyncMutation.isPending || incrementalSyncMutation.isPending}
+              disabled={fullSyncMutation.isPending || incrementalSyncMutation.isPending || linkUsersMutation.isPending}
             >
               {incrementalSyncMutation.isPending ? (
                 <>
@@ -401,6 +425,35 @@ export default function RepCardSyncPage() {
                 <>
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Run Incremental Sync
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* Link Users */}
+          <div className="space-y-3 pt-4 border-t">
+            <h3 className="text-sm font-medium flex items-center gap-2">
+              <Users className="h-4 w-4 text-green-600" />
+              Link Users to RepCard
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Link users in your app to RepCard users by matching email addresses. Required for analytics to work.
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => linkUsersMutation.mutate()}
+              disabled={fullSyncMutation.isPending || incrementalSyncMutation.isPending || linkUsersMutation.isPending}
+              className="border-green-300 text-green-700 hover:bg-green-50"
+            >
+              {linkUsersMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Linking...
+                </>
+              ) : (
+                <>
+                  <Users className="mr-2 h-4 w-4" />
+                  Link Users to RepCard
                 </>
               )}
             </Button>
