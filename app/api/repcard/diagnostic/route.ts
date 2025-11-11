@@ -206,11 +206,16 @@ export async function GET(request: NextRequest) {
     
     // Only mark as healthy if API works AND data exists AND users are linked
     const hasData = diagnostics.database.dataCounts?.totalRecords > 0;
+    const hasCustomers = (diagnostics.database.dataCounts?.customers || 0) > 0;
+    const hasAppointments = (diagnostics.database.dataCounts?.appointments || 0) > 0;
     const hasLinkedUsers = diagnostics.database.userLinking?.linked > 0;
     const apiHealthy = diagnostics.apiConnection?.status === 'success';
     
-    // If API is healthy but no data, still show as needing attention
-    if (apiHealthy && (!hasData || !hasLinkedUsers)) {
+    // For analytics to work, we need customers/appointments AND linked users
+    const hasAnalyticsData = (hasCustomers || hasAppointments) && hasLinkedUsers;
+    
+    // If API is healthy but no analytics data, show as needing setup
+    if (apiHealthy && !hasAnalyticsData) {
       diagnostics.status = 'needs_setup';
     } else {
       diagnostics.status = issues.length === 0 ? 'healthy' : 'issues_found';
