@@ -76,6 +76,7 @@ export function RepCardDiagnosticBanner() {
 
   const { status, issues, recommendations } = diagnostic;
 
+  // Show healthy only if truly healthy (API works AND data exists)
   if (status === 'healthy') {
     return (
       <Card className="mb-6 border-green-200 bg-green-50">
@@ -97,6 +98,73 @@ export function RepCardDiagnosticBanner() {
           </div>
         </CardContent>
       </Card>
+    );
+  }
+
+  // Show setup needed (API works but no data)
+  if (status === 'needs_setup') {
+    return (
+      <Alert className="mb-6 border-blue-200 bg-blue-50">
+        <AlertCircle className="h-5 w-5 text-blue-600" />
+        <AlertTitle className="text-blue-800">RepCard API Connected - Setup Required</AlertTitle>
+        <AlertDescription className="mt-2 space-y-3">
+          <p className="text-sm text-blue-700">
+            The RepCard API connection is working, but no data has been synced yet. Follow the steps below to get started.
+          </p>
+          
+          {recommendations && recommendations.length > 0 && (
+            <div className="mt-4">
+              <p className="text-sm font-medium text-blue-800 mb-2">Next Steps:</p>
+              <div className="space-y-3">
+                {recommendations.map((rec: any, index: number) => (
+                  <div key={index} className="bg-white/50 rounded p-3 border border-blue-200">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-blue-900">
+                          {rec.priority === 'critical' && '🔴 '}
+                          {rec.priority === 'high' && '🟡 '}
+                          {rec.action}
+                        </p>
+                        {rec.steps && (
+                          <ol className="mt-2 space-y-1 text-xs text-blue-800">
+                            {rec.steps.map((step: string, stepIndex: number) => (
+                              <li key={stepIndex} className="flex items-start gap-2">
+                                <span className="text-blue-600 mt-0.5">{stepIndex + 1}.</span>
+                                <span>{step}</span>
+                              </li>
+                            ))}
+                          </ol>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 mt-4 pt-3 border-t border-blue-200">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              className="text-blue-700 border-blue-300 hover:bg-blue-100"
+            >
+              <RefreshCw className="h-4 w-4 mr-1" />
+              Refresh Status
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.open('/admin/repcard-sync', '_blank')}
+              className="text-blue-700 border-blue-300 hover:bg-blue-100"
+            >
+              <ExternalLink className="h-4 w-4 mr-1" />
+              Open Sync Dashboard
+            </Button>
+          </div>
+        </AlertDescription>
+      </Alert>
     );
   }
 

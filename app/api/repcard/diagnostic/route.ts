@@ -201,9 +201,20 @@ export async function GET(request: NextRequest) {
       issues.push('Data exists but outside current date range');
     }
 
-    diagnostics.status = issues.length === 0 ? 'healthy' : 'issues_found';
     diagnostics.issues = issues;
     diagnostics.recommendations = [];
+    
+    // Only mark as healthy if API works AND data exists AND users are linked
+    const hasData = diagnostics.database.dataCounts?.totalRecords > 0;
+    const hasLinkedUsers = diagnostics.database.userLinking?.linked > 0;
+    const apiHealthy = diagnostics.apiConnection?.status === 'success';
+    
+    // If API is healthy but no data, still show as needing attention
+    if (apiHealthy && (!hasData || !hasLinkedUsers)) {
+      diagnostics.status = 'needs_setup';
+    } else {
+      diagnostics.status = issues.length === 0 ? 'healthy' : 'issues_found';
+    }
 
     if (!diagnostics.environment.hasApiKey) {
       diagnostics.recommendations.push({
