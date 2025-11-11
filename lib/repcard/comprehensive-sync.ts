@@ -138,6 +138,7 @@ export async function syncUsers(options: {
     let page = 1;
     let hasMore = true;
     const MAX_PAGES = 200;
+    const MAX_DURATION_MS = 240000; // 4 minutes (leave 1 min buffer before 5 min timeout)
 
     while (hasMore && page <= MAX_PAGES) {
       // Check timeout - exit gracefully before hitting 5 min limit
