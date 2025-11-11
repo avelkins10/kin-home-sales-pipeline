@@ -840,8 +840,10 @@ export async function GET(request: NextRequest) {
           }));
         }
       } else if (metric === 'appointments_set') {
-        // Query database for appointments (much faster than API, no rate limits)
-        // Fix: Query appointments first, then join to users to filter by role
+        // Query ALL RepCard users (setters/closers) from repcard_users table
+        // LEFT JOIN to users table to get app user info if linked
+        // LEFT JOIN to repcard_appointments to get appointment counts
+        // This shows ALL RepCard users regardless of linking status
         let appointmentCountsRaw;
         
         if (officeIds && officeIds.length > 0 && !shouldSkipOfficeFilter) {
@@ -849,47 +851,49 @@ export async function GET(request: NextRequest) {
           if (role !== 'all') {
             appointmentCountsRaw = await sql`
               SELECT
-                u.id as user_id,
-                u.name as user_name,
-                u.email as user_email,
-                u.repcard_user_id::text as repcard_user_id,
-                u.sales_office[1] as office,
-                u.role,
+                COALESCE(u.id, ru.repcard_user_id::text) as user_id,
+                COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as user_name,
+                COALESCE(u.email, ru.email) as user_email,
+                ru.repcard_user_id::text as repcard_user_id,
+                COALESCE(u.sales_office[1], ru.office_name) as office,
+                COALESCE(u.role, ru.role) as role,
                 COUNT(a.repcard_appointment_id) as count
-              FROM repcard_appointments a
-              INNER JOIN users u ON u.repcard_user_id::text = a.setter_user_id::text
-              LEFT JOIN offices o ON o.name = ANY(u.sales_office)
-              WHERE u.repcard_user_id IS NOT NULL
+              FROM repcard_users ru
+              LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
+              LEFT JOIN repcard_appointments a ON ru.repcard_user_id::text = a.setter_user_id::text
                 AND (
                   (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                   OR
                   (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
                 )
-                AND u.role = ${role}
-                AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR u.sales_office IS NULL)
-              GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+              LEFT JOIN offices o ON o.name = COALESCE(u.sales_office[1], ru.office_name)
+              WHERE ru.status = 1
+                AND (COALESCE(u.role, ru.role) = ${role} OR (u.role IS NULL AND ru.role = ${role}))
+                AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR (u.sales_office IS NULL AND ru.office_name IS NULL))
+              GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role
             `;
           } else {
             appointmentCountsRaw = await sql`
               SELECT
-                u.id as user_id,
-                u.name as user_name,
-                u.email as user_email,
-                u.repcard_user_id::text as repcard_user_id,
-                u.sales_office[1] as office,
-                u.role,
+                COALESCE(u.id, ru.repcard_user_id::text) as user_id,
+                COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as user_name,
+                COALESCE(u.email, ru.email) as user_email,
+                ru.repcard_user_id::text as repcard_user_id,
+                COALESCE(u.sales_office[1], ru.office_name) as office,
+                COALESCE(u.role, ru.role) as role,
                 COUNT(a.repcard_appointment_id) as count
-              FROM repcard_appointments a
-              INNER JOIN users u ON u.repcard_user_id::text = a.setter_user_id::text
-              LEFT JOIN offices o ON o.name = ANY(u.sales_office)
-              WHERE u.repcard_user_id IS NOT NULL
+              FROM repcard_users ru
+              LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
+              LEFT JOIN repcard_appointments a ON ru.repcard_user_id::text = a.setter_user_id::text
                 AND (
                   (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                   OR
                   (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
                 )
-                AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR u.sales_office IS NULL)
-              GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+              LEFT JOIN offices o ON o.name = COALESCE(u.sales_office[1], ru.office_name)
+              WHERE ru.status = 1
+                AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR (u.sales_office IS NULL AND ru.office_name IS NULL))
+              GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role
             `;
           }
         } else {
@@ -897,50 +901,52 @@ export async function GET(request: NextRequest) {
           if (role !== 'all') {
             appointmentCountsRaw = await sql`
               SELECT
-                u.id as user_id,
-                u.name as user_name,
-                u.email as user_email,
-                u.repcard_user_id::text as repcard_user_id,
-                u.sales_office[1] as office,
-                u.role,
+                COALESCE(u.id, ru.repcard_user_id::text) as user_id,
+                COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as user_name,
+                COALESCE(u.email, ru.email) as user_email,
+                ru.repcard_user_id::text as repcard_user_id,
+                COALESCE(u.sales_office[1], ru.office_name) as office,
+                COALESCE(u.role, ru.role) as role,
                 COUNT(a.repcard_appointment_id) as count
-              FROM repcard_appointments a
-              INNER JOIN users u ON u.repcard_user_id::text = a.setter_user_id::text
-              WHERE u.repcard_user_id IS NOT NULL
+              FROM repcard_users ru
+              LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
+              LEFT JOIN repcard_appointments a ON ru.repcard_user_id::text = a.setter_user_id::text
                 AND (
                   (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                   OR
                   (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
                 )
-                AND u.role = ${role}
-              GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+              WHERE ru.status = 1
+                AND (COALESCE(u.role, ru.role) = ${role} OR (u.role IS NULL AND ru.role = ${role}))
+              GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role
             `;
           } else {
             appointmentCountsRaw = await sql`
               SELECT
-                u.id as user_id,
-                u.name as user_name,
-                u.email as user_email,
-                u.repcard_user_id::text as repcard_user_id,
-                u.sales_office[1] as office,
-                u.role,
+                COALESCE(u.id, ru.repcard_user_id::text) as user_id,
+                COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as user_name,
+                COALESCE(u.email, ru.email) as user_email,
+                ru.repcard_user_id::text as repcard_user_id,
+                COALESCE(u.sales_office[1], ru.office_name) as office,
+                COALESCE(u.role, ru.role) as role,
                 COUNT(a.repcard_appointment_id) as count
-              FROM repcard_appointments a
-              INNER JOIN users u ON u.repcard_user_id::text = a.setter_user_id::text
-              WHERE u.repcard_user_id IS NOT NULL
+              FROM repcard_users ru
+              LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
+              LEFT JOIN repcard_appointments a ON ru.repcard_user_id::text = a.setter_user_id::text
                 AND (
                   (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                   OR
                   (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
                 )
-              GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+              WHERE ru.status = 1
+              GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role
             `;
           }
         }
         
         const appointmentCounts = Array.from(appointmentCountsRaw);
         
-        console.log(`[RepCard Leaderboard] appointments_set query returned ${appointmentCounts.length} users with data`);
+        console.log(`[RepCard Leaderboard] appointments_set query returned ${appointmentCounts.length} RepCard users with data`);
         if (appointmentCounts.length > 0) {
           console.log(`[RepCard Leaderboard] Sample appointment data:`, appointmentCounts.slice(0, 3).map((r: any) => ({
             user: r.user_name,
@@ -953,7 +959,7 @@ export async function GET(request: NextRequest) {
         leaderboardEntries = appointmentCounts.map((row: any) => ({
           rank: 0,
           userId: row.user_id,
-          userName: row.user_name,
+          userName: row.user_name || 'Unknown',
           userEmail: row.user_email,
           office: row.office,
           role: row.role,
