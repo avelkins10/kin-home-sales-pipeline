@@ -392,6 +392,10 @@ export async function GET(request: NextRequest) {
     }
     
     if (users.length === 0) {
+      console.log(`[RepCard Leaderboard] ⚠️ No users found with repcard_user_id`);
+      console.log(`[RepCard Leaderboard] Role filter: ${role}, Office IDs: ${officeIds?.join(',') || 'none'}`);
+      
+      // Return empty response with helpful metadata
       const response: LeaderboardResponse = {
         leaderboard: [],
         metadata: {
@@ -406,7 +410,8 @@ export async function GET(request: NextRequest) {
           limit,
           totalPages: 0,
           cached: false,
-          calculatedAt: new Date().toISOString()
+          calculatedAt: new Date().toISOString(),
+          warning: 'No users found with RepCard IDs. Users need to be linked to RepCard to appear in leaderboards.'
         }
       };
       
@@ -1193,6 +1198,22 @@ export async function GET(request: NextRequest) {
       }
     } // End of else block for RepCard/QuickBase data fetching (closes else from line 594)
     } // Close the if-else chain starting at line 424
+    
+    // CRITICAL FIX: If we have users but no leaderboard entries, create entries with 0 counts
+    // This ensures the frontend shows users even when they have no data
+    if (leaderboardEntries.length === 0 && users.length > 0) {
+      console.log(`[RepCard Leaderboard] ⚠️ No data found for ${users.length} users, creating entries with 0 counts`);
+      leaderboardEntries = users.map((user: any) => ({
+        rank: 0,
+        userId: user.id,
+        userName: user.name,
+        userEmail: user.email,
+        office: user.office,
+        role: user.role,
+        metricValue: 0,
+        metricType: metric
+      }));
+    }
     
     // Sort by metric value (descending) and assign ranks
     leaderboardEntries.sort((a, b) => b.metricValue - a.metricValue);

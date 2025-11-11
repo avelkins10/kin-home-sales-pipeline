@@ -572,6 +572,7 @@ export interface LeaderboardResponse {
     calculatedAt: string;
     configId?: string;
     configName?: string;
+    warning?: string; // Optional warning message for diagnostic purposes
   };
 }
 

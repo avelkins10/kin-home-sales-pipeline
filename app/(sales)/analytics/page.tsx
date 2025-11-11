@@ -24,6 +24,7 @@ import { AppointmentRatesCard } from '@/components/analytics/AppointmentRatesCar
 import { LeadQualityAnalysisCard } from '@/components/analytics/LeadQualityAnalysisCard';
 import { RepCardOverviewCard } from '@/components/analytics/RepCardOverviewCard';
 import { RepCardQualityMetricsCard } from '@/components/analytics/RepCardQualityMetricsCard';
+import { RepCardDiagnosticBanner } from '@/components/analytics/RepCardDiagnosticBanner';
 // import { CancellationAnalysisCard } from '@/components/analytics/CancellationAnalysisCard';
 // import { HoldAnalysisCard } from '@/components/analytics/HoldAnalysisCard';
 import { PeriodComparisonCard } from '@/components/analytics/PeriodComparisonCard';
@@ -572,6 +573,9 @@ export default function AnalyticsPage() {
           }
           repcardContent={
             <>
+              {/* RepCard Diagnostic Banner - Shows issues and fixes */}
+              <RepCardDiagnosticBanner />
+
               {/* RepCard Overview - Full Width */}
               <RepCardOverviewCard
                 userId={session.user.id}
