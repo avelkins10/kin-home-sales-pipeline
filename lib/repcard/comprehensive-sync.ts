@@ -162,10 +162,33 @@ export async function syncUsers(options: {
               lastRecordDate = updatedAt;
             }
 
-            // Extract company_id - required field, use fallback if missing
+            // Extract company_id - required field
+            // Try multiple field names since API might use different casing
             const companyId = user.companyId || (user as any).company_id || (user as any).companyId || null;
-            if (!companyId) {
-              console.warn(`[RepCard Sync] User ${user.id} missing companyId, skipping`);
+            
+            // If companyId is missing, try to get it from offices table (if user has officeId)
+            let finalCompanyId = companyId;
+            if (!finalCompanyId && user.officeId) {
+              try {
+                const officeResult = await sql`
+                  SELECT company_id FROM repcard_offices WHERE repcard_office_id = ${user.officeId} LIMIT 1
+                `;
+                const office = Array.from(officeResult)[0] as any;
+                if (office?.company_id) {
+                  finalCompanyId = office.company_id;
+                  console.log(`[RepCard Sync] Got company_id ${finalCompanyId} from office ${user.officeId} for user ${user.id}`);
+                }
+              } catch (officeError) {
+                // Office lookup failed, continue without it
+              }
+            }
+            
+            if (!finalCompanyId) {
+              const errorMsg = `User ${user.id} missing companyId. User data: ${JSON.stringify({ id: user.id, email: user.email, officeId: user.officeId })}`;
+              console.error(`[RepCard Sync] ${errorMsg}`);
+              if (recordsFailed < 3) {
+                console.error(`[RepCard Sync] Full user object:`, JSON.stringify(user, null, 2));
+              }
               recordsFailed++;
               continue;
             }
@@ -197,7 +220,7 @@ export async function syncUsers(options: {
               )
               VALUES (
                 ${user.id},
-                ${companyId},
+                ${finalCompanyId},
                 ${user.officeId || null},
                 ${(user as any).firstName || (user as any).first_name || null},
                 ${(user as any).lastName || (user as any).last_name || null},
