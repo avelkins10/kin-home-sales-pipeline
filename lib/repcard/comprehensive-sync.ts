@@ -162,6 +162,14 @@ export async function syncUsers(options: {
               lastRecordDate = updatedAt;
             }
 
+            // Extract company_id - required field, use fallback if missing
+            const companyId = user.companyId || (user as any).company_id || (user as any).companyId || null;
+            if (!companyId) {
+              console.warn(`[RepCard Sync] User ${user.id} missing companyId, skipping`);
+              recordsFailed++;
+              continue;
+            }
+
             // Upsert user
             const result = await sql`
               INSERT INTO repcard_users (
@@ -189,29 +197,30 @@ export async function syncUsers(options: {
               )
               VALUES (
                 ${user.id},
-                ${user.companyId},
+                ${companyId},
                 ${user.officeId || null},
-                ${(user as any).firstName || null},
-                ${(user as any).lastName || null},
+                ${(user as any).firstName || (user as any).first_name || null},
+                ${(user as any).lastName || (user as any).last_name || null},
                 ${user.email || null},
                 ${(user as any).phone || null},
                 ${(user as any).username || null},
                 ${(user as any).role || null},
                 ${(user as any).status ?? 1},
-                ${(user as any).office || null},
+                ${(user as any).office || (user as any).office_name || null},
                 ${(user as any).team || null},
-                ${(user as any).jobTitle || null},
-                ${(user as any).image || null},
+                ${(user as any).jobTitle || (user as any).job_title || null},
+                ${(user as any).image || (user as any).profile_image || null},
                 ${(user as any).rating || null},
                 ${(user as any).bio || null},
-                ${(user as any).badgeId || null},
-                ${(user as any).qrCode || null},
-                ${(user as any).createdAt || null},
+                ${(user as any).badgeId || (user as any).badge_id || null},
+                ${(user as any).qrCode || (user as any).qr_code || null},
+                ${(user as any).createdAt || (user as any).created_at || null},
                 ${updatedAt},
                 ${JSON.stringify(user)}
               )
               ON CONFLICT (repcard_user_id)
               DO UPDATE SET
+                company_id = EXCLUDED.company_id,
                 office_id = EXCLUDED.office_id,
                 first_name = EXCLUDED.first_name,
                 last_name = EXCLUDED.last_name,
