@@ -140,6 +140,13 @@ export async function syncUsers(options: {
     const MAX_PAGES = 200;
 
     while (hasMore && page <= MAX_PAGES) {
+      // Check timeout - exit gracefully before hitting 5 min limit
+      const elapsed = Date.now() - startTime;
+      if (elapsed > MAX_DURATION_MS) {
+        console.log(`[RepCard Sync] ⏱️ Timeout protection: Stopping users sync after ${(elapsed / 1000).toFixed(1)}s (page ${page})`);
+        break;
+      }
+      
       try {
         const response = await repcardClient.getUsersMinimal({
           page,
@@ -155,6 +162,35 @@ export async function syncUsers(options: {
         const users = Array.isArray(response.result.data) ? response.result.data : [];
         console.log(`[RepCard Sync] Page ${page}: Got ${users.length} users`);
 
+        // Batch lookup company_ids from offices for users missing it
+        const usersNeedingCompanyId = users.filter(u => {
+          const companyId = u.companyId || (u as any).company_id || null;
+          return !companyId && u.officeId;
+        });
+        
+        let officeCompanyIdMap = new Map<number, number>();
+        if (usersNeedingCompanyId.length > 0) {
+          try {
+            const officeIds = usersNeedingCompanyId.map(u => u.officeId).filter(Boolean) as number[];
+            if (officeIds.length > 0) {
+              const officeResults = await sql`
+                SELECT repcard_office_id, company_id 
+                FROM repcard_offices 
+                WHERE repcard_office_id = ANY(${officeIds})
+              `;
+              const offices = Array.from(officeResults);
+              offices.forEach((office: any) => {
+                if (office.repcard_office_id && office.company_id) {
+                  officeCompanyIdMap.set(office.repcard_office_id, office.company_id);
+                }
+              });
+              console.log(`[RepCard Sync] Batch loaded ${officeCompanyIdMap.size} company_ids from offices`);
+            }
+          } catch (officeError) {
+            console.warn(`[RepCard Sync] Failed to batch load company_ids from offices:`, officeError);
+          }
+        }
+
         for (const user of users) {
           try {
             const updatedAt = new Date((user as any).updatedAt || new Date());
@@ -166,20 +202,12 @@ export async function syncUsers(options: {
             // Try multiple field names since API might use different casing
             const companyId = user.companyId || (user as any).company_id || (user as any).companyId || null;
             
-            // If companyId is missing, try to get it from offices table (if user has officeId)
+            // If companyId is missing, try to get it from the batch-loaded map
             let finalCompanyId = companyId;
             if (!finalCompanyId && user.officeId) {
-              try {
-                const officeResult = await sql`
-                  SELECT company_id FROM repcard_offices WHERE repcard_office_id = ${user.officeId} LIMIT 1
-                `;
-                const office = Array.from(officeResult)[0] as any;
-                if (office?.company_id) {
-                  finalCompanyId = office.company_id;
-                  console.log(`[RepCard Sync] Got company_id ${finalCompanyId} from office ${user.officeId} for user ${user.id}`);
-                }
-              } catch (officeError) {
-                // Office lookup failed, continue without it
+              finalCompanyId = officeCompanyIdMap.get(user.officeId) || null;
+              if (finalCompanyId) {
+                console.log(`[RepCard Sync] Got company_id ${finalCompanyId} from office ${user.officeId} for user ${user.id}`);
               }
             }
             
