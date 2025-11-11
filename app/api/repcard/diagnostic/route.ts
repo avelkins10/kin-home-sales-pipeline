@@ -37,15 +37,28 @@ export async function GET(request: NextRequest) {
     try {
       if (process.env.REPCARD_API_KEY) {
         const response = await repcardClient.getUsersMinimal({ page: 1, perPage: 5 });
-        diagnostics.apiConnection = {
-          status: 'success',
-          totalUsers: response.result.pagination.total,
-          sampleUsers: response.result.data.slice(0, 3).map((u: any) => ({
-            id: u.id,
-            name: `${u.firstName} ${u.lastName}`,
-            email: u.email
-          }))
-        };
+        
+        // Safely access response properties with null checks
+        if (response && response.result) {
+          const pagination = response.result.pagination || {};
+          const data = response.result.data || [];
+          
+          diagnostics.apiConnection = {
+            status: 'success',
+            totalUsers: pagination.total || 0,
+            sampleUsers: data.slice(0, 3).map((u: any) => ({
+              id: u.id,
+              name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Unknown',
+              email: u.email || 'No email'
+            }))
+          };
+        } else {
+          diagnostics.apiConnection = {
+            status: 'error',
+            error: 'Invalid API response structure',
+            rawResponse: JSON.stringify(response).substring(0, 200)
+          };
+        }
       } else {
         diagnostics.apiConnection = {
           status: 'skipped',
@@ -55,7 +68,8 @@ export async function GET(request: NextRequest) {
     } catch (error) {
       diagnostics.apiConnection = {
         status: 'error',
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack?.substring(0, 500) : undefined
       };
     }
 
