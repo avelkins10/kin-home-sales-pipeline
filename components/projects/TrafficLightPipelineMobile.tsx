@@ -140,6 +140,13 @@ export function TrafficLightPipelineMobile({ project }: TrafficLightPipelineMobi
                   </span>
                 )}
 
+                {/* Completion date display for completed milestones */}
+                {milestone.status.state === 'complete' && milestone.status.completedDate && (isActive || expanded) && (
+                  <div className="text-[8px] text-emerald-600 mt-0.5">
+                    {milestone.status.completedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </div>
+                )}
+
                 {/* Days badge for in-progress */}
                 {milestone.status.state === 'in-progress' && milestone.status.daysInProgress !== undefined && milestone.status.daysInProgress > 0 && (
                   <span className={cn(

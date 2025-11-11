@@ -193,6 +193,13 @@ export function TrafficLightPipeline({ project }: TrafficLightPipelineProps) {
                 {milestone.label}
               </span>
 
+              {/* Completion date display for completed milestones */}
+              {status.state === 'complete' && status.completedDate && (
+                <div className="text-[9px] text-emerald-600 mt-0.5">
+                  {status.completedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </div>
+              )}
+
               {/* "In: [Milestone]" label below for in-progress */}
               {status.state === 'in-progress' && (
                 <div className="text-[9px] font-semibold text-amber-600 mt-0.5">
