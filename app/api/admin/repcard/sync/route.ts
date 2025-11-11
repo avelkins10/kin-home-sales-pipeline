@@ -190,10 +190,11 @@ export async function GET(request: NextRequest) {
     `;
     const latestSyncs = Array.from(latestSyncsRaw);
 
-    // Get record counts from tables
+    // Get record counts from tables (actual database counts - always accurate)
     const customerCountResult = await sql`SELECT COUNT(*) as count FROM repcard_customers`;
     const appointmentCountResult = await sql`SELECT COUNT(*) as count FROM repcard_appointments`;
     const statusLogCountResult = await sql`SELECT COUNT(*) as count FROM repcard_status_logs`;
+    const userCountResult = await sql`SELECT COUNT(*) as count FROM repcard_users`;
 
     return NextResponse.json({
       latestSyncs,
@@ -201,7 +202,8 @@ export async function GET(request: NextRequest) {
       recordCounts: {
         customers: Number(Array.from(customerCountResult)[0]?.count || 0),
         appointments: Number(Array.from(appointmentCountResult)[0]?.count || 0),
-        statusLogs: Number(Array.from(statusLogCountResult)[0]?.count || 0)
+        statusLogs: Number(Array.from(statusLogCountResult)[0]?.count || 0),
+        users: Number(Array.from(userCountResult)[0]?.count || 0)
       }
     });
 
