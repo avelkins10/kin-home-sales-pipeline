@@ -74,13 +74,17 @@ export default function RepCardSyncPage() {
       const results = [];
 
       // Step 1: Sync customers
-      toast.info('Syncing customers...', { description: 'Step 1 of 3' });
+      toast.info('Syncing customers...', { description: 'Step 1 of 2' });
       const customersRes = await fetch(
         `/api/admin/repcard/sync?type=customers&startDate=${startDate}&endDate=${endDate}`,
         { method: 'POST' }
       );
-      if (!customersRes.ok) throw new Error('Failed to sync customers');
+      if (!customersRes.ok) {
+        const errorData = await customersRes.json().catch(() => ({ message: 'Unknown error' }));
+        throw new Error(`Failed to sync customers: ${errorData.message || errorData.error || 'HTTP ' + customersRes.status}`);
+      }
       const customersData = await customersRes.json();
+      console.log('[Sync] Customers result:', customersData);
       results.push(customersData);
       queryClient.invalidateQueries({ queryKey: ['repcard-sync-status'] });
 
@@ -90,8 +94,12 @@ export default function RepCardSyncPage() {
         `/api/admin/repcard/sync?type=appointments&startDate=${startDate}&endDate=${endDate}`,
         { method: 'POST' }
       );
-      if (!appointmentsRes.ok) throw new Error('Failed to sync appointments');
+      if (!appointmentsRes.ok) {
+        const errorData = await appointmentsRes.json().catch(() => ({ message: 'Unknown error' }));
+        throw new Error(`Failed to sync appointments: ${errorData.message || errorData.error || 'HTTP ' + appointmentsRes.status}`);
+      }
       const appointmentsData = await appointmentsRes.json();
+      console.log('[Sync] Appointments result:', appointmentsData);
       results.push(appointmentsData);
       queryClient.invalidateQueries({ queryKey: ['repcard-sync-status'] });
 
@@ -430,7 +438,15 @@ export default function RepCardSyncPage() {
                       <div>{sync.records_fetched.toLocaleString()} fetched</div>
                       <div className="text-xs text-muted-foreground">
                         {sync.records_inserted} inserted, {sync.records_updated} updated
+                        {sync.records_failed > 0 && (
+                          <span className="text-red-600"> • {sync.records_failed} failed</span>
+                        )}
                       </div>
+                      {sync.error_message && (
+                        <div className="text-xs text-red-600 mt-1 max-w-xs truncate" title={sync.error_message}>
+                          Error: {sync.error_message}
+                        </div>
+                      )}
                     </div>
                     {getStatusIcon(sync.status)}
                   </div>

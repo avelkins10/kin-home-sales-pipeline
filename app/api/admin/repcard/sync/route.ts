@@ -165,9 +165,10 @@ export async function GET(request: NextRequest) {
 
     const syncHistory = await query;
 
-    // Get latest sync for each entity type
+    // Get latest sync for each entity type (including failed/running)
     const latestSyncsRaw = await sql`
       SELECT DISTINCT ON (entity_type)
+        id,
         entity_type,
         sync_type,
         status,
@@ -177,10 +178,10 @@ export async function GET(request: NextRequest) {
         records_inserted,
         records_updated,
         records_failed,
-        last_record_date
+        last_record_date,
+        error_message
       FROM repcard_sync_log
-      WHERE status = 'completed'
-      ORDER BY entity_type, completed_at DESC
+      ORDER BY entity_type, started_at DESC
     `;
     const latestSyncs = Array.from(latestSyncsRaw);
 
