@@ -10,24 +10,51 @@ import { useSession } from 'next-auth/react';
 
 export function RepCardDiagnosticBanner() {
   const { data: session } = useSession();
-  const isSuperAdmin = session?.user?.role === 'super_admin';
+  // Show to all admins/managers for debugging - can restrict later
+  const isAuthorized = session?.user?.role && ['super_admin', 'regional', 'office_leader'].includes(session.user.role);
 
-  const { data: diagnostic, isLoading, refetch } = useQuery({
+  const { data: diagnostic, isLoading, error, refetch } = useQuery({
     queryKey: ['repcard-diagnostic'],
     queryFn: async () => {
       const response = await fetch(`${getBaseUrl()}/api/repcard/diagnostic`);
       if (!response.ok) {
-        throw new Error('Failed to fetch diagnostic');
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch diagnostic: ${response.status} ${errorText}`);
       }
       return response.json();
     },
-    enabled: isSuperAdmin,
+    enabled: isAuthorized,
     refetchInterval: 60000, // Refresh every minute
-    staleTime: 30000
+    staleTime: 30000,
+    retry: 1
   });
 
-  if (!isSuperAdmin) {
-    return null; // Only show to super admins
+  if (!isAuthorized) {
+    return null; // Only show to authorized users
+  }
+
+  // Show error state if API call failed
+  if (error) {
+    return (
+      <Alert className="mb-6 border-red-200 bg-red-50">
+        <AlertCircle className="h-5 w-5 text-red-600" />
+        <AlertTitle className="text-red-800">Diagnostic Check Failed</AlertTitle>
+        <AlertDescription className="mt-2">
+          <p className="text-sm text-red-700">
+            {error instanceof Error ? error.message : 'Failed to check RepCard status'}
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+            className="mt-2 text-red-700 border-red-300 hover:bg-red-100"
+          >
+            <RefreshCw className="h-4 w-4 mr-1" />
+            Retry
+          </Button>
+        </AlertDescription>
+      </Alert>
+    );
   }
 
   if (isLoading) {

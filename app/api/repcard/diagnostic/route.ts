@@ -8,11 +8,12 @@ export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   try {
-    // Authentication - only super_admin can access diagnostic
+    // Authentication - allow admins and managers to access diagnostic
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'super_admin') {
+    const authorizedRoles = ['super_admin', 'regional', 'office_leader'];
+    if (!session || !authorizedRoles.includes(session.user.role)) {
       return NextResponse.json(
-        { error: 'Unauthorized - Super Admin only' },
+        { error: 'Unauthorized - Admin access required' },
         { status: 403 }
       );
     }
