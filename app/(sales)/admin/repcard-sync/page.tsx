@@ -73,8 +73,23 @@ export default function RepCardSyncPage() {
     mutationFn: async ({ startDate, endDate }: { startDate: string; endDate: string }) => {
       const results = [];
 
-      // Step 1: Sync customers
-      toast.info('Syncing customers...', { description: 'Step 1 of 2' });
+      // Step 1: Sync users (needed for leaderboards to work)
+      toast.info('Syncing users...', { description: 'Step 1 of 3' });
+      const usersRes = await fetch(
+        `/api/admin/repcard/sync?type=users`,
+        { method: 'POST' }
+      );
+      if (!usersRes.ok) {
+        const errorData = await usersRes.json().catch(() => ({ message: 'Unknown error' }));
+        throw new Error(`Failed to sync users: ${errorData.message || errorData.error || 'HTTP ' + usersRes.status}`);
+      }
+      const usersData = await usersRes.json();
+      console.log('[Sync] Users result:', usersData);
+      results.push(usersData);
+      queryClient.invalidateQueries({ queryKey: ['repcard-sync-status'] });
+
+      // Step 2: Sync customers
+      toast.info('Syncing customers...', { description: 'Step 2 of 3' });
       const customersRes = await fetch(
         `/api/admin/repcard/sync?type=customers&startDate=${startDate}&endDate=${endDate}`,
         { method: 'POST' }
@@ -88,8 +103,8 @@ export default function RepCardSyncPage() {
       results.push(customersData);
       queryClient.invalidateQueries({ queryKey: ['repcard-sync-status'] });
 
-      // Step 2: Sync appointments
-      toast.info('Syncing appointments...', { description: 'Step 2 of 2' });
+      // Step 3: Sync appointments
+      toast.info('Syncing appointments...', { description: 'Step 3 of 3' });
       const appointmentsRes = await fetch(
         `/api/admin/repcard/sync?type=appointments&startDate=${startDate}&endDate=${endDate}`,
         { method: 'POST' }

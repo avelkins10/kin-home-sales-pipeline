@@ -81,11 +81,16 @@ export async function POST(request: NextRequest) {
         })];
         break;
 
+      case 'users':
+        const { syncUsers } = await import('@/lib/repcard/comprehensive-sync');
+        results = [await syncUsers({ incremental: false })];
+        break;
+
       default:
         return NextResponse.json(
           {
             error: 'Invalid sync type',
-            message: 'type must be one of: full, incremental, customers, appointments, status_logs'
+            message: 'type must be one of: full, incremental, customers, appointments, status_logs, users'
           },
           { status: 400 }
         );
