@@ -341,7 +341,7 @@ export default function RepCardSyncPage() {
               Quick Sync (Last 7 Days)
             </h3>
             <p className="text-sm text-muted-foreground">
-              Recommended for initial setup. Syncs customers + appointments from the last 7 days (~2-3 minutes). Status logs are skipped to avoid timeouts.
+              Recommended for initial setup. Syncs users, customers + appointments from the last 7 days (~3-4 minutes). Status logs are skipped to avoid timeouts.
             </p>
             <Button
               onClick={() => {
