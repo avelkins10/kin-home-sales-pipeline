@@ -118,3 +118,7 @@ Find latest status entry → UPDATE current_status
 3. ⏳ Run fix endpoint for Knutsen to see what Arrivy data shows
 4. ⏳ Update task type detection if needed based on actual Arrivy data
 
+
+
+
+

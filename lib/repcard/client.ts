@@ -132,6 +132,7 @@ export class RepCardClient {
     this.checkApiKey(); // Check API key before making request
 
     const url = `${this.baseUrl}${endpoint}`;
+    const MAX_RETRIES = 3;
 
     const headers = {
       'x-api-key': this.apiKey,
@@ -139,27 +140,54 @@ export class RepCardClient {
       ...options.headers,
     };
 
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    });
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers,
+      });
 
-    // Handle rate limiting with exponential backoff
-    if (response.status === 429 && retryCount < 3) {
-      const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
-      console.log(`[RepCard] Rate limited, retrying in ${delay}ms (attempt ${retryCount + 1}/3)`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-      return this.request<T>(endpoint, options, retryCount + 1);
+      // Handle rate limiting (429) with exponential backoff
+      if (response.status === 429 && retryCount < MAX_RETRIES) {
+        const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+        console.log(`[RepCard] Rate limited, retrying in ${delay}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return this.request<T>(endpoint, options, retryCount + 1);
+      }
+
+      // Handle server errors (5xx) with exponential backoff
+      if (response.status >= 500 && response.status < 600 && retryCount < MAX_RETRIES) {
+        const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+        console.log(`[RepCard] Server error ${response.status}, retrying in ${delay}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return this.request<T>(endpoint, options, retryCount + 1);
+      }
+
+      // Log rate limit headers for monitoring
+      const rateLimitRemaining = response.headers.get('x-ratelimit-remaining');
+      const rateLimitReset = response.headers.get('x-ratelimit-reset');
+      if (rateLimitRemaining && parseInt(rateLimitRemaining) < 10) {
+        console.warn(`[RepCard] Rate limit low: ${rateLimitRemaining} remaining, resets at ${rateLimitReset}`);
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `RepCard API error: ${response.status} ${response.statusText} - ${errorText}`
+        );
+      }
+
+      return response.json();
+    } catch (error) {
+      // Handle network errors (TypeError) with exponential backoff
+      if (error instanceof TypeError && retryCount < MAX_RETRIES) {
+        const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+        console.log(`[RepCard] Network error, retrying in ${delay}ms (attempt ${retryCount + 1}/${MAX_RETRIES}):`, error.message);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return this.request<T>(endpoint, options, retryCount + 1);
+      }
+      // Re-throw if not a network error or max retries reached
+      throw error;
     }
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(
-        `RepCard API error: ${response.status} ${response.statusText} - ${errorText}`
-      );
-    }
-
-    return response.json();
   }
 
   /**
