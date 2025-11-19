@@ -1749,7 +1749,7 @@ export async function linkRepCardUsersToUsers(): Promise<void> {
     const result = await sql`
       UPDATE users u
       SET
-        repcard_user_id = ru.repcard_user_id::text,
+        repcard_user_id = ru.repcard_user_id,
         last_synced_from_repcard_at = NOW()
       FROM repcard_users ru
       WHERE LOWER(u.email) = LOWER(ru.email)
