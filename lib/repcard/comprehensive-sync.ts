@@ -231,9 +231,12 @@ export async function syncUsers(options: {
             
             // Allow NULL company_id - we'll backfill it later from offices
             // This allows sync to proceed even if company_id is missing
-            // Ensure finalCompanyId is explicitly null (not undefined) for SQL
-            const companyIdForDb = finalCompanyId ?? null;
-            if (!companyIdForDb) {
+            // CRITICAL: @vercel/postgres requires explicit null (not undefined) for SQL NULL
+            // Use strict null check: only null or a valid number
+            const companyIdForDb: number | null = (finalCompanyId != null && finalCompanyId !== undefined && finalCompanyId !== '') 
+              ? Number(finalCompanyId) 
+              : null;
+            if (companyIdForDb === null) {
               console.log(`[RepCard Sync] User ${user.id} missing companyId - will sync with NULL (backfill later)`);
             }
 
