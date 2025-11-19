@@ -231,7 +231,9 @@ export async function syncUsers(options: {
             
             // Allow NULL company_id - we'll backfill it later from offices
             // This allows sync to proceed even if company_id is missing
-            if (!finalCompanyId) {
+            // Ensure finalCompanyId is explicitly null (not undefined) for SQL
+            const companyIdForDb = finalCompanyId ?? null;
+            if (!companyIdForDb) {
               console.log(`[RepCard Sync] User ${user.id} missing companyId - will sync with NULL (backfill later)`);
             }
 
@@ -262,7 +264,7 @@ export async function syncUsers(options: {
               )
               VALUES (
                 ${user.id},
-                ${finalCompanyId || null}, // Allow NULL temporarily - will backfill from offices later
+                ${companyIdForDb}, // Allow NULL temporarily - will backfill from offices later
                 ${user.officeId || null},
                 ${(user as any).firstName || (user as any).first_name || null},
                 ${(user as any).lastName || (user as any).last_name || null},
