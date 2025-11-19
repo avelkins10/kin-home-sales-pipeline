@@ -249,7 +249,7 @@ export async function syncUsers(options: {
               )
               VALUES (
                 ${user.id},
-                ${finalCompanyId},
+                ${finalCompanyId || null}, // Allow NULL temporarily - will backfill from offices later
                 ${user.officeId || null},
                 ${(user as any).firstName || (user as any).first_name || null},
                 ${(user as any).lastName || (user as any).last_name || null},
