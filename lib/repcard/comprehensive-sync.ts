@@ -233,12 +233,30 @@ export async function syncUsers(options: {
             const officeId = (user as any).officeId || (user as any).office_id || null;
             
             // Extract first activity dates (if requested via query params)
-            const firstVerifiedDoorKnock = (user as any).firstVerifiedDoorKnock 
-              ? new Date((user as any).firstVerifiedDoorKnock) 
-              : null;
-            const firstAppointment = (user as any).firstAppointment 
-              ? new Date((user as any).firstAppointment) 
-              : null;
+            let firstVerifiedDoorKnock: Date | null = null;
+            let firstAppointment: Date | null = null;
+            
+            try {
+              if ((user as any).firstVerifiedDoorKnock) {
+                const date = new Date((user as any).firstVerifiedDoorKnock);
+                if (!isNaN(date.getTime())) {
+                  firstVerifiedDoorKnock = date;
+                }
+              }
+            } catch (e) {
+              // Invalid date format, skip
+            }
+            
+            try {
+              if ((user as any).firstAppointment) {
+                const date = new Date((user as any).firstAppointment);
+                if (!isNaN(date.getTime())) {
+                  firstAppointment = date;
+                }
+              }
+            } catch (e) {
+              // Invalid date format, skip
+            }
 
             // Upsert user
             const result = await sql`
@@ -331,12 +349,21 @@ export async function syncUsers(options: {
             const errorMsg = error instanceof Error ? error.message : String(error);
             const errorStack = error instanceof Error ? error.stack : undefined;
             console.error(`[RepCard Sync] Failed to process user ${user.id} (${user.email || 'no email'}):`, errorMsg);
-            if (errorStack) {
+            if (errorStack && recordsFailed < 5) {
               console.error(`[RepCard Sync] Stack trace:`, errorStack);
             }
             // Log first few errors in detail
-            if (recordsFailed < 3) {
-              console.error(`[RepCard Sync] User data that failed:`, JSON.stringify(user, null, 2));
+            if (recordsFailed < 5) {
+              console.error(`[RepCard Sync] User data that failed:`, JSON.stringify({
+                id: user.id,
+                email: user.email,
+                firstName: (user as any).firstName,
+                lastName: (user as any).lastName,
+                status: (user as any).status,
+                officeId: (user as any).officeId,
+                firstVerifiedDoorKnock: (user as any).firstVerifiedDoorKnock,
+                firstAppointment: (user as any).firstAppointment
+              }, null, 2));
             }
             recordsFailed++;
           }
@@ -444,6 +471,9 @@ export async function syncOffices(): Promise<SyncEntityResult> {
           console.log(`[RepCard Sync] Office ${office.id} missing companyId - defaulting to Kin Home company ID ${KIN_HOME_COMPANY_ID}`);
         }
 
+        // Ensure name is not null (required by schema)
+        const officeName = office.name || office.officeName || `Office ${office.id}`;
+        
         const result = await sql`
           INSERT INTO repcard_offices (
             repcard_office_id,
@@ -459,8 +489,8 @@ export async function syncOffices(): Promise<SyncEntityResult> {
           )
           VALUES (
             ${office.id},
-            ${companyIdForDb}, // Allow NULL if API doesn't provide it
-            ${office.name},
+            ${companyIdForDb},
+            ${officeName},
             ${office.address || null},
             ${office.city || null},
             ${office.state || null},
@@ -492,9 +522,20 @@ export async function syncOffices(): Promise<SyncEntityResult> {
 
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
+        const errorStack = error instanceof Error ? error.stack : undefined;
         console.error(`[RepCard Sync] Failed to process office ${office.id}:`, errorMsg);
-        if (recordsFailed < 3) {
-          console.error(`[RepCard Sync] Office data that failed:`, JSON.stringify(office, null, 2));
+        if (errorStack && recordsFailed < 5) {
+          console.error(`[RepCard Sync] Stack trace:`, errorStack);
+        }
+        if (recordsFailed < 5) {
+          console.error(`[RepCard Sync] Office data that failed:`, JSON.stringify({
+            id: office.id,
+            name: office.name,
+            companyId: office.companyId,
+            address: office.address,
+            city: office.city,
+            state: office.state
+          }, null, 2));
         }
         recordsFailed++;
       }
