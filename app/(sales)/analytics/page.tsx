@@ -22,9 +22,7 @@ import { CanvassingOverviewCard } from '@/components/analytics/CanvassingOvervie
 import { DoorsKnockedTrendsCard } from '@/components/analytics/DoorsKnockedTrendsCard';
 import { AppointmentRatesCard } from '@/components/analytics/AppointmentRatesCard';
 import { LeadQualityAnalysisCard } from '@/components/analytics/LeadQualityAnalysisCard';
-import { RepCardOverviewCard } from '@/components/analytics/RepCardOverviewCard';
-import { RepCardQualityMetricsCard } from '@/components/analytics/RepCardQualityMetricsCard';
-import { RepCardDiagnosticBanner } from '@/components/analytics/RepCardDiagnosticBanner';
+import { RepCardSimpleDashboard } from '@/components/analytics/RepCardSimpleDashboard';
 // import { CancellationAnalysisCard } from '@/components/analytics/CancellationAnalysisCard';
 // import { HoldAnalysisCard } from '@/components/analytics/HoldAnalysisCard';
 import { PeriodComparisonCard } from '@/components/analytics/PeriodComparisonCard';
