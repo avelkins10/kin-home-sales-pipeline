@@ -208,6 +208,9 @@ export async function syncUsers(options: {
         }
 
         for (const user of users) {
+          // Increment fetched count BEFORE processing (so we know how many were attempted)
+          recordsFetched++;
+          
           try {
             const updatedAt = new Date((user as any).updatedAt || new Date());
             if (!lastRecordDate || updatedAt > lastRecordDate) {
@@ -440,6 +443,9 @@ export async function syncOffices(): Promise<SyncEntityResult> {
     console.log(`[RepCard Sync] Got ${offices.length} offices`);
 
     for (const office of offices) {
+      // Increment fetched count BEFORE processing
+      recordsFetched++;
+      
       try {
         const result = await sql`
           INSERT INTO repcard_offices (
