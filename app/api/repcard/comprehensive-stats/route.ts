@@ -609,13 +609,14 @@ export async function GET(request: NextRequest) {
             COALESCE(u_uploader.name, TRIM(ru_uploader.first_name || ' ' || ru_uploader.last_name), ru_uploader.email) as uploader_name,
             'appointment' as attachment_source
           FROM repcard_appointment_attachments att
-          LEFT JOIN repcard_customers c ON att.repcard_customer_id::text = c.repcard_customer_id::text
+          LEFT JOIN repcard_appointments a ON att.repcard_appointment_id::text = a.repcard_appointment_id::text
+          LEFT JOIN repcard_customers c ON COALESCE(att.repcard_customer_id::text, a.repcard_customer_id::text) = c.repcard_customer_id::text
           LEFT JOIN repcard_users ru_uploader ON att.uploaded_by_user_id::text = ru_uploader.repcard_user_id::text
           LEFT JOIN users u_uploader ON u_uploader.repcard_user_id::text = ru_uploader.repcard_user_id::text
           WHERE att.created_at::date >= ${calculatedStartDate}::date
             AND att.created_at::date <= ${calculatedEndDate}::date
             AND att.uploaded_by_user_id::text = ${repcardUserId!}::text
-          ORDER BY created_at DESC
+          ORDER BY att.created_at DESC
           LIMIT 100
         `;
       } else {
@@ -656,12 +657,13 @@ export async function GET(request: NextRequest) {
             COALESCE(u_uploader.name, TRIM(ru_uploader.first_name || ' ' || ru_uploader.last_name), ru_uploader.email) as uploader_name,
             'appointment' as attachment_source
           FROM repcard_appointment_attachments att
-          LEFT JOIN repcard_customers c ON att.repcard_customer_id::text = c.repcard_customer_id::text
+          LEFT JOIN repcard_appointments a ON att.repcard_appointment_id::text = a.repcard_appointment_id::text
+          LEFT JOIN repcard_customers c ON COALESCE(att.repcard_customer_id::text, a.repcard_customer_id::text) = c.repcard_customer_id::text
           LEFT JOIN repcard_users ru_uploader ON att.uploaded_by_user_id::text = ru_uploader.repcard_user_id::text
           LEFT JOIN users u_uploader ON u_uploader.repcard_user_id::text = ru_uploader.repcard_user_id::text
           WHERE att.created_at::date >= ${calculatedStartDate}::date
             AND att.created_at::date <= ${calculatedEndDate}::date
-          ORDER BY created_at DESC
+          ORDER BY att.created_at DESC
           LIMIT 100
         `;
       }

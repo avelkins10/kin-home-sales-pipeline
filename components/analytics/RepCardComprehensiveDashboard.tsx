@@ -33,6 +33,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
+import { formatRepCardDate, formatRepCardDateRange } from '@/lib/utils/repcard-date-helpers';
 
 interface ComprehensiveStats {
   success: boolean;
@@ -192,7 +193,7 @@ export function RepCardComprehensiveDashboard() {
           <h2 className="text-2xl font-bold tracking-tight">RepCard Analytics</h2>
           <p className="text-sm text-muted-foreground mt-1">
             {data.dateRange.startDate && data.dateRange.endDate
-              ? `${new Date(data.dateRange.startDate).toLocaleDateString()} - ${new Date(data.dateRange.endDate).toLocaleDateString()}`
+              ? formatRepCardDateRange(data.dateRange.startDate, data.dateRange.endDate)
               : 'Last 90 days'}
           </p>
         </div>
@@ -747,7 +748,7 @@ export function RepCardComprehensiveDashboard() {
                                 </p>
                               )}
                               <p className="text-xs">
-                                Created: {new Date(customer.createdAt).toLocaleDateString()}
+                                Created: {formatRepCardDate(customer.createdAt, { includeTime: false })}
                               </p>
                             </div>
 
@@ -834,13 +835,13 @@ export function RepCardComprehensiveDashboard() {
                               {appt.scheduledAt && (
                                 <div className="flex items-center gap-2 text-muted-foreground">
                                   <Clock className="h-4 w-4" />
-                                  <span>Scheduled: {new Date(appt.scheduledAt).toLocaleString()}</span>
+                                  <span>Scheduled: {formatRepCardDate(appt.scheduledAt)}</span>
                                 </div>
                               )}
                               {appt.completedAt && (
                                 <div className="flex items-center gap-2 text-muted-foreground">
                                   <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                  <span>Completed: {new Date(appt.completedAt).toLocaleString()}</span>
+                                  <span>Completed: {formatRepCardDate(appt.completedAt)}</span>
                                 </div>
                               )}
                               {appt.duration && (
@@ -918,7 +919,7 @@ export function RepCardComprehensiveDashboard() {
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                               <span>By {note.author?.name || 'Unknown'}</span>
                               <span>•</span>
-                              <span>{new Date(note.createdAt).toLocaleString()}</span>
+                              <span>{formatRepCardDate(note.createdAt)}</span>
                             </div>
                           </div>
                         </div>
@@ -960,7 +961,7 @@ export function RepCardComprehensiveDashboard() {
                             </p>
                             <div className="flex items-center justify-between">
                               <p className="text-xs text-muted-foreground">
-                                {att.uploadedBy?.name} • {new Date(att.createdAt).toLocaleDateString()}
+                                {att.uploadedBy?.name} • {formatRepCardDate(att.createdAt, { includeTime: false })}
                               </p>
                               {att.fileUrl && (
                                 <a 
@@ -1024,7 +1025,7 @@ export function RepCardComprehensiveDashboard() {
                       </div>
                       <div className="text-right text-xs text-muted-foreground shrink-0">
                         <p className="font-medium">{log.changedBy?.name || 'Unknown'}</p>
-                        <p>{new Date(log.changedAt).toLocaleString()}</p>
+                        <p>{formatRepCardDate(log.changedAt)}</p>
                       </div>
                     </div>
                   ))

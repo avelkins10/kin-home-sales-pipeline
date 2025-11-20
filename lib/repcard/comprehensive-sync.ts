@@ -18,6 +18,10 @@
  * - sales_office: Office array for access control (managed by admins)
  * - password_hash: Security field
  *
+ */
+
+import { parseRepCardDate, toUTCISOString } from '@/lib/utils/repcard-date-helpers';
+
  * RepCard data is synced to repcard_users table, then linked to users table
  * via repcard_user_id only. This ensures app-managed fields are never overwritten.
  */
@@ -559,19 +563,31 @@ export async function syncCustomerAttachments(options: {
 
         for (const attachment of attachments) {
           try {
-            const updatedAt = new Date(attachment.updatedAt || attachment.createdAt);
-            if (!lastRecordDate || updatedAt > lastRecordDate) {
-              lastRecordDate = updatedAt;
+            // Parse dates with proper timezone handling
+            const createdAt = parseRepCardDate((attachment as any).createdAt);
+            const updatedAt = parseRepCardDate(attachment.updatedAt || (attachment as any).createdAt);
+            
+            if (!lastRecordDate || (updatedAt && updatedAt > lastRecordDate)) {
+              lastRecordDate = updatedAt || undefined;
             }
 
             // Get customer_id from our database
+            // Use TEXT casting to handle type mismatches
             const customerResult = await sql`
               SELECT id FROM repcard_customers
-              WHERE repcard_customer_id = ${attachment.customerId}
+              WHERE repcard_customer_id::text = ${attachment.customerId}::text
               LIMIT 1
             `;
             const customerRows = customerResult.rows || customerResult;
             const customerId = customerRows.length > 0 ? customerRows[0].id : null;
+            
+            // Validate attribution
+            if (!customerId) {
+              console.warn(`[RepCard Sync] Customer attachment ${attachment.id} references non-existent customer ${attachment.customerId}`);
+            }
+            if (!attachment.customerId) {
+              console.warn(`[RepCard Sync] Customer attachment ${attachment.id} has no customerId in API response`);
+            }
 
             const result = await sql`
               INSERT INTO repcard_customer_attachments (
@@ -596,8 +612,8 @@ export async function syncCustomerAttachments(options: {
                 ${attachment.attachmentUrl || null},
                 ${(attachment as any).fileSize || null},
                 ${attachment.userId || null},
-                ${(attachment as any).createdAt || null},
-                ${updatedAt},
+                ${createdAt ? toUTCISOString(createdAt) : null},
+                ${updatedAt ? toUTCISOString(updatedAt) : null},
                 ${JSON.stringify(attachment)}
               )
               ON CONFLICT (repcard_attachment_id)
@@ -720,22 +736,37 @@ export async function syncAppointmentAttachments(options: {
 
         for (const attachment of attachments) {
           try {
-            const updatedAt = new Date(attachment.updatedAt || attachment.createdAt);
-            if (!lastRecordDate || updatedAt > lastRecordDate) {
-              lastRecordDate = updatedAt;
+            // Parse dates with proper timezone handling
+            const createdAt = parseRepCardDate((attachment as any).createdAt);
+            const updatedAt = parseRepCardDate(attachment.updatedAt || (attachment as any).createdAt);
+            
+            if (!lastRecordDate || (updatedAt && updatedAt > lastRecordDate)) {
+              lastRecordDate = updatedAt || undefined;
             }
 
             // Get appointment_id and customer_id from our database
+            // Use TEXT casting to handle type mismatches
             const appointmentResult = await sql`
               SELECT id, customer_id, repcard_customer_id
               FROM repcard_appointments
-              WHERE repcard_appointment_id = ${attachment.appointmentId}
+              WHERE repcard_appointment_id::text = ${attachment.appointmentId}::text
               LIMIT 1
             `;
             const appointmentRows = appointmentResult.rows || appointmentResult;
             const appointmentId = appointmentRows.length > 0 ? appointmentRows[0].id : null;
             const customerId = appointmentRows.length > 0 ? appointmentRows[0].customer_id : null;
             const repcardCustomerId = appointmentRows.length > 0 ? appointmentRows[0].repcard_customer_id : null;
+            
+            // Validate attribution
+            if (!appointmentId) {
+              console.warn(`[RepCard Sync] Appointment attachment ${attachment.id} references non-existent appointment ${attachment.appointmentId}`);
+            }
+            if (!repcardCustomerId) {
+              console.warn(`[RepCard Sync] Appointment attachment ${attachment.id} has no customer_id from appointment ${attachment.appointmentId}`);
+            }
+            if (!attachment.appointmentId) {
+              console.warn(`[RepCard Sync] Appointment attachment ${attachment.id} has no appointmentId in API response`);
+            }
 
             const result = await sql`
               INSERT INTO repcard_appointment_attachments (
@@ -764,8 +795,8 @@ export async function syncAppointmentAttachments(options: {
                 ${attachment.attachmentUrl || null},
                 ${(attachment as any).fileSize || null},
                 ${attachment.userId || null},
-                ${(attachment as any).createdAt || null},
-                ${updatedAt},
+                ${createdAt ? toUTCISOString(createdAt) : null},
+                ${updatedAt ? toUTCISOString(updatedAt) : null},
                 ${JSON.stringify(attachment)}
               )
               ON CONFLICT (repcard_attachment_id)
