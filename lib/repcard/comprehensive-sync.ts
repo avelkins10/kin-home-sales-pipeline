@@ -447,10 +447,14 @@ export async function syncOffices(): Promise<SyncEntityResult> {
       recordsFetched++;
       
       try {
-        // Handle companyId - may be missing from API response
-        const companyIdForDb: number | null = (office.companyId != null && office.companyId !== undefined && office.companyId !== '') 
+        // CRITICAL FIX: Explicitly handle undefined companyId - convert to null for SQL
+        // Handle 0 as valid company ID, but undefined/null/empty string as null
+        const companyIdForDb: number | null = (office.companyId === 0 || (office.companyId != null && office.companyId !== undefined && office.companyId !== '')) 
           ? Number(office.companyId) 
           : null;
+        if (companyIdForDb === null) {
+          console.log(`[RepCard Sync] Office ${office.id} missing companyId - will sync with NULL`);
+        }
         
         if (companyIdForDb === null) {
           console.log(`[RepCard Sync] Office ${office.id} missing companyId - will sync with NULL`);
