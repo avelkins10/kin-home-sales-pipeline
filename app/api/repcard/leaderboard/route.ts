@@ -556,7 +556,6 @@ export async function GET(request: NextRequest) {
             )
           LEFT JOIN repcard_customers c ON a.repcard_customer_id = c.repcard_customer_id
           WHERE ru.status = 1
-            AND ru.repcard_user_id::text = ANY(${repcardUserIds.map(String)}::text[])
           GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role
         `;
         
@@ -596,7 +595,6 @@ export async function GET(request: NextRequest) {
             AND c.created_at::date <= ${calculatedEndDate}::date
           LEFT JOIN repcard_customer_attachments att ON c.repcard_customer_id = att.repcard_customer_id::text
           WHERE ru.status = 1
-            AND ru.repcard_user_id::text = ANY(${repcardUserIds.map(String)}::text[])
           GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role
         `;
         
@@ -641,7 +639,6 @@ export async function GET(request: NextRequest) {
               )
             LEFT JOIN repcard_customers c ON a.repcard_customer_id = c.repcard_customer_id
             WHERE ru.status = 1
-              AND ru.repcard_user_id::text = ANY(${repcardUserIds.map(String)}::text[])
             GROUP BY ru.repcard_user_id
           `,
           sql`
@@ -656,7 +653,6 @@ export async function GET(request: NextRequest) {
               AND c.created_at::date <= ${calculatedEndDate}::date
             LEFT JOIN repcard_customer_attachments att ON c.repcard_customer_id = att.repcard_customer_id::text
             WHERE ru.status = 1
-              AND ru.repcard_user_id::text = ANY(${repcardUserIds.map(String)}::text[])
             GROUP BY ru.repcard_user_id
           `
         ]);
