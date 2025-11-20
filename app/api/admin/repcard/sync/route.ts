@@ -169,7 +169,10 @@ export async function GET(request: NextRequest) {
     }
 
     const syncHistoryResult = await query;
+    
+    // @vercel/postgres returns results with .rows property
     const getRows = (result: any) => result.rows || (Array.isArray(result) ? result : []);
+    
     const syncHistory = getRows(syncHistoryResult);
 
     // Get latest sync for each entity type (including failed/running)
@@ -198,12 +201,9 @@ export async function GET(request: NextRequest) {
     const statusLogCountResult = await sql`SELECT COUNT(*) as count FROM repcard_status_logs`;
     const userCountResult = await sql`SELECT COUNT(*) as count FROM repcard_users`;
 
-    // @vercel/postgres returns results with .rows property
-    const getRows = (result: any) => result.rows || (Array.isArray(result) ? result : []);
-
     return NextResponse.json({
       latestSyncs,
-      syncHistory: getRows(syncHistory),
+      syncHistory,
       recordCounts: {
         customers: Number(getRows(customerCountResult)[0]?.count || 0),
         appointments: Number(getRows(appointmentCountResult)[0]?.count || 0),
