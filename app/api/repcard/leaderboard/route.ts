@@ -252,7 +252,7 @@ export async function GET(request: NextRequest) {
               (scheduled_at IS NULL AND created_at::date >= ${calculatedStartDate}::date AND created_at::date <= ${calculatedEndDate}::date)
             )) as appointments,
             (SELECT COUNT(*) FROM repcard_appointments a
-             INNER JOIN users u ON u.repcard_user_id = a.setter_user_id
+             INNER JOIN users u ON u.repcard_user_id::text = a.setter_user_id::text
              WHERE (
                (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                OR
@@ -452,7 +452,7 @@ export async function GET(request: NextRequest) {
               THEN a.repcard_appointment_id
             END) as appointments_within_24h
           FROM users u
-          LEFT JOIN repcard_appointments a ON u.repcard_user_id = a.setter_user_id
+          LEFT JOIN repcard_appointments a ON u.repcard_user_id::text = a.setter_user_id::text
             AND (
               (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
               OR
@@ -460,7 +460,7 @@ export async function GET(request: NextRequest) {
             )
           LEFT JOIN repcard_customers c ON a.repcard_customer_id = c.repcard_customer_id
           WHERE u.repcard_user_id IS NOT NULL
-            AND u.repcard_user_id = ANY(${repcardUserIds}::int[])
+            AND u.repcard_user_id::text = ANY(${repcardUserIds.map(String)}::text[])
           GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
         `;
         
@@ -499,7 +499,7 @@ export async function GET(request: NextRequest) {
             AND c.created_at::date <= ${calculatedEndDate}::date
           LEFT JOIN repcard_customer_attachments att ON c.repcard_customer_id = att.repcard_customer_id::text
           WHERE u.repcard_user_id IS NOT NULL
-            AND u.repcard_user_id = ANY(${repcardUserIds}::int[])
+            AND u.repcard_user_id::text = ANY(${repcardUserIds.map(String)}::text[])
           GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
         `;
         
@@ -535,7 +535,7 @@ export async function GET(request: NextRequest) {
                 THEN a.repcard_appointment_id
               END) as appointments_within_24h
             FROM users u
-            LEFT JOIN repcard_appointments a ON u.repcard_user_id = a.setter_user_id
+            LEFT JOIN repcard_appointments a ON u.repcard_user_id::text = a.setter_user_id::text
               AND (
                 (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                 OR
@@ -543,7 +543,7 @@ export async function GET(request: NextRequest) {
               )
             LEFT JOIN repcard_customers c ON a.repcard_customer_id = c.repcard_customer_id
             WHERE u.repcard_user_id IS NOT NULL
-              AND u.repcard_user_id = ANY(${repcardUserIds}::int[])
+              AND u.repcard_user_id::text = ANY(${repcardUserIds.map(String)}::text[])
             GROUP BY u.id
           `,
           sql`
@@ -557,7 +557,7 @@ export async function GET(request: NextRequest) {
               AND c.created_at::date <= ${calculatedEndDate}::date
             LEFT JOIN repcard_customer_attachments att ON c.repcard_customer_id = att.repcard_customer_id::text
             WHERE u.repcard_user_id IS NOT NULL
-              AND u.repcard_user_id = ANY(${repcardUserIds}::int[])
+              AND u.repcard_user_id::text = ANY(${repcardUserIds.map(String)}::text[])
             GROUP BY u.id
           `
         ]);
@@ -868,7 +868,7 @@ export async function GET(request: NextRequest) {
                 COUNT(a.repcard_appointment_id) as count
               FROM repcard_users ru
               LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
-              LEFT JOIN repcard_appointments a ON ru.repcard_user_id = a.setter_user_id
+              LEFT JOIN repcard_appointments a ON ru.repcard_user_id::text = a.setter_user_id::text
                 AND (
                   (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                   OR
@@ -892,7 +892,7 @@ export async function GET(request: NextRequest) {
                 COUNT(a.repcard_appointment_id) as count
               FROM repcard_users ru
               LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
-              LEFT JOIN repcard_appointments a ON ru.repcard_user_id = a.setter_user_id
+              LEFT JOIN repcard_appointments a ON ru.repcard_user_id::text = a.setter_user_id::text
                 AND (
                   (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                   OR
@@ -918,7 +918,7 @@ export async function GET(request: NextRequest) {
                 COUNT(a.repcard_appointment_id) as count
               FROM repcard_users ru
               LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
-              LEFT JOIN repcard_appointments a ON ru.repcard_user_id = a.setter_user_id
+              LEFT JOIN repcard_appointments a ON ru.repcard_user_id::text = a.setter_user_id::text
                 AND (
                   (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                   OR
@@ -940,7 +940,7 @@ export async function GET(request: NextRequest) {
                 COUNT(a.repcard_appointment_id) as count
               FROM repcard_users ru
               LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
-              LEFT JOIN repcard_appointments a ON ru.repcard_user_id = a.setter_user_id
+              LEFT JOIN repcard_appointments a ON ru.repcard_user_id::text = a.setter_user_id::text
                 AND (
                   (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                   OR
@@ -999,7 +999,7 @@ export async function GET(request: NextRequest) {
                   u.role,
                   COUNT(a.repcard_appointment_id) as count
                 FROM users u
-                LEFT JOIN repcard_appointments a ON u.repcard_user_id = a.setter_user_id
+                LEFT JOIN repcard_appointments a ON u.repcard_user_id::text = a.setter_user_id::text
                   AND (
                     (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                     OR
@@ -1024,7 +1024,7 @@ export async function GET(request: NextRequest) {
                   u.role,
                   COUNT(a.repcard_appointment_id) as count
                 FROM users u
-                LEFT JOIN repcard_appointments a ON u.repcard_user_id = a.setter_user_id
+                LEFT JOIN repcard_appointments a ON u.repcard_user_id::text = a.setter_user_id::text
                   AND (
                     (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                     OR
@@ -1089,7 +1089,7 @@ export async function GET(request: NextRequest) {
                   u.role,
                   COUNT(a.repcard_appointment_id) as count
                 FROM users u
-                LEFT JOIN repcard_appointments a ON u.repcard_user_id = a.setter_user_id
+                LEFT JOIN repcard_appointments a ON u.repcard_user_id::text = a.setter_user_id::text
                   AND (
                     (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                     OR
