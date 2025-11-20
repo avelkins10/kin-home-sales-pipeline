@@ -96,6 +96,19 @@ export async function POST(request: NextRequest) {
         );
     }
 
+    // Auto-link users after sync (if users were synced)
+    if (syncType === 'full' || syncType === 'incremental' || syncType === 'users') {
+      try {
+        const { linkRepCardUsersToUsers } = await import('@/lib/repcard/comprehensive-sync');
+        console.log('[Admin Sync] Auto-linking users to RepCard...');
+        await linkRepCardUsersToUsers();
+        console.log('[Admin Sync] ✅ User linking completed');
+      } catch (linkError) {
+        console.error('[Admin Sync] ⚠️ User linking failed (non-fatal):', linkError);
+        // Don't fail the whole sync if linking fails
+      }
+    }
+
     // Check if any syncs failed
     const hasErrors = results.some(r => r.error);
     const status = hasErrors ? 206 : 200; // 206 = Partial Content (some succeeded, some failed)
