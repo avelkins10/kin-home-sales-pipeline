@@ -34,14 +34,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // STEP 0: Ensure tables exist FIRST (before any sync)
+    // Tables should already exist in production - only create if truly missing
+    // (This is a safety net, not the normal path)
     try {
-      console.log('[Admin Sync] Ensuring RepCard tables exist...');
-      await ensureRepCardTables();
-      console.log('[Admin Sync] ✅ Tables verified/created');
+      const { sql } = await import('@/lib/db/client');
+      const tableCheck = await sql`
+        SELECT COUNT(*) as count 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_name LIKE 'repcard_%'
+      `;
+      const tableCount = Number(Array.from(tableCheck)[0]?.count || 0);
+      
+      if (tableCount === 0) {
+        console.log('[Admin Sync] ⚠️ No RepCard tables found - running migrations...');
+        await ensureRepCardTables();
+        console.log('[Admin Sync] ✅ Tables created');
+      } else {
+        console.log(`[Admin Sync] ✅ Tables exist (${tableCount} found)`);
+      }
     } catch (tableError) {
-      console.error('[Admin Sync] ⚠️ Table creation failed (non-fatal):', tableError);
-      // Continue - tables might already exist
+      console.error('[Admin Sync] ⚠️ Table check failed (non-fatal):', tableError);
+      // Continue - assume tables exist
     }
 
     const { searchParams } = new URL(request.url);

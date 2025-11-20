@@ -92,31 +92,84 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    // 3. Check Data Counts
+    // 3. Check Data Counts (handle missing tables gracefully)
     try {
-      const counts = await sql`
-        SELECT 
-          (SELECT COUNT(*) FROM repcard_users) as users,
-          (SELECT COUNT(*) FROM repcard_customers) as customers,
-          (SELECT COUNT(*) FROM repcard_appointments) as appointments,
-          (SELECT COUNT(*) FROM repcard_status_logs) as status_logs,
-          (SELECT COUNT(*) FROM repcard_customer_attachments) as customer_attachments,
-          (SELECT COUNT(*) FROM repcard_appointment_attachments) as appointment_attachments,
-          (SELECT MIN(created_at) FROM repcard_customers) as earliest_customer,
-          (SELECT MAX(created_at) FROM repcard_customers) as latest_customer;
+      // Check if tables exist first, then query them
+      const tableCheck = await sql`
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public'
+          AND table_name IN ('repcard_users', 'repcard_customers', 'repcard_appointments', 'repcard_status_logs', 'repcard_customer_attachments', 'repcard_appointment_attachments')
       `;
-      const c = Array.from(counts)[0];
+      const existingTables = Array.from(tableCheck).map((t: any) => t.table_name);
+      
+      // Build query only for tables that exist
+      const counts: any = {};
+      
+      if (existingTables.includes('repcard_users')) {
+        const usersResult = await sql`SELECT COUNT(*) as count FROM repcard_users`;
+        counts.users = Number(Array.from(usersResult)[0]?.count || 0);
+      } else {
+        counts.users = 0;
+      }
+      
+      if (existingTables.includes('repcard_customers')) {
+        const customersResult = await sql`SELECT COUNT(*) as count FROM repcard_customers`;
+        counts.customers = Number(Array.from(customersResult)[0]?.count || 0);
+        
+        // Get date range if table has data
+        if (counts.customers > 0) {
+          const dateRange = await sql`
+            SELECT MIN(created_at) as earliest, MAX(created_at) as latest 
+            FROM repcard_customers
+          `;
+          const dates = Array.from(dateRange)[0];
+          counts.earliestCustomer = dates?.earliest;
+          counts.latestCustomer = dates?.latest;
+        }
+      } else {
+        counts.customers = 0;
+      }
+      
+      if (existingTables.includes('repcard_appointments')) {
+        const appointmentsResult = await sql`SELECT COUNT(*) as count FROM repcard_appointments`;
+        counts.appointments = Number(Array.from(appointmentsResult)[0]?.count || 0);
+      } else {
+        counts.appointments = 0;
+      }
+      
+      if (existingTables.includes('repcard_status_logs')) {
+        const statusLogsResult = await sql`SELECT COUNT(*) as count FROM repcard_status_logs`;
+        counts.statusLogs = Number(Array.from(statusLogsResult)[0]?.count || 0);
+      } else {
+        counts.statusLogs = 0;
+      }
+      
+      if (existingTables.includes('repcard_customer_attachments')) {
+        const attachmentsResult = await sql`SELECT COUNT(*) as count FROM repcard_customer_attachments`;
+        counts.customerAttachments = Number(Array.from(attachmentsResult)[0]?.count || 0);
+      } else {
+        counts.customerAttachments = 0;
+      }
+      
+      if (existingTables.includes('repcard_appointment_attachments')) {
+        const attachmentsResult = await sql`SELECT COUNT(*) as count FROM repcard_appointment_attachments`;
+        counts.appointmentAttachments = Number(Array.from(attachmentsResult)[0]?.count || 0);
+      } else {
+        counts.appointmentAttachments = 0;
+      }
+      
       diagnostics.database.dataCounts = {
-        users: Number(c.users),
-        customers: Number(c.customers),
-        appointments: Number(c.appointments),
-        statusLogs: Number(c.status_logs),
-        customerAttachments: Number(c.customer_attachments),
-        appointmentAttachments: Number(c.appointment_attachments),
-        earliestCustomer: c.earliest_customer,
-        latestCustomer: c.latest_customer,
-        totalRecords: Number(c.users) + Number(c.customers) + Number(c.appointments) + 
-                     Number(c.status_logs) + Number(c.customer_attachments) + Number(c.appointment_attachments)
+        users: counts.users || 0,
+        customers: counts.customers || 0,
+        appointments: counts.appointments || 0,
+        statusLogs: counts.statusLogs || 0,
+        customerAttachments: counts.customerAttachments || 0,
+        appointmentAttachments: counts.appointmentAttachments || 0,
+        earliestCustomer: counts.earliestCustomer || null,
+        latestCustomer: counts.latestCustomer || null,
+        totalRecords: (counts.users || 0) + (counts.customers || 0) + (counts.appointments || 0) + 
+                     (counts.statusLogs || 0) + (counts.customerAttachments || 0) + (counts.appointmentAttachments || 0)
       };
     } catch (error) {
       diagnostics.database.dataCounts = {

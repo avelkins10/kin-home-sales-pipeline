@@ -1861,17 +1861,8 @@ export async function runComprehensiveSync(options: {
   };
 
   try {
-    // Step 0: Ensure tables exist (auto-run migrations if needed)
-    const { ensureRepCardTables } = await import('./ensure-tables');
-    try {
-      const tablesResult = await ensureRepCardTables();
-      if (tablesResult.created) {
-        console.log('[RepCard Comprehensive Sync] ✅ Tables created automatically');
-      }
-    } catch (tableError) {
-      console.error('[RepCard Comprehensive Sync] ⚠️ Table creation failed (non-fatal):', tableError);
-      // Continue - tables might already exist or sync might create them
-    }
+    // Tables should already exist in production - only check, don't auto-create
+    // (Auto-creation is a safety net in admin endpoint, not here)
 
     // Step 1: Sync Users (needed for attribution)
     if (!options.skipUsers) {
