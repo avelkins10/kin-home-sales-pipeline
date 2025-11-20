@@ -1211,11 +1211,12 @@ export async function GET(request: NextRequest) {
         const statusLogs = Array.from(statusLogsRaw);
 
         // Group sales by user
-        const salesByUser = new Map<number, { count: number; revenue: number }>();
+        // Use string keys since changed_by_user_id is TEXT
+        const salesByUser = new Map<string, { count: number; revenue: number }>();
         
         for (const log of statusLogs) {
-          const userId = log.changed_by_user_id;
-          if (!userId) continue;
+          const userId = String(log.changed_by_user_id || '');
+          if (!userId || userId === 'null' || userId === 'undefined') continue;
           
           if (!salesByUser.has(userId)) {
             salesByUser.set(userId, { count: 0, revenue: 0 });
@@ -1232,7 +1233,9 @@ export async function GET(request: NextRequest) {
         }
 
         leaderboardEntries = (users as any[]).map((user: any) => {
-          const userSales = salesByUser.get(user.repcard_user_id) || { count: 0, revenue: 0 };
+          // Convert repcard_user_id to string for lookup (it's INTEGER in users table)
+          const repcardUserIdStr = String(user.repcard_user_id || '');
+          const userSales = salesByUser.get(repcardUserIdStr) || { count: 0, revenue: 0 };
           
           return {
             rank: 0,
