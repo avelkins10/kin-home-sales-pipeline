@@ -86,8 +86,8 @@ export async function GET(request: NextRequest) {
         LEFT JOIN repcard_status_logs sl ON c.repcard_customer_id::text = sl.repcard_customer_id::text
         WHERE c.created_at::date >= ${calculatedStartDate}::date
           AND c.created_at::date <= ${calculatedEndDate}::date
-          AND c.setter_user_id = ${parseInt(repcardUserId!)}
-          AND c.office_id = ANY(${officeIds}::int[])
+          AND c.setter_user_id::text = ${repcardUserId!}::text
+          AND c.office_id::text = ANY(${officeIds.map(id => id.toString())}::text[])
       `;
     } else if (hasRepcardUserId) {
       overviewResult = await sql`
@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
         LEFT JOIN repcard_status_logs sl ON c.repcard_customer_id::text = sl.repcard_customer_id::text
         WHERE c.created_at::date >= ${calculatedStartDate}::date
           AND c.created_at::date <= ${calculatedEndDate}::date
-          AND c.setter_user_id = ${parseInt(repcardUserId!)}
+          AND c.setter_user_id::text = ${repcardUserId!}::text
       `;
     } else if (hasOfficeIds) {
       overviewResult = await sql`
@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
         LEFT JOIN repcard_status_logs sl ON c.repcard_customer_id::text = sl.repcard_customer_id::text
         WHERE c.created_at::date >= ${calculatedStartDate}::date
           AND c.created_at::date <= ${calculatedEndDate}::date
-          AND c.office_id = ANY(${officeIds}::int[])
+          AND c.office_id::text = ANY(${officeIds.map(id => id.toString())}::text[])
       `;
     } else {
       overviewResult = await sql`
@@ -196,11 +196,11 @@ export async function GET(request: NextRequest) {
           FROM repcard_customers c
           LEFT JOIN repcard_users ru_setter ON c.setter_user_id::text = ru_setter.repcard_user_id::text
           LEFT JOIN users u_setter ON u_setter.repcard_user_id = ru_setter.repcard_user_id
-          LEFT JOIN repcard_offices ro ON c.office_id = ro.repcard_office_id
+          LEFT JOIN repcard_offices ro ON c.office_id::text = ro.repcard_office_id::text
           WHERE c.created_at::date >= ${calculatedStartDate}::date
             AND c.created_at::date <= ${calculatedEndDate}::date
             AND c.setter_user_id::text = ${repcardUserId!}::text
-            AND c.office_id = ANY(${officeIds}::int[])
+            AND c.office_id::text = ANY(${officeIds.map(id => id.toString())}::text[])
           ORDER BY c.created_at DESC
           LIMIT 100
         `;
@@ -239,7 +239,7 @@ export async function GET(request: NextRequest) {
           FROM repcard_customers c
           LEFT JOIN repcard_users ru_setter ON c.setter_user_id::text = ru_setter.repcard_user_id::text
           LEFT JOIN users u_setter ON u_setter.repcard_user_id = ru_setter.repcard_user_id
-          LEFT JOIN repcard_offices ro ON c.office_id = ro.repcard_office_id
+          LEFT JOIN repcard_offices ro ON c.office_id::text = ro.repcard_office_id::text
           WHERE c.created_at::date >= ${calculatedStartDate}::date
             AND c.created_at::date <= ${calculatedEndDate}::date
             AND c.setter_user_id::text = ${repcardUserId!}::text
@@ -281,10 +281,10 @@ export async function GET(request: NextRequest) {
           FROM repcard_customers c
           LEFT JOIN repcard_users ru_setter ON c.setter_user_id::text = ru_setter.repcard_user_id::text
           LEFT JOIN users u_setter ON u_setter.repcard_user_id = ru_setter.repcard_user_id
-          LEFT JOIN repcard_offices ro ON c.office_id = ro.repcard_office_id
+          LEFT JOIN repcard_offices ro ON c.office_id::text = ro.repcard_office_id::text
           WHERE c.created_at::date >= ${calculatedStartDate}::date
             AND c.created_at::date <= ${calculatedEndDate}::date
-            AND c.office_id = ANY(${officeIds}::int[])
+            AND c.office_id::text = ANY(${officeIds.map(id => id.toString())}::text[])
           ORDER BY c.created_at DESC
           LIMIT 100
         `;
@@ -323,7 +323,7 @@ export async function GET(request: NextRequest) {
           FROM repcard_customers c
           LEFT JOIN repcard_users ru_setter ON c.setter_user_id::text = ru_setter.repcard_user_id::text
           LEFT JOIN users u_setter ON u_setter.repcard_user_id = ru_setter.repcard_user_id
-          LEFT JOIN repcard_offices ro ON c.office_id = ro.repcard_office_id
+          LEFT JOIN repcard_offices ro ON c.office_id::text = ro.repcard_office_id::text
           WHERE c.created_at::date >= ${calculatedStartDate}::date
             AND c.created_at::date <= ${calculatedEndDate}::date
           ORDER BY c.created_at DESC
@@ -371,13 +371,13 @@ export async function GET(request: NextRequest) {
           LEFT JOIN users u_setter ON u_setter.repcard_user_id = ru_setter.repcard_user_id
           LEFT JOIN repcard_users ru_closer ON a.closer_user_id::text = ru_closer.repcard_user_id::text
           LEFT JOIN users u_closer ON u_closer.repcard_user_id = ru_closer.repcard_user_id
-          LEFT JOIN repcard_offices ro ON a.office_id = ro.repcard_office_id
+          LEFT JOIN repcard_offices ro ON a.office_id::text = ro.repcard_office_id::text
           WHERE (
             (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
             OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
           )
           AND (a.setter_user_id::text = ${repcardUserId!}::text OR a.closer_user_id::text = ${repcardUserId!}::text)
-          AND a.office_id = ANY(${officeIds}::int[])
+          AND a.office_id::text = ANY(${officeIds.map(id => id.toString())}::text[])
           ORDER BY COALESCE(a.scheduled_at, a.created_at) DESC
           LIMIT 100
         `;
@@ -415,7 +415,7 @@ export async function GET(request: NextRequest) {
           LEFT JOIN users u_setter ON u_setter.repcard_user_id = ru_setter.repcard_user_id
           LEFT JOIN repcard_users ru_closer ON a.closer_user_id::text = ru_closer.repcard_user_id::text
           LEFT JOIN users u_closer ON u_closer.repcard_user_id = ru_closer.repcard_user_id
-          LEFT JOIN repcard_offices ro ON a.office_id = ro.repcard_office_id
+          LEFT JOIN repcard_offices ro ON a.office_id::text = ro.repcard_office_id::text
           WHERE (
             (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
             OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
@@ -458,12 +458,12 @@ export async function GET(request: NextRequest) {
           LEFT JOIN users u_setter ON u_setter.repcard_user_id = ru_setter.repcard_user_id
           LEFT JOIN repcard_users ru_closer ON a.closer_user_id::text = ru_closer.repcard_user_id::text
           LEFT JOIN users u_closer ON u_closer.repcard_user_id = ru_closer.repcard_user_id
-          LEFT JOIN repcard_offices ro ON a.office_id = ro.repcard_office_id
+          LEFT JOIN repcard_offices ro ON a.office_id::text = ro.repcard_office_id::text
           WHERE (
             (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
             OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
           )
-          AND a.office_id = ANY(${officeIds}::int[])
+          AND a.office_id::text = ANY(${officeIds.map(id => id.toString())}::text[])
           ORDER BY COALESCE(a.scheduled_at, a.created_at) DESC
           LIMIT 100
         `;
@@ -501,7 +501,7 @@ export async function GET(request: NextRequest) {
           LEFT JOIN users u_setter ON u_setter.repcard_user_id = ru_setter.repcard_user_id
           LEFT JOIN repcard_users ru_closer ON a.closer_user_id::text = ru_closer.repcard_user_id::text
           LEFT JOIN users u_closer ON u_closer.repcard_user_id = ru_closer.repcard_user_id
-          LEFT JOIN repcard_offices ro ON a.office_id = ro.repcard_office_id
+          LEFT JOIN repcard_offices ro ON a.office_id::text = ro.repcard_office_id::text
           WHERE (
             (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
             OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
@@ -756,7 +756,7 @@ export async function GET(request: NextRequest) {
         LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
         WHERE ru.status = 1
           AND ru.repcard_user_id = ${parseInt(repcardUserId!)}
-          AND ru.office_id = ANY(${officeIds}::int[])
+          AND ru.office_id::text = ANY(${officeIds.map(id => id.toString())}::text[])
         GROUP BY ru.repcard_user_id, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.office_id, u.name, u.sales_office
         HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
           OR COUNT(DISTINCT a.repcard_appointment_id) > 0
@@ -838,7 +838,7 @@ export async function GET(request: NextRequest) {
           AND n.created_at::date <= ${calculatedEndDate}::date
         LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
         WHERE ru.status = 1
-          AND ru.office_id = ANY(${officeIds}::int[])
+          AND ru.office_id::text = ANY(${officeIds.map(id => id.toString())}::text[])
         GROUP BY ru.repcard_user_id, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.office_id, u.name, u.sales_office
         HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
           OR COUNT(DISTINCT a.repcard_appointment_id) > 0
@@ -898,15 +898,15 @@ export async function GET(request: NextRequest) {
         COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' THEN a.repcard_appointment_id END)::bigint as sales_closed,
         COUNT(DISTINCT ru.repcard_user_id)::bigint as active_reps
       FROM repcard_offices ro
-      LEFT JOIN repcard_customers c ON ro.repcard_office_id = c.office_id
+      LEFT JOIN repcard_customers c ON ro.repcard_office_id::text = c.office_id::text
         AND c.created_at::date >= ${calculatedStartDate}::date
         AND c.created_at::date <= ${calculatedEndDate}::date
-      LEFT JOIN repcard_appointments a ON c.repcard_customer_id = a.repcard_customer_id
+      LEFT JOIN repcard_appointments a ON c.repcard_customer_id::text = a.repcard_customer_id::text
         AND (
           (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
           OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
         )
-      LEFT JOIN repcard_users ru ON ru.office_id = ro.repcard_office_id AND ru.status = 1
+      LEFT JOIN repcard_users ru ON ru.office_id::text = ro.repcard_office_id::text AND ru.status = 1
       GROUP BY ro.repcard_office_id, ro.name
       HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
       ORDER BY doors_knocked DESC
