@@ -22,7 +22,7 @@ import { CanvassingOverviewCard } from '@/components/analytics/CanvassingOvervie
 import { DoorsKnockedTrendsCard } from '@/components/analytics/DoorsKnockedTrendsCard';
 import { AppointmentRatesCard } from '@/components/analytics/AppointmentRatesCard';
 import { LeadQualityAnalysisCard } from '@/components/analytics/LeadQualityAnalysisCard';
-import { RepCardSimpleDashboard } from '@/components/analytics/RepCardSimpleDashboard';
+import { RepCardComprehensiveDashboard } from '@/components/analytics/RepCardComprehensiveDashboard';
 // import { CancellationAnalysisCard } from '@/components/analytics/CancellationAnalysisCard';
 // import { HoldAnalysisCard } from '@/components/analytics/HoldAnalysisCard';
 import { PeriodComparisonCard } from '@/components/analytics/PeriodComparisonCard';
@@ -570,10 +570,7 @@ export default function AnalyticsPage() {
             </>
           }
           repcardContent={
-            <RepCardSimpleDashboard
-              timeRange={timeRange}
-              customDateRange={customDateRange}
-            />
+            <RepCardComprehensiveDashboard />
           }
         />
       )}
