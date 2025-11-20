@@ -221,45 +221,14 @@ export async function syncUsers(options: {
               lastRecordDate = updatedAt;
             }
 
-            // Extract company_id - API doesn't return it, so we need to get it from offices or use NULL
-            // Try multiple field names since API might use different casing
-            const companyId = user.companyId || (user as any).company_id || (user as any).companyId || null;
+            // CRITICAL: /users/minimal API doesn't return companyId or officeId
+            // Default to Kin Home's company ID (2113) for all users
+            // The API filters by company_id=2113 query parameter, so all returned users belong to Kin Home
+            const companyIdForDb: number = KIN_HOME_COMPANY_ID;
             
-            // If companyId is missing, try to get it from the batch-loaded map
-            let finalCompanyId = companyId;
-            if (!finalCompanyId && user.officeId) {
-              finalCompanyId = officeCompanyIdMap.get(user.officeId) || null;
-              if (finalCompanyId) {
-                console.log(`[RepCard Sync] Got company_id ${finalCompanyId} from office ${user.officeId} for user ${user.id}`);
-              }
-            }
-            
-            // CRITICAL FIX: If still missing, try to get from any office in the database
-            // This handles cases where offices haven't been synced yet
-            if (!finalCompanyId) {
-              try {
-                const anyOfficeResult = await sql`
-                  SELECT company_id FROM repcard_offices WHERE company_id IS NOT NULL LIMIT 1
-                `;
-                const anyOffice = Array.from(anyOfficeResult)[0] as any;
-                if (anyOffice?.company_id) {
-                  finalCompanyId = anyOffice.company_id;
-                  console.log(`[RepCard Sync] Using company_id ${finalCompanyId} from first available office for user ${user.id}`);
-                }
-              } catch (officeError) {
-                // No offices synced yet - will use default below
-              }
-            }
-            
-            // CRITICAL FIX: Default to Kin Home's company ID (2113) if still missing
-            // This ensures we always have a valid company_id and prevents SQL errors
-            if (!finalCompanyId) {
-              finalCompanyId = KIN_HOME_COMPANY_ID;
-              console.log(`[RepCard Sync] User ${user.id} missing companyId - defaulting to Kin Home company ID ${KIN_HOME_COMPANY_ID}`);
-            }
-            
-            // Ensure we have a valid number
-            const companyIdForDb: number = Number(finalCompanyId) || KIN_HOME_COMPANY_ID;
+            // Extract officeId - API doesn't return it in /users/minimal, only office name
+            // Try to get it from the user object (might be in raw_data or other fields)
+            const officeId = (user as any).officeId || (user as any).office_id || null;
 
             // Upsert user
             const result = await sql`
