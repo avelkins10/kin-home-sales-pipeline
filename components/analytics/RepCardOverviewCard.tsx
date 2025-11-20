@@ -137,8 +137,10 @@ export function RepCardOverviewCard({
   const avgDoorsPerRep = activeReps > 0 ? totalDoors / activeReps : 0;
   const avgAppointmentsPerRep = activeReps > 0 ? totalAppointments / activeReps : 0;
 
-  // Check if all metrics are zero (likely no data)
-  const hasNoData = totalDoors === 0 && totalAppointments === 0 && avgQualityScore === 0;
+  // Check if all metrics are zero AND no data was returned (likely no data synced)
+  // If we have leaderboard entries but all zeros, that's different from no entries at all
+  const hasLeaderboardData = doorsList.length > 0 || appointmentsList.length > 0 || qualityList.length > 0;
+  const hasNoData = !hasLeaderboardData && totalDoors === 0 && totalAppointments === 0 && avgQualityScore === 0;
 
   if (isLoading) {
     return (

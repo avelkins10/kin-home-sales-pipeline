@@ -288,7 +288,7 @@ export function ConfigurableLeaderboard({
     return <ConfigurableLeaderboardSkeleton />;
   }
 
-  // Error state
+  // Error state with retry
   if (error) {
     return (
       <Card className={cn('w-full', className)}>
@@ -297,6 +297,20 @@ export function ConfigurableLeaderboard({
         </CardHeader>
         <CardContent>
           <div className="text-red-600 mb-4">
+            <p className="mb-2">{error instanceof Error ? error.message : 'Failed to load leaderboard'}</p>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Retry
+            </Button>
+          </div>
+          <div className="text-sm text-gray-500">
+            <p>If this persists, check:</p>
+            <ul className="list-disc list-inside mt-2 space-y-1">
+              <li>RepCard sync status (check diagnostic banner)</li>
+              <li>Date range has data</li>
+              <li>Filters aren't too restrictive</li>
+            </ul>
+          </div>
             Failed to load leaderboard data. Please try again.
           </div>
           <Button onClick={() => refetch()} variant="outline">
