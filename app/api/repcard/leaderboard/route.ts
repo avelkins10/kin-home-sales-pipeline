@@ -304,15 +304,23 @@ export async function GET(request: NextRequest) {
     let users: any[];
     let officeFilterFailed = false; // Track if office filter failed (for use in metric queries)
 
+    // NOTE: Office filtering has a known limitation:
+    // RepCard office names (e.g., "Richards Region") don't match app office names (e.g., "Richards Mgmt")
+    // This causes office filtering to fail and fall back to showing all users
+    // This is acceptable behavior - data still displays, just without office filtering
+    // TODO: Create office name mapping table or use RepCard office IDs directly
+
     // Query users table (master table) - users should have repcard_user_id linked from sync
     if (officeIds && officeIds.length > 0) {
       // Use sql.query for office filtering with proper array parameters
       // Fix: Use LEFT JOIN to handle NULL sales_office, but only include users where office matches
       if (role !== 'all') {
         const result = await sql.query(
-          `SELECT DISTINCT u.id, u.name, u.email, u.repcard_user_id, u.sales_office[1] as office, u.role
+          `SELECT DISTINCT u.id, u.name, u.email, u.repcard_user_id, u.sales_office[1] as office, u.role,
+                  COALESCE(ru.team_name, '') as team
            FROM users u
            LEFT JOIN offices o ON o.name = ANY(u.sales_office)
+           LEFT JOIN repcard_users ru ON u.repcard_user_id::text = ru.repcard_user_id::text
            WHERE u.repcard_user_id IS NOT NULL
              AND u.role = $1
              AND o.quickbase_office_id = ANY($2::int[])
@@ -322,9 +330,11 @@ export async function GET(request: NextRequest) {
         users = result.rows;
       } else {
         const result = await sql.query(
-          `SELECT DISTINCT u.id, u.name, u.email, u.repcard_user_id, u.sales_office[1] as office, u.role
+          `SELECT DISTINCT u.id, u.name, u.email, u.repcard_user_id, u.sales_office[1] as office, u.role,
+                  COALESCE(ru.team_name, '') as team
            FROM users u
            LEFT JOIN offices o ON o.name = ANY(u.sales_office)
+           LEFT JOIN repcard_users ru ON u.repcard_user_id::text = ru.repcard_user_id::text
            WHERE u.repcard_user_id IS NOT NULL
              AND o.quickbase_office_id = ANY($1::int[])
            LIMIT 1000`,
@@ -349,17 +359,23 @@ export async function GET(request: NextRequest) {
         
         if (role !== 'all') {
           const result = await sql`
-            SELECT id, name, email, repcard_user_id, sales_office[1] as office, role
-            FROM users
-            WHERE repcard_user_id IS NOT NULL AND role = ${role}
+            SELECT 
+              u.id, u.name, u.email, u.repcard_user_id, u.sales_office[1] as office, u.role,
+              COALESCE(ru.team_name, '') as team
+            FROM users u
+            LEFT JOIN repcard_users ru ON u.repcard_user_id::text = ru.repcard_user_id::text
+            WHERE u.repcard_user_id IS NOT NULL AND u.role = ${role}
             LIMIT 1000
           `;
           users = Array.from(result);
         } else {
           const result = await sql`
-            SELECT id, name, email, repcard_user_id, sales_office[1] as office, role
-            FROM users
-            WHERE repcard_user_id IS NOT NULL
+            SELECT 
+              u.id, u.name, u.email, u.repcard_user_id, u.sales_office[1] as office, u.role,
+              COALESCE(ru.team_name, '') as team
+            FROM users u
+            LEFT JOIN repcard_users ru ON u.repcard_user_id::text = ru.repcard_user_id::text
+            WHERE u.repcard_user_id IS NOT NULL
             LIMIT 1000
           `;
           users = Array.from(result);
@@ -374,17 +390,23 @@ export async function GET(request: NextRequest) {
       // No office filter - use sql template
       if (role !== 'all') {
         const result = await sql`
-          SELECT id, name, email, repcard_user_id, sales_office[1] as office, role
-          FROM users
-          WHERE repcard_user_id IS NOT NULL AND role = ${role}
+          SELECT 
+            u.id, u.name, u.email, u.repcard_user_id, u.sales_office[1] as office, u.role,
+            COALESCE(ru.team_name, '') as team
+          FROM users u
+          LEFT JOIN repcard_users ru ON u.repcard_user_id::text = ru.repcard_user_id::text
+          WHERE u.repcard_user_id IS NOT NULL AND u.role = ${role}
           LIMIT 1000
         `;
         users = Array.from(result);
       } else {
         const result = await sql`
-          SELECT id, name, email, repcard_user_id, sales_office[1] as office, role
-          FROM users
-          WHERE repcard_user_id IS NOT NULL
+          SELECT 
+            u.id, u.name, u.email, u.repcard_user_id, u.sales_office[1] as office, u.role,
+            COALESCE(ru.team_name, '') as team
+          FROM users u
+          LEFT JOIN repcard_users ru ON u.repcard_user_id::text = ru.repcard_user_id::text
+          WHERE u.repcard_user_id IS NOT NULL
           LIMIT 1000
         `;
         users = Array.from(result);
@@ -592,6 +614,7 @@ export async function GET(request: NextRequest) {
             userEmail: user.email,
             office: user.office,
             role: user.role,
+            team: user.team || '',
             metricValue: Math.max(0, Math.min(100, compositeScore)),
             metricType: metric
           };
@@ -620,6 +643,7 @@ export async function GET(request: NextRequest) {
                 ru.repcard_user_id::text as repcard_user_id,
                 COALESCE(u.sales_office[1], ru.office_name) as office,
                 COALESCE(u.role, ru.role) as role,
+                COALESCE(ru.team_name, '') as team,
                 COUNT(c.repcard_customer_id) as count
               FROM repcard_users ru
               LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
@@ -641,6 +665,7 @@ export async function GET(request: NextRequest) {
                 ru.repcard_user_id::text as repcard_user_id,
                 COALESCE(u.sales_office[1], ru.office_name) as office,
                 COALESCE(u.role, ru.role) as role,
+                COALESCE(ru.team_name, '') as team,
                 COUNT(c.repcard_customer_id) as count
               FROM repcard_users ru
               LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
@@ -664,6 +689,7 @@ export async function GET(request: NextRequest) {
                 ru.repcard_user_id::text as repcard_user_id,
                 COALESCE(u.sales_office[1], ru.office_name) as office,
                 COALESCE(u.role, ru.role) as role,
+                COALESCE(ru.team_name, '') as team,
                 COUNT(c.repcard_customer_id) as count
               FROM repcard_users ru
               LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
@@ -683,6 +709,7 @@ export async function GET(request: NextRequest) {
                 ru.repcard_user_id::text as repcard_user_id,
                 COALESCE(u.sales_office[1], ru.office_name) as office,
                 COALESCE(u.role, ru.role) as role,
+                COALESCE(ru.team_name, '') as team,
                 COUNT(c.repcard_customer_id) as count
               FROM repcard_users ru
               LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
@@ -707,6 +734,7 @@ export async function GET(request: NextRequest) {
           userEmail: row.user_email,
           office: row.office,
           role: row.role,
+          team: row.team || '',
           metricValue: parseInt(row.count),
           metricType: metric
         }));
@@ -825,9 +853,12 @@ export async function GET(request: NextRequest) {
         if (leaderboardEntries.length === 0 && role !== 'all') {
           // Fallback: get all users and create entries with 0 counts
           const allUsers = await sql`
-            SELECT id, name, email, repcard_user_id, sales_office[1] as office, role
-            FROM users
-            WHERE repcard_user_id IS NOT NULL AND role = ${role}
+            SELECT 
+              u.id, u.name, u.email, u.repcard_user_id, u.sales_office[1] as office, u.role,
+              COALESCE(ru.team_name, '') as team
+            FROM users u
+            LEFT JOIN repcard_users ru ON u.repcard_user_id::text = ru.repcard_user_id::text
+            WHERE u.repcard_user_id IS NOT NULL AND u.role = ${role}
             LIMIT 1000
           `;
           leaderboardEntries = Array.from(allUsers).map((user: any) => ({
@@ -837,6 +868,7 @@ export async function GET(request: NextRequest) {
             userEmail: user.email,
             office: user.office,
             role: user.role,
+            team: user.team || '',
             metricValue: 0,
             metricType: metric
           }));
@@ -965,6 +997,7 @@ export async function GET(request: NextRequest) {
           userEmail: row.user_email,
           office: row.office,
           role: row.role,
+          team: row.team || '',
           metricValue: parseInt(row.count),
           metricType: metric
         }));
@@ -1131,9 +1164,12 @@ export async function GET(request: NextRequest) {
         if (leaderboardEntries.length === 0 && role !== 'all') {
           // Fallback: get all users and create entries with 0 counts
           const allUsers = await sql`
-            SELECT id, name, email, repcard_user_id, sales_office[1] as office, role
-            FROM users
-            WHERE repcard_user_id IS NOT NULL AND role = ${role}
+            SELECT 
+              u.id, u.name, u.email, u.repcard_user_id, u.sales_office[1] as office, u.role,
+              COALESCE(ru.team_name, '') as team
+            FROM users u
+            LEFT JOIN repcard_users ru ON u.repcard_user_id::text = ru.repcard_user_id::text
+            WHERE u.repcard_user_id IS NOT NULL AND u.role = ${role}
             LIMIT 1000
           `;
           leaderboardEntries = Array.from(allUsers).map((user: any) => ({
@@ -1143,6 +1179,7 @@ export async function GET(request: NextRequest) {
             userEmail: user.email,
             office: user.office,
             role: user.role,
+            team: user.team || '',
             metricValue: 0,
             metricType: metric
           }));
@@ -1204,6 +1241,7 @@ export async function GET(request: NextRequest) {
             userEmail: user.email,
             office: user.office,
             role: user.role,
+            team: user.team || '',
             metricValue: metric === 'sales_closed' ? userSales.count : userSales.revenue,
             metricType: metric
           };
@@ -1226,7 +1264,8 @@ export async function GET(request: NextRequest) {
             COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as user_name,
             COALESCE(u.email, ru.email) as user_email,
             COALESCE(u.sales_office[1], ru.office_name) as office,
-            COALESCE(u.role, ru.role) as role
+            COALESCE(u.role, ru.role) as role,
+            COALESCE(ru.team_name, '') as team
           FROM repcard_users ru
           LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
           WHERE ru.status = 1
@@ -1240,7 +1279,8 @@ export async function GET(request: NextRequest) {
             COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as user_name,
             COALESCE(u.email, ru.email) as user_email,
             COALESCE(u.sales_office[1], ru.office_name) as office,
-            COALESCE(u.role, ru.role) as role
+            COALESCE(u.role, ru.role) as role,
+            COALESCE(ru.team_name, '') as team
           FROM repcard_users ru
           LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
           WHERE ru.status = 1
@@ -1258,6 +1298,7 @@ export async function GET(request: NextRequest) {
         userEmail: user.user_email,
         office: user.office,
         role: user.role,
+        team: user.team || '',
         metricValue: 0,
         metricType: metric
       }));

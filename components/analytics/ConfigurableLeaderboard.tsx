@@ -467,6 +467,7 @@ export function ConfigurableLeaderboard({
                     <TableHead className="w-20">Rank</TableHead>
                     <TableHead className="min-w-48">Name</TableHead>
                     <TableHead className="min-w-32">Office</TableHead>
+                    <TableHead className="min-w-32">Team</TableHead>
                     <TableHead className="w-24">Role</TableHead>
                     <TableHead className="text-right min-w-32">
                       {getMetricLabel(metric)}
@@ -496,6 +497,7 @@ export function ConfigurableLeaderboard({
                         </div>
                       </TableCell>
                       <TableCell>{entry.office}</TableCell>
+                      <TableCell>{entry.team || '-'}</TableCell>
                       <TableCell>
                         <Badge variant={entry.role === 'closer' ? 'default' : 'secondary'}>
                           {entry.role}
@@ -565,6 +567,7 @@ export function ConfigurableLeaderboardSkeleton() {
                 <TableHead className="w-20">Rank</TableHead>
                 <TableHead className="min-w-48">Name</TableHead>
                 <TableHead className="min-w-32">Office</TableHead>
+                <TableHead className="min-w-32">Team</TableHead>
                 <TableHead className="w-24">Role</TableHead>
                 <TableHead className="text-right min-w-32">Metric</TableHead>
                 <TableHead className="w-16 text-center">Trend</TableHead>
