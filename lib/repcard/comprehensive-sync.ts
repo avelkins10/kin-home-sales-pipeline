@@ -1760,7 +1760,7 @@ export async function linkRepCardUsersToUsers(): Promise<void> {
     // SAFE TO UPDATE:
     // ✓ repcard_user_id - External ID linking to RepCard
     // ✓ last_synced_from_repcard_at - Sync timestamp
-    const result = await sql`
+    await sql`
       UPDATE users u
       SET
         repcard_user_id = ru.repcard_user_id,
@@ -1778,16 +1778,6 @@ export async function linkRepCardUsersToUsers(): Promise<void> {
       FROM users
       WHERE repcard_user_id IS NOT NULL
     `;
-    const getCount = (result: any): number => {
-      if (Array.isArray(result)) {
-        return Number(result[0]?.count || 0);
-      }
-      if (result?.rows && Array.isArray(result.rows)) {
-        return Number(result.rows[0]?.count || 0);
-      }
-      const arr = Array.from(result);
-      return Number(arr[0]?.count || 0);
-    };
     const linkedCount = getCount(verifyResult);
     console.log(`[RepCard Sync] ✅ Linked ${linkedCount} users to RepCard accounts`);
     
