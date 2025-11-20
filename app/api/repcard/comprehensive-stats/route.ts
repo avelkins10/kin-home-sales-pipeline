@@ -194,12 +194,12 @@ export async function GET(request: NextRequest) {
             (SELECT COUNT(*) FROM repcard_customer_attachments WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as attachment_count,
             (SELECT COUNT(*) FROM repcard_customer_notes WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as note_count
           FROM repcard_customers c
-          LEFT JOIN repcard_users ru_setter ON c.setter_user_id = ru_setter.repcard_user_id
+          LEFT JOIN repcard_users ru_setter ON c.setter_user_id::text = ru_setter.repcard_user_id::text
           LEFT JOIN users u_setter ON u_setter.repcard_user_id = ru_setter.repcard_user_id
           LEFT JOIN repcard_offices ro ON c.office_id = ro.repcard_office_id
           WHERE c.created_at::date >= ${calculatedStartDate}::date
             AND c.created_at::date <= ${calculatedEndDate}::date
-            AND c.setter_user_id = ${parseInt(repcardUserId!)}
+            AND c.setter_user_id::text = ${repcardUserId!}::text
             AND c.office_id = ANY(${officeIds}::int[])
           ORDER BY c.created_at DESC
           LIMIT 100
@@ -237,12 +237,12 @@ export async function GET(request: NextRequest) {
             (SELECT COUNT(*) FROM repcard_customer_attachments WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as attachment_count,
             (SELECT COUNT(*) FROM repcard_customer_notes WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as note_count
           FROM repcard_customers c
-          LEFT JOIN repcard_users ru_setter ON c.setter_user_id = ru_setter.repcard_user_id
+          LEFT JOIN repcard_users ru_setter ON c.setter_user_id::text = ru_setter.repcard_user_id::text
           LEFT JOIN users u_setter ON u_setter.repcard_user_id = ru_setter.repcard_user_id
           LEFT JOIN repcard_offices ro ON c.office_id = ro.repcard_office_id
           WHERE c.created_at::date >= ${calculatedStartDate}::date
             AND c.created_at::date <= ${calculatedEndDate}::date
-            AND c.setter_user_id = ${parseInt(repcardUserId!)}
+            AND c.setter_user_id::text = ${repcardUserId!}::text
           ORDER BY c.created_at DESC
           LIMIT 100
         `;
@@ -279,7 +279,7 @@ export async function GET(request: NextRequest) {
             (SELECT COUNT(*) FROM repcard_customer_attachments WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as attachment_count,
             (SELECT COUNT(*) FROM repcard_customer_notes WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as note_count
           FROM repcard_customers c
-          LEFT JOIN repcard_users ru_setter ON c.setter_user_id = ru_setter.repcard_user_id
+          LEFT JOIN repcard_users ru_setter ON c.setter_user_id::text = ru_setter.repcard_user_id::text
           LEFT JOIN users u_setter ON u_setter.repcard_user_id = ru_setter.repcard_user_id
           LEFT JOIN repcard_offices ro ON c.office_id = ro.repcard_office_id
           WHERE c.created_at::date >= ${calculatedStartDate}::date
@@ -321,7 +321,7 @@ export async function GET(request: NextRequest) {
             (SELECT COUNT(*) FROM repcard_customer_attachments WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as attachment_count,
             (SELECT COUNT(*) FROM repcard_customer_notes WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as note_count
           FROM repcard_customers c
-          LEFT JOIN repcard_users ru_setter ON c.setter_user_id = ru_setter.repcard_user_id
+          LEFT JOIN repcard_users ru_setter ON c.setter_user_id::text = ru_setter.repcard_user_id::text
           LEFT JOIN users u_setter ON u_setter.repcard_user_id = ru_setter.repcard_user_id
           LEFT JOIN repcard_offices ro ON c.office_id = ro.repcard_office_id
           WHERE c.created_at::date >= ${calculatedStartDate}::date
@@ -367,16 +367,16 @@ export async function GET(request: NextRequest) {
             (SELECT COUNT(*) FROM repcard_appointment_attachments WHERE repcard_appointment_id = a.repcard_appointment_id)::bigint as attachment_count
           FROM repcard_appointments a
           LEFT JOIN repcard_customers c ON a.repcard_customer_id = c.repcard_customer_id
-          LEFT JOIN repcard_users ru_setter ON a.setter_user_id = ru_setter.repcard_user_id
+          LEFT JOIN repcard_users ru_setter ON a.setter_user_id::text = ru_setter.repcard_user_id::text
           LEFT JOIN users u_setter ON u_setter.repcard_user_id = ru_setter.repcard_user_id
-          LEFT JOIN repcard_users ru_closer ON a.closer_user_id = ru_closer.repcard_user_id
+          LEFT JOIN repcard_users ru_closer ON a.closer_user_id::text = ru_closer.repcard_user_id::text
           LEFT JOIN users u_closer ON u_closer.repcard_user_id = ru_closer.repcard_user_id
           LEFT JOIN repcard_offices ro ON a.office_id = ro.repcard_office_id
           WHERE (
             (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
             OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
           )
-          AND (a.setter_user_id = ${parseInt(repcardUserId!)} OR a.closer_user_id = ${parseInt(repcardUserId!)})
+          AND (a.setter_user_id::text = ${repcardUserId!}::text OR a.closer_user_id::text = ${repcardUserId!}::text)
           AND a.office_id = ANY(${officeIds}::int[])
           ORDER BY COALESCE(a.scheduled_at, a.created_at) DESC
           LIMIT 100
@@ -411,16 +411,16 @@ export async function GET(request: NextRequest) {
             (SELECT COUNT(*) FROM repcard_appointment_attachments WHERE repcard_appointment_id = a.repcard_appointment_id)::bigint as attachment_count
           FROM repcard_appointments a
           LEFT JOIN repcard_customers c ON a.repcard_customer_id = c.repcard_customer_id
-          LEFT JOIN repcard_users ru_setter ON a.setter_user_id = ru_setter.repcard_user_id
+          LEFT JOIN repcard_users ru_setter ON a.setter_user_id::text = ru_setter.repcard_user_id::text
           LEFT JOIN users u_setter ON u_setter.repcard_user_id = ru_setter.repcard_user_id
-          LEFT JOIN repcard_users ru_closer ON a.closer_user_id = ru_closer.repcard_user_id
+          LEFT JOIN repcard_users ru_closer ON a.closer_user_id::text = ru_closer.repcard_user_id::text
           LEFT JOIN users u_closer ON u_closer.repcard_user_id = ru_closer.repcard_user_id
           LEFT JOIN repcard_offices ro ON a.office_id = ro.repcard_office_id
           WHERE (
             (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
             OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
           )
-          AND (a.setter_user_id = ${parseInt(repcardUserId!)} OR a.closer_user_id = ${parseInt(repcardUserId!)})
+          AND (a.setter_user_id::text = ${repcardUserId!}::text OR a.closer_user_id::text = ${repcardUserId!}::text)
           ORDER BY COALESCE(a.scheduled_at, a.created_at) DESC
           LIMIT 100
         `;
@@ -454,9 +454,9 @@ export async function GET(request: NextRequest) {
             (SELECT COUNT(*) FROM repcard_appointment_attachments WHERE repcard_appointment_id = a.repcard_appointment_id)::bigint as attachment_count
           FROM repcard_appointments a
           LEFT JOIN repcard_customers c ON a.repcard_customer_id = c.repcard_customer_id
-          LEFT JOIN repcard_users ru_setter ON a.setter_user_id = ru_setter.repcard_user_id
+          LEFT JOIN repcard_users ru_setter ON a.setter_user_id::text = ru_setter.repcard_user_id::text
           LEFT JOIN users u_setter ON u_setter.repcard_user_id = ru_setter.repcard_user_id
-          LEFT JOIN repcard_users ru_closer ON a.closer_user_id = ru_closer.repcard_user_id
+          LEFT JOIN repcard_users ru_closer ON a.closer_user_id::text = ru_closer.repcard_user_id::text
           LEFT JOIN users u_closer ON u_closer.repcard_user_id = ru_closer.repcard_user_id
           LEFT JOIN repcard_offices ro ON a.office_id = ro.repcard_office_id
           WHERE (
@@ -497,9 +497,9 @@ export async function GET(request: NextRequest) {
             (SELECT COUNT(*) FROM repcard_appointment_attachments WHERE repcard_appointment_id = a.repcard_appointment_id)::bigint as attachment_count
           FROM repcard_appointments a
           LEFT JOIN repcard_customers c ON a.repcard_customer_id = c.repcard_customer_id
-          LEFT JOIN repcard_users ru_setter ON a.setter_user_id = ru_setter.repcard_user_id
+          LEFT JOIN repcard_users ru_setter ON a.setter_user_id::text = ru_setter.repcard_user_id::text
           LEFT JOIN users u_setter ON u_setter.repcard_user_id = ru_setter.repcard_user_id
-          LEFT JOIN repcard_users ru_closer ON a.closer_user_id = ru_closer.repcard_user_id
+          LEFT JOIN repcard_users ru_closer ON a.closer_user_id::text = ru_closer.repcard_user_id::text
           LEFT JOIN users u_closer ON u_closer.repcard_user_id = ru_closer.repcard_user_id
           LEFT JOIN repcard_offices ro ON a.office_id = ro.repcard_office_id
           WHERE (
@@ -532,11 +532,11 @@ export async function GET(request: NextRequest) {
             COALESCE(u_changed_by.name, TRIM(ru_changed_by.first_name || ' ' || ru_changed_by.last_name), ru_changed_by.email) as changed_by_name
           FROM repcard_status_logs sl
           LEFT JOIN repcard_customers c ON sl.repcard_customer_id = c.repcard_customer_id
-          LEFT JOIN repcard_users ru_changed_by ON sl.changed_by_user_id = ru_changed_by.repcard_user_id
+          LEFT JOIN repcard_users ru_changed_by ON sl.changed_by_user_id::text = ru_changed_by.repcard_user_id::text
           LEFT JOIN users u_changed_by ON u_changed_by.repcard_user_id = ru_changed_by.repcard_user_id
           WHERE sl.changed_at::date >= ${calculatedStartDate}::date
             AND sl.changed_at::date <= ${calculatedEndDate}::date
-            AND sl.changed_by_user_id = ${parseInt(repcardUserId!)}
+            AND sl.changed_by_user_id::text = ${repcardUserId!}::text
           ORDER BY sl.changed_at DESC
           LIMIT 100
         `;
@@ -555,7 +555,7 @@ export async function GET(request: NextRequest) {
             COALESCE(u_changed_by.name, TRIM(ru_changed_by.first_name || ' ' || ru_changed_by.last_name), ru_changed_by.email) as changed_by_name
           FROM repcard_status_logs sl
           LEFT JOIN repcard_customers c ON sl.repcard_customer_id = c.repcard_customer_id
-          LEFT JOIN repcard_users ru_changed_by ON sl.changed_by_user_id = ru_changed_by.repcard_user_id
+          LEFT JOIN repcard_users ru_changed_by ON sl.changed_by_user_id::text = ru_changed_by.repcard_user_id::text
           LEFT JOIN users u_changed_by ON u_changed_by.repcard_user_id = ru_changed_by.repcard_user_id
           WHERE sl.changed_at::date >= ${calculatedStartDate}::date
             AND sl.changed_at::date <= ${calculatedEndDate}::date
@@ -685,7 +685,7 @@ export async function GET(request: NextRequest) {
             ru_author.repcard_user_id as author_repcard_user_id,
             COALESCE(u_author.name, TRIM(ru_author.first_name || ' ' || ru_author.last_name), ru_author.email) as author_name
           FROM repcard_customer_notes n
-          LEFT JOIN repcard_customers c ON n.repcard_customer_id = c.repcard_customer_id
+          LEFT JOIN repcard_customers c ON n.repcard_customer_id::text = c.repcard_customer_id::text
           LEFT JOIN repcard_users ru_author ON n.repcard_user_id = ru_author.repcard_user_id
           LEFT JOIN users u_author ON u_author.repcard_user_id = ru_author.repcard_user_id
           WHERE n.created_at::date >= ${calculatedStartDate}::date
@@ -707,7 +707,7 @@ export async function GET(request: NextRequest) {
             ru_author.repcard_user_id as author_repcard_user_id,
             COALESCE(u_author.name, TRIM(ru_author.first_name || ' ' || ru_author.last_name), ru_author.email) as author_name
           FROM repcard_customer_notes n
-          LEFT JOIN repcard_customers c ON n.repcard_customer_id = c.repcard_customer_id
+          LEFT JOIN repcard_customers c ON n.repcard_customer_id::text = c.repcard_customer_id::text
           LEFT JOIN repcard_users ru_author ON n.repcard_user_id = ru_author.repcard_user_id
           LEFT JOIN users u_author ON u_author.repcard_user_id = ru_author.repcard_user_id
           WHERE n.created_at::date >= ${calculatedStartDate}::date
@@ -738,12 +738,12 @@ export async function GET(request: NextRequest) {
           COUNT(DISTINCT n.repcard_note_id)::bigint as notes_written,
           COUNT(DISTINCT CASE WHEN a.is_within_48_hours = TRUE THEN a.repcard_appointment_id END)::bigint as appointments_within_48h
         FROM repcard_users ru
-        LEFT JOIN repcard_customers c ON ru.repcard_user_id = c.setter_user_id
+        LEFT JOIN repcard_customers c ON ru.repcard_user_id::text = c.setter_user_id::text
           AND c.created_at::date >= ${calculatedStartDate}::date
           AND c.created_at::date <= ${calculatedEndDate}::date
         LEFT JOIN repcard_appointments a ON (
-          a.setter_user_id = ru.repcard_user_id
-          OR a.closer_user_id = ru.repcard_user_id
+          a.setter_user_id::text = ru.repcard_user_id::text
+          OR a.closer_user_id::text = ru.repcard_user_id::text
         )
           AND (
             (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
@@ -780,12 +780,12 @@ export async function GET(request: NextRequest) {
           COUNT(DISTINCT n.repcard_note_id)::bigint as notes_written,
           COUNT(DISTINCT CASE WHEN a.is_within_48_hours = TRUE THEN a.repcard_appointment_id END)::bigint as appointments_within_48h
         FROM repcard_users ru
-        LEFT JOIN repcard_customers c ON ru.repcard_user_id = c.setter_user_id
+        LEFT JOIN repcard_customers c ON ru.repcard_user_id::text = c.setter_user_id::text
           AND c.created_at::date >= ${calculatedStartDate}::date
           AND c.created_at::date <= ${calculatedEndDate}::date
         LEFT JOIN repcard_appointments a ON (
-          a.setter_user_id = ru.repcard_user_id
-          OR a.closer_user_id = ru.repcard_user_id
+          a.setter_user_id::text = ru.repcard_user_id::text
+          OR a.closer_user_id::text = ru.repcard_user_id::text
         )
           AND (
             (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
@@ -821,12 +821,12 @@ export async function GET(request: NextRequest) {
           COUNT(DISTINCT n.repcard_note_id)::bigint as notes_written,
           COUNT(DISTINCT CASE WHEN a.is_within_48_hours = TRUE THEN a.repcard_appointment_id END)::bigint as appointments_within_48h
         FROM repcard_users ru
-        LEFT JOIN repcard_customers c ON ru.repcard_user_id = c.setter_user_id
+        LEFT JOIN repcard_customers c ON ru.repcard_user_id::text = c.setter_user_id::text
           AND c.created_at::date >= ${calculatedStartDate}::date
           AND c.created_at::date <= ${calculatedEndDate}::date
         LEFT JOIN repcard_appointments a ON (
-          a.setter_user_id = ru.repcard_user_id
-          OR a.closer_user_id = ru.repcard_user_id
+          a.setter_user_id::text = ru.repcard_user_id::text
+          OR a.closer_user_id::text = ru.repcard_user_id::text
         )
           AND (
             (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
@@ -862,12 +862,12 @@ export async function GET(request: NextRequest) {
           COUNT(DISTINCT n.repcard_note_id)::bigint as notes_written,
           COUNT(DISTINCT CASE WHEN a.is_within_48_hours = TRUE THEN a.repcard_appointment_id END)::bigint as appointments_within_48h
         FROM repcard_users ru
-        LEFT JOIN repcard_customers c ON ru.repcard_user_id = c.setter_user_id
+        LEFT JOIN repcard_customers c ON ru.repcard_user_id::text = c.setter_user_id::text
           AND c.created_at::date >= ${calculatedStartDate}::date
           AND c.created_at::date <= ${calculatedEndDate}::date
         LEFT JOIN repcard_appointments a ON (
-          a.setter_user_id = ru.repcard_user_id
-          OR a.closer_user_id = ru.repcard_user_id
+          a.setter_user_id::text = ru.repcard_user_id::text
+          OR a.closer_user_id::text = ru.repcard_user_id::text
         )
           AND (
             (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
