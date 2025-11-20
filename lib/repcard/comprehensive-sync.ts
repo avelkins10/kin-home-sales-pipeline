@@ -258,6 +258,14 @@ export async function syncUsers(options: {
               // Invalid date format, skip
             }
 
+            // Convert status to INTEGER (1 = active, 0 = inactive)
+            const userStatus = (user as any).status;
+            const statusValue = (userStatus === 'ACTIVE' || userStatus === 1 || userStatus === '1') 
+              ? 1 
+              : (userStatus === 'DEACTIVATE' || userStatus === 0 || userStatus === '0') 
+                ? 0 
+                : 1; // Default to active if unknown
+
             // Upsert user
             const result = await sql`
               INSERT INTO repcard_users (
@@ -295,7 +303,7 @@ export async function syncUsers(options: {
                 ${(user as any).phoneNumber || (user as any).phone || null},
                 ${(user as any).username || null},
                 ${(user as any).role || null},
-                ${((user as any).status === 'ACTIVE' || (user as any).status === 1 || (user as any).status === '1') ? 1 : ((user as any).status === 'DEACTIVATE' || (user as any).status === 0 || (user as any).status === '0') ? 0 : 1)},
+                ${statusValue},
                 ${(user as any).office || (user as any).office_name || null},
                 ${(user as any).team || null},
                 ${(user as any).jobTitle || (user as any).job_title || null},
