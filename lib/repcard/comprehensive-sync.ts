@@ -237,7 +237,22 @@ export async function syncUsers(options: {
               console.log(`[RepCard Sync] User ${user.id} missing companyId - will sync with NULL (backfill later)`);
             }
 
-            // Upsert user
+            // Ensure company_id column is nullable (run migration 017 if needed)
+            try {
+              await sql`
+                ALTER TABLE repcard_users 
+                ALTER COLUMN company_id DROP NOT NULL
+              `;
+            } catch (alterError: any) {
+              // Column might already be nullable or table doesn't exist yet - that's OK
+              if (!alterError?.message?.includes('does not exist') && 
+                  !alterError?.message?.includes('column') &&
+                  !alterError?.code?.includes('42P16')) {
+                console.log(`[RepCard Sync] Note: Could not alter company_id column:`, alterError.message);
+              }
+            }
+
+            // Upsert user - handle NULL company_id properly
             const result = await sql`
               INSERT INTO repcard_users (
                 repcard_user_id,
@@ -264,7 +279,7 @@ export async function syncUsers(options: {
               )
               VALUES (
                 ${user.id},
-                ${companyIdForDb}, // Allow NULL temporarily - will backfill from offices later
+                ${companyIdForDb === null ? null : companyIdForDb},
                 ${user.officeId || null},
                 ${(user as any).firstName || (user as any).first_name || null},
                 ${(user as any).lastName || (user as any).last_name || null},
