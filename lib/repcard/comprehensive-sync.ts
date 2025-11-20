@@ -295,7 +295,7 @@ export async function syncUsers(options: {
                 ${(user as any).phoneNumber || (user as any).phone || null},
                 ${(user as any).username || null},
                 ${(user as any).role || null},
-                ${(user as any).status === 'ACTIVE' || (user as any).status === 1 || (user as any).status === '1' ? 1 : 0},
+                ${((user as any).status === 'ACTIVE' || (user as any).status === 1 || (user as any).status === '1') ? 1 : ((user as any).status === 'DEACTIVATE' || (user as any).status === 0 || (user as any).status === '0') ? 0 : 1)},
                 ${(user as any).office || (user as any).office_name || null},
                 ${(user as any).team || null},
                 ${(user as any).jobTitle || (user as any).job_title || null},
