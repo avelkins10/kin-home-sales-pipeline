@@ -1217,11 +1217,22 @@ export async function syncCalendars(): Promise<SyncEntityResult> {
     console.log('[RepCard Sync] Starting sync for calendars...');
 
     const response = await repcardClient.getCalendars({ status: 'active' });
-    if (!response || !response.result || !Array.isArray(response.result)) {
+    
+    // Handle paginated response structure (current_page + data) or direct result array
+    let calendars: any[] = [];
+    if (response?.result && Array.isArray(response.result)) {
+      // Old format: response.result is array
+      calendars = response.result;
+    } else if (response?.data && Array.isArray(response.data)) {
+      // New paginated format: response.data is array
+      calendars = response.data;
+    } else if (Array.isArray(response)) {
+      // Direct array response
+      calendars = response;
+    } else {
+      console.error('[RepCard Sync] Invalid calendar response structure:', JSON.stringify(response, null, 2));
       throw new Error(`Invalid response structure: ${JSON.stringify(response)}`);
     }
-
-    const calendars = response.result;
     console.log(`[RepCard Sync] Got ${calendars.length} calendars`);
 
     // Fetch details for each calendar to get setters/closers/dispatchers
@@ -1234,16 +1245,21 @@ export async function syncCalendars(): Promise<SyncEntityResult> {
         try {
           const detailsResponse = await repcardClient.getCalendarDetails(calendar.id);
           if (detailsResponse?.result) {
-            setters = detailsResponse.result.setters?.map(s => s.id) || [];
-            closers = detailsResponse.result.closers?.map(c => c.id) || [];
-            dispatchers = detailsResponse.result.dispatchers?.map(d => d.id) || [];
+            setters = detailsResponse.result.setters?.map((s: any) => s.id) || [];
+            closers = detailsResponse.result.closers?.map((c: any) => c.id) || [];
+            dispatchers = detailsResponse.result.dispatchers?.map((d: any) => d.id) || [];
           }
         } catch (error) {
           console.warn(`[RepCard Sync] Could not fetch details for calendar ${calendar.id}:`, error);
         }
 
-        // Default to Kin Home company ID if missing
-        const companyIdForDb = calendar.companyId || KIN_HOME_COMPANY_ID;
+        // Map API field names to database fields
+        // API returns: id, title (or name), status, companyId (or company_id)
+        // Database expects: repcard_calendar_id, name, status, company_id
+        const calendarId = calendar.id;
+        const calendarName = calendar.name || calendar.title || `Calendar ${calendarId}`;
+        const companyIdForDb = calendar.companyId || calendar.company_id || KIN_HOME_COMPANY_ID;
+        const calendarStatus = calendar.status?.toLowerCase() === 'active' ? 'active' : 'inactive';
         
         const result = await sql`
           INSERT INTO repcard_calendars (
@@ -1257,10 +1273,10 @@ export async function syncCalendars(): Promise<SyncEntityResult> {
             raw_data
           )
           VALUES (
-            ${calendar.id},
-            ${calendar.name},
+            ${calendarId},
+            ${calendarName},
             ${companyIdForDb},
-            ${calendar.status || 'active'},
+            ${calendarStatus},
             ${setters},
             ${closers},
             ${dispatchers},
