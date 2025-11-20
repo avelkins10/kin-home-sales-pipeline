@@ -616,7 +616,7 @@ export async function GET(request: NextRequest) {
           WHERE att.created_at::date >= ${calculatedStartDate}::date
             AND att.created_at::date <= ${calculatedEndDate}::date
             AND att.uploaded_by_user_id::text = ${repcardUserId!}::text
-          ORDER BY att.created_at DESC
+          ORDER BY created_at DESC
           LIMIT 100
         `;
       } else {
@@ -663,7 +663,7 @@ export async function GET(request: NextRequest) {
           LEFT JOIN users u_uploader ON u_uploader.repcard_user_id::text = ru_uploader.repcard_user_id::text
           WHERE att.created_at::date >= ${calculatedStartDate}::date
             AND att.created_at::date <= ${calculatedEndDate}::date
-          ORDER BY att.created_at DESC
+          ORDER BY created_at DESC
           LIMIT 100
         `;
       }
