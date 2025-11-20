@@ -101,3 +101,4 @@ COMMENT ON COLUMN repcard_customers.setter_user_id IS 'RepCard user ID (INTEGER)
 COMMENT ON COLUMN repcard_appointments.setter_user_id IS 'RepCard user ID (INTEGER) - normalized for performance';
 COMMENT ON COLUMN repcard_appointments.closer_user_id IS 'RepCard user ID (INTEGER) - normalized for performance';
 
+

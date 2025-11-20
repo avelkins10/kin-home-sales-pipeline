@@ -164,3 +164,4 @@ psql "$DATABASE_URL" -f lib/db/migrations/018_normalize_repcard_user_ids_to_inte
 3. 🔧 Run migration 018 if needed
 4. ⚡ Remove casts after migration for performance
 
+
