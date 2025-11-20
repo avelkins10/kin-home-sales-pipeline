@@ -62,11 +62,6 @@ export async function GET(request: NextRequest) {
     // Build WHERE clause parts
     const hasRepcardUserId = !!repcardUserId;
     const hasOfficeIds = officeIds.length > 0;
-    
-    // Helper to conditionally add WHERE conditions
-    const addCondition = (condition: boolean, sqlFragment: any) => {
-      return condition ? sqlFragment : sql``;
-    };
 
 
     // 1. OVERVIEW METRICS
@@ -202,8 +197,8 @@ export async function GET(request: NextRequest) {
         LEFT JOIN repcard_offices ro ON c.office_id = ro.repcard_office_id
         WHERE c.created_at::date >= ${calculatedStartDate}::date
           AND c.created_at::date <= ${calculatedEndDate}::date
-          ${addCondition(hasRepcardUserId, sql`AND c.setter_user_id = ${parseInt(repcardUserId!)}`)}
-          ${addCondition(hasOfficeIds, sql`AND c.office_id = ANY(${officeIds}::int[])`)}
+          ${hasRepcardUserId ? sql`AND c.setter_user_id = ${parseInt(repcardUserId!)}` : sql``}
+          ${hasOfficeIds ? sql`AND c.office_id = ANY(${officeIds}::int[])` : sql``}
         ORDER BY c.created_at DESC
         LIMIT 100
       `;
@@ -256,8 +251,8 @@ export async function GET(request: NextRequest) {
           (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
           OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
         )
-        ${addCondition(hasRepcardUserId, sql`AND (a.setter_user_id = ${parseInt(repcardUserId!)} OR a.closer_user_id = ${parseInt(repcardUserId!)})`)}
-        ${addCondition(hasOfficeIds, sql`AND a.office_id = ANY(${officeIds}::int[])`)}
+        ${hasRepcardUserId ? sql`AND (a.setter_user_id = ${parseInt(repcardUserId!)} OR a.closer_user_id = ${parseInt(repcardUserId!)})` : sql``}
+        ${hasOfficeIds ? sql`AND a.office_id = ANY(${officeIds}::int[])` : sql``}
         ORDER BY COALESCE(a.scheduled_at, a.created_at) DESC
         LIMIT 100
       `;
@@ -285,7 +280,7 @@ export async function GET(request: NextRequest) {
         LEFT JOIN users u_changed_by ON u_changed_by.repcard_user_id = ru_changed_by.repcard_user_id
         WHERE sl.changed_at::date >= ${calculatedStartDate}::date
           AND sl.changed_at::date <= ${calculatedEndDate}::date
-          ${addCondition(hasRepcardUserId, sql`AND sl.changed_by_user_id = ${parseInt(repcardUserId!)}`)}
+          ${hasRepcardUserId ? sql`AND sl.changed_by_user_id = ${parseInt(repcardUserId!)}` : sql``}
         ORDER BY sl.changed_at DESC
         LIMIT 100
       `;
@@ -316,7 +311,7 @@ export async function GET(request: NextRequest) {
         LEFT JOIN users u_uploader ON u_uploader.repcard_user_id = ru_uploader.repcard_user_id
         WHERE att.created_at::date >= ${calculatedStartDate}::date
           AND att.created_at::date <= ${calculatedEndDate}::date
-          ${addCondition(hasRepcardUserId, sql`AND att.uploaded_by_user_id = ${parseInt(repcardUserId!)}`)}
+          ${hasRepcardUserId ? sql`AND att.uploaded_by_user_id = ${parseInt(repcardUserId!)}` : sql``}
         UNION ALL
         SELECT 
           att.id as attachment_id,
@@ -338,7 +333,7 @@ export async function GET(request: NextRequest) {
         LEFT JOIN users u_uploader ON u_uploader.repcard_user_id = ru_uploader.repcard_user_id
         WHERE att.created_at::date >= ${calculatedStartDate}::date
           AND att.created_at::date <= ${calculatedEndDate}::date
-          ${addCondition(hasRepcardUserId, sql`AND att.uploaded_by_user_id = ${parseInt(repcardUserId!)}`)}
+          ${hasRepcardUserId ? sql`AND att.uploaded_by_user_id = ${parseInt(repcardUserId!)}` : sql``}
         ORDER BY created_at DESC
         LIMIT 100
       `;
@@ -365,7 +360,7 @@ export async function GET(request: NextRequest) {
         LEFT JOIN users u_author ON u_author.repcard_user_id = ru_author.repcard_user_id
         WHERE n.created_at::date >= ${calculatedStartDate}::date
           AND n.created_at::date <= ${calculatedEndDate}::date
-          ${addCondition(hasRepcardUserId, sql`AND n.repcard_user_id = ${parseInt(repcardUserId!)}`)}
+          ${hasRepcardUserId ? sql`AND n.repcard_user_id = ${parseInt(repcardUserId!)}` : sql``}
         ORDER BY n.created_at DESC
         LIMIT 100
       `;
@@ -407,8 +402,8 @@ export async function GET(request: NextRequest) {
         AND n.created_at::date <= ${calculatedEndDate}::date
       LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
         WHERE ru.status = 1
-        ${addCondition(hasRepcardUserId, sql`AND ru.repcard_user_id = ${parseInt(repcardUserId!)}`)}
-        ${addCondition(hasOfficeIds, sql`AND ru.office_id = ANY(${officeIds}::int[])`)}
+        ${hasRepcardUserId ? sql`AND ru.repcard_user_id = ${parseInt(repcardUserId!)}` : sql``}
+        ${hasOfficeIds ? sql`AND ru.office_id = ANY(${officeIds}::int[])` : sql``}
       GROUP BY ru.repcard_user_id, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.office_id, u.name, u.sales_office
       HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
         OR COUNT(DISTINCT a.repcard_appointment_id) > 0
