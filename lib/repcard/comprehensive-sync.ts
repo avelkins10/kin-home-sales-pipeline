@@ -156,11 +156,26 @@ export async function syncUsers(options: {
 
         // Validate response structure
         if (!response || !response.result) {
-          console.error(`[RepCard Sync] Invalid response structure on page ${page}:`, response);
+          console.error(`[RepCard Sync] Invalid response structure on page ${page}:`, JSON.stringify(response, null, 2));
           throw new Error(`Invalid response structure: ${JSON.stringify(response)}`);
         }
 
-        const users = Array.isArray(response.result.data) ? response.result.data : [];
+        // Handle both paginated and non-paginated responses
+        const users = Array.isArray(response.result.data) 
+          ? response.result.data 
+          : Array.isArray(response.result) 
+            ? response.result 
+            : [];
+        
+        if (users.length === 0 && page === 1) {
+          console.warn(`[RepCard Sync] ⚠️  No users found on first page. Response structure:`, {
+            hasResult: !!response.result,
+            resultKeys: response.result ? Object.keys(response.result) : [],
+            resultType: Array.isArray(response.result) ? 'array' : typeof response.result,
+            resultData: response.result?.data ? (Array.isArray(response.result.data) ? `array[${response.result.data.length}]` : typeof response.result.data) : 'N/A'
+          });
+        }
+        
         console.log(`[RepCard Sync] Page ${page}: Got ${users.length} users`);
 
         // Batch lookup company_ids from offices for users missing it
@@ -402,12 +417,26 @@ export async function syncOffices(): Promise<SyncEntityResult> {
     const response = await repcardClient.getOffices();
     // Validate response structure
     if (!response || !response.result) {
-      console.error(`[RepCard Sync] Invalid response structure for offices:`, response);
+      console.error(`[RepCard Sync] Invalid response structure for offices:`, JSON.stringify(response, null, 2));
       throw new Error(`Invalid response structure: ${JSON.stringify(response)}`);
     }
 
-    const offices = Array.isArray(response.result.data) ? response.result.data : 
-                    Array.isArray(response.result) ? response.result : [];
+    // Handle both array and object responses
+    const offices = Array.isArray(response.result.data) 
+      ? response.result.data 
+      : Array.isArray(response.result) 
+        ? response.result 
+        : [];
+    
+    if (offices.length === 0) {
+      console.warn(`[RepCard Sync] ⚠️  No offices found. Response structure:`, {
+        hasResult: !!response.result,
+        resultKeys: response.result ? Object.keys(response.result) : [],
+        resultType: Array.isArray(response.result) ? 'array' : typeof response.result,
+        resultData: response.result?.data ? (Array.isArray(response.result.data) ? `array[${response.result.data.length}]` : typeof response.result.data) : 'N/A'
+      });
+    }
+    
     console.log(`[RepCard Sync] Got ${offices.length} offices`);
 
     for (const office of offices) {
