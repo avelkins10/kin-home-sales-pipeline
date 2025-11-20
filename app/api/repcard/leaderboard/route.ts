@@ -454,7 +454,7 @@ export async function GET(request: NextRequest) {
               OR
               (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
             )
-          LEFT JOIN repcard_customers c ON a.repcard_customer_id::text = c.repcard_customer_id::text
+          LEFT JOIN repcard_customers c ON a.repcard_customer_id = c.repcard_customer_id
           WHERE u.repcard_user_id IS NOT NULL
             AND u.repcard_user_id = ANY(${repcardUserIds}::int[])
           GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
@@ -493,7 +493,7 @@ export async function GET(request: NextRequest) {
           LEFT JOIN repcard_customers c ON u.repcard_user_id = c.setter_user_id
             AND c.created_at::date >= ${calculatedStartDate}::date
             AND c.created_at::date <= ${calculatedEndDate}::date
-          LEFT JOIN repcard_customer_attachments att ON c.repcard_customer_id::text = att.repcard_customer_id::text
+          LEFT JOIN repcard_customer_attachments att ON c.repcard_customer_id = att.repcard_customer_id
           WHERE u.repcard_user_id IS NOT NULL
             AND u.repcard_user_id = ANY(${repcardUserIds}::int[])
           GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
@@ -537,7 +537,7 @@ export async function GET(request: NextRequest) {
                 OR
                 (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
               )
-            LEFT JOIN repcard_customers c ON a.repcard_customer_id::text = c.repcard_customer_id::text
+            LEFT JOIN repcard_customers c ON a.repcard_customer_id = c.repcard_customer_id
             WHERE u.repcard_user_id IS NOT NULL
               AND u.repcard_user_id = ANY(${repcardUserIds}::int[])
             GROUP BY u.id
@@ -551,7 +551,7 @@ export async function GET(request: NextRequest) {
             LEFT JOIN repcard_customers c ON u.repcard_user_id = c.setter_user_id
               AND c.created_at::date >= ${calculatedStartDate}::date
               AND c.created_at::date <= ${calculatedEndDate}::date
-            LEFT JOIN repcard_customer_attachments att ON c.repcard_customer_id::text = att.repcard_customer_id::text
+            LEFT JOIN repcard_customer_attachments att ON c.repcard_customer_id = att.repcard_customer_id
             WHERE u.repcard_user_id IS NOT NULL
               AND u.repcard_user_id = ANY(${repcardUserIds}::int[])
             GROUP BY u.id
@@ -1151,7 +1151,7 @@ export async function GET(request: NextRequest) {
         // Fix: Cast changed_by_user_id to TEXT for comparison
         const statusLogsRaw = await sql`
           SELECT
-            sl.changed_by_user_id::text as changed_by_user_id,
+            sl.changed_by_user_id,
             sl.repcard_customer_id,
             sl.new_status,
             sl.old_status,
