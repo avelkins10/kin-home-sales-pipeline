@@ -1873,6 +1873,18 @@ export async function runComprehensiveSync(options: {
       results.offices = await syncOffices();
     }
 
+    // Step 2.5: Auto-link users to RepCard (after users are synced)
+    if (!options.skipUsers && checkTimeout()) {
+      console.log('[RepCard Comprehensive Sync] Step 2.5/13: Auto-linking users to RepCard...');
+      try {
+        await linkRepCardUsersToUsers();
+        console.log('[RepCard Comprehensive Sync] ✅ User linking completed');
+      } catch (linkError) {
+        console.error('[RepCard Comprehensive Sync] ⚠️ User linking failed (non-fatal):', linkError);
+        // Don't fail the whole sync if linking fails
+      }
+    }
+
     // Step 3: Sync Customers (needed for foreign keys)
     if (!options.skipCustomers && checkTimeout()) {
       console.log('[RepCard Comprehensive Sync] Step 3/13: Syncing customers...');

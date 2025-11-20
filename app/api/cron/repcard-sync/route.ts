@@ -32,11 +32,21 @@ export async function GET(request: NextRequest) {
     console.log('[RepCard Cron] Starting automatic comprehensive incremental sync...');
     const startTime = Date.now();
 
-    // Run comprehensive incremental sync (skips attachments for speed - run full sync less frequently)
+    // Check if this is the first sync (no data exists)
+    const { sql } = await import('@/lib/db/client');
+    const dataCheck = await sql`
+      SELECT COUNT(*) as count FROM repcard_customers
+    `;
+    const customerCount = Number(dataCheck.rows?.[0]?.count || dataCheck[0]?.count || 0);
+    const isFirstSync = customerCount === 0;
+
+    // Run comprehensive sync
+    // - If first sync: run full sync (no incremental flag)
+    // - Otherwise: run incremental sync (faster, skips attachments)
     const result = await runComprehensiveSync({
-      incremental: true,
-      skipCustomerAttachments: true, // Skip attachments in frequent syncs (too slow)
-      skipAppointmentAttachments: true
+      incremental: !isFirstSync, // Full sync on first run, incremental after
+      skipCustomerAttachments: !isFirstSync, // Include attachments on first sync
+      skipAppointmentAttachments: !isFirstSync
     });
 
     const duration = Date.now() - startTime;
