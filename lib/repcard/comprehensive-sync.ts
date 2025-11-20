@@ -24,6 +24,9 @@
 
 import { sql } from '@/lib/db/client';
 import { repcardClient } from './client';
+
+// Kin Home's company ID in RepCard
+const KIN_HOME_COMPANY_ID = 2113;
 import type { 
   RepCardUserMinimal, 
   RepCardOffice, 
@@ -235,7 +238,7 @@ export async function syncUsers(options: {
             if (!finalCompanyId) {
               try {
                 const anyOfficeResult = await sql`
-                  SELECT company_id FROM repcard_offices LIMIT 1
+                  SELECT company_id FROM repcard_offices WHERE company_id IS NOT NULL LIMIT 1
                 `;
                 const anyOffice = Array.from(anyOfficeResult)[0] as any;
                 if (anyOffice?.company_id) {
@@ -243,19 +246,19 @@ export async function syncUsers(options: {
                   console.log(`[RepCard Sync] Using company_id ${finalCompanyId} from first available office for user ${user.id}`);
                 }
               } catch (officeError) {
-                // No offices synced yet - that's OK, we'll use NULL
+                // No offices synced yet - will use default below
               }
             }
             
-            // Allow NULL company_id - we'll backfill it later from offices
-            // This allows sync to proceed even if company_id is missing
-            // CRITICAL FIX: Handle 0 as valid company ID, but undefined/null/empty string as null
-            const companyIdForDb: number | null = (finalCompanyId === 0 || (finalCompanyId != null && finalCompanyId !== undefined && finalCompanyId !== '')) 
-              ? Number(finalCompanyId) 
-              : null;
-            if (companyIdForDb === null) {
-              console.log(`[RepCard Sync] User ${user.id} missing companyId - will sync with NULL (backfill later)`);
+            // CRITICAL FIX: Default to Kin Home's company ID (2113) if still missing
+            // This ensures we always have a valid company_id and prevents SQL errors
+            if (!finalCompanyId) {
+              finalCompanyId = KIN_HOME_COMPANY_ID;
+              console.log(`[RepCard Sync] User ${user.id} missing companyId - defaulting to Kin Home company ID ${KIN_HOME_COMPANY_ID}`);
             }
+            
+            // Ensure we have a valid number
+            const companyIdForDb: number = Number(finalCompanyId) || KIN_HOME_COMPANY_ID;
 
             // Upsert user
             const result = await sql`
@@ -446,13 +449,14 @@ export async function syncOffices(): Promise<SyncEntityResult> {
       recordsFetched++;
       
       try {
-        // CRITICAL FIX: Explicitly handle undefined companyId - convert to null for SQL
-        // Handle 0 as valid company ID, but undefined/null/empty string as null
-        const companyIdForDb: number | null = (office.companyId === 0 || (office.companyId != null && office.companyId !== undefined && office.companyId !== '')) 
-          ? Number(office.companyId) 
-          : null;
-        if (companyIdForDb === null) {
-          console.log(`[RepCard Sync] Office ${office.id} missing companyId - will sync with NULL`);
+        // CRITICAL FIX: Default to Kin Home's company ID (2113) if missing
+        // This ensures we always have a valid company_id and prevents SQL errors
+        let companyIdForDb: number;
+        if (office.companyId === 0 || (office.companyId != null && office.companyId !== undefined && office.companyId !== '')) {
+          companyIdForDb = Number(office.companyId);
+        } else {
+          companyIdForDb = KIN_HOME_COMPANY_ID;
+          console.log(`[RepCard Sync] Office ${office.id} missing companyId - defaulting to Kin Home company ID ${KIN_HOME_COMPANY_ID}`);
         }
         
         if (companyIdForDb === null) {
