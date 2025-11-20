@@ -311,8 +311,10 @@ export function ConfigurableLeaderboard({
               <li>Filters aren't too restrictive</li>
             </ul>
           </div>
-            Failed to load leaderboard data. Please try again.
-          </div>
+        </CardContent>
+      </Card>
+    );
+  }
           <Button onClick={() => refetch()} variant="outline">
             Retry
           </Button>
