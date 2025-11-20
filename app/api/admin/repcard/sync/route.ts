@@ -168,7 +168,9 @@ export async function GET(request: NextRequest) {
       `;
     }
 
-    const syncHistory = await query;
+    const syncHistoryResult = await query;
+    const getRows = (result: any) => result.rows || (Array.isArray(result) ? result : []);
+    const syncHistory = getRows(syncHistoryResult);
 
     // Get latest sync for each entity type (including failed/running)
     const latestSyncsRaw = await sql`
@@ -188,7 +190,7 @@ export async function GET(request: NextRequest) {
       FROM repcard_sync_log
       ORDER BY entity_type, started_at DESC
     `;
-    const latestSyncs = Array.from(latestSyncsRaw);
+    const latestSyncs = getRows(latestSyncsRaw);
 
     // Get record counts from tables (actual database counts - always accurate)
     const customerCountResult = await sql`SELECT COUNT(*) as count FROM repcard_customers`;
@@ -196,14 +198,17 @@ export async function GET(request: NextRequest) {
     const statusLogCountResult = await sql`SELECT COUNT(*) as count FROM repcard_status_logs`;
     const userCountResult = await sql`SELECT COUNT(*) as count FROM repcard_users`;
 
+    // @vercel/postgres returns results with .rows property
+    const getRows = (result: any) => result.rows || (Array.isArray(result) ? result : []);
+
     return NextResponse.json({
       latestSyncs,
-      syncHistory: Array.from(syncHistory),
+      syncHistory: getRows(syncHistory),
       recordCounts: {
-        customers: Number(Array.from(customerCountResult)[0]?.count || 0),
-        appointments: Number(Array.from(appointmentCountResult)[0]?.count || 0),
-        statusLogs: Number(Array.from(statusLogCountResult)[0]?.count || 0),
-        users: Number(Array.from(userCountResult)[0]?.count || 0)
+        customers: Number(getRows(customerCountResult)[0]?.count || 0),
+        appointments: Number(getRows(appointmentCountResult)[0]?.count || 0),
+        statusLogs: Number(getRows(statusLogCountResult)[0]?.count || 0),
+        users: Number(getRows(userCountResult)[0]?.count || 0)
       }
     });
 
