@@ -1159,7 +1159,7 @@ export async function GET(request: NextRequest) {
             c.raw_data->'customFields'->>'systemCost' as system_cost
           FROM repcard_status_logs sl
           LEFT JOIN repcard_customers c ON c.repcard_customer_id = sl.repcard_customer_id
-          WHERE sl.changed_by_user_id::text = ANY(${repcardUserIds.map(String)}::text[])
+          WHERE sl.changed_by_user_id = ANY(${repcardUserIds}::int[])
             AND sl.changed_at::date >= ${calculatedStartDate}::date
             AND sl.changed_at::date <= ${calculatedEndDate}::date
             AND (
