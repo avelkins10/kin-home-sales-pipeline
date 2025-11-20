@@ -300,102 +300,79 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    // Fetch users
-    let users: any[];
-    let officeFilterFailed = false; // Track if office filter failed (for use in metric queries)
+    // NEW APPROACH: Query RepCard users directly from repcard_users table
+    // This shows ALL RepCard data regardless of user linking status
+    // User linking is optional - it just adds app-specific names/roles
+    let repcardUsers: any[] = [];
+    let officeFilterFailed = false;
 
-    // Query users table (master table) - users should have repcard_user_id linked from sync
+    // Build query for RepCard users - use repcard_users as primary source
+    // Optionally join users table for app-specific info (names, roles) if linked
     if (officeIds && officeIds.length > 0) {
-      // Use sql.query for office filtering with proper array parameters
-      // Fix: Use LEFT JOIN to handle NULL sales_office, but only include users where office matches
-      if (role !== 'all') {
-        const result = await sql.query(
-          `SELECT DISTINCT u.id, u.name, u.email, u.repcard_user_id, u.sales_office[1] as office, u.role
-           FROM users u
-           LEFT JOIN offices o ON o.name = ANY(u.sales_office)
-           WHERE u.repcard_user_id IS NOT NULL
-             AND u.role = $1
-             AND o.quickbase_office_id = ANY($2::int[])
-           LIMIT 1000`,
-          [role, officeIds]
-        );
-        users = result.rows;
-      } else {
-        const result = await sql.query(
-          `SELECT DISTINCT u.id, u.name, u.email, u.repcard_user_id, u.sales_office[1] as office, u.role
-           FROM users u
-           LEFT JOIN offices o ON o.name = ANY(u.sales_office)
-           WHERE u.repcard_user_id IS NOT NULL
-             AND o.quickbase_office_id = ANY($1::int[])
-           LIMIT 1000`,
-          [officeIds]
-        );
-        users = result.rows;
-      }
+      // Filter by office_id from repcard_users or repcard_offices
+      const officeQuery = await sql`
+        SELECT DISTINCT 
+          ru.repcard_user_id, 
+          ru.first_name, 
+          ru.last_name, 
+          ru.email, 
+          ru.office_id, 
+          ru.office_name, 
+          ru.role as repcard_role, 
+          ru.status,
+          u.id as app_user_id, 
+          u.name as app_user_name, 
+          u.role as app_role, 
+          u.sales_office[1] as app_office
+        FROM repcard_users ru
+        LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+        LEFT JOIN repcard_offices ro ON ro.repcard_office_id = ru.office_id
+        LEFT JOIN offices o ON o.name = ru.office_name OR o.name = ANY(u.sales_office)
+        WHERE ru.status = 1
+          AND (ro.repcard_office_id = ANY(${officeIds}::int[]) 
+               OR o.quickbase_office_id = ANY(${officeIds}::int[]))
+        ${role !== 'all' ? sql`AND (ru.role = ${role} OR u.role = ${role})` : sql``}
+        LIMIT 1000
+      `;
+      repcardUsers = Array.from(officeQuery);
       
-      // If office filtering returns 0 users, fall back to all users (office filter might be too restrictive)
-      // BUT also log WHY it's filtering out users
-      if (users.length === 0) {
-        console.log(`[RepCard Leaderboard] ⚠️ Office filter returned 0 users for officeIds: ${officeIds}`);
-        console.log(`[RepCard Leaderboard] Falling back to all users to ensure data is shown`);
+      if (repcardUsers.length === 0) {
+        console.log(`[RepCard Leaderboard] ⚠️ Office filter returned 0 RepCard users, falling back to all`);
         officeFilterFailed = true;
-        
-        // Debug: Check how many users match office filter vs total
-        const totalUsers = await sql`
-          SELECT COUNT(*) as count FROM users WHERE repcard_user_id IS NOT NULL
-        `;
-        const total = Array.isArray(totalUsers) ? totalUsers[0]?.count : totalUsers.rows?.[0]?.count || 0;
-        console.log(`[RepCard Leaderboard] Total users with repcard_user_id: ${total}`);
-        
-        if (role !== 'all') {
-          const result = await sql`
-            SELECT id, name, email, repcard_user_id, sales_office[1] as office, role
-            FROM users
-            WHERE repcard_user_id IS NOT NULL AND role = ${role}
-            LIMIT 1000
-          `;
-          users = Array.from(result);
-        } else {
-          const result = await sql`
-            SELECT id, name, email, repcard_user_id, sales_office[1] as office, role
-            FROM users
-            WHERE repcard_user_id IS NOT NULL
-            LIMIT 1000
-          `;
-          users = Array.from(result);
-        }
-        console.log(`[RepCard Leaderboard] ✅ Fallback returned ${users.length} users`);
-        
-        // CRITICAL: Clear officeIds so metric queries don't use broken office filter
         officeIds = undefined;
-        console.log(`[RepCard Leaderboard] ⚠️ Clearing officeIds filter for metric queries due to office filter failure`);
-      }
-    } else {
-      // No office filter - use sql template
-      if (role !== 'all') {
-        const result = await sql`
-          SELECT id, name, email, repcard_user_id, sales_office[1] as office, role
-          FROM users
-          WHERE repcard_user_id IS NOT NULL AND role = ${role}
-          LIMIT 1000
-        `;
-        users = Array.from(result);
-      } else {
-        const result = await sql`
-          SELECT id, name, email, repcard_user_id, sales_office[1] as office, role
-          FROM users
-          WHERE repcard_user_id IS NOT NULL
-          LIMIT 1000
-        `;
-        users = Array.from(result);
       }
     }
     
-    if (users.length === 0) {
-      console.log(`[RepCard Leaderboard] ⚠️ No users found with repcard_user_id`);
-      console.log(`[RepCard Leaderboard] Role filter: ${role}, Office IDs: ${officeIds?.join(',') || 'none'}`);
-      
-      // Return empty response with helpful metadata
+    // If no office filter or office filter failed, get all active RepCard users
+    if (repcardUsers.length === 0) {
+      const allUsersQuery = await sql`
+        SELECT DISTINCT 
+          ru.repcard_user_id, 
+          ru.first_name, 
+          ru.last_name, 
+          ru.email,
+          ru.office_id, 
+          ru.office_name, 
+          ru.role as repcard_role, 
+          ru.status,
+          u.id as app_user_id, 
+          u.name as app_user_name, 
+          u.role as app_role, 
+          u.sales_office[1] as app_office
+        FROM repcard_users ru
+        LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+        WHERE ru.status = 1
+        ${role !== 'all' ? sql`AND (ru.role = ${role} OR u.role = ${role})` : sql``}
+        LIMIT 1000
+      `;
+      repcardUsers = Array.from(allUsersQuery);
+    }
+    
+    // Extract RepCard user IDs for metric queries
+    const repcardUserIds = repcardUsers.map((ru: any) => ru.repcard_user_id).filter(Boolean);
+    
+    if (repcardUserIds.length === 0) {
+      console.log(`[RepCard Leaderboard] ⚠️ No RepCard users found`);
       const response: LeaderboardResponse = {
         leaderboard: [],
         metadata: {
@@ -411,14 +388,31 @@ export async function GET(request: NextRequest) {
           totalPages: 0,
           cached: false,
           calculatedAt: new Date().toISOString(),
-          warning: 'No users found with RepCard IDs. Users need to be linked to RepCard to appear in leaderboards.'
+          warning: 'No RepCard users found. Ensure RepCard data has been synced.'
         }
       };
-      
       const duration = Date.now() - start;
       logApiResponse('GET', path, duration, { status: 200, cached: false, requestId });
       return NextResponse.json(response);
     }
+    
+    console.log(`[RepCard Leaderboard] Found ${repcardUserIds.length} RepCard users for leaderboard`);
+    
+    // Create user map for easy lookup (prefer app user info, fallback to RepCard info)
+    const userMap = new Map();
+    repcardUsers.forEach((ru: any) => {
+      userMap.set(ru.repcard_user_id, {
+        userId: ru.app_user_id || `repcard_${ru.repcard_user_id}`, // Use app user ID if linked, otherwise create temp ID
+        userName: ru.app_user_name || `${ru.first_name || ''} ${ru.last_name || ''}`.trim() || ru.email || `RepCard User ${ru.repcard_user_id}`,
+        userEmail: ru.email,
+        repcardUserId: ru.repcard_user_id,
+        office: ru.app_office || ru.office_name,
+        role: ru.app_role || ru.repcard_role
+      });
+    });
+    
+    // For backward compatibility, create users array
+    const users = Array.from(userMap.values());
     
     // Fetch metric data based on selected metric
     let leaderboardEntries: LeaderboardEntry[] = [];
@@ -436,14 +430,19 @@ export async function GET(request: NextRequest) {
       
       if (metric === 'appointment_speed') {
         // Calculate appointment speed: % of appointments scheduled within 24 hours of customer creation
+        // Query RepCard tables directly - don't require user linking
         const speedQuery = await sql`
           SELECT
-            u.id as user_id,
-            u.name as user_name,
-            u.email as user_email,
-            u.repcard_user_id,
-            u.sales_office[1] as office,
-            u.role,
+            ru.repcard_user_id,
+            ru.first_name,
+            ru.last_name,
+            ru.email,
+            ru.office_name,
+            ru.role as repcard_role,
+            u.id as app_user_id,
+            u.name as app_user_name,
+            u.role as app_role,
+            u.sales_office[1] as app_office,
             COUNT(DISTINCT a.repcard_appointment_id) as total_appointments,
             COUNT(DISTINCT CASE 
               WHEN c.created_at IS NOT NULL 
@@ -451,17 +450,18 @@ export async function GET(request: NextRequest) {
                 AND EXTRACT(EPOCH FROM (a.scheduled_at - c.created_at)) / 3600 < 24
               THEN a.repcard_appointment_id
             END) as appointments_within_24h
-          FROM users u
-          LEFT JOIN repcard_appointments a ON u.repcard_user_id = a.setter_user_id
+          FROM repcard_users ru
+          LEFT JOIN repcard_appointments a ON ru.repcard_user_id = a.setter_user_id
             AND (
               (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
               OR
               (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
             )
           LEFT JOIN repcard_customers c ON a.repcard_customer_id = c.repcard_customer_id
-          WHERE u.repcard_user_id IS NOT NULL
-            AND u.repcard_user_id = ANY(${repcardUserIds}::int[])
-          GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+          LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+          WHERE ru.repcard_user_id = ANY(${repcardUserIds}::int[])
+            AND ru.status = 1
+          GROUP BY ru.repcard_user_id, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role, u.id, u.name, u.role, u.sales_office
         `;
         
         const speedResults = Array.from(speedQuery);
@@ -470,37 +470,52 @@ export async function GET(request: NextRequest) {
           const within24h = parseInt(row.appointments_within_24h) || 0;
           const percentage = total > 0 ? (within24h / total) * 100 : 0;
           
+          // Use app user info if linked, otherwise use RepCard info
+          const userInfo = userMap.get(row.repcard_user_id) || {
+            userId: `repcard_${row.repcard_user_id}`,
+            userName: `${row.first_name || ''} ${row.last_name || ''}`.trim() || row.email || `RepCard User ${row.repcard_user_id}`,
+            userEmail: row.email,
+            office: row.app_office || row.office_name,
+            role: row.app_role || row.repcard_role
+          };
+          
           return {
             rank: 0,
-            userId: row.user_id,
-            userName: row.user_name,
-            userEmail: row.user_email,
-            office: row.office,
-            role: row.role,
+            userId: userInfo.userId,
+            userName: userInfo.userName,
+            userEmail: userInfo.userEmail,
+            office: userInfo.office,
+            role: userInfo.role,
             metricValue: percentage,
             metricType: metric
           };
         });
       } else if (metric === 'attachment_rate') {
         // Calculate attachment rate: % of customers with attachments
+        // Query RepCard tables directly - don't require user linking
         const attachmentQuery = await sql`
           SELECT
-            u.id as user_id,
-            u.name as user_name,
-            u.email as user_email,
-            u.repcard_user_id,
-            u.sales_office[1] as office,
-            u.role,
+            ru.repcard_user_id,
+            ru.first_name,
+            ru.last_name,
+            ru.email,
+            ru.office_name,
+            ru.role as repcard_role,
+            u.id as app_user_id,
+            u.name as app_user_name,
+            u.role as app_role,
+            u.sales_office[1] as app_office,
             COUNT(DISTINCT c.repcard_customer_id) as total_customers,
             COUNT(DISTINCT CASE WHEN att.id IS NOT NULL THEN c.repcard_customer_id END) as customers_with_attachments
-          FROM users u
-          LEFT JOIN repcard_customers c ON u.repcard_user_id = c.setter_user_id
+          FROM repcard_users ru
+          LEFT JOIN repcard_customers c ON ru.repcard_user_id = c.setter_user_id
             AND c.created_at::date >= ${calculatedStartDate}::date
             AND c.created_at::date <= ${calculatedEndDate}::date
           LEFT JOIN repcard_customer_attachments att ON c.repcard_customer_id = att.repcard_customer_id::text
-          WHERE u.repcard_user_id IS NOT NULL
-            AND u.repcard_user_id = ANY(${repcardUserIds}::int[])
-          GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+          LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+          WHERE ru.repcard_user_id = ANY(${repcardUserIds}::int[])
+            AND ru.status = 1
+          GROUP BY ru.repcard_user_id, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role, u.id, u.name, u.role, u.sales_office
         `;
         
         const attachmentResults = Array.from(attachmentQuery);
@@ -509,24 +524,33 @@ export async function GET(request: NextRequest) {
           const withAttachments = parseInt(row.customers_with_attachments) || 0;
           const percentage = total > 0 ? (withAttachments / total) * 100 : 0;
           
+          // Use app user info if linked, otherwise use RepCard info
+          const userInfo = userMap.get(row.repcard_user_id) || {
+            userId: `repcard_${row.repcard_user_id}`,
+            userName: `${row.first_name || ''} ${row.last_name || ''}`.trim() || row.email || `RepCard User ${row.repcard_user_id}`,
+            userEmail: row.email,
+            office: row.app_office || row.office_name,
+            role: row.app_role || row.repcard_role
+          };
+          
           return {
             rank: 0,
-            userId: row.user_id,
-            userName: row.user_name,
-            userEmail: row.user_email,
-            office: row.office,
-            role: row.role,
+            userId: userInfo.userId,
+            userName: userInfo.userName,
+            userEmail: userInfo.userEmail,
+            office: userInfo.office,
+            role: userInfo.role,
             metricValue: percentage,
             metricType: metric
           };
         });
       } else if (metric === 'quality_score') {
         // Calculate composite quality score from appointment speed and attachment rate
-        // Get both metrics, then calculate composite score
+        // Query RepCard tables directly - don't require user linking
         const [speedQuery, attachmentQuery] = await Promise.all([
           sql`
             SELECT
-              u.id as user_id,
+              ru.repcard_user_id,
               COUNT(DISTINCT a.repcard_appointment_id) as total_appointments,
               COUNT(DISTINCT CASE 
                 WHEN c.created_at IS NOT NULL 
@@ -534,67 +558,76 @@ export async function GET(request: NextRequest) {
                   AND EXTRACT(EPOCH FROM (a.scheduled_at - c.created_at)) / 3600 < 24
                 THEN a.repcard_appointment_id
               END) as appointments_within_24h
-            FROM users u
-            LEFT JOIN repcard_appointments a ON u.repcard_user_id = a.setter_user_id
+            FROM repcard_users ru
+            LEFT JOIN repcard_appointments a ON ru.repcard_user_id = a.setter_user_id
               AND (
                 (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                 OR
                 (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
               )
             LEFT JOIN repcard_customers c ON a.repcard_customer_id = c.repcard_customer_id
-            WHERE u.repcard_user_id IS NOT NULL
-              AND u.repcard_user_id = ANY(${repcardUserIds}::int[])
-            GROUP BY u.id
+            WHERE ru.repcard_user_id = ANY(${repcardUserIds}::int[])
+              AND ru.status = 1
+            GROUP BY ru.repcard_user_id
           `,
           sql`
             SELECT
-              u.id as user_id,
+              ru.repcard_user_id,
               COUNT(DISTINCT c.repcard_customer_id) as total_customers,
               COUNT(DISTINCT CASE WHEN att.id IS NOT NULL THEN c.repcard_customer_id END) as customers_with_attachments
-            FROM users u
-            LEFT JOIN repcard_customers c ON u.repcard_user_id = c.setter_user_id
+            FROM repcard_users ru
+            LEFT JOIN repcard_customers c ON ru.repcard_user_id = c.setter_user_id
               AND c.created_at::date >= ${calculatedStartDate}::date
               AND c.created_at::date <= ${calculatedEndDate}::date
             LEFT JOIN repcard_customer_attachments att ON c.repcard_customer_id = att.repcard_customer_id::text
-            WHERE u.repcard_user_id IS NOT NULL
-              AND u.repcard_user_id = ANY(${repcardUserIds}::int[])
-            GROUP BY u.id
+            WHERE ru.repcard_user_id = ANY(${repcardUserIds}::int[])
+              AND ru.status = 1
+            GROUP BY ru.repcard_user_id
           `
         ]);
         
         const speedResults = Array.from(speedQuery);
         const attachmentResults = Array.from(attachmentQuery);
         
-        // Create maps for fast lookup
+        // Create maps for fast lookup (keyed by repcard_user_id)
         const speedMap = new Map();
         speedResults.forEach((row: any) => {
           const total = parseInt(row.total_appointments) || 0;
           const within24h = parseInt(row.appointments_within_24h) || 0;
-          speedMap.set(row.user_id, total > 0 ? (within24h / total) * 100 : 0);
+          speedMap.set(row.repcard_user_id, total > 0 ? (within24h / total) * 100 : 0);
         });
         
         const attachmentMap = new Map();
         attachmentResults.forEach((row: any) => {
           const total = parseInt(row.total_customers) || 0;
           const withAttachments = parseInt(row.customers_with_attachments) || 0;
-          attachmentMap.set(row.user_id, total > 0 ? (withAttachments / total) * 100 : 0);
+          attachmentMap.set(row.repcard_user_id, total > 0 ? (withAttachments / total) * 100 : 0);
         });
         
-        // Calculate composite score for each user
-        leaderboardEntries = users.map((user: any) => {
-          const appointmentSpeed = speedMap.get(user.id) || 0;
-          const attachmentRate = attachmentMap.get(user.id) || 0;
+        // Calculate composite score for each RepCard user
+        leaderboardEntries = repcardUsers.map((ru: any) => {
+          const appointmentSpeed = speedMap.get(ru.repcard_user_id) || 0;
+          const attachmentRate = attachmentMap.get(ru.repcard_user_id) || 0;
           
           // Simplified composite score: 60% appointment speed, 40% attachment rate
           const compositeScore = (appointmentSpeed * 0.6) + (attachmentRate * 0.4);
           
+          // Use app user info if linked, otherwise use RepCard info
+          const userInfo = userMap.get(ru.repcard_user_id) || {
+            userId: `repcard_${ru.repcard_user_id}`,
+            userName: `${ru.first_name || ''} ${ru.last_name || ''}`.trim() || ru.email || `RepCard User ${ru.repcard_user_id}`,
+            userEmail: ru.email,
+            office: ru.office_name,
+            role: ru.repcard_role
+          };
+          
           return {
             rank: 0,
-            userId: user.id,
-            userName: user.name,
-            userEmail: user.email,
-            office: user.office,
-            role: user.role,
+            userId: userInfo.userId,
+            userName: userInfo.userName,
+            userEmail: userInfo.userEmail,
+            office: userInfo.office,
+            role: userInfo.role,
             metricValue: Math.max(0, Math.min(100, compositeScore)),
             metricType: metric
           };
@@ -602,11 +635,7 @@ export async function GET(request: NextRequest) {
       }
     } else {
       // Fetch data from RepCard or QuickBase
-      // Ensure repcardUserIds is an array of integers (migration 018 normalized to INTEGER)
-      const repcardUserIds = (users as any[]).map((u: any) => {
-        const id = u.repcard_user_id;
-        return typeof id === 'number' ? id : parseInt(String(id), 10);
-      }).filter((id: any) => !isNaN(id) && id > 0);
+      // repcardUserIds already extracted above from repcardUsers
       
       if (metric === 'doors_knocked') {
         // Query ALL RepCard users (setters/closers) from repcard_users table
