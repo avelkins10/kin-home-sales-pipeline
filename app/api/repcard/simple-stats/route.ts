@@ -155,7 +155,19 @@ export async function GET(request: NextRequest) {
       ORDER BY doors_knocked DESC
       LIMIT 20
     `;
-    const topDoors = Array.from(topDoorsResult);
+    // Extract results - handle different result formats
+    const getRows = (result: any): any[] => {
+      if (Array.isArray(result)) {
+        return result;
+      }
+      if (result?.rows && Array.isArray(result.rows)) {
+        return result.rows;
+      }
+      return Array.from(result);
+    };
+    
+    const topDoors = getRows(topDoorsResult);
+    console.log(`[RepCard Simple Stats] Top doors query returned ${topDoors.length} reps`);
 
     // 9. Top Reps by Appointments
     const topAppointmentsResult = await sql`
@@ -179,7 +191,8 @@ export async function GET(request: NextRequest) {
       ORDER BY appointments DESC
       LIMIT 20
     `;
-    const topAppointments = Array.from(topAppointmentsResult);
+    const topAppointments = getRows(topAppointmentsResult);
+    console.log(`[RepCard Simple Stats] Top appointments query returned ${topAppointments.length} reps`);
 
     return NextResponse.json({
       success: true,
@@ -200,22 +213,28 @@ export async function GET(request: NextRequest) {
         qualityScore: Math.round(qualityScore * 10) / 10
       },
       leaderboards: {
-        doorsKnocked: topDoors.map((r: any, i: number) => ({
-          rank: i + 1,
-          repcardUserId: r.repcard_user_id,
-          name: r.name,
-          email: r.email,
-          office: r.office,
-          value: Number(r.doors_knocked || 0)
-        })),
-        appointments: topAppointments.map((r: any, i: number) => ({
-          rank: i + 1,
-          repcardUserId: r.repcard_user_id,
-          name: r.name,
-          email: r.email,
-          office: r.office,
-          value: Number(r.appointments || 0)
-        }))
+        doorsKnocked: topDoors.map((r: any, i: number) => {
+          const doors = Number(r.doors_knocked || 0);
+          return {
+            rank: i + 1,
+            repcardUserId: r.repcard_user_id,
+            name: r.name || `RepCard User ${r.repcard_user_id}`,
+            email: r.email || '',
+            office: r.office || null,
+            value: doors
+          };
+        }),
+        appointments: topAppointments.map((r: any, i: number) => {
+          const appointments = Number(r.appointments || 0);
+          return {
+            rank: i + 1,
+            repcardUserId: r.repcard_user_id,
+            name: r.name || `RepCard User ${r.repcard_user_id}`,
+            email: r.email || '',
+            office: r.office || null,
+            value: appointments
+          };
+        })
       }
     });
 
