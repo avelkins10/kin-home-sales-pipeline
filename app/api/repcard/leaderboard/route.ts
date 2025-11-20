@@ -492,12 +492,12 @@ export async function GET(request: NextRequest) {
         // Calculate appointment speed: % of appointments scheduled within 24 hours of customer creation
         const speedQuery = await sql`
           SELECT
-            u.id as user_id,
-            u.name as user_name,
-            u.email as user_email,
-            u.repcard_user_id as repcard_user_id,
-            u.sales_office[1] as office,
-            u.role,
+            COALESCE(u.id, ru.repcard_user_id::text) as user_id,
+            COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as user_name,
+            COALESCE(u.email, ru.email) as user_email,
+            ru.repcard_user_id::text as repcard_user_id,
+            COALESCE(u.sales_office[1], ru.office_name) as office,
+            COALESCE(u.role, ru.role) as role,
             COUNT(DISTINCT a.repcard_appointment_id) as total_appointments,
             COUNT(DISTINCT CASE 
               WHEN c.created_at IS NOT NULL 
@@ -505,17 +505,18 @@ export async function GET(request: NextRequest) {
                 AND EXTRACT(EPOCH FROM (a.scheduled_at - c.created_at)) / 3600 < 24
               THEN a.repcard_appointment_id
             END) as appointments_within_24h
-          FROM users u
-          LEFT JOIN repcard_appointments a ON u.repcard_user_id::text = a.setter_user_id
+          FROM repcard_users ru
+          LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+          LEFT JOIN repcard_appointments a ON ru.repcard_user_id::text = a.setter_user_id
             AND (
               (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
               OR
               (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
             )
           LEFT JOIN repcard_customers c ON a.repcard_customer_id = c.repcard_customer_id
-          WHERE u.repcard_user_id IS NOT NULL
-            AND u.repcard_user_id::text = ANY(${repcardUserIds.map(String)}::text[])
-          GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+          WHERE ru.status = 1
+            AND ru.repcard_user_id::text = ANY(${repcardUserIds.map(String)}::text[])
+          GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role
         `;
         
         const speedResults = Array.from(speedQuery);
@@ -539,22 +540,23 @@ export async function GET(request: NextRequest) {
         // Calculate attachment rate: % of customers with attachments
         const attachmentQuery = await sql`
           SELECT
-            u.id as user_id,
-            u.name as user_name,
-            u.email as user_email,
-            u.repcard_user_id as repcard_user_id,
-            u.sales_office[1] as office,
-            u.role,
+            COALESCE(u.id, ru.repcard_user_id::text) as user_id,
+            COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as user_name,
+            COALESCE(u.email, ru.email) as user_email,
+            ru.repcard_user_id::text as repcard_user_id,
+            COALESCE(u.sales_office[1], ru.office_name) as office,
+            COALESCE(u.role, ru.role) as role,
             COUNT(DISTINCT c.repcard_customer_id) as total_customers,
             COUNT(DISTINCT CASE WHEN att.id IS NOT NULL THEN c.repcard_customer_id END) as customers_with_attachments
-          FROM users u
-          LEFT JOIN repcard_customers c ON u.repcard_user_id::text = c.setter_user_id
+          FROM repcard_users ru
+          LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+          LEFT JOIN repcard_customers c ON ru.repcard_user_id::text = c.setter_user_id
             AND c.created_at::date >= ${calculatedStartDate}::date
             AND c.created_at::date <= ${calculatedEndDate}::date
           LEFT JOIN repcard_customer_attachments att ON c.repcard_customer_id = att.repcard_customer_id::text
-          WHERE u.repcard_user_id IS NOT NULL
-            AND u.repcard_user_id::text = ANY(${repcardUserIds.map(String)}::text[])
-          GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+          WHERE ru.status = 1
+            AND ru.repcard_user_id::text = ANY(${repcardUserIds.map(String)}::text[])
+          GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role
         `;
         
         const attachmentResults = Array.from(attachmentQuery);
@@ -580,7 +582,7 @@ export async function GET(request: NextRequest) {
         const [speedQuery, attachmentQuery] = await Promise.all([
           sql`
             SELECT
-              u.id as user_id,
+              ru.repcard_user_id::text as user_id,
               COUNT(DISTINCT a.repcard_appointment_id) as total_appointments,
               COUNT(DISTINCT CASE 
                 WHEN c.created_at IS NOT NULL 
@@ -588,31 +590,33 @@ export async function GET(request: NextRequest) {
                   AND EXTRACT(EPOCH FROM (a.scheduled_at - c.created_at)) / 3600 < 24
                 THEN a.repcard_appointment_id
               END) as appointments_within_24h
-            FROM users u
-            LEFT JOIN repcard_appointments a ON u.repcard_user_id::text = a.setter_user_id
+            FROM repcard_users ru
+            LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+            LEFT JOIN repcard_appointments a ON ru.repcard_user_id::text = a.setter_user_id
               AND (
                 (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                 OR
                 (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
               )
             LEFT JOIN repcard_customers c ON a.repcard_customer_id = c.repcard_customer_id
-            WHERE u.repcard_user_id IS NOT NULL
-              AND u.repcard_user_id::text = ANY(${repcardUserIds.map(String)}::text[])
-            GROUP BY u.id
+            WHERE ru.status = 1
+              AND ru.repcard_user_id::text = ANY(${repcardUserIds.map(String)}::text[])
+            GROUP BY ru.repcard_user_id
           `,
           sql`
             SELECT
-              u.id as user_id,
+              ru.repcard_user_id::text as user_id,
               COUNT(DISTINCT c.repcard_customer_id) as total_customers,
               COUNT(DISTINCT CASE WHEN att.id IS NOT NULL THEN c.repcard_customer_id END) as customers_with_attachments
-            FROM users u
-            LEFT JOIN repcard_customers c ON u.repcard_user_id::text = c.setter_user_id
+            FROM repcard_users ru
+            LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+            LEFT JOIN repcard_customers c ON ru.repcard_user_id::text = c.setter_user_id
               AND c.created_at::date >= ${calculatedStartDate}::date
               AND c.created_at::date <= ${calculatedEndDate}::date
             LEFT JOIN repcard_customer_attachments att ON c.repcard_customer_id = att.repcard_customer_id::text
-            WHERE u.repcard_user_id IS NOT NULL
-              AND u.repcard_user_id::text = ANY(${repcardUserIds.map(String)}::text[])
-            GROUP BY u.id
+            WHERE ru.status = 1
+              AND ru.repcard_user_id::text = ANY(${repcardUserIds.map(String)}::text[])
+            GROUP BY ru.repcard_user_id
           `
         ]);
         
@@ -782,47 +786,50 @@ export async function GET(request: NextRequest) {
           
           let fallbackQuery;
           
+          // Fallback: Query ALL RepCard users, not just linked ones
           if (officeIds && officeIds.length > 0) {
             if (role !== 'all') {
               fallbackQuery = await sql`
                 SELECT
-                  u.id as user_id,
-                  u.name as user_name,
-                  u.email as user_email,
-                  u.repcard_user_id as repcard_user_id,
-                  u.sales_office[1] as office,
-                  u.role,
+                  COALESCE(u.id, ru.repcard_user_id::text) as user_id,
+                  COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as user_name,
+                  COALESCE(u.email, ru.email) as user_email,
+                  ru.repcard_user_id::text as repcard_user_id,
+                  COALESCE(u.sales_office[1], ru.office_name) as office,
+                  COALESCE(u.role, ru.role) as role,
                   COUNT(c.repcard_customer_id) as count
-                FROM users u
-                LEFT JOIN repcard_customers c ON u.repcard_user_id::text = c.setter_user_id
+                FROM repcard_users ru
+                LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+                LEFT JOIN repcard_customers c ON ru.repcard_user_id::text = c.setter_user_id
                   AND c.created_at::date >= ${calculatedStartDate}::date
                   AND c.created_at::date <= ${calculatedEndDate}::date
-                LEFT JOIN offices o ON o.name = ANY(u.sales_office)
-                WHERE u.repcard_user_id IS NOT NULL
-                  AND u.role = ${role}
-                  AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR u.sales_office IS NULL)
-                GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+                LEFT JOIN offices o ON o.name = COALESCE(u.sales_office[1], ru.office_name)
+                WHERE ru.status = 1
+                  AND (COALESCE(u.role, ru.role) = ${role} OR (u.role IS NULL AND ru.role = ${role}))
+                  AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR (u.sales_office IS NULL AND ru.office_name IS NULL))
+                GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role
                 ORDER BY count DESC
                 LIMIT 1000
               `;
             } else {
               fallbackQuery = await sql`
                 SELECT
-                  u.id as user_id,
-                  u.name as user_name,
-                  u.email as user_email,
-                  u.repcard_user_id as repcard_user_id,
-                  u.sales_office[1] as office,
-                  u.role,
+                  COALESCE(u.id, ru.repcard_user_id::text) as user_id,
+                  COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as user_name,
+                  COALESCE(u.email, ru.email) as user_email,
+                  ru.repcard_user_id::text as repcard_user_id,
+                  COALESCE(u.sales_office[1], ru.office_name) as office,
+                  COALESCE(u.role, ru.role) as role,
                   COUNT(c.repcard_customer_id) as count
-                FROM users u
-                LEFT JOIN repcard_customers c ON u.repcard_user_id::text = c.setter_user_id
+                FROM repcard_users ru
+                LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+                LEFT JOIN repcard_customers c ON ru.repcard_user_id::text = c.setter_user_id
                   AND c.created_at::date >= ${calculatedStartDate}::date
                   AND c.created_at::date <= ${calculatedEndDate}::date
-                LEFT JOIN offices o ON o.name = ANY(u.sales_office)
-                WHERE u.repcard_user_id IS NOT NULL
-                  AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR u.sales_office IS NULL)
-                GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+                LEFT JOIN offices o ON o.name = COALESCE(u.sales_office[1], ru.office_name)
+                WHERE ru.status = 1
+                  AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR (u.sales_office IS NULL AND ru.office_name IS NULL))
+                GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role
                 ORDER BY count DESC
                 LIMIT 1000
               `;
@@ -831,39 +838,41 @@ export async function GET(request: NextRequest) {
             if (role !== 'all') {
               fallbackQuery = await sql`
                 SELECT
-                  u.id as user_id,
-                  u.name as user_name,
-                  u.email as user_email,
-                  u.repcard_user_id as repcard_user_id,
-                  u.sales_office[1] as office,
-                  u.role,
+                  COALESCE(u.id, ru.repcard_user_id::text) as user_id,
+                  COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as user_name,
+                  COALESCE(u.email, ru.email) as user_email,
+                  ru.repcard_user_id::text as repcard_user_id,
+                  COALESCE(u.sales_office[1], ru.office_name) as office,
+                  COALESCE(u.role, ru.role) as role,
                   COUNT(c.repcard_customer_id) as count
-                FROM users u
-                LEFT JOIN repcard_customers c ON u.repcard_user_id::text = c.setter_user_id
+                FROM repcard_users ru
+                LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+                LEFT JOIN repcard_customers c ON ru.repcard_user_id::text = c.setter_user_id
                   AND c.created_at::date >= ${calculatedStartDate}::date
                   AND c.created_at::date <= ${calculatedEndDate}::date
-                WHERE u.repcard_user_id IS NOT NULL
-                  AND u.role = ${role}
-                GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+                WHERE ru.status = 1
+                  AND (COALESCE(u.role, ru.role) = ${role} OR (u.role IS NULL AND ru.role = ${role}))
+                GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role
                 ORDER BY count DESC
                 LIMIT 1000
               `;
             } else {
               fallbackQuery = await sql`
                 SELECT
-                  u.id as user_id,
-                  u.name as user_name,
-                  u.email as user_email,
-                  u.repcard_user_id as repcard_user_id,
-                  u.sales_office[1] as office,
-                  u.role,
+                  COALESCE(u.id, ru.repcard_user_id::text) as user_id,
+                  COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as user_name,
+                  COALESCE(u.email, ru.email) as user_email,
+                  ru.repcard_user_id::text as repcard_user_id,
+                  COALESCE(u.sales_office[1], ru.office_name) as office,
+                  COALESCE(u.role, ru.role) as role,
                   COUNT(c.repcard_customer_id) as count
-                FROM users u
-                LEFT JOIN repcard_customers c ON u.repcard_user_id::text = c.setter_user_id
+                FROM repcard_users ru
+                LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+                LEFT JOIN repcard_customers c ON ru.repcard_user_id::text = c.setter_user_id
                   AND c.created_at::date >= ${calculatedStartDate}::date
                   AND c.created_at::date <= ${calculatedEndDate}::date
-                WHERE u.repcard_user_id IS NOT NULL
-                GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+                WHERE ru.status = 1
+                GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role
                 ORDER BY count DESC
                 LIMIT 1000
               `;
@@ -1053,49 +1062,51 @@ export async function GET(request: NextRequest) {
             if (role !== 'all') {
               fallbackQuery = await sql`
                 SELECT
-                  u.id as user_id,
-                  u.name as user_name,
-                  u.email as user_email,
-                  u.repcard_user_id as repcard_user_id,
-                  u.sales_office[1] as office,
-                  u.role,
+                  COALESCE(u.id, ru.repcard_user_id::text) as user_id,
+                  COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as user_name,
+                  COALESCE(u.email, ru.email) as user_email,
+                  ru.repcard_user_id::text as repcard_user_id,
+                  COALESCE(u.sales_office[1], ru.office_name) as office,
+                  COALESCE(u.role, ru.role) as role,
                   COUNT(a.repcard_appointment_id) as count
-                FROM users u
-                LEFT JOIN repcard_appointments a ON u.repcard_user_id::text = a.setter_user_id
+                FROM repcard_users ru
+                LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+                LEFT JOIN repcard_appointments a ON ru.repcard_user_id::text = a.setter_user_id
                   AND (
                     (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                     OR
                     (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
                   )
-                LEFT JOIN offices o ON o.name = ANY(u.sales_office)
-                WHERE u.repcard_user_id IS NOT NULL
-                  AND u.role = ${role}
-                  AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR u.sales_office IS NULL)
-                GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+                LEFT JOIN offices o ON o.name = COALESCE(u.sales_office[1], ru.office_name)
+                WHERE ru.status = 1
+                  AND (COALESCE(u.role, ru.role) = ${role} OR (u.role IS NULL AND ru.role = ${role}))
+                  AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR (u.sales_office IS NULL AND ru.office_name IS NULL))
+                GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role
                 ORDER BY count DESC
                 LIMIT 1000
               `;
             } else {
               fallbackQuery = await sql`
                 SELECT
-                  u.id as user_id,
-                  u.name as user_name,
-                  u.email as user_email,
-                  u.repcard_user_id as repcard_user_id,
-                  u.sales_office[1] as office,
-                  u.role,
+                  COALESCE(u.id, ru.repcard_user_id::text) as user_id,
+                  COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as user_name,
+                  COALESCE(u.email, ru.email) as user_email,
+                  ru.repcard_user_id::text as repcard_user_id,
+                  COALESCE(u.sales_office[1], ru.office_name) as office,
+                  COALESCE(u.role, ru.role) as role,
                   COUNT(a.repcard_appointment_id) as count
-                FROM users u
-                LEFT JOIN repcard_appointments a ON u.repcard_user_id::text = a.setter_user_id
+                FROM repcard_users ru
+                LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+                LEFT JOIN repcard_appointments a ON ru.repcard_user_id::text = a.setter_user_id
                   AND (
                     (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                     OR
                     (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
                   )
-                LEFT JOIN offices o ON o.name = ANY(u.sales_office)
-                WHERE u.repcard_user_id IS NOT NULL
-                  AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR u.sales_office IS NULL)
-                GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+                LEFT JOIN offices o ON o.name = COALESCE(u.sales_office[1], ru.office_name)
+                WHERE ru.status = 1
+                  AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR (u.sales_office IS NULL AND ru.office_name IS NULL))
+                GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role
                 ORDER BY count DESC
                 LIMIT 1000
               `;
@@ -1143,22 +1154,24 @@ export async function GET(request: NextRequest) {
               
               const appointmentCountsRaw = await sql`
                 SELECT
-                  u.id as user_id,
-                  u.name as user_name,
-                  u.email as user_email,
-                  u.repcard_user_id as repcard_user_id,
-                  u.sales_office[1] as office,
-                  u.role,
+                  COALESCE(u.id, ru.repcard_user_id::text) as user_id,
+                  COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as user_name,
+                  COALESCE(u.email, ru.email) as user_email,
+                  ru.repcard_user_id::text as repcard_user_id,
+                  COALESCE(u.sales_office[1], ru.office_name) as office,
+                  COALESCE(u.role, ru.role) as role,
                   COUNT(a.repcard_appointment_id) as count
-                FROM users u
-                LEFT JOIN repcard_appointments a ON u.repcard_user_id::text = a.setter_user_id
+                FROM repcard_users ru
+                LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+                LEFT JOIN repcard_appointments a ON ru.repcard_user_id::text = a.setter_user_id
                   AND (
                     (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                     OR
                     (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
                   )
-                WHERE u.repcard_user_id::text = ANY(${repcardUserIds.map(String)}::text[])
-                GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
+                WHERE ru.status = 1
+                  AND ru.repcard_user_id::text = ANY(${repcardUserIds.map(String)}::text[])
+                GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role
                 ORDER BY count DESC
               `;
               
