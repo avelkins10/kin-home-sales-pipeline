@@ -288,7 +288,7 @@ export function ConfigurableLeaderboard({
     return <ConfigurableLeaderboardSkeleton />;
   }
 
-  // Error state
+  // Error state with retry
   if (error) {
     return (
       <Card className={cn('w-full', className)}>
@@ -297,11 +297,20 @@ export function ConfigurableLeaderboard({
         </CardHeader>
         <CardContent>
           <div className="text-red-600 mb-4">
-            Failed to load leaderboard data. Please try again.
+            <p className="mb-2">{error instanceof Error ? error.message : 'Failed to load leaderboard'}</p>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Retry
+            </Button>
           </div>
-          <Button onClick={() => refetch()} variant="outline">
-            Retry
-          </Button>
+          <div className="text-sm text-gray-500">
+            <p>If this persists, check:</p>
+            <ul className="list-disc list-inside mt-2 space-y-1">
+              <li>RepCard sync status (check diagnostic banner)</li>
+              <li>Date range has data</li>
+              <li>Filters aren't too restrictive</li>
+            </ul>
+          </div>
         </CardContent>
       </Card>
     );
@@ -458,6 +467,7 @@ export function ConfigurableLeaderboard({
                     <TableHead className="w-20">Rank</TableHead>
                     <TableHead className="min-w-48">Name</TableHead>
                     <TableHead className="min-w-32">Office</TableHead>
+                    <TableHead className="min-w-32">Team</TableHead>
                     <TableHead className="w-24">Role</TableHead>
                     <TableHead className="text-right min-w-32">
                       {getMetricLabel(metric)}
@@ -487,6 +497,7 @@ export function ConfigurableLeaderboard({
                         </div>
                       </TableCell>
                       <TableCell>{entry.office}</TableCell>
+                      <TableCell>{entry.team || '-'}</TableCell>
                       <TableCell>
                         <Badge variant={entry.role === 'closer' ? 'default' : 'secondary'}>
                           {entry.role}
@@ -556,6 +567,7 @@ export function ConfigurableLeaderboardSkeleton() {
                 <TableHead className="w-20">Rank</TableHead>
                 <TableHead className="min-w-48">Name</TableHead>
                 <TableHead className="min-w-32">Office</TableHead>
+                <TableHead className="min-w-32">Team</TableHead>
                 <TableHead className="w-24">Role</TableHead>
                 <TableHead className="text-right min-w-32">Metric</TableHead>
                 <TableHead className="w-16 text-center">Trend</TableHead>
