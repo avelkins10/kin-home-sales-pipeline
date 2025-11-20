@@ -363,14 +363,19 @@ export async function GET(request: NextRequest) {
       }
       repcardUsers = Array.from(officeQuery);
       
+      // If office filter returns 0 users, it means RepCard office IDs don't match QuickBase office IDs
+      // This is expected - RepCard has its own office system
+      // Fall back to showing ALL RepCard users (office filter doesn't apply to RepCard data)
       if (repcardUsers.length === 0) {
-        console.log(`[RepCard Leaderboard] ⚠️ Office filter returned 0 RepCard users, falling back to all`);
+        console.log(`[RepCard Leaderboard] ⚠️ Office filter returned 0 RepCard users (RepCard offices don't match QuickBase offices)`);
+        console.log(`[RepCard Leaderboard] Falling back to ALL RepCard users - office filter ignored for RepCard data`);
         officeFilterFailed = true;
-        officeIds = undefined;
+        // Don't clear officeIds - we'll just ignore it for RepCard queries
       }
     }
     
     // If no office filter or office filter failed, get all active RepCard users
+    // NOTE: RepCard office IDs don't match QuickBase office IDs, so we show all RepCard data
     if (repcardUsers.length === 0) {
       let allUsersQuery;
       if (role !== 'all') {
@@ -467,8 +472,10 @@ export async function GET(request: NextRequest) {
     // Fetch metric data based on selected metric
     let leaderboardEntries: LeaderboardEntry[] = [];
     
-    // Track if office filter failed (so we can skip office filtering in metric queries)
-    const shouldSkipOfficeFilter = officeIds === undefined && officeFilterFailed;
+    // IMPORTANT: RepCard office IDs don't match QuickBase office IDs
+    // If office filter was provided but returned 0 RepCard users, ignore office filter for all RepCard queries
+    // This ensures RepCard data is shown even when office names/IDs don't match
+    const shouldSkipOfficeFilter = officeFilterFailed;
     
     if (metric === 'quality_score' || metric === 'appointment_speed' || metric === 'attachment_rate') {
       // Calculate quality metrics from database instead of API to avoid rate limiting
