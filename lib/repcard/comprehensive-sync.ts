@@ -337,7 +337,7 @@ export async function syncUsers(options: {
             } else {
               recordsUpdated++;
             }
-            recordsFetched++;
+            // recordsFetched already incremented before processing (line 212)
 
           } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error);
