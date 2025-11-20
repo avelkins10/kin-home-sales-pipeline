@@ -550,6 +550,7 @@ export interface LeaderboardEntry {
   userEmail: string;
   office: string;
   role: string;
+  team?: string; // Team name from RepCard
   metricValue: number;
   metricType: string;
   trend?: 'up' | 'down' | 'same' | 'new';

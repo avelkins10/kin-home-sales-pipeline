@@ -630,7 +630,7 @@ export async function GET(request: NextRequest) {
               WHERE ru.status = 1
                 AND (COALESCE(u.role, ru.role) = ${role} OR (u.role IS NULL AND ru.role = ${role}))
                 AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR (u.sales_office IS NULL AND ru.office_name IS NULL))
-              GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role
+              GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role, ru.team_name
             `;
           } else {
             customerCountsRaw = await sql`
@@ -650,7 +650,7 @@ export async function GET(request: NextRequest) {
               LEFT JOIN offices o ON o.name = COALESCE(u.sales_office[1], ru.office_name)
               WHERE ru.status = 1
                 AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR (u.sales_office IS NULL AND ru.office_name IS NULL))
-              GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role
+              GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role, ru.team_name
             `;
           }
         } else {
@@ -672,7 +672,7 @@ export async function GET(request: NextRequest) {
                 AND c.created_at::date <= ${calculatedEndDate}::date
               WHERE ru.status = 1
                 AND (COALESCE(u.role, ru.role) = ${role} OR (u.role IS NULL AND ru.role = ${role}))
-              GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role
+              GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role, ru.team_name
             `;
           } else {
             customerCountsRaw = await sql`
@@ -690,7 +690,7 @@ export async function GET(request: NextRequest) {
                 AND c.created_at::date >= ${calculatedStartDate}::date
                 AND c.created_at::date <= ${calculatedEndDate}::date
               WHERE ru.status = 1
-              GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role
+              GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role, ru.team_name
             `;
           }
         }
@@ -872,7 +872,7 @@ export async function GET(request: NextRequest) {
               WHERE ru.status = 1
                 AND (COALESCE(u.role, ru.role) = ${role} OR (u.role IS NULL AND ru.role = ${role}))
                 AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR (u.sales_office IS NULL AND ru.office_name IS NULL))
-              GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role
+              GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role, ru.team_name
             `;
           } else {
             appointmentCountsRaw = await sql`
@@ -895,7 +895,7 @@ export async function GET(request: NextRequest) {
               LEFT JOIN offices o ON o.name = COALESCE(u.sales_office[1], ru.office_name)
               WHERE ru.status = 1
                 AND (o.quickbase_office_id = ANY(${officeIds}::int[]) OR (u.sales_office IS NULL AND ru.office_name IS NULL))
-              GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role
+              GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role, ru.team_name
             `;
           }
         } else {
@@ -920,7 +920,7 @@ export async function GET(request: NextRequest) {
                 )
               WHERE ru.status = 1
                 AND (COALESCE(u.role, ru.role) = ${role} OR (u.role IS NULL AND ru.role = ${role}))
-              GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role
+              GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role, ru.team_name
             `;
           } else {
             appointmentCountsRaw = await sql`
@@ -941,7 +941,7 @@ export async function GET(request: NextRequest) {
                   (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
                 )
               WHERE ru.status = 1
-              GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role
+              GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role, ru.team_name
             `;
           }
         }
