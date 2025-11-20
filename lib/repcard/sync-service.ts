@@ -178,7 +178,7 @@ export async function syncCustomers(options: {
           try {
             const existingUsersResult = await sql`
               SELECT repcard_user_id FROM users 
-              WHERE repcard_user_id = ANY(${Array.from(setterUserIds).map(String)}::text[])
+              WHERE repcard_user_id = ANY(${Array.from(setterUserIds)}::int[])
             `;
             // Handle @vercel/postgres result format
             const existingUsers = Array.isArray(existingUsersResult) 
@@ -429,7 +429,7 @@ export async function syncAppointments(options: {
           try {
             const existingUsersResult = await sql`
               SELECT repcard_user_id FROM users 
-              WHERE repcard_user_id = ANY(${Array.from(userIds).map(String)}::text[])
+              WHERE repcard_user_id = ANY(${Array.from(userIds)}::int[])
             `;
             // Handle @vercel/postgres result format
             const existingUsers = Array.isArray(existingUsersResult) 

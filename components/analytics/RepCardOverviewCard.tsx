@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DoorOpen, Calendar, TrendingUp, Award, Target, Zap } from 'lucide-react';
+import { DoorOpen, Calendar, TrendingUp, Award, Target, Zap, AlertCircle } from 'lucide-react';
 import { formatLargeNumber, formatPercentage } from '@/lib/utils/formatters';
 import { getBaseUrl } from '@/lib/utils/baseUrl';
 import { cn } from '@/lib/utils/cn';
@@ -137,6 +137,9 @@ export function RepCardOverviewCard({
   const avgDoorsPerRep = activeReps > 0 ? totalDoors / activeReps : 0;
   const avgAppointmentsPerRep = activeReps > 0 ? totalAppointments / activeReps : 0;
 
+  // Check if all metrics are zero (likely no data)
+  const hasNoData = totalDoors === 0 && totalAppointments === 0 && avgQualityScore === 0;
+
   if (isLoading) {
     return (
       <Card>
@@ -169,6 +172,20 @@ export function RepCardOverviewCard({
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {hasNoData && (
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-yellow-800">No RepCard data found</p>
+                <p className="text-xs text-yellow-700 mt-1">
+                  This could mean: no data synced yet, users not linked to RepCard, or data outside the selected time range.
+                  {role === 'super_admin' && ' Check the diagnostic banner above for details.'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {/* Total Doors Knocked */}
           <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200">

@@ -74,20 +74,23 @@ export function RepCardMetricsCard({
         `${getBaseUrl()}/api/repcard/users/${userId}/stats?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`
       );
       if (!response.ok) {
-        throw new Error('Failed to fetch RepCard stats');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to fetch RepCard stats: ${response.status} ${response.statusText}`);
       }
       const data = await response.json();
       
       // Check if user has RepCard data
       if (data.hasRepcardData === false) {
-        return null;
+        return { hasRepcardData: false, message: data.message || 'User not linked to RepCard' };
       }
       
       return data;
     },
     refetchInterval: 30000, // Refresh every 30 seconds
     staleTime: 60000,
-    enabled: !!userId
+    enabled: !!userId,
+    retry: 2,
+    retryDelay: 1000
   });
 
   // Fetch attachment count
@@ -124,12 +127,16 @@ export function RepCardMetricsCard({
     );
   }
 
-  if (error || !stats) {
+  // Handle error or no RepCard data
+  if (error) {
     return (
       <Card className={cn('w-full', className)}>
         <CardHeader>
-          <CardTitle>RepCard Metrics</CardTitle>
-          <CardDescription>Canvassing and quality metrics</CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-blue-600" />
+            RepCard Metrics
+          </CardTitle>
+          <CardDescription>Canvassing and quality metrics from RepCard</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center space-x-2 text-yellow-600 py-4">
@@ -137,9 +144,33 @@ export function RepCardMetricsCard({
             <div>
               <p className="text-sm font-medium">RepCard Data Unavailable</p>
               <p className="text-xs text-gray-600 mt-1">
-                {stats === null 
-                  ? 'User not linked to RepCard'
-                  : 'Failed to load RepCard metrics'}
+                {error instanceof Error ? error.message : 'Failed to load RepCard metrics'}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Handle case where user is not linked to RepCard
+  if (!stats || stats.hasRepcardData === false) {
+    return (
+      <Card className={cn('w-full', className)}>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-blue-600" />
+            RepCard Metrics
+          </CardTitle>
+          <CardDescription>Canvassing and quality metrics from RepCard</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center space-x-2 text-gray-500 py-4">
+            <AlertCircle className="h-5 w-5" />
+            <div>
+              <p className="text-sm font-medium">No RepCard Data</p>
+              <p className="text-xs text-gray-600 mt-1">
+                {stats?.message || 'User not linked to RepCard. Contact your administrator to link your account.'}
               </p>
             </div>
           </div>

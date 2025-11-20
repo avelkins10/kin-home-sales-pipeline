@@ -216,12 +216,13 @@ export async function enrichUserFromRepCard(
         // User not found - create minimal record with RepCard data
         // NOTE: New users are created with initial values from RepCard, but once created,
         // the app becomes the source of truth for name, role, and office assignments.
-        // No role or sales_office is set - user cannot login until invited by admin.
+        // Default role is 'setter' - user can be updated by admin later.
         const newUser = await sql`
           INSERT INTO users (
             email,
             name,
             repcard_user_id,
+            role,
             office,
             team,
             profile_image_url,
@@ -230,6 +231,7 @@ export async function enrichUserFromRepCard(
             ${repcardData.email},
             ${repcardData.firstName && repcardData.lastName ? `${repcardData.firstName} ${repcardData.lastName}` : null},
             ${repcardIdStr},
+            'setter', -- Default role - admin can update later
             ${repcardData.officeName},
             ${repcardData.teamName},
             ${repcardData.profileImage},

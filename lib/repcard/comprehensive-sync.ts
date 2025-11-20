@@ -138,8 +138,16 @@ export async function syncUsers(options: {
     let page = 1;
     let hasMore = true;
     const MAX_PAGES = 200;
+    const MAX_DURATION_MS = 240000; // 4 minutes (leave 1 min buffer before 5 min timeout)
 
     while (hasMore && page <= MAX_PAGES) {
+      // Check timeout - exit gracefully before hitting 5 min limit
+      const elapsed = Date.now() - startTime;
+      if (elapsed > MAX_DURATION_MS) {
+        console.log(`[RepCard Sync] ⏱️ Timeout protection: Stopping users sync after ${(elapsed / 1000).toFixed(1)}s (page ${page})`);
+        break;
+      }
+      
       try {
         const response = await repcardClient.getUsersMinimal({
           page,
@@ -155,11 +163,78 @@ export async function syncUsers(options: {
         const users = Array.isArray(response.result.data) ? response.result.data : [];
         console.log(`[RepCard Sync] Page ${page}: Got ${users.length} users`);
 
+        // Batch lookup company_ids from offices for users missing it
+        const usersNeedingCompanyId = users.filter(u => {
+          const companyId = u.companyId || (u as any).company_id || null;
+          return !companyId && u.officeId;
+        });
+        
+        let officeCompanyIdMap = new Map<number, number>();
+        if (usersNeedingCompanyId.length > 0) {
+          try {
+            const officeIds = usersNeedingCompanyId.map(u => u.officeId).filter(Boolean) as number[];
+            if (officeIds.length > 0) {
+              const officeResults = await sql`
+                SELECT repcard_office_id, company_id 
+                FROM repcard_offices 
+                WHERE repcard_office_id = ANY(${officeIds})
+              `;
+              const offices = Array.from(officeResults);
+              offices.forEach((office: any) => {
+                if (office.repcard_office_id && office.company_id) {
+                  officeCompanyIdMap.set(office.repcard_office_id, office.company_id);
+                }
+              });
+              console.log(`[RepCard Sync] Batch loaded ${officeCompanyIdMap.size} company_ids from offices`);
+            }
+          } catch (officeError) {
+            console.warn(`[RepCard Sync] Failed to batch load company_ids from offices:`, officeError);
+          }
+        }
+
         for (const user of users) {
           try {
             const updatedAt = new Date((user as any).updatedAt || new Date());
             if (!lastRecordDate || updatedAt > lastRecordDate) {
               lastRecordDate = updatedAt;
+            }
+
+            // Extract company_id - API doesn't return it, so we need to get it from offices or use NULL
+            // Try multiple field names since API might use different casing
+            const companyId = user.companyId || (user as any).company_id || (user as any).companyId || null;
+            
+            // If companyId is missing, try to get it from the batch-loaded map
+            let finalCompanyId = companyId;
+            if (!finalCompanyId && user.officeId) {
+              finalCompanyId = officeCompanyIdMap.get(user.officeId) || null;
+              if (finalCompanyId) {
+                console.log(`[RepCard Sync] Got company_id ${finalCompanyId} from office ${user.officeId} for user ${user.id}`);
+              }
+            }
+            
+            // CRITICAL FIX: If still missing, try to get from any office in the database
+            // This handles cases where offices haven't been synced yet
+            if (!finalCompanyId) {
+              try {
+                const anyOfficeResult = await sql`
+                  SELECT company_id FROM repcard_offices LIMIT 1
+                `;
+                const anyOffice = Array.from(anyOfficeResult)[0] as any;
+                if (anyOffice?.company_id) {
+                  finalCompanyId = anyOffice.company_id;
+                  console.log(`[RepCard Sync] Using company_id ${finalCompanyId} from first available office for user ${user.id}`);
+                }
+              } catch (officeError) {
+                // No offices synced yet - that's OK, we'll use NULL
+              }
+            }
+            
+            // Allow NULL company_id - we'll backfill it later from offices
+            // This allows sync to proceed even if company_id is missing
+            // Ensure finalCompanyId is explicitly null (not undefined) for SQL
+            const companyIdForDb = finalCompanyId ?? null;
+            if (!companyIdForDb) {
+              console.log(`[RepCard Sync] User ${user.id} missing companyId - will sync with NULL (backfill later)`);
             }
 
             // Upsert user
@@ -189,29 +264,30 @@ export async function syncUsers(options: {
               )
               VALUES (
                 ${user.id},
-                ${user.companyId},
+                ${companyIdForDb}, // Allow NULL temporarily - will backfill from offices later
                 ${user.officeId || null},
-                ${(user as any).firstName || null},
-                ${(user as any).lastName || null},
+                ${(user as any).firstName || (user as any).first_name || null},
+                ${(user as any).lastName || (user as any).last_name || null},
                 ${user.email || null},
                 ${(user as any).phone || null},
                 ${(user as any).username || null},
                 ${(user as any).role || null},
                 ${(user as any).status ?? 1},
-                ${(user as any).office || null},
+                ${(user as any).office || (user as any).office_name || null},
                 ${(user as any).team || null},
-                ${(user as any).jobTitle || null},
-                ${(user as any).image || null},
+                ${(user as any).jobTitle || (user as any).job_title || null},
+                ${(user as any).image || (user as any).profile_image || null},
                 ${(user as any).rating || null},
                 ${(user as any).bio || null},
-                ${(user as any).badgeId || null},
-                ${(user as any).qrCode || null},
-                ${(user as any).createdAt || null},
+                ${(user as any).badgeId || (user as any).badge_id || null},
+                ${(user as any).qrCode || (user as any).qr_code || null},
+                ${(user as any).createdAt || (user as any).created_at || null},
                 ${updatedAt},
                 ${JSON.stringify(user)}
               )
               ON CONFLICT (repcard_user_id)
               DO UPDATE SET
+                company_id = EXCLUDED.company_id,
                 office_id = EXCLUDED.office_id,
                 first_name = EXCLUDED.first_name,
                 last_name = EXCLUDED.last_name,
@@ -1675,7 +1751,7 @@ export async function linkRepCardUsersToUsers(): Promise<void> {
     const result = await sql`
       UPDATE users u
       SET
-        repcard_user_id = ru.repcard_user_id::text,
+        repcard_user_id = ru.repcard_user_id,
         last_synced_from_repcard_at = NOW()
       FROM repcard_users ru
       WHERE LOWER(u.email) = LOWER(ru.email)

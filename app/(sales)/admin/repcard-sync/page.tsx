@@ -48,6 +48,7 @@ interface SyncStatusResponse {
     customers: number;
     appointments: number;
     statusLogs: number;
+    users: number;
   };
 }
 
@@ -73,25 +74,64 @@ export default function RepCardSyncPage() {
     mutationFn: async ({ startDate, endDate }: { startDate: string; endDate: string }) => {
       const results = [];
 
-      // Step 1: Sync customers
-      toast.info('Syncing customers...', { description: 'Step 1 of 3' });
+      // Step 1: Sync offices first (needed for users to get company_id)
+      toast.info('Syncing offices...', { description: 'Step 1 of 4' });
+      const officesRes = await fetch(
+        `/api/admin/repcard/comprehensive-sync?skipUsers=true&skipCustomers=true&skipAppointments=true&skipStatusLogs=true&skipCustomerAttachments=true&skipAppointmentAttachments=true&skipCustomerNotes=true&skipCustomerStatuses=true&skipCalendars=true&skipCustomFields=true&skipLeaderboards=true&skipTeams=true`,
+        { method: 'POST' }
+      );
+      if (!officesRes.ok) {
+        const errorData = await officesRes.json().catch(() => ({ message: 'Unknown error' }));
+        console.warn(`[Sync] Offices sync failed (non-critical): ${errorData.message || errorData.error || 'HTTP ' + officesRes.status}`);
+        // Don't throw - offices sync is helpful but not critical
+      } else {
+        const officesData = await officesRes.json();
+        console.log('[Sync] Offices result:', officesData);
+        queryClient.invalidateQueries({ queryKey: ['repcard-sync-status'] });
+      }
+
+      // Step 2: Sync users (needed for leaderboards to work)
+      toast.info('Syncing users...', { description: 'Step 2 of 4' });
+      const usersRes = await fetch(
+        `/api/admin/repcard/sync?type=users`,
+        { method: 'POST' }
+      );
+      if (!usersRes.ok) {
+        const errorData = await usersRes.json().catch(() => ({ message: 'Unknown error' }));
+        throw new Error(`Failed to sync users: ${errorData.message || errorData.error || 'HTTP ' + usersRes.status}`);
+      }
+      const usersData = await usersRes.json();
+      console.log('[Sync] Users result:', usersData);
+      results.push(usersData);
+      queryClient.invalidateQueries({ queryKey: ['repcard-sync-status'] });
+
+      // Step 3: Sync customers
+      toast.info('Syncing customers...', { description: 'Step 3 of 4' });
       const customersRes = await fetch(
         `/api/admin/repcard/sync?type=customers&startDate=${startDate}&endDate=${endDate}`,
         { method: 'POST' }
       );
-      if (!customersRes.ok) throw new Error('Failed to sync customers');
+      if (!customersRes.ok) {
+        const errorData = await customersRes.json().catch(() => ({ message: 'Unknown error' }));
+        throw new Error(`Failed to sync customers: ${errorData.message || errorData.error || 'HTTP ' + customersRes.status}`);
+      }
       const customersData = await customersRes.json();
+      console.log('[Sync] Customers result:', customersData);
       results.push(customersData);
       queryClient.invalidateQueries({ queryKey: ['repcard-sync-status'] });
 
-      // Step 2: Sync appointments
-      toast.info('Syncing appointments...', { description: 'Step 2 of 2' });
+      // Step 4: Sync appointments
+      toast.info('Syncing appointments...', { description: 'Step 4 of 4' });
       const appointmentsRes = await fetch(
         `/api/admin/repcard/sync?type=appointments&startDate=${startDate}&endDate=${endDate}`,
         { method: 'POST' }
       );
-      if (!appointmentsRes.ok) throw new Error('Failed to sync appointments');
+      if (!appointmentsRes.ok) {
+        const errorData = await appointmentsRes.json().catch(() => ({ message: 'Unknown error' }));
+        throw new Error(`Failed to sync appointments: ${errorData.message || errorData.error || 'HTTP ' + appointmentsRes.status}`);
+      }
       const appointmentsData = await appointmentsRes.json();
+      console.log('[Sync] Appointments result:', appointmentsData);
       results.push(appointmentsData);
       queryClient.invalidateQueries({ queryKey: ['repcard-sync-status'] });
 
@@ -133,6 +173,30 @@ export default function RepCardSyncPage() {
     },
     onError: (error) => {
       toast.error('Failed to start incremental sync', {
+        description: error.message
+      });
+    },
+  });
+
+  // Link users mutation
+  const linkUsersMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/admin/link-repcard-users', { method: 'POST' });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ message: 'Unknown error' }));
+        throw new Error(error.message || error.error || 'Failed to link users');
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast.success('Users linked successfully', {
+        description: 'Users have been linked to RepCard by email'
+      });
+      queryClient.invalidateQueries({ queryKey: ['repcard-sync-status'] });
+      queryClient.invalidateQueries({ queryKey: ['repcard-diagnostic'] });
+    },
+    onError: (error) => {
+      toast.error('Failed to link users', {
         description: error.message
       });
     },
@@ -230,7 +294,22 @@ export default function RepCardSyncPage() {
 
       {/* Record Counts */}
       {data && (
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Users</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {data.recordCounts.users.toLocaleString()}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Total RepCard users synced
+              </p>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Customers</CardTitle>
@@ -294,7 +373,7 @@ export default function RepCardSyncPage() {
               Quick Sync (Last 7 Days)
             </h3>
             <p className="text-sm text-muted-foreground">
-              Recommended for initial setup. Syncs customers + appointments from the last 7 days (~2-3 minutes). Status logs are skipped to avoid timeouts.
+              Recommended for initial setup. Syncs users, customers + appointments from the last 7 days (~3-4 minutes). Status logs are skipped to avoid timeouts.
             </p>
             <Button
               onClick={() => {
@@ -382,7 +461,7 @@ export default function RepCardSyncPage() {
             <Button
               variant="outline"
               onClick={() => incrementalSyncMutation.mutate()}
-              disabled={fullSyncMutation.isPending || incrementalSyncMutation.isPending}
+              disabled={fullSyncMutation.isPending || incrementalSyncMutation.isPending || linkUsersMutation.isPending}
             >
               {incrementalSyncMutation.isPending ? (
                 <>
@@ -393,6 +472,35 @@ export default function RepCardSyncPage() {
                 <>
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Run Incremental Sync
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* Link Users */}
+          <div className="space-y-3 pt-4 border-t">
+            <h3 className="text-sm font-medium flex items-center gap-2">
+              <Users className="h-4 w-4 text-green-600" />
+              Link Users to RepCard
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Link users in your app to RepCard users by matching email addresses. Required for analytics to work.
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => linkUsersMutation.mutate()}
+              disabled={fullSyncMutation.isPending || incrementalSyncMutation.isPending || linkUsersMutation.isPending}
+              className="border-green-300 text-green-700 hover:bg-green-50"
+            >
+              {linkUsersMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Linking...
+                </>
+              ) : (
+                <>
+                  <Users className="mr-2 h-4 w-4" />
+                  Link Users to RepCard
                 </>
               )}
             </Button>
@@ -430,7 +538,15 @@ export default function RepCardSyncPage() {
                       <div>{sync.records_fetched.toLocaleString()} fetched</div>
                       <div className="text-xs text-muted-foreground">
                         {sync.records_inserted} inserted, {sync.records_updated} updated
+                        {sync.records_failed > 0 && (
+                          <span className="text-red-600"> • {sync.records_failed} failed</span>
+                        )}
                       </div>
+                      {sync.error_message && (
+                        <div className="text-xs text-red-600 mt-1 max-w-xs truncate" title={sync.error_message}>
+                          Error: {sync.error_message}
+                        </div>
+                      )}
                     </div>
                     {getStatusIcon(sync.status)}
                   </div>

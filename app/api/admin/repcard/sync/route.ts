@@ -81,11 +81,16 @@ export async function POST(request: NextRequest) {
         })];
         break;
 
+      case 'users':
+        const { syncUsers } = await import('@/lib/repcard/comprehensive-sync');
+        results = [await syncUsers({ incremental: false })];
+        break;
+
       default:
         return NextResponse.json(
           {
             error: 'Invalid sync type',
-            message: 'type must be one of: full, incremental, customers, appointments, status_logs'
+            message: 'type must be one of: full, incremental, customers, appointments, status_logs, users'
           },
           { status: 400 }
         );
@@ -165,9 +170,10 @@ export async function GET(request: NextRequest) {
 
     const syncHistory = await query;
 
-    // Get latest sync for each entity type
+    // Get latest sync for each entity type (including failed/running)
     const latestSyncsRaw = await sql`
       SELECT DISTINCT ON (entity_type)
+        id,
         entity_type,
         sync_type,
         status,
@@ -177,17 +183,18 @@ export async function GET(request: NextRequest) {
         records_inserted,
         records_updated,
         records_failed,
-        last_record_date
+        last_record_date,
+        error_message
       FROM repcard_sync_log
-      WHERE status = 'completed'
-      ORDER BY entity_type, completed_at DESC
+      ORDER BY entity_type, started_at DESC
     `;
     const latestSyncs = Array.from(latestSyncsRaw);
 
-    // Get record counts from tables
+    // Get record counts from tables (actual database counts - always accurate)
     const customerCountResult = await sql`SELECT COUNT(*) as count FROM repcard_customers`;
     const appointmentCountResult = await sql`SELECT COUNT(*) as count FROM repcard_appointments`;
     const statusLogCountResult = await sql`SELECT COUNT(*) as count FROM repcard_status_logs`;
+    const userCountResult = await sql`SELECT COUNT(*) as count FROM repcard_users`;
 
     return NextResponse.json({
       latestSyncs,
@@ -195,7 +202,8 @@ export async function GET(request: NextRequest) {
       recordCounts: {
         customers: Number(Array.from(customerCountResult)[0]?.count || 0),
         appointments: Number(Array.from(appointmentCountResult)[0]?.count || 0),
-        statusLogs: Number(Array.from(statusLogCountResult)[0]?.count || 0)
+        statusLogs: Number(Array.from(statusLogCountResult)[0]?.count || 0),
+        users: Number(Array.from(userCountResult)[0]?.count || 0)
       }
     });
 
