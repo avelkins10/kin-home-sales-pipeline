@@ -99,6 +99,7 @@ export function DoorsKnockedTrendsCard({
     queryKey: ['doors-knocked-trends', timeRange, customDateRange, officeIds],
     queryFn: async () => {
       const params = new URLSearchParams({
+        metric: 'doors_knocked',
         timeRange
       });
 
@@ -111,13 +112,14 @@ export function DoorsKnockedTrendsCard({
         params.set('endDate', customDateRange.endDate);
       }
 
-      const response = await fetch(`${getBaseUrl()}/api/repcard/canvassing/trends?${params}`);
+      const response = await fetch(`${getBaseUrl()}/api/repcard/trends?${params}`);
       if (!response.ok) {
         throw new Error(`Failed to fetch trend data: ${response.statusText}`);
       }
       return response.json();
     },
-    enabled: officeIds.length > 0
+    refetchInterval: 30000, // Auto-refresh every 30 seconds
+    staleTime: 60000
   });
 
   if (error) {
@@ -169,12 +171,15 @@ export function DoorsKnockedTrendsCard({
       <CardContent>
         <div className="h-[300px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={trendData?.data || []}>
+            <LineChart data={trendData?.trends || []}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis
                 dataKey="date"
                 tick={{ fontSize: 12 }}
                 stroke="#666"
+                angle={-45}
+                textAnchor="end"
+                height={60}
               />
               <YAxis
                 tick={{ fontSize: 12 }}
@@ -192,7 +197,8 @@ export function DoorsKnockedTrendsCard({
               <Legend />
               <Line
                 type="monotone"
-                dataKey="doors"
+                dataKey="value"
+                name="Doors Knocked"
                 stroke="#8b5cf6"
                 strokeWidth={2}
                 dot={{ fill: '#8b5cf6', strokeWidth: 2, r: 4 }}

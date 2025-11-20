@@ -306,10 +306,11 @@ export async function GET(request: NextRequest) {
     const userPerformanceResult = await sql`
       SELECT 
         ru.repcard_user_id,
-        COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name), ru.email, 'RepCard User ' || ru.repcard_user_id::text) as name,
-        ru.email,
-        COALESCE(u.sales_office[1], ru.office_name) as office,
-        ru.office_id,
+          COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name), ru.email, 'RepCard User ' || ru.repcard_user_id::text) as name,
+          ru.email,
+          COALESCE(u.sales_office[1], ru.office_name) as office,
+          ru.office_id,
+          ru.team_name,
         -- Metrics
         COUNT(DISTINCT c.repcard_customer_id)::bigint as doors_knocked,
         COUNT(DISTINCT a.repcard_appointment_id)::bigint as appointments_set,
@@ -397,6 +398,7 @@ export async function GET(request: NextRequest) {
         email: u.email || '',
         office: u.office || null,
         officeId: u.office_id || null,
+        team: u.team_name || null,
         doorsKnocked: Number(u.doors_knocked || 0),
         appointmentsSet: Number(u.appointments_set || 0),
         appointmentsClosed: Number(u.appointments_closed || 0),

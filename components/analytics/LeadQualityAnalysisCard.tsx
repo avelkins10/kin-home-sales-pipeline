@@ -76,7 +76,9 @@ export function LeadQualityAnalysisCard({
       const response = await fetch(`${getBaseUrl()}/api/repcard/quality-aggregate?${params}`);
       if (!response.ok) throw new Error('Failed to fetch quality data');
       return response.json();
-    }
+    },
+    refetchInterval: 30000, // Auto-refresh every 30 seconds
+    staleTime: 60000
   });
 
   if (error) {
@@ -126,7 +128,7 @@ export function LeadQualityAnalysisCard({
   const metrics = [
     {
       label: 'Show Rate',
-      value: qualityData?.showRate || 0,
+      value: qualityData?.metrics?.showRate || 0,
       icon: CheckCircle,
       color: 'text-green-600',
       bgColor: 'bg-green-50',
@@ -137,7 +139,7 @@ export function LeadQualityAnalysisCard({
     },
     {
       label: 'Sit Rate',
-      value: qualityData?.sitRate || 0,
+      value: qualityData?.metrics?.sitRate || 0,
       icon: Users,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50',
@@ -148,7 +150,7 @@ export function LeadQualityAnalysisCard({
     },
     {
       label: 'Close Rate',
-      value: qualityData?.closeRate || 0,
+      value: qualityData?.metrics?.closeRate || 0,
       icon: Target,
       color: 'text-purple-600',
       bgColor: 'bg-purple-50',
@@ -159,7 +161,7 @@ export function LeadQualityAnalysisCard({
     },
     {
       label: 'Follow-Up Rate',
-      value: qualityData?.followUpRate || 0,
+      value: qualityData?.metrics?.followUpRate || 0,
       icon: TrendingUp,
       color: 'text-orange-600',
       bgColor: 'bg-orange-50',

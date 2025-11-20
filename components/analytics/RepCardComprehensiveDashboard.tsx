@@ -44,6 +44,7 @@ interface ComprehensiveStats {
     email: string;
     office: string | null;
     officeId: number | null;
+    team: string | null;
     doorsKnocked: number;
     appointmentsSet: number;
     appointmentsClosed: number;
@@ -249,9 +250,10 @@ export function RepCardComprehensiveDashboard() {
                         <td className="p-2">
                           <div>
                             <p className="font-medium">{user.name}</p>
-                            {user.office && (
-                              <p className="text-xs text-muted-foreground">{user.office}</p>
-                            )}
+                            <div className="flex gap-2 text-xs text-muted-foreground">
+                              {user.office && <span>{user.office}</span>}
+                              {user.team && <span>• {user.team}</span>}
+                            </div>
                           </div>
                         </td>
                         <td className="text-right p-2 font-medium">{user.doorsKnocked}</td>
