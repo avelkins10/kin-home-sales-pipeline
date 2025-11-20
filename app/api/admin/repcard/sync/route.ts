@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
-import {
-  runFullSync,
-  runIncrementalSync,
-  syncCustomers,
-  syncAppointments,
-  syncStatusLogs
-} from '@/lib/repcard/sync-service';
+import { runComprehensiveSync } from '@/lib/repcard/comprehensive-sync';
+import { ensureRepCardTables } from '@/lib/repcard/ensure-tables';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -17,7 +12,7 @@ export const maxDuration = 300; // 5 minutes for full sync
  * Admin endpoint for manually triggering RepCard data syncs
  *
  * Query parameters:
- * - type: 'full' | 'incremental' | 'customers' | 'appointments' | 'status_logs'
+ * - type: 'full' | 'incremental' | 'quick' | 'customers' | 'appointments' | 'status_logs' | 'users'
  * - startDate: YYYY-MM-DD (optional, for full sync)
  * - endDate: YYYY-MM-DD (optional, for full sync)
  *
@@ -39,6 +34,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // STEP 0: Ensure tables exist FIRST (before any sync)
+    try {
+      console.log('[Admin Sync] Ensuring RepCard tables exist...');
+      await ensureRepCardTables();
+      console.log('[Admin Sync] ✅ Tables verified/created');
+    } catch (tableError) {
+      console.error('[Admin Sync] ⚠️ Table creation failed (non-fatal):', tableError);
+      // Continue - tables might already exist
+    }
+
     const { searchParams } = new URL(request.url);
     const syncType = searchParams.get('type') || 'incremental';
     const startDate = searchParams.get('startDate') || undefined;
@@ -46,83 +51,146 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Admin Sync] Starting ${syncType} sync requested by ${session.user.email}`, { startDate, endDate });
 
-    let results;
-
-    switch (syncType) {
-      case 'full':
-        results = await runFullSync({ startDate, endDate });
-        break;
-
-      case 'incremental':
-        results = await runIncrementalSync();
-        break;
-
-      case 'customers':
-        results = [await syncCustomers({
-          startDate,
-          endDate,
-          incremental: false
-        })];
-        break;
-
-      case 'appointments':
-        results = [await syncAppointments({
-          fromDate: startDate,
-          toDate: endDate,
-          incremental: false
-        })];
-        break;
-
-      case 'status_logs':
-        results = [await syncStatusLogs({
-          fromDate: startDate,
-          toDate: endDate,
-          incremental: false
-        })];
-        break;
-
-      case 'users':
-        const { syncUsers } = await import('@/lib/repcard/comprehensive-sync');
-        results = [await syncUsers({ incremental: false })];
-        break;
-
-      default:
-        return NextResponse.json(
-          {
-            error: 'Invalid sync type',
-            message: 'type must be one of: full, incremental, customers, appointments, status_logs, users'
-          },
-          { status: 400 }
-        );
+    // Handle individual entity types (for backward compatibility)
+    if (syncType === 'users') {
+      const result = await runComprehensiveSync({
+        skipOffices: false,
+        skipCustomers: true,
+        skipAppointments: true,
+        skipStatusLogs: true,
+        skipCustomerAttachments: true,
+        skipAppointmentAttachments: true
+      });
+      return NextResponse.json({
+        message: 'Users sync completed',
+        result: result.users,
+        recordsFetched: result.users.recordsFetched,
+        recordsInserted: result.users.recordsInserted,
+        recordsUpdated: result.users.recordsUpdated,
+        recordsFailed: result.users.recordsFailed,
+        duration: result.users.duration
+      });
     }
 
-    // Auto-link users after sync (if users were synced)
-    if (syncType === 'full' || syncType === 'incremental' || syncType === 'users') {
-      try {
-        const { linkRepCardUsersToUsers } = await import('@/lib/repcard/comprehensive-sync');
-        console.log('[Admin Sync] Auto-linking users to RepCard...');
-        await linkRepCardUsersToUsers();
-        console.log('[Admin Sync] ✅ User linking completed');
-      } catch (linkError) {
-        console.error('[Admin Sync] ⚠️ User linking failed (non-fatal):', linkError);
-        // Don't fail the whole sync if linking fails
-      }
+    if (syncType === 'customers') {
+      const result = await runComprehensiveSync({
+        skipUsers: false,
+        skipOffices: false,
+        skipCustomers: false,
+        skipAppointments: true,
+        skipStatusLogs: true,
+        startDate,
+        endDate,
+        incremental: false
+      });
+      return NextResponse.json({
+        message: 'Customers sync completed',
+        result: result.customers,
+        recordsFetched: result.customers.recordsFetched,
+        recordsInserted: result.customers.recordsInserted,
+        recordsUpdated: result.customers.recordsUpdated,
+        recordsFailed: result.customers.recordsFailed,
+        duration: result.customers.duration
+      });
     }
+
+    if (syncType === 'appointments') {
+      const result = await runComprehensiveSync({
+        skipUsers: false,
+        skipOffices: false,
+        skipCustomers: true,
+        skipAppointments: false,
+        skipStatusLogs: true,
+        startDate,
+        endDate,
+        incremental: false
+      });
+      return NextResponse.json({
+        message: 'Appointments sync completed',
+        result: result.appointments,
+        recordsFetched: result.appointments.recordsFetched,
+        recordsInserted: result.appointments.recordsInserted,
+        recordsUpdated: result.appointments.recordsUpdated,
+        recordsFailed: result.appointments.recordsFailed,
+        duration: result.appointments.duration
+      });
+    }
+
+    // Handle comprehensive sync types
+    let syncOptions: any = {
+      startDate,
+      endDate,
+      incremental: syncType === 'incremental'
+    };
+
+    // Quick sync: last 7 days, skip attachments and status logs for speed
+    if (syncType === 'quick') {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      syncOptions = {
+        startDate: sevenDaysAgo.toISOString().split('T')[0],
+        endDate: new Date().toISOString().split('T')[0],
+        incremental: false,
+        skipCustomerAttachments: true,
+        skipAppointmentAttachments: true,
+        skipStatusLogs: true
+      };
+    }
+
+    // Full sync: include everything
+    if (syncType === 'full') {
+      syncOptions = {
+        startDate,
+        endDate,
+        incremental: false,
+        skipCustomerAttachments: false,
+        skipAppointmentAttachments: false
+      };
+    }
+
+    // Run comprehensive sync (handles tables, users, linking automatically)
+    const result = await runComprehensiveSync(syncOptions);
 
     // Check if any syncs failed
-    const hasErrors = results.some(r => r.error);
-    const status = hasErrors ? 206 : 200; // 206 = Partial Content (some succeeded, some failed)
+    const hasErrors = !!(
+      result.users.error ||
+      result.offices.error ||
+      result.customers.error ||
+      result.appointments.error ||
+      result.statusLogs.error
+    );
+    const status = hasErrors ? 206 : 200;
 
     return NextResponse.json(
       {
         message: `${syncType} sync completed`,
-        results,
+        result,
         summary: {
-          totalFetched: results.reduce((sum, r) => sum + r.recordsFetched, 0),
-          totalInserted: results.reduce((sum, r) => sum + r.recordsInserted, 0),
-          totalUpdated: results.reduce((sum, r) => sum + r.recordsUpdated, 0),
-          totalFailed: results.reduce((sum, r) => sum + r.recordsFailed, 0),
-          totalDuration: results.reduce((sum, r) => sum + r.duration, 0)
+          totalFetched: 
+            result.users.recordsFetched +
+            result.offices.recordsFetched +
+            result.customers.recordsFetched +
+            result.appointments.recordsFetched +
+            result.statusLogs.recordsFetched,
+          totalInserted:
+            result.users.recordsInserted +
+            result.offices.recordsInserted +
+            result.customers.recordsInserted +
+            result.appointments.recordsInserted +
+            result.statusLogs.recordsInserted,
+          totalUpdated:
+            result.users.recordsUpdated +
+            result.offices.recordsUpdated +
+            result.customers.recordsUpdated +
+            result.appointments.recordsUpdated +
+            result.statusLogs.recordsUpdated,
+          totalFailed:
+            result.users.recordsFailed +
+            result.offices.recordsFailed +
+            result.customers.recordsFailed +
+            result.appointments.recordsFailed +
+            result.statusLogs.recordsFailed,
+          totalDuration: result.totalDuration
         }
       },
       { status }

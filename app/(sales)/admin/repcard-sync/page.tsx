@@ -69,77 +69,28 @@ export default function RepCardSyncPage() {
     refetchInterval: 10000, // Auto-refresh every 10 seconds
   });
 
-  // Sequential full sync mutation (avoids timeouts)
+  // Sequential full sync mutation - NOW USES COMPREHENSIVE SYNC (automatic tables + linking)
   const fullSyncMutation = useMutation({
     mutationFn: async ({ startDate, endDate }: { startDate: string; endDate: string }) => {
-      const results = [];
-
-      // Step 1: Sync offices first (needed for users to get company_id)
-      toast.info('Syncing offices...', { description: 'Step 1 of 4' });
-      const officesRes = await fetch(
-        `/api/admin/repcard/comprehensive-sync?skipUsers=true&skipCustomers=true&skipAppointments=true&skipStatusLogs=true&skipCustomerAttachments=true&skipAppointmentAttachments=true&skipCustomerNotes=true&skipCustomerStatuses=true&skipCalendars=true&skipCustomFields=true&skipLeaderboards=true&skipTeams=true`,
+      // Use comprehensive sync - handles tables, users, offices, customers, appointments, and linking automatically
+      toast.info('Starting comprehensive sync...', { description: 'This will sync everything automatically' });
+      
+      const res = await fetch(
+        `/api/admin/repcard/sync?type=full&startDate=${startDate}&endDate=${endDate}`,
         { method: 'POST' }
       );
-      if (!officesRes.ok) {
-        const errorData = await officesRes.json().catch(() => ({ message: 'Unknown error' }));
-        console.warn(`[Sync] Offices sync failed (non-critical): ${errorData.message || errorData.error || 'HTTP ' + officesRes.status}`);
-        // Don't throw - offices sync is helpful but not critical
-      } else {
-        const officesData = await officesRes.json();
-        console.log('[Sync] Offices result:', officesData);
-        queryClient.invalidateQueries({ queryKey: ['repcard-sync-status'] });
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ message: 'Unknown error' }));
+        throw new Error(`Sync failed: ${errorData.message || errorData.error || 'HTTP ' + res.status}`);
       }
-
-      // Step 2: Sync users (needed for leaderboards to work)
-      toast.info('Syncing users...', { description: 'Step 2 of 4' });
-      const usersRes = await fetch(
-        `/api/admin/repcard/sync?type=users`,
-        { method: 'POST' }
-      );
-      if (!usersRes.ok) {
-        const errorData = await usersRes.json().catch(() => ({ message: 'Unknown error' }));
-        throw new Error(`Failed to sync users: ${errorData.message || errorData.error || 'HTTP ' + usersRes.status}`);
-      }
-      const usersData = await usersRes.json();
-      console.log('[Sync] Users result:', usersData);
-      results.push(usersData);
+      
+      const data = await res.json();
+      console.log('[Sync] Comprehensive sync result:', data);
       queryClient.invalidateQueries({ queryKey: ['repcard-sync-status'] });
-
-      // Step 3: Sync customers
-      toast.info('Syncing customers...', { description: 'Step 3 of 4' });
-      const customersRes = await fetch(
-        `/api/admin/repcard/sync?type=customers&startDate=${startDate}&endDate=${endDate}`,
-        { method: 'POST' }
-      );
-      if (!customersRes.ok) {
-        const errorData = await customersRes.json().catch(() => ({ message: 'Unknown error' }));
-        throw new Error(`Failed to sync customers: ${errorData.message || errorData.error || 'HTTP ' + customersRes.status}`);
-      }
-      const customersData = await customersRes.json();
-      console.log('[Sync] Customers result:', customersData);
-      results.push(customersData);
-      queryClient.invalidateQueries({ queryKey: ['repcard-sync-status'] });
-
-      // Step 4: Sync appointments
-      toast.info('Syncing appointments...', { description: 'Step 4 of 4' });
-      const appointmentsRes = await fetch(
-        `/api/admin/repcard/sync?type=appointments&startDate=${startDate}&endDate=${endDate}`,
-        { method: 'POST' }
-      );
-      if (!appointmentsRes.ok) {
-        const errorData = await appointmentsRes.json().catch(() => ({ message: 'Unknown error' }));
-        throw new Error(`Failed to sync appointments: ${errorData.message || errorData.error || 'HTTP ' + appointmentsRes.status}`);
-      }
-      const appointmentsData = await appointmentsRes.json();
-      console.log('[Sync] Appointments result:', appointmentsData);
-      results.push(appointmentsData);
-      queryClient.invalidateQueries({ queryKey: ['repcard-sync-status'] });
-
-      // Status logs sync skipped - Canvassing tab doesn't need status logs (only uses customers table)
-      // Status logs cause timeouts even for 1-day chunks due to massive data volume
-      // Can be re-enabled later if needed for other analytics, with proper filtering by statusIds
-
-      return { results, message: 'All syncs completed' };
+      queryClient.invalidateQueries({ queryKey: ['repcard-diagnostic'] });
+      
+      return { results: [data], message: 'Comprehensive sync completed' };
     },
     onSuccess: (data) => {
       toast.success('Full sync completed successfully!', {
