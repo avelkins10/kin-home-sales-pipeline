@@ -310,37 +310,48 @@ export async function GET(request: NextRequest) {
     // This is acceptable behavior - data still displays, just without office filtering
     // TODO: Create office name mapping table or use RepCard office IDs directly
 
-    // Query users table (master table) - users should have repcard_user_id linked from sync
+    // CRITICAL FIX: Query repcard_users table first (master table) - shows ALL RepCard users
+    // LEFT JOIN to users table to get app user info if linked
+    // This ensures we display all setters/closers regardless of linking status
     if (officeIds && officeIds.length > 0) {
-      // Use sql.query for office filtering with proper array parameters
-      // Fix: Use LEFT JOIN to handle NULL sales_office, but only include users where office matches
+      // With office filter - try to match by office name
       if (role !== 'all') {
-        const result = await sql.query(
-          `SELECT DISTINCT u.id, u.name, u.email, u.repcard_user_id, u.sales_office[1] as office, u.role,
-                  COALESCE(ru.team_name, '') as team
-           FROM users u
-           LEFT JOIN offices o ON o.name = ANY(u.sales_office)
-           LEFT JOIN repcard_users ru ON u.repcard_user_id = ru.repcard_user_id
-           WHERE u.repcard_user_id IS NOT NULL
-             AND u.role = $1
-             AND o.quickbase_office_id = ANY($2::int[])
-           LIMIT 1000`,
-          [role, officeIds]
-        );
-        users = result.rows;
+        const result = await sql`
+          SELECT DISTINCT
+            COALESCE(u.id, ru.repcard_user_id::text) as id,
+            COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as name,
+            COALESCE(u.email, ru.email) as email,
+            ru.repcard_user_id,
+            COALESCE(u.sales_office[1], ru.office_name) as office,
+            COALESCE(u.role, ru.role) as role,
+            COALESCE(ru.team_name, '') as team
+          FROM repcard_users ru
+          LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+          LEFT JOIN offices o ON o.name = COALESCE(u.sales_office[1], ru.office_name)
+          WHERE ru.status = 1
+            AND (COALESCE(u.role, ru.role) = ${role} OR (u.role IS NULL AND ru.role = ${role}))
+            AND o.quickbase_office_id = ANY(${officeIds}::int[])
+          LIMIT 1000
+        `;
+        users = Array.from(result);
       } else {
-        const result = await sql.query(
-          `SELECT DISTINCT u.id, u.name, u.email, u.repcard_user_id, u.sales_office[1] as office, u.role,
-                  COALESCE(ru.team_name, '') as team
-           FROM users u
-           LEFT JOIN offices o ON o.name = ANY(u.sales_office)
-           LEFT JOIN repcard_users ru ON u.repcard_user_id = ru.repcard_user_id
-           WHERE u.repcard_user_id IS NOT NULL
-             AND o.quickbase_office_id = ANY($1::int[])
-           LIMIT 1000`,
-          [officeIds]
-        );
-        users = result.rows;
+        const result = await sql`
+          SELECT DISTINCT
+            COALESCE(u.id, ru.repcard_user_id::text) as id,
+            COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as name,
+            COALESCE(u.email, ru.email) as email,
+            ru.repcard_user_id,
+            COALESCE(u.sales_office[1], ru.office_name) as office,
+            COALESCE(u.role, ru.role) as role,
+            COALESCE(ru.team_name, '') as team
+          FROM repcard_users ru
+          LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+          LEFT JOIN offices o ON o.name = COALESCE(u.sales_office[1], ru.office_name)
+          WHERE ru.status = 1
+            AND o.quickbase_office_id = ANY(${officeIds}::int[])
+          LIMIT 1000
+        `;
+        users = Array.from(result);
       }
       
       // If office filtering returns 0 users, fall back to all users (office filter might be too restrictive)
@@ -359,23 +370,34 @@ export async function GET(request: NextRequest) {
         
         if (role !== 'all') {
           const result = await sql`
-            SELECT 
-              u.id, u.name, u.email, u.repcard_user_id, u.sales_office[1] as office, u.role,
+            SELECT
+              COALESCE(u.id, ru.repcard_user_id::text) as id,
+              COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as name,
+              COALESCE(u.email, ru.email) as email,
+              ru.repcard_user_id,
+              COALESCE(u.sales_office[1], ru.office_name) as office,
+              COALESCE(u.role, ru.role) as role,
               COALESCE(ru.team_name, '') as team
-            FROM users u
-            LEFT JOIN repcard_users ru ON u.repcard_user_id = ru.repcard_user_id
-            WHERE u.repcard_user_id IS NOT NULL AND u.role = ${role}
+            FROM repcard_users ru
+            LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+            WHERE ru.status = 1
+              AND (COALESCE(u.role, ru.role) = ${role} OR (u.role IS NULL AND ru.role = ${role}))
             LIMIT 1000
           `;
           users = Array.from(result);
         } else {
           const result = await sql`
-            SELECT 
-              u.id, u.name, u.email, u.repcard_user_id, u.sales_office[1] as office, u.role,
+            SELECT
+              COALESCE(u.id, ru.repcard_user_id::text) as id,
+              COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as name,
+              COALESCE(u.email, ru.email) as email,
+              ru.repcard_user_id,
+              COALESCE(u.sales_office[1], ru.office_name) as office,
+              COALESCE(u.role, ru.role) as role,
               COALESCE(ru.team_name, '') as team
-            FROM users u
-            LEFT JOIN repcard_users ru ON u.repcard_user_id = ru.repcard_user_id
-            WHERE u.repcard_user_id IS NOT NULL
+            FROM repcard_users ru
+            LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+            WHERE ru.status = 1
             LIMIT 1000
           `;
           users = Array.from(result);
@@ -387,34 +409,47 @@ export async function GET(request: NextRequest) {
         console.log(`[RepCard Leaderboard] ⚠️ Clearing officeIds filter for metric queries due to office filter failure`);
       }
     } else {
-      // No office filter - use sql template
+      // No office filter - query all RepCard users
       if (role !== 'all') {
         const result = await sql`
-          SELECT 
-            u.id, u.name, u.email, u.repcard_user_id, u.sales_office[1] as office, u.role,
+          SELECT
+            COALESCE(u.id, ru.repcard_user_id::text) as id,
+            COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as name,
+            COALESCE(u.email, ru.email) as email,
+            ru.repcard_user_id,
+            COALESCE(u.sales_office[1], ru.office_name) as office,
+            COALESCE(u.role, ru.role) as role,
             COALESCE(ru.team_name, '') as team
-          FROM users u
-          LEFT JOIN repcard_users ru ON u.repcard_user_id = ru.repcard_user_id
-          WHERE u.repcard_user_id IS NOT NULL AND u.role = ${role}
+          FROM repcard_users ru
+          LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+          WHERE ru.status = 1
+            AND (COALESCE(u.role, ru.role) = ${role} OR (u.role IS NULL AND ru.role = ${role}))
           LIMIT 1000
         `;
         users = Array.from(result);
       } else {
         const result = await sql`
-          SELECT 
-            u.id, u.name, u.email, u.repcard_user_id, u.sales_office[1] as office, u.role,
+          SELECT
+            COALESCE(u.id, ru.repcard_user_id::text) as id,
+            COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as name,
+            COALESCE(u.email, ru.email) as email,
+            ru.repcard_user_id,
+            COALESCE(u.sales_office[1], ru.office_name) as office,
+            COALESCE(u.role, ru.role) as role,
             COALESCE(ru.team_name, '') as team
-          FROM users u
-          LEFT JOIN repcard_users ru ON u.repcard_user_id = ru.repcard_user_id
-          WHERE u.repcard_user_id IS NOT NULL
+          FROM repcard_users ru
+          LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+          WHERE ru.status = 1
           LIMIT 1000
         `;
         users = Array.from(result);
       }
     }
     
+    console.log(`[RepCard Leaderboard] Found ${users.length} RepCard users (role: ${role}, offices: ${officeIds?.length || 0})`);
+    
     if (users.length === 0) {
-      console.log(`[RepCard Leaderboard] ⚠️ No users found with repcard_user_id`);
+      console.log(`[RepCard Leaderboard] ⚠️ No RepCard users found`);
       console.log(`[RepCard Leaderboard] Role filter: ${role}, Office IDs: ${officeIds?.join(',') || 'none'}`);
       
       // Return empty response with helpful metadata
