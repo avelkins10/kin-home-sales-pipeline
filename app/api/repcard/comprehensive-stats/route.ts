@@ -160,256 +160,732 @@ export async function GET(request: NextRequest) {
     // 2. CUSTOMERS WITH FULL DETAILS (if includeDetails)
     let customers: any[] = [];
     if (includeDetails) {
-      const customersResult = await sql`
-        SELECT 
-          c.repcard_customer_id,
-          c.id as customer_id,
-          c.setter_user_id,
-          c.office_id,
-          c.name,
-          c.email,
-          c.phone,
-          c.address,
-          c.city,
-          c.state,
-          c.zip,
-          c.status,
-          c.created_at,
-          c.updated_at,
-          -- Setter info
-          ru_setter.repcard_user_id as setter_repcard_user_id,
-          COALESCE(u_setter.name, TRIM(ru_setter.first_name || ' ' || ru_setter.last_name), ru_setter.email) as setter_name,
-          ru_setter.email as setter_email,
-          -- Office info
-          ro.name as office_name,
-          -- Custom fields from raw_data
-          c.raw_data->>'systemSizeKW' as system_size_kw,
-          c.raw_data->>'systemCost' as system_cost,
-          c.raw_data->>'financier' as financier,
-          c.raw_data->>'offset' as offset,
-          -- Counts
-          (SELECT COUNT(*) FROM repcard_appointments WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as appointment_count,
-          (SELECT COUNT(*) FROM repcard_customer_attachments WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as attachment_count,
-          (SELECT COUNT(*) FROM repcard_customer_notes WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as note_count
-        FROM repcard_customers c
-        LEFT JOIN repcard_users ru_setter ON c.setter_user_id = ru_setter.repcard_user_id
-        LEFT JOIN users u_setter ON u_setter.repcard_user_id = ru_setter.repcard_user_id
-        LEFT JOIN repcard_offices ro ON c.office_id = ro.repcard_office_id
-        WHERE c.created_at::date >= ${calculatedStartDate}::date
-          AND c.created_at::date <= ${calculatedEndDate}::date
-          ${hasRepcardUserId ? sql`AND c.setter_user_id = ${parseInt(repcardUserId!)}` : sql`AND 1=1`}
-          ${hasOfficeIds ? sql`AND c.office_id = ANY(${officeIds}::int[])` : sql`AND 1=1`}
-        ORDER BY c.created_at DESC
-        LIMIT 100
-      `;
+      let customersResult;
+      if (hasRepcardUserId && hasOfficeIds) {
+        customersResult = await sql`
+          SELECT 
+            c.repcard_customer_id,
+            c.id as customer_id,
+            c.setter_user_id,
+            c.office_id,
+            c.name,
+            c.email,
+            c.phone,
+            c.address,
+            c.city,
+            c.state,
+            c.zip,
+            c.status,
+            c.created_at,
+            c.updated_at,
+            -- Setter info
+            ru_setter.repcard_user_id as setter_repcard_user_id,
+            COALESCE(u_setter.name, TRIM(ru_setter.first_name || ' ' || ru_setter.last_name), ru_setter.email) as setter_name,
+            ru_setter.email as setter_email,
+            -- Office info
+            ro.name as office_name,
+            -- Custom fields from raw_data
+            c.raw_data->>'systemSizeKW' as system_size_kw,
+            c.raw_data->>'systemCost' as system_cost,
+            c.raw_data->>'financier' as financier,
+            c.raw_data->>'offset' as offset,
+            -- Counts
+            (SELECT COUNT(*) FROM repcard_appointments WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as appointment_count,
+            (SELECT COUNT(*) FROM repcard_customer_attachments WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as attachment_count,
+            (SELECT COUNT(*) FROM repcard_customer_notes WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as note_count
+          FROM repcard_customers c
+          LEFT JOIN repcard_users ru_setter ON c.setter_user_id = ru_setter.repcard_user_id
+          LEFT JOIN users u_setter ON u_setter.repcard_user_id = ru_setter.repcard_user_id
+          LEFT JOIN repcard_offices ro ON c.office_id = ro.repcard_office_id
+          WHERE c.created_at::date >= ${calculatedStartDate}::date
+            AND c.created_at::date <= ${calculatedEndDate}::date
+            AND c.setter_user_id = ${parseInt(repcardUserId!)}
+            AND c.office_id = ANY(${officeIds}::int[])
+          ORDER BY c.created_at DESC
+          LIMIT 100
+        `;
+      } else if (hasRepcardUserId) {
+        customersResult = await sql`
+          SELECT 
+            c.repcard_customer_id,
+            c.id as customer_id,
+            c.setter_user_id,
+            c.office_id,
+            c.name,
+            c.email,
+            c.phone,
+            c.address,
+            c.city,
+            c.state,
+            c.zip,
+            c.status,
+            c.created_at,
+            c.updated_at,
+            -- Setter info
+            ru_setter.repcard_user_id as setter_repcard_user_id,
+            COALESCE(u_setter.name, TRIM(ru_setter.first_name || ' ' || ru_setter.last_name), ru_setter.email) as setter_name,
+            ru_setter.email as setter_email,
+            -- Office info
+            ro.name as office_name,
+            -- Custom fields from raw_data
+            c.raw_data->>'systemSizeKW' as system_size_kw,
+            c.raw_data->>'systemCost' as system_cost,
+            c.raw_data->>'financier' as financier,
+            c.raw_data->>'offset' as offset,
+            -- Counts
+            (SELECT COUNT(*) FROM repcard_appointments WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as appointment_count,
+            (SELECT COUNT(*) FROM repcard_customer_attachments WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as attachment_count,
+            (SELECT COUNT(*) FROM repcard_customer_notes WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as note_count
+          FROM repcard_customers c
+          LEFT JOIN repcard_users ru_setter ON c.setter_user_id = ru_setter.repcard_user_id
+          LEFT JOIN users u_setter ON u_setter.repcard_user_id = ru_setter.repcard_user_id
+          LEFT JOIN repcard_offices ro ON c.office_id = ro.repcard_office_id
+          WHERE c.created_at::date >= ${calculatedStartDate}::date
+            AND c.created_at::date <= ${calculatedEndDate}::date
+            AND c.setter_user_id = ${parseInt(repcardUserId!)}
+          ORDER BY c.created_at DESC
+          LIMIT 100
+        `;
+      } else if (hasOfficeIds) {
+        customersResult = await sql`
+          SELECT 
+            c.repcard_customer_id,
+            c.id as customer_id,
+            c.setter_user_id,
+            c.office_id,
+            c.name,
+            c.email,
+            c.phone,
+            c.address,
+            c.city,
+            c.state,
+            c.zip,
+            c.status,
+            c.created_at,
+            c.updated_at,
+            -- Setter info
+            ru_setter.repcard_user_id as setter_repcard_user_id,
+            COALESCE(u_setter.name, TRIM(ru_setter.first_name || ' ' || ru_setter.last_name), ru_setter.email) as setter_name,
+            ru_setter.email as setter_email,
+            -- Office info
+            ro.name as office_name,
+            -- Custom fields from raw_data
+            c.raw_data->>'systemSizeKW' as system_size_kw,
+            c.raw_data->>'systemCost' as system_cost,
+            c.raw_data->>'financier' as financier,
+            c.raw_data->>'offset' as offset,
+            -- Counts
+            (SELECT COUNT(*) FROM repcard_appointments WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as appointment_count,
+            (SELECT COUNT(*) FROM repcard_customer_attachments WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as attachment_count,
+            (SELECT COUNT(*) FROM repcard_customer_notes WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as note_count
+          FROM repcard_customers c
+          LEFT JOIN repcard_users ru_setter ON c.setter_user_id = ru_setter.repcard_user_id
+          LEFT JOIN users u_setter ON u_setter.repcard_user_id = ru_setter.repcard_user_id
+          LEFT JOIN repcard_offices ro ON c.office_id = ro.repcard_office_id
+          WHERE c.created_at::date >= ${calculatedStartDate}::date
+            AND c.created_at::date <= ${calculatedEndDate}::date
+            AND c.office_id = ANY(${officeIds}::int[])
+          ORDER BY c.created_at DESC
+          LIMIT 100
+        `;
+      } else {
+        customersResult = await sql`
+          SELECT 
+            c.repcard_customer_id,
+            c.id as customer_id,
+            c.setter_user_id,
+            c.office_id,
+            c.name,
+            c.email,
+            c.phone,
+            c.address,
+            c.city,
+            c.state,
+            c.zip,
+            c.status,
+            c.created_at,
+            c.updated_at,
+            -- Setter info
+            ru_setter.repcard_user_id as setter_repcard_user_id,
+            COALESCE(u_setter.name, TRIM(ru_setter.first_name || ' ' || ru_setter.last_name), ru_setter.email) as setter_name,
+            ru_setter.email as setter_email,
+            -- Office info
+            ro.name as office_name,
+            -- Custom fields from raw_data
+            c.raw_data->>'systemSizeKW' as system_size_kw,
+            c.raw_data->>'systemCost' as system_cost,
+            c.raw_data->>'financier' as financier,
+            c.raw_data->>'offset' as offset,
+            -- Counts
+            (SELECT COUNT(*) FROM repcard_appointments WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as appointment_count,
+            (SELECT COUNT(*) FROM repcard_customer_attachments WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as attachment_count,
+            (SELECT COUNT(*) FROM repcard_customer_notes WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as note_count
+          FROM repcard_customers c
+          LEFT JOIN repcard_users ru_setter ON c.setter_user_id = ru_setter.repcard_user_id
+          LEFT JOIN users u_setter ON u_setter.repcard_user_id = ru_setter.repcard_user_id
+          LEFT JOIN repcard_offices ro ON c.office_id = ro.repcard_office_id
+          WHERE c.created_at::date >= ${calculatedStartDate}::date
+            AND c.created_at::date <= ${calculatedEndDate}::date
+          ORDER BY c.created_at DESC
+          LIMIT 100
+        `;
+      }
       customers = getRows(customersResult);
     }
 
     // 3. APPOINTMENTS WITH FULL DETAILS (if includeDetails)
     let appointments: any[] = [];
     if (includeDetails) {
-      const appointmentsResult = await sql`
-        SELECT 
-          a.repcard_appointment_id,
-          a.id as appointment_id,
-          a.repcard_customer_id,
-          a.setter_user_id,
-          a.closer_user_id,
-          a.office_id,
-          a.disposition,
-          a.status_category,
-          a.scheduled_at,
-          a.completed_at,
-          a.duration,
-          a.notes as appointment_notes,
-          a.is_within_48_hours,
-          a.has_power_bill,
-          a.created_at,
-          a.updated_at,
-          -- Customer info
-          c.name as customer_name,
-          c.email as customer_email,
-          c.phone as customer_phone,
-          -- Setter info
-          ru_setter.repcard_user_id as setter_repcard_user_id,
-          COALESCE(u_setter.name, TRIM(ru_setter.first_name || ' ' || ru_setter.last_name), ru_setter.email) as setter_name,
-          -- Closer info
-          ru_closer.repcard_user_id as closer_repcard_user_id,
-          COALESCE(u_closer.name, TRIM(ru_closer.first_name || ' ' || ru_closer.last_name), ru_closer.email) as closer_name,
-          -- Office info
-          ro.name as office_name,
-          -- Attachment count
-          (SELECT COUNT(*) FROM repcard_appointment_attachments WHERE repcard_appointment_id = a.repcard_appointment_id)::bigint as attachment_count
-        FROM repcard_appointments a
-        LEFT JOIN repcard_customers c ON a.repcard_customer_id = c.repcard_customer_id
-        LEFT JOIN repcard_users ru_setter ON a.setter_user_id = ru_setter.repcard_user_id
-        LEFT JOIN users u_setter ON u_setter.repcard_user_id = ru_setter.repcard_user_id
-        LEFT JOIN repcard_users ru_closer ON a.closer_user_id = ru_closer.repcard_user_id
-        LEFT JOIN users u_closer ON u_closer.repcard_user_id = ru_closer.repcard_user_id
-        LEFT JOIN repcard_offices ro ON a.office_id = ro.repcard_office_id
-        WHERE (
-          (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
-          OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
-        )
-        ${hasRepcardUserId ? sql`AND (a.setter_user_id = ${parseInt(repcardUserId!)} OR a.closer_user_id = ${parseInt(repcardUserId!)})` : sql`AND 1=1`}
-        ${hasOfficeIds ? sql`AND a.office_id = ANY(${officeIds}::int[])` : sql`AND 1=1`}
-        ORDER BY COALESCE(a.scheduled_at, a.created_at) DESC
-        LIMIT 100
-      `;
+      let appointmentsResult;
+      if (hasRepcardUserId && hasOfficeIds) {
+        appointmentsResult = await sql`
+          SELECT 
+            a.repcard_appointment_id,
+            a.id as appointment_id,
+            a.repcard_customer_id,
+            a.setter_user_id,
+            a.closer_user_id,
+            a.office_id,
+            a.disposition,
+            a.status_category,
+            a.scheduled_at,
+            a.completed_at,
+            a.duration,
+            a.notes as appointment_notes,
+            a.is_within_48_hours,
+            a.has_power_bill,
+            a.created_at,
+            a.updated_at,
+            c.name as customer_name,
+            c.email as customer_email,
+            c.phone as customer_phone,
+            ru_setter.repcard_user_id as setter_repcard_user_id,
+            COALESCE(u_setter.name, TRIM(ru_setter.first_name || ' ' || ru_setter.last_name), ru_setter.email) as setter_name,
+            ru_closer.repcard_user_id as closer_repcard_user_id,
+            COALESCE(u_closer.name, TRIM(ru_closer.first_name || ' ' || ru_closer.last_name), ru_closer.email) as closer_name,
+            ro.name as office_name,
+            (SELECT COUNT(*) FROM repcard_appointment_attachments WHERE repcard_appointment_id = a.repcard_appointment_id)::bigint as attachment_count
+          FROM repcard_appointments a
+          LEFT JOIN repcard_customers c ON a.repcard_customer_id = c.repcard_customer_id
+          LEFT JOIN repcard_users ru_setter ON a.setter_user_id = ru_setter.repcard_user_id
+          LEFT JOIN users u_setter ON u_setter.repcard_user_id = ru_setter.repcard_user_id
+          LEFT JOIN repcard_users ru_closer ON a.closer_user_id = ru_closer.repcard_user_id
+          LEFT JOIN users u_closer ON u_closer.repcard_user_id = ru_closer.repcard_user_id
+          LEFT JOIN repcard_offices ro ON a.office_id = ro.repcard_office_id
+          WHERE (
+            (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
+            OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
+          )
+          AND (a.setter_user_id = ${parseInt(repcardUserId!)} OR a.closer_user_id = ${parseInt(repcardUserId!)})
+          AND a.office_id = ANY(${officeIds}::int[])
+          ORDER BY COALESCE(a.scheduled_at, a.created_at) DESC
+          LIMIT 100
+        `;
+      } else if (hasRepcardUserId) {
+        appointmentsResult = await sql`
+          SELECT 
+            a.repcard_appointment_id,
+            a.id as appointment_id,
+            a.repcard_customer_id,
+            a.setter_user_id,
+            a.closer_user_id,
+            a.office_id,
+            a.disposition,
+            a.status_category,
+            a.scheduled_at,
+            a.completed_at,
+            a.duration,
+            a.notes as appointment_notes,
+            a.is_within_48_hours,
+            a.has_power_bill,
+            a.created_at,
+            a.updated_at,
+            c.name as customer_name,
+            c.email as customer_email,
+            c.phone as customer_phone,
+            ru_setter.repcard_user_id as setter_repcard_user_id,
+            COALESCE(u_setter.name, TRIM(ru_setter.first_name || ' ' || ru_setter.last_name), ru_setter.email) as setter_name,
+            ru_closer.repcard_user_id as closer_repcard_user_id,
+            COALESCE(u_closer.name, TRIM(ru_closer.first_name || ' ' || ru_closer.last_name), ru_closer.email) as closer_name,
+            ro.name as office_name,
+            (SELECT COUNT(*) FROM repcard_appointment_attachments WHERE repcard_appointment_id = a.repcard_appointment_id)::bigint as attachment_count
+          FROM repcard_appointments a
+          LEFT JOIN repcard_customers c ON a.repcard_customer_id = c.repcard_customer_id
+          LEFT JOIN repcard_users ru_setter ON a.setter_user_id = ru_setter.repcard_user_id
+          LEFT JOIN users u_setter ON u_setter.repcard_user_id = ru_setter.repcard_user_id
+          LEFT JOIN repcard_users ru_closer ON a.closer_user_id = ru_closer.repcard_user_id
+          LEFT JOIN users u_closer ON u_closer.repcard_user_id = ru_closer.repcard_user_id
+          LEFT JOIN repcard_offices ro ON a.office_id = ro.repcard_office_id
+          WHERE (
+            (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
+            OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
+          )
+          AND (a.setter_user_id = ${parseInt(repcardUserId!)} OR a.closer_user_id = ${parseInt(repcardUserId!)})
+          ORDER BY COALESCE(a.scheduled_at, a.created_at) DESC
+          LIMIT 100
+        `;
+      } else if (hasOfficeIds) {
+        appointmentsResult = await sql`
+          SELECT 
+            a.repcard_appointment_id,
+            a.id as appointment_id,
+            a.repcard_customer_id,
+            a.setter_user_id,
+            a.closer_user_id,
+            a.office_id,
+            a.disposition,
+            a.status_category,
+            a.scheduled_at,
+            a.completed_at,
+            a.duration,
+            a.notes as appointment_notes,
+            a.is_within_48_hours,
+            a.has_power_bill,
+            a.created_at,
+            a.updated_at,
+            c.name as customer_name,
+            c.email as customer_email,
+            c.phone as customer_phone,
+            ru_setter.repcard_user_id as setter_repcard_user_id,
+            COALESCE(u_setter.name, TRIM(ru_setter.first_name || ' ' || ru_setter.last_name), ru_setter.email) as setter_name,
+            ru_closer.repcard_user_id as closer_repcard_user_id,
+            COALESCE(u_closer.name, TRIM(ru_closer.first_name || ' ' || ru_closer.last_name), ru_closer.email) as closer_name,
+            ro.name as office_name,
+            (SELECT COUNT(*) FROM repcard_appointment_attachments WHERE repcard_appointment_id = a.repcard_appointment_id)::bigint as attachment_count
+          FROM repcard_appointments a
+          LEFT JOIN repcard_customers c ON a.repcard_customer_id = c.repcard_customer_id
+          LEFT JOIN repcard_users ru_setter ON a.setter_user_id = ru_setter.repcard_user_id
+          LEFT JOIN users u_setter ON u_setter.repcard_user_id = ru_setter.repcard_user_id
+          LEFT JOIN repcard_users ru_closer ON a.closer_user_id = ru_closer.repcard_user_id
+          LEFT JOIN users u_closer ON u_closer.repcard_user_id = ru_closer.repcard_user_id
+          LEFT JOIN repcard_offices ro ON a.office_id = ro.repcard_office_id
+          WHERE (
+            (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
+            OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
+          )
+          AND a.office_id = ANY(${officeIds}::int[])
+          ORDER BY COALESCE(a.scheduled_at, a.created_at) DESC
+          LIMIT 100
+        `;
+      } else {
+        appointmentsResult = await sql`
+          SELECT 
+            a.repcard_appointment_id,
+            a.id as appointment_id,
+            a.repcard_customer_id,
+            a.setter_user_id,
+            a.closer_user_id,
+            a.office_id,
+            a.disposition,
+            a.status_category,
+            a.scheduled_at,
+            a.completed_at,
+            a.duration,
+            a.notes as appointment_notes,
+            a.is_within_48_hours,
+            a.has_power_bill,
+            a.created_at,
+            a.updated_at,
+            c.name as customer_name,
+            c.email as customer_email,
+            c.phone as customer_phone,
+            ru_setter.repcard_user_id as setter_repcard_user_id,
+            COALESCE(u_setter.name, TRIM(ru_setter.first_name || ' ' || ru_setter.last_name), ru_setter.email) as setter_name,
+            ru_closer.repcard_user_id as closer_repcard_user_id,
+            COALESCE(u_closer.name, TRIM(ru_closer.first_name || ' ' || ru_closer.last_name), ru_closer.email) as closer_name,
+            ro.name as office_name,
+            (SELECT COUNT(*) FROM repcard_appointment_attachments WHERE repcard_appointment_id = a.repcard_appointment_id)::bigint as attachment_count
+          FROM repcard_appointments a
+          LEFT JOIN repcard_customers c ON a.repcard_customer_id = c.repcard_customer_id
+          LEFT JOIN repcard_users ru_setter ON a.setter_user_id = ru_setter.repcard_user_id
+          LEFT JOIN users u_setter ON u_setter.repcard_user_id = ru_setter.repcard_user_id
+          LEFT JOIN repcard_users ru_closer ON a.closer_user_id = ru_closer.repcard_user_id
+          LEFT JOIN users u_closer ON u_closer.repcard_user_id = ru_closer.repcard_user_id
+          LEFT JOIN repcard_offices ro ON a.office_id = ro.repcard_office_id
+          WHERE (
+            (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
+            OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
+          )
+          ORDER BY COALESCE(a.scheduled_at, a.created_at) DESC
+          LIMIT 100
+        `;
+      }
       appointments = getRows(appointmentsResult);
     }
 
     // 4. STATUS LOGS (if includeDetails)
     let statusLogs: any[] = [];
     if (includeDetails) {
-      const statusLogsResult = await sql`
-        SELECT 
-          sl.repcard_log_id,
-          sl.repcard_customer_id,
-          sl.old_status,
-          sl.new_status,
-          sl.changed_at,
-          sl.changed_by_user_id,
-          sl.notes,
-          c.name as customer_name,
-          ru_changed_by.repcard_user_id as changed_by_repcard_user_id,
-          COALESCE(u_changed_by.name, TRIM(ru_changed_by.first_name || ' ' || ru_changed_by.last_name), ru_changed_by.email) as changed_by_name
-        FROM repcard_status_logs sl
-        LEFT JOIN repcard_customers c ON sl.repcard_customer_id = c.repcard_customer_id
-        LEFT JOIN repcard_users ru_changed_by ON sl.changed_by_user_id = ru_changed_by.repcard_user_id
-        LEFT JOIN users u_changed_by ON u_changed_by.repcard_user_id = ru_changed_by.repcard_user_id
-        WHERE sl.changed_at::date >= ${calculatedStartDate}::date
-          AND sl.changed_at::date <= ${calculatedEndDate}::date
-          ${hasRepcardUserId ? sql`AND sl.changed_by_user_id = ${parseInt(repcardUserId!)}` : sql`AND 1=1`}
-        ORDER BY sl.changed_at DESC
-        LIMIT 100
-      `;
+      let statusLogsResult;
+      if (hasRepcardUserId) {
+        statusLogsResult = await sql`
+          SELECT 
+            sl.repcard_log_id,
+            sl.repcard_customer_id,
+            sl.old_status,
+            sl.new_status,
+            sl.changed_at,
+            sl.changed_by_user_id,
+            sl.notes,
+            c.name as customer_name,
+            ru_changed_by.repcard_user_id as changed_by_repcard_user_id,
+            COALESCE(u_changed_by.name, TRIM(ru_changed_by.first_name || ' ' || ru_changed_by.last_name), ru_changed_by.email) as changed_by_name
+          FROM repcard_status_logs sl
+          LEFT JOIN repcard_customers c ON sl.repcard_customer_id = c.repcard_customer_id
+          LEFT JOIN repcard_users ru_changed_by ON sl.changed_by_user_id = ru_changed_by.repcard_user_id
+          LEFT JOIN users u_changed_by ON u_changed_by.repcard_user_id = ru_changed_by.repcard_user_id
+          WHERE sl.changed_at::date >= ${calculatedStartDate}::date
+            AND sl.changed_at::date <= ${calculatedEndDate}::date
+            AND sl.changed_by_user_id = ${parseInt(repcardUserId!)}
+          ORDER BY sl.changed_at DESC
+          LIMIT 100
+        `;
+      } else {
+        statusLogsResult = await sql`
+          SELECT 
+            sl.repcard_log_id,
+            sl.repcard_customer_id,
+            sl.old_status,
+            sl.new_status,
+            sl.changed_at,
+            sl.changed_by_user_id,
+            sl.notes,
+            c.name as customer_name,
+            ru_changed_by.repcard_user_id as changed_by_repcard_user_id,
+            COALESCE(u_changed_by.name, TRIM(ru_changed_by.first_name || ' ' || ru_changed_by.last_name), ru_changed_by.email) as changed_by_name
+          FROM repcard_status_logs sl
+          LEFT JOIN repcard_customers c ON sl.repcard_customer_id = c.repcard_customer_id
+          LEFT JOIN repcard_users ru_changed_by ON sl.changed_by_user_id = ru_changed_by.repcard_user_id
+          LEFT JOIN users u_changed_by ON u_changed_by.repcard_user_id = ru_changed_by.repcard_user_id
+          WHERE sl.changed_at::date >= ${calculatedStartDate}::date
+            AND sl.changed_at::date <= ${calculatedEndDate}::date
+          ORDER BY sl.changed_at DESC
+          LIMIT 100
+        `;
+      }
       statusLogs = getRows(statusLogsResult);
     }
 
     // 5. ATTACHMENTS (if includeDetails)
     let attachments: any[] = [];
     if (includeDetails) {
-      const attachmentsResult = await sql`
-        SELECT 
-          att.id as attachment_id,
-          att.repcard_attachment_id,
-          att.repcard_customer_id,
-          att.attachment_type,
-          att.file_name,
-          att.file_url,
-          att.file_size,
-          att.uploaded_by_user_id,
-          att.created_at,
-          c.name as customer_name,
-          ru_uploader.repcard_user_id as uploader_repcard_user_id,
-          COALESCE(u_uploader.name, TRIM(ru_uploader.first_name || ' ' || ru_uploader.last_name), ru_uploader.email) as uploader_name,
-          'customer' as attachment_source
-        FROM repcard_customer_attachments att
-        LEFT JOIN repcard_customers c ON att.repcard_customer_id::text = c.repcard_customer_id::text
-        LEFT JOIN repcard_users ru_uploader ON att.uploaded_by_user_id = ru_uploader.repcard_user_id
-        LEFT JOIN users u_uploader ON u_uploader.repcard_user_id = ru_uploader.repcard_user_id
-        WHERE att.created_at::date >= ${calculatedStartDate}::date
-          AND att.created_at::date <= ${calculatedEndDate}::date
-          ${hasRepcardUserId ? sql`AND att.uploaded_by_user_id = ${parseInt(repcardUserId!)}` : sql`AND 1=1`}
-        UNION ALL
-        SELECT 
-          att.id as attachment_id,
-          att.repcard_attachment_id,
-          att.repcard_customer_id,
-          att.attachment_type,
-          att.file_name,
-          att.file_url,
-          att.file_size,
-          att.uploaded_by_user_id,
-          att.created_at,
-          c.name as customer_name,
-          ru_uploader.repcard_user_id as uploader_repcard_user_id,
-          COALESCE(u_uploader.name, TRIM(ru_uploader.first_name || ' ' || ru_uploader.last_name), ru_uploader.email) as uploader_name,
-          'appointment' as attachment_source
-        FROM repcard_appointment_attachments att
-        LEFT JOIN repcard_customers c ON att.repcard_customer_id::text = c.repcard_customer_id::text
-        LEFT JOIN repcard_users ru_uploader ON att.uploaded_by_user_id = ru_uploader.repcard_user_id
-        LEFT JOIN users u_uploader ON u_uploader.repcard_user_id = ru_uploader.repcard_user_id
-        WHERE att.created_at::date >= ${calculatedStartDate}::date
-          AND att.created_at::date <= ${calculatedEndDate}::date
-          ${hasRepcardUserId ? sql`AND att.uploaded_by_user_id = ${parseInt(repcardUserId!)}` : sql`AND 1=1`}
-        ORDER BY created_at DESC
-        LIMIT 100
-      `;
+      let attachmentsResult;
+      if (hasRepcardUserId) {
+        attachmentsResult = await sql`
+          SELECT 
+            att.id as attachment_id,
+            att.repcard_attachment_id,
+            att.repcard_customer_id,
+            att.attachment_type,
+            att.file_name,
+            att.file_url,
+            att.file_size,
+            att.uploaded_by_user_id,
+            att.created_at,
+            c.name as customer_name,
+            ru_uploader.repcard_user_id as uploader_repcard_user_id,
+            COALESCE(u_uploader.name, TRIM(ru_uploader.first_name || ' ' || ru_uploader.last_name), ru_uploader.email) as uploader_name,
+            'customer' as attachment_source
+          FROM repcard_customer_attachments att
+          LEFT JOIN repcard_customers c ON att.repcard_customer_id::text = c.repcard_customer_id::text
+          LEFT JOIN repcard_users ru_uploader ON att.uploaded_by_user_id = ru_uploader.repcard_user_id
+          LEFT JOIN users u_uploader ON u_uploader.repcard_user_id = ru_uploader.repcard_user_id
+          WHERE att.created_at::date >= ${calculatedStartDate}::date
+            AND att.created_at::date <= ${calculatedEndDate}::date
+            AND att.uploaded_by_user_id = ${parseInt(repcardUserId!)}
+          UNION ALL
+          SELECT 
+            att.id as attachment_id,
+            att.repcard_attachment_id,
+            att.repcard_customer_id,
+            att.attachment_type,
+            att.file_name,
+            att.file_url,
+            att.file_size,
+            att.uploaded_by_user_id,
+            att.created_at,
+            c.name as customer_name,
+            ru_uploader.repcard_user_id as uploader_repcard_user_id,
+            COALESCE(u_uploader.name, TRIM(ru_uploader.first_name || ' ' || ru_uploader.last_name), ru_uploader.email) as uploader_name,
+            'appointment' as attachment_source
+          FROM repcard_appointment_attachments att
+          LEFT JOIN repcard_customers c ON att.repcard_customer_id::text = c.repcard_customer_id::text
+          LEFT JOIN repcard_users ru_uploader ON att.uploaded_by_user_id = ru_uploader.repcard_user_id
+          LEFT JOIN users u_uploader ON u_uploader.repcard_user_id = ru_uploader.repcard_user_id
+          WHERE att.created_at::date >= ${calculatedStartDate}::date
+            AND att.created_at::date <= ${calculatedEndDate}::date
+            AND att.uploaded_by_user_id = ${parseInt(repcardUserId!)}
+          ORDER BY created_at DESC
+          LIMIT 100
+        `;
+      } else {
+        attachmentsResult = await sql`
+          SELECT 
+            att.id as attachment_id,
+            att.repcard_attachment_id,
+            att.repcard_customer_id,
+            att.attachment_type,
+            att.file_name,
+            att.file_url,
+            att.file_size,
+            att.uploaded_by_user_id,
+            att.created_at,
+            c.name as customer_name,
+            ru_uploader.repcard_user_id as uploader_repcard_user_id,
+            COALESCE(u_uploader.name, TRIM(ru_uploader.first_name || ' ' || ru_uploader.last_name), ru_uploader.email) as uploader_name,
+            'customer' as attachment_source
+          FROM repcard_customer_attachments att
+          LEFT JOIN repcard_customers c ON att.repcard_customer_id::text = c.repcard_customer_id::text
+          LEFT JOIN repcard_users ru_uploader ON att.uploaded_by_user_id = ru_uploader.repcard_user_id
+          LEFT JOIN users u_uploader ON u_uploader.repcard_user_id = ru_uploader.repcard_user_id
+          WHERE att.created_at::date >= ${calculatedStartDate}::date
+            AND att.created_at::date <= ${calculatedEndDate}::date
+          UNION ALL
+          SELECT 
+            att.id as attachment_id,
+            att.repcard_attachment_id,
+            att.repcard_customer_id,
+            att.attachment_type,
+            att.file_name,
+            att.file_url,
+            att.file_size,
+            att.uploaded_by_user_id,
+            att.created_at,
+            c.name as customer_name,
+            ru_uploader.repcard_user_id as uploader_repcard_user_id,
+            COALESCE(u_uploader.name, TRIM(ru_uploader.first_name || ' ' || ru_uploader.last_name), ru_uploader.email) as uploader_name,
+            'appointment' as attachment_source
+          FROM repcard_appointment_attachments att
+          LEFT JOIN repcard_customers c ON att.repcard_customer_id::text = c.repcard_customer_id::text
+          LEFT JOIN repcard_users ru_uploader ON att.uploaded_by_user_id = ru_uploader.repcard_user_id
+          LEFT JOIN users u_uploader ON u_uploader.repcard_user_id = ru_uploader.repcard_user_id
+          WHERE att.created_at::date >= ${calculatedStartDate}::date
+            AND att.created_at::date <= ${calculatedEndDate}::date
+          ORDER BY created_at DESC
+          LIMIT 100
+        `;
+      }
       attachments = getRows(attachmentsResult);
     }
 
     // 6. CUSTOMER NOTES (if includeDetails)
     let notes: any[] = [];
     if (includeDetails) {
-      const notesResult = await sql`
-        SELECT 
-          n.repcard_note_id,
-          n.repcard_customer_id,
-          n.repcard_user_id,
-          n.note,
-          n.created_at,
-          n.updated_at,
-          c.name as customer_name,
-          ru_author.repcard_user_id as author_repcard_user_id,
-          COALESCE(u_author.name, TRIM(ru_author.first_name || ' ' || ru_author.last_name), ru_author.email) as author_name
-        FROM repcard_customer_notes n
-        LEFT JOIN repcard_customers c ON n.repcard_customer_id = c.repcard_customer_id
-        LEFT JOIN repcard_users ru_author ON n.repcard_user_id = ru_author.repcard_user_id
-        LEFT JOIN users u_author ON u_author.repcard_user_id = ru_author.repcard_user_id
-        WHERE n.created_at::date >= ${calculatedStartDate}::date
-          AND n.created_at::date <= ${calculatedEndDate}::date
-          ${hasRepcardUserId ? sql`AND n.repcard_user_id = ${parseInt(repcardUserId!)}` : sql`AND 1=1`}
-        ORDER BY n.created_at DESC
-        LIMIT 100
-      `;
+      let notesResult;
+      if (hasRepcardUserId) {
+        notesResult = await sql`
+          SELECT 
+            n.repcard_note_id,
+            n.repcard_customer_id,
+            n.repcard_user_id,
+            n.note,
+            n.created_at,
+            n.updated_at,
+            c.name as customer_name,
+            ru_author.repcard_user_id as author_repcard_user_id,
+            COALESCE(u_author.name, TRIM(ru_author.first_name || ' ' || ru_author.last_name), ru_author.email) as author_name
+          FROM repcard_customer_notes n
+          LEFT JOIN repcard_customers c ON n.repcard_customer_id = c.repcard_customer_id
+          LEFT JOIN repcard_users ru_author ON n.repcard_user_id = ru_author.repcard_user_id
+          LEFT JOIN users u_author ON u_author.repcard_user_id = ru_author.repcard_user_id
+          WHERE n.created_at::date >= ${calculatedStartDate}::date
+            AND n.created_at::date <= ${calculatedEndDate}::date
+            AND n.repcard_user_id = ${parseInt(repcardUserId!)}
+          ORDER BY n.created_at DESC
+          LIMIT 100
+        `;
+      } else {
+        notesResult = await sql`
+          SELECT 
+            n.repcard_note_id,
+            n.repcard_customer_id,
+            n.repcard_user_id,
+            n.note,
+            n.created_at,
+            n.updated_at,
+            c.name as customer_name,
+            ru_author.repcard_user_id as author_repcard_user_id,
+            COALESCE(u_author.name, TRIM(ru_author.first_name || ' ' || ru_author.last_name), ru_author.email) as author_name
+          FROM repcard_customer_notes n
+          LEFT JOIN repcard_customers c ON n.repcard_customer_id = c.repcard_customer_id
+          LEFT JOIN repcard_users ru_author ON n.repcard_user_id = ru_author.repcard_user_id
+          LEFT JOIN users u_author ON u_author.repcard_user_id = ru_author.repcard_user_id
+          WHERE n.created_at::date >= ${calculatedStartDate}::date
+            AND n.created_at::date <= ${calculatedEndDate}::date
+          ORDER BY n.created_at DESC
+          LIMIT 100
+        `;
+      }
       notes = getRows(notesResult);
     }
 
     // 7. USER PERFORMANCE METRICS
-    const userPerformanceResult = await sql`
-      SELECT 
-        ru.repcard_user_id,
+    let userPerformanceResult;
+    if (hasRepcardUserId && hasOfficeIds) {
+      userPerformanceResult = await sql`
+        SELECT 
+          ru.repcard_user_id,
           COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name), ru.email, 'RepCard User ' || ru.repcard_user_id::text) as name,
           ru.email,
           COALESCE(u.sales_office[1], ru.office_name) as office,
           ru.office_id,
           ru.team_name,
-        -- Metrics
-        COUNT(DISTINCT c.repcard_customer_id)::bigint as doors_knocked,
-        COUNT(DISTINCT a.repcard_appointment_id)::bigint as appointments_set,
-        COUNT(DISTINCT CASE WHEN a.closer_user_id = ru.repcard_user_id THEN a.repcard_appointment_id END)::bigint as appointments_closed,
-        COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' AND a.closer_user_id = ru.repcard_user_id THEN a.repcard_appointment_id END)::bigint as sales_closed,
-        COUNT(DISTINCT CASE WHEN att.id IS NOT NULL THEN c.repcard_customer_id END)::bigint as customers_with_attachments,
-        COUNT(DISTINCT n.repcard_note_id)::bigint as notes_written,
-        COUNT(DISTINCT CASE WHEN a.is_within_48_hours = TRUE THEN a.repcard_appointment_id END)::bigint as appointments_within_48h
-      FROM repcard_users ru
-      LEFT JOIN repcard_customers c ON ru.repcard_user_id = c.setter_user_id
-        AND c.created_at::date >= ${calculatedStartDate}::date
-        AND c.created_at::date <= ${calculatedEndDate}::date
-      LEFT JOIN repcard_appointments a ON (
-        a.setter_user_id = ru.repcard_user_id
-        OR a.closer_user_id = ru.repcard_user_id
-      )
-        AND (
-          (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
-          OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
+          COUNT(DISTINCT c.repcard_customer_id)::bigint as doors_knocked,
+          COUNT(DISTINCT a.repcard_appointment_id)::bigint as appointments_set,
+          COUNT(DISTINCT CASE WHEN a.closer_user_id = ru.repcard_user_id THEN a.repcard_appointment_id END)::bigint as appointments_closed,
+          COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' AND a.closer_user_id = ru.repcard_user_id THEN a.repcard_appointment_id END)::bigint as sales_closed,
+          COUNT(DISTINCT CASE WHEN att.id IS NOT NULL THEN c.repcard_customer_id END)::bigint as customers_with_attachments,
+          COUNT(DISTINCT n.repcard_note_id)::bigint as notes_written,
+          COUNT(DISTINCT CASE WHEN a.is_within_48_hours = TRUE THEN a.repcard_appointment_id END)::bigint as appointments_within_48h
+        FROM repcard_users ru
+        LEFT JOIN repcard_customers c ON ru.repcard_user_id = c.setter_user_id
+          AND c.created_at::date >= ${calculatedStartDate}::date
+          AND c.created_at::date <= ${calculatedEndDate}::date
+        LEFT JOIN repcard_appointments a ON (
+          a.setter_user_id = ru.repcard_user_id
+          OR a.closer_user_id = ru.repcard_user_id
         )
-      LEFT JOIN repcard_customer_attachments att ON c.repcard_customer_id = att.repcard_customer_id::text
-      LEFT JOIN repcard_customer_notes n ON n.repcard_user_id = ru.repcard_user_id
-        AND n.created_at::date >= ${calculatedStartDate}::date
-        AND n.created_at::date <= ${calculatedEndDate}::date
-      LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+          AND (
+            (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
+            OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
+          )
+        LEFT JOIN repcard_customer_attachments att ON c.repcard_customer_id = att.repcard_customer_id::text
+        LEFT JOIN repcard_customer_notes n ON n.repcard_user_id = ru.repcard_user_id
+          AND n.created_at::date >= ${calculatedStartDate}::date
+          AND n.created_at::date <= ${calculatedEndDate}::date
+        LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
         WHERE ru.status = 1
-        ${hasRepcardUserId ? sql`AND ru.repcard_user_id = ${parseInt(repcardUserId!)}` : sql`AND 1=1`}
-        ${hasOfficeIds ? sql`AND ru.office_id = ANY(${officeIds}::int[])` : sql`AND 1=1`}
-      GROUP BY ru.repcard_user_id, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.office_id, u.name, u.sales_office
-      HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
-        OR COUNT(DISTINCT a.repcard_appointment_id) > 0
-      ORDER BY doors_knocked DESC, appointments_set DESC
-      LIMIT 50
-    `;
+          AND ru.repcard_user_id = ${parseInt(repcardUserId!)}
+          AND ru.office_id = ANY(${officeIds}::int[])
+        GROUP BY ru.repcard_user_id, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.office_id, u.name, u.sales_office
+        HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
+          OR COUNT(DISTINCT a.repcard_appointment_id) > 0
+        ORDER BY doors_knocked DESC, appointments_set DESC
+        LIMIT 50
+      `;
+    } else if (hasRepcardUserId) {
+      userPerformanceResult = await sql`
+        SELECT 
+          ru.repcard_user_id,
+          COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name), ru.email, 'RepCard User ' || ru.repcard_user_id::text) as name,
+          ru.email,
+          COALESCE(u.sales_office[1], ru.office_name) as office,
+          ru.office_id,
+          ru.team_name,
+          COUNT(DISTINCT c.repcard_customer_id)::bigint as doors_knocked,
+          COUNT(DISTINCT a.repcard_appointment_id)::bigint as appointments_set,
+          COUNT(DISTINCT CASE WHEN a.closer_user_id = ru.repcard_user_id THEN a.repcard_appointment_id END)::bigint as appointments_closed,
+          COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' AND a.closer_user_id = ru.repcard_user_id THEN a.repcard_appointment_id END)::bigint as sales_closed,
+          COUNT(DISTINCT CASE WHEN att.id IS NOT NULL THEN c.repcard_customer_id END)::bigint as customers_with_attachments,
+          COUNT(DISTINCT n.repcard_note_id)::bigint as notes_written,
+          COUNT(DISTINCT CASE WHEN a.is_within_48_hours = TRUE THEN a.repcard_appointment_id END)::bigint as appointments_within_48h
+        FROM repcard_users ru
+        LEFT JOIN repcard_customers c ON ru.repcard_user_id = c.setter_user_id
+          AND c.created_at::date >= ${calculatedStartDate}::date
+          AND c.created_at::date <= ${calculatedEndDate}::date
+        LEFT JOIN repcard_appointments a ON (
+          a.setter_user_id = ru.repcard_user_id
+          OR a.closer_user_id = ru.repcard_user_id
+        )
+          AND (
+            (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
+            OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
+          )
+        LEFT JOIN repcard_customer_attachments att ON c.repcard_customer_id = att.repcard_customer_id::text
+        LEFT JOIN repcard_customer_notes n ON n.repcard_user_id = ru.repcard_user_id
+          AND n.created_at::date >= ${calculatedStartDate}::date
+          AND n.created_at::date <= ${calculatedEndDate}::date
+        LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+        WHERE ru.status = 1
+          AND ru.repcard_user_id = ${parseInt(repcardUserId!)}
+        GROUP BY ru.repcard_user_id, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.office_id, u.name, u.sales_office
+        HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
+          OR COUNT(DISTINCT a.repcard_appointment_id) > 0
+        ORDER BY doors_knocked DESC, appointments_set DESC
+        LIMIT 50
+      `;
+    } else if (hasOfficeIds) {
+      userPerformanceResult = await sql`
+        SELECT 
+          ru.repcard_user_id,
+          COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name), ru.email, 'RepCard User ' || ru.repcard_user_id::text) as name,
+          ru.email,
+          COALESCE(u.sales_office[1], ru.office_name) as office,
+          ru.office_id,
+          ru.team_name,
+          COUNT(DISTINCT c.repcard_customer_id)::bigint as doors_knocked,
+          COUNT(DISTINCT a.repcard_appointment_id)::bigint as appointments_set,
+          COUNT(DISTINCT CASE WHEN a.closer_user_id = ru.repcard_user_id THEN a.repcard_appointment_id END)::bigint as appointments_closed,
+          COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' AND a.closer_user_id = ru.repcard_user_id THEN a.repcard_appointment_id END)::bigint as sales_closed,
+          COUNT(DISTINCT CASE WHEN att.id IS NOT NULL THEN c.repcard_customer_id END)::bigint as customers_with_attachments,
+          COUNT(DISTINCT n.repcard_note_id)::bigint as notes_written,
+          COUNT(DISTINCT CASE WHEN a.is_within_48_hours = TRUE THEN a.repcard_appointment_id END)::bigint as appointments_within_48h
+        FROM repcard_users ru
+        LEFT JOIN repcard_customers c ON ru.repcard_user_id = c.setter_user_id
+          AND c.created_at::date >= ${calculatedStartDate}::date
+          AND c.created_at::date <= ${calculatedEndDate}::date
+        LEFT JOIN repcard_appointments a ON (
+          a.setter_user_id = ru.repcard_user_id
+          OR a.closer_user_id = ru.repcard_user_id
+        )
+          AND (
+            (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
+            OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
+          )
+        LEFT JOIN repcard_customer_attachments att ON c.repcard_customer_id = att.repcard_customer_id::text
+        LEFT JOIN repcard_customer_notes n ON n.repcard_user_id = ru.repcard_user_id
+          AND n.created_at::date >= ${calculatedStartDate}::date
+          AND n.created_at::date <= ${calculatedEndDate}::date
+        LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+        WHERE ru.status = 1
+          AND ru.office_id = ANY(${officeIds}::int[])
+        GROUP BY ru.repcard_user_id, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.office_id, u.name, u.sales_office
+        HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
+          OR COUNT(DISTINCT a.repcard_appointment_id) > 0
+        ORDER BY doors_knocked DESC, appointments_set DESC
+        LIMIT 50
+      `;
+    } else {
+      userPerformanceResult = await sql`
+        SELECT 
+          ru.repcard_user_id,
+          COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name), ru.email, 'RepCard User ' || ru.repcard_user_id::text) as name,
+          ru.email,
+          COALESCE(u.sales_office[1], ru.office_name) as office,
+          ru.office_id,
+          ru.team_name,
+          COUNT(DISTINCT c.repcard_customer_id)::bigint as doors_knocked,
+          COUNT(DISTINCT a.repcard_appointment_id)::bigint as appointments_set,
+          COUNT(DISTINCT CASE WHEN a.closer_user_id = ru.repcard_user_id THEN a.repcard_appointment_id END)::bigint as appointments_closed,
+          COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' AND a.closer_user_id = ru.repcard_user_id THEN a.repcard_appointment_id END)::bigint as sales_closed,
+          COUNT(DISTINCT CASE WHEN att.id IS NOT NULL THEN c.repcard_customer_id END)::bigint as customers_with_attachments,
+          COUNT(DISTINCT n.repcard_note_id)::bigint as notes_written,
+          COUNT(DISTINCT CASE WHEN a.is_within_48_hours = TRUE THEN a.repcard_appointment_id END)::bigint as appointments_within_48h
+        FROM repcard_users ru
+        LEFT JOIN repcard_customers c ON ru.repcard_user_id = c.setter_user_id
+          AND c.created_at::date >= ${calculatedStartDate}::date
+          AND c.created_at::date <= ${calculatedEndDate}::date
+        LEFT JOIN repcard_appointments a ON (
+          a.setter_user_id = ru.repcard_user_id
+          OR a.closer_user_id = ru.repcard_user_id
+        )
+          AND (
+            (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
+            OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
+          )
+        LEFT JOIN repcard_customer_attachments att ON c.repcard_customer_id = att.repcard_customer_id::text
+        LEFT JOIN repcard_customer_notes n ON n.repcard_user_id = ru.repcard_user_id
+          AND n.created_at::date >= ${calculatedStartDate}::date
+          AND n.created_at::date <= ${calculatedEndDate}::date
+        LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+        WHERE ru.status = 1
+        GROUP BY ru.repcard_user_id, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.office_id, u.name, u.sales_office
+        HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
+          OR COUNT(DISTINCT a.repcard_appointment_id) > 0
+        ORDER BY doors_knocked DESC, appointments_set DESC
+        LIMIT 50
+      `;
+    }
     const userPerformance = getRows(userPerformanceResult);
 
     // 8. OFFICE BREAKDOWN
