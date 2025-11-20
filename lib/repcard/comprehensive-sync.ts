@@ -21,6 +21,7 @@ import { parseRepCardDate, toUTCISOString } from '@/lib/utils/repcard-date-helpe
  * - password_hash: Security field
  */
 
+/**
  * RepCard data is synced to repcard_users table, then linked to users table
  * via repcard_user_id only. This ensures app-managed fields are never overwritten.
  */
