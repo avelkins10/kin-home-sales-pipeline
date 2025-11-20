@@ -659,6 +659,41 @@ export default function AnalyticsPage() {
                 showExport={true}
                 showRefresh={true}
               />
+
+              {/* Sales & Revenue Leaderboards - Side by Side */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Top Closers - Sales Closed */}
+                <ConfigurableLeaderboard
+                  defaultRole="closer"
+                  defaultMetric="sales_closed"
+                  defaultTimeRange={timeRange}
+                  defaultOfficeIds={selectedOfficeIds}
+                  title="Top Closers - Sales Closed"
+                  description="Leading closers by number of sales closed"
+                  limit={25}
+                  collapsible={true}
+                  defaultOpen={true}
+                  showFilters={true}
+                  showExport={true}
+                  showRefresh={true}
+                />
+
+                {/* Revenue Leaders */}
+                <ConfigurableLeaderboard
+                  defaultRole="closer"
+                  defaultMetric="revenue"
+                  defaultTimeRange={timeRange}
+                  defaultOfficeIds={selectedOfficeIds}
+                  title="Revenue Leaders"
+                  description="Top closers by total revenue generated"
+                  limit={25}
+                  collapsible={true}
+                  defaultOpen={true}
+                  showFilters={true}
+                  showExport={true}
+                  showRefresh={true}
+                />
+              </div>
             </>
           }
         />
