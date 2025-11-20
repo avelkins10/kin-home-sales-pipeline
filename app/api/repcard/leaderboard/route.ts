@@ -862,7 +862,7 @@ export async function GET(request: NextRequest) {
                 COUNT(a.repcard_appointment_id) as count
               FROM repcard_users ru
               LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
-              LEFT JOIN repcard_appointments a ON ru.repcard_user_id = a.setter_user_id
+              LEFT JOIN repcard_appointments a ON ru.repcard_user_id::text = a.setter_user_id
                 AND (
                   (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                   OR
@@ -886,7 +886,7 @@ export async function GET(request: NextRequest) {
                 COUNT(a.repcard_appointment_id) as count
               FROM repcard_users ru
               LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
-              LEFT JOIN repcard_appointments a ON ru.repcard_user_id = a.setter_user_id
+              LEFT JOIN repcard_appointments a ON ru.repcard_user_id::text = a.setter_user_id
                 AND (
                   (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                   OR
@@ -912,7 +912,7 @@ export async function GET(request: NextRequest) {
                 COUNT(a.repcard_appointment_id) as count
               FROM repcard_users ru
               LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
-              LEFT JOIN repcard_appointments a ON ru.repcard_user_id = a.setter_user_id
+              LEFT JOIN repcard_appointments a ON ru.repcard_user_id::text = a.setter_user_id
                 AND (
                   (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                   OR
@@ -934,7 +934,7 @@ export async function GET(request: NextRequest) {
                 COUNT(a.repcard_appointment_id) as count
               FROM repcard_users ru
               LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
-              LEFT JOIN repcard_appointments a ON ru.repcard_user_id = a.setter_user_id
+              LEFT JOIN repcard_appointments a ON ru.repcard_user_id::text = a.setter_user_id
                 AND (
                   (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                   OR
