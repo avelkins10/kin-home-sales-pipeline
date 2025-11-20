@@ -153,6 +153,7 @@ export async function syncUsers(options: {
       
       try {
         const response = await repcardClient.getUsersMinimal({
+          companyId: KIN_HOME_COMPANY_ID, // Pass company_id as query parameter (2113)
           page,
           perPage: 100
         });
@@ -419,7 +420,7 @@ export async function syncOffices(): Promise<SyncEntityResult> {
   try {
     console.log('[RepCard Sync] Starting sync for offices...');
 
-    const response = await repcardClient.getOffices();
+    const response = await repcardClient.getOffices(KIN_HOME_COMPANY_ID); // Pass company_id as query parameter (2113)
     // Validate response structure
     if (!response || !response.result) {
       console.error(`[RepCard Sync] Invalid response structure for offices:`, JSON.stringify(response, null, 2));

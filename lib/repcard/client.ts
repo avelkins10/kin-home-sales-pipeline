@@ -206,7 +206,12 @@ export class RepCardClient {
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined) {
-          searchParams.append(key, value.toString());
+          // Convert camelCase to snake_case for API (companyId -> company_id)
+          const apiKey = key === 'companyId' ? 'company_id' : 
+                        key === 'perPage' ? 'per_page' :
+                        key === 'firstVerifiedDoorKnock' ? 'firstVerifiedDoorKnock' :
+                        key === 'firstAppointment' ? 'firstAppointment' : key;
+          searchParams.append(apiKey, value.toString());
         }
       });
     }
