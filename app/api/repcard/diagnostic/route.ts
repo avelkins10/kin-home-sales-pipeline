@@ -106,16 +106,40 @@ export async function GET(request: NextRequest) {
       // Build query only for tables that exist
       const counts: any = {};
       
+      // Helper to extract count from result (handles different return formats)
+      const getCount = (result: any): number => {
+        if (Array.isArray(result)) {
+          return Number(result[0]?.count || 0);
+        }
+        if (result?.rows && Array.isArray(result.rows)) {
+          return Number(result.rows[0]?.count || 0);
+        }
+        // Try Array.from for async iterables
+        const arr = Array.from(result);
+        return Number(arr[0]?.count || 0);
+      };
+
+      const getFirstRow = (result: any): any => {
+        if (Array.isArray(result)) {
+          return result[0];
+        }
+        if (result?.rows && Array.isArray(result.rows)) {
+          return result.rows[0];
+        }
+        const arr = Array.from(result);
+        return arr[0];
+      };
+      
       if (existingTables.includes('repcard_users')) {
-        const usersResult = await sql`SELECT COUNT(*) as count FROM repcard_users`;
-        counts.users = Number(Array.from(usersResult)[0]?.count || 0);
+        const usersResult = await sql`SELECT COUNT(*)::bigint as count FROM repcard_users`;
+        counts.users = getCount(usersResult);
       } else {
         counts.users = 0;
       }
       
       if (existingTables.includes('repcard_customers')) {
-        const customersResult = await sql`SELECT COUNT(*) as count FROM repcard_customers`;
-        counts.customers = Number(Array.from(customersResult)[0]?.count || 0);
+        const customersResult = await sql`SELECT COUNT(*)::bigint as count FROM repcard_customers`;
+        counts.customers = getCount(customersResult);
         
         // Get date range if table has data
         if (counts.customers > 0) {
@@ -123,7 +147,7 @@ export async function GET(request: NextRequest) {
             SELECT MIN(created_at) as earliest, MAX(created_at) as latest 
             FROM repcard_customers
           `;
-          const dates = Array.from(dateRange)[0];
+          const dates = getFirstRow(dateRange);
           counts.earliestCustomer = dates?.earliest;
           counts.latestCustomer = dates?.latest;
         }
@@ -132,29 +156,29 @@ export async function GET(request: NextRequest) {
       }
       
       if (existingTables.includes('repcard_appointments')) {
-        const appointmentsResult = await sql`SELECT COUNT(*) as count FROM repcard_appointments`;
-        counts.appointments = Number(Array.from(appointmentsResult)[0]?.count || 0);
+        const appointmentsResult = await sql`SELECT COUNT(*)::bigint as count FROM repcard_appointments`;
+        counts.appointments = getCount(appointmentsResult);
       } else {
         counts.appointments = 0;
       }
       
       if (existingTables.includes('repcard_status_logs')) {
-        const statusLogsResult = await sql`SELECT COUNT(*) as count FROM repcard_status_logs`;
-        counts.statusLogs = Number(Array.from(statusLogsResult)[0]?.count || 0);
+        const statusLogsResult = await sql`SELECT COUNT(*)::bigint as count FROM repcard_status_logs`;
+        counts.statusLogs = getCount(statusLogsResult);
       } else {
         counts.statusLogs = 0;
       }
       
       if (existingTables.includes('repcard_customer_attachments')) {
-        const attachmentsResult = await sql`SELECT COUNT(*) as count FROM repcard_customer_attachments`;
-        counts.customerAttachments = Number(Array.from(attachmentsResult)[0]?.count || 0);
+        const attachmentsResult = await sql`SELECT COUNT(*)::bigint as count FROM repcard_customer_attachments`;
+        counts.customerAttachments = getCount(attachmentsResult);
       } else {
         counts.customerAttachments = 0;
       }
       
       if (existingTables.includes('repcard_appointment_attachments')) {
-        const attachmentsResult = await sql`SELECT COUNT(*) as count FROM repcard_appointment_attachments`;
-        counts.appointmentAttachments = Number(Array.from(attachmentsResult)[0]?.count || 0);
+        const attachmentsResult = await sql`SELECT COUNT(*)::bigint as count FROM repcard_appointment_attachments`;
+        counts.appointmentAttachments = getCount(attachmentsResult);
       } else {
         counts.appointmentAttachments = 0;
       }

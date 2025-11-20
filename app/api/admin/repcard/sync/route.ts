@@ -285,19 +285,33 @@ export async function GET(request: NextRequest) {
     const latestSyncs = Array.from(latestSyncsRaw);
 
     // Get record counts from tables (actual database counts - always accurate)
-    const customerCountResult = await sql`SELECT COUNT(*) as count FROM repcard_customers`;
-    const appointmentCountResult = await sql`SELECT COUNT(*) as count FROM repcard_appointments`;
-    const statusLogCountResult = await sql`SELECT COUNT(*) as count FROM repcard_status_logs`;
-    const userCountResult = await sql`SELECT COUNT(*) as count FROM repcard_users`;
+    // @vercel/postgres returns results as async iterable, need to convert properly
+    const customerCountResult = await sql`SELECT COUNT(*)::bigint as count FROM repcard_customers`;
+    const appointmentCountResult = await sql`SELECT COUNT(*)::bigint as count FROM repcard_appointments`;
+    const statusLogCountResult = await sql`SELECT COUNT(*)::bigint as count FROM repcard_status_logs`;
+    const userCountResult = await sql`SELECT COUNT(*)::bigint as count FROM repcard_users`;
+
+    // Extract counts - handle both array and object with rows property
+    const getCount = (result: any): number => {
+      if (Array.isArray(result)) {
+        return Number(result[0]?.count || 0);
+      }
+      if (result?.rows && Array.isArray(result.rows)) {
+        return Number(result.rows[0]?.count || 0);
+      }
+      // Try Array.from for async iterables
+      const arr = Array.from(result);
+      return Number(arr[0]?.count || 0);
+    };
 
     return NextResponse.json({
       latestSyncs,
       syncHistory: Array.from(syncHistory),
       recordCounts: {
-        customers: Number(Array.from(customerCountResult)[0]?.count || 0),
-        appointments: Number(Array.from(appointmentCountResult)[0]?.count || 0),
-        statusLogs: Number(Array.from(statusLogCountResult)[0]?.count || 0),
-        users: Number(Array.from(userCountResult)[0]?.count || 0)
+        customers: getCount(customerCountResult),
+        appointments: getCount(appointmentCountResult),
+        statusLogs: getCount(statusLogCountResult),
+        users: getCount(userCountResult)
       }
     });
 
