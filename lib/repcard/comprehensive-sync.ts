@@ -1288,7 +1288,8 @@ export async function syncCalendars(): Promise<SyncEntityResult> {
         recordsFetched++;
 
       } catch (error) {
-        console.error(`[RepCard Sync] Failed to process calendar ${calendar.id}:`, error);
+        const calendarId = calendar?.id || 'unknown';
+        console.error(`[RepCard Sync] Failed to process calendar ${calendarId}:`, error);
         recordsFailed++;
       }
     }
