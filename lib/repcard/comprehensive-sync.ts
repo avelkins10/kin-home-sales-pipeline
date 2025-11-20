@@ -155,7 +155,9 @@ export async function syncUsers(options: {
         const response = await repcardClient.getUsersMinimal({
           companyId: KIN_HOME_COMPANY_ID, // Pass company_id as query parameter (2113)
           page,
-          perPage: 100
+          perPage: 100,
+          firstVerifiedDoorKnock: 1, // Request first activity dates
+          firstAppointment: 1 // Request first appointment date
         });
 
         // Validate response structure
@@ -229,6 +231,14 @@ export async function syncUsers(options: {
             // Extract officeId - API doesn't return it in /users/minimal, only office name
             // Try to get it from the user object (might be in raw_data or other fields)
             const officeId = (user as any).officeId || (user as any).office_id || null;
+            
+            // Extract first activity dates (if requested via query params)
+            const firstVerifiedDoorKnock = (user as any).firstVerifiedDoorKnock 
+              ? new Date((user as any).firstVerifiedDoorKnock) 
+              : null;
+            const firstAppointment = (user as any).firstAppointment 
+              ? new Date((user as any).firstAppointment) 
+              : null;
 
             // Upsert user
             const result = await sql`
@@ -251,21 +261,23 @@ export async function syncUsers(options: {
                 bio,
                 badge_id,
                 qr_code,
+                first_verified_door_knock,
+                first_appointment,
                 created_at,
                 updated_at,
                 raw_data
               )
               VALUES (
                 ${user.id},
-                ${companyIdForDb}, // Allow NULL temporarily - will backfill from offices later
-                ${user.officeId || null},
+                ${companyIdForDb},
+                ${officeId},
                 ${(user as any).firstName || (user as any).first_name || null},
                 ${(user as any).lastName || (user as any).last_name || null},
                 ${user.email || null},
-                ${(user as any).phone || null},
+                ${(user as any).phoneNumber || (user as any).phone || null},
                 ${(user as any).username || null},
                 ${(user as any).role || null},
-                ${(user as any).status ?? 1},
+                ${(user as any).status === 'ACTIVE' || (user as any).status === 1 || (user as any).status === '1' ? 1 : 0},
                 ${(user as any).office || (user as any).office_name || null},
                 ${(user as any).team || null},
                 ${(user as any).jobTitle || (user as any).job_title || null},
@@ -274,6 +286,8 @@ export async function syncUsers(options: {
                 ${(user as any).bio || null},
                 ${(user as any).badgeId || (user as any).badge_id || null},
                 ${(user as any).qrCode || (user as any).qr_code || null},
+                ${firstVerifiedDoorKnock},
+                ${firstAppointment},
                 ${(user as any).createdAt || (user as any).created_at || null},
                 ${updatedAt},
                 ${JSON.stringify(user)}
@@ -297,6 +311,8 @@ export async function syncUsers(options: {
                 bio = EXCLUDED.bio,
                 badge_id = EXCLUDED.badge_id,
                 qr_code = EXCLUDED.qr_code,
+                first_verified_door_knock = EXCLUDED.first_verified_door_knock,
+                first_appointment = EXCLUDED.first_appointment,
                 updated_at = EXCLUDED.updated_at,
                 raw_data = EXCLUDED.raw_data,
                 synced_at = NOW()
@@ -421,16 +437,11 @@ export async function syncOffices(): Promise<SyncEntityResult> {
       try {
         // CRITICAL FIX: Default to Kin Home's company ID (2113) if missing
         // This ensures we always have a valid company_id and prevents SQL errors
-        let companyIdForDb: number;
-        if (office.companyId === 0 || (office.companyId != null && office.companyId !== undefined && office.companyId !== '')) {
+        let companyIdForDb: number = KIN_HOME_COMPANY_ID; // Default to Kin Home
+        if (office.companyId !== undefined && office.companyId !== null && office.companyId !== '' && office.companyId !== 0) {
           companyIdForDb = Number(office.companyId);
         } else {
-          companyIdForDb = KIN_HOME_COMPANY_ID;
           console.log(`[RepCard Sync] Office ${office.id} missing companyId - defaulting to Kin Home company ID ${KIN_HOME_COMPANY_ID}`);
-        }
-        
-        if (companyIdForDb === null) {
-          console.log(`[RepCard Sync] Office ${office.id} missing companyId - will sync with NULL`);
         }
 
         const result = await sql`
@@ -1182,7 +1193,10 @@ export async function syncCalendars(): Promise<SyncEntityResult> {
           console.warn(`[RepCard Sync] Could not fetch details for calendar ${calendar.id}:`, error);
         }
 
-        await sql`
+        // Default to Kin Home company ID if missing
+        const companyIdForDb = calendar.companyId || KIN_HOME_COMPANY_ID;
+        
+        const result = await sql`
           INSERT INTO repcard_calendars (
             repcard_calendar_id,
             name,
@@ -1196,7 +1210,7 @@ export async function syncCalendars(): Promise<SyncEntityResult> {
           VALUES (
             ${calendar.id},
             ${calendar.name},
-            ${calendar.companyId},
+            ${companyIdForDb},
             ${calendar.status || 'active'},
             ${setters},
             ${closers},
@@ -1206,6 +1220,7 @@ export async function syncCalendars(): Promise<SyncEntityResult> {
           ON CONFLICT (repcard_calendar_id)
           DO UPDATE SET
             name = EXCLUDED.name,
+            company_id = EXCLUDED.company_id,
             status = EXCLUDED.status,
             setters = EXCLUDED.setters,
             closers = EXCLUDED.closers,
@@ -1215,9 +1230,6 @@ export async function syncCalendars(): Promise<SyncEntityResult> {
           RETURNING (xmax = 0) AS inserted
         `;
 
-        const result = await sql`
-          SELECT (xmax = 0) AS inserted FROM repcard_calendars WHERE repcard_calendar_id = ${calendar.id}
-        `;
         const row = result.rows?.[0] || result[0];
         if (row?.inserted) {
           recordsInserted++;
