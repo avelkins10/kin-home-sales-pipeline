@@ -1723,19 +1723,31 @@ export async function linkRepCardUsersToUsers(): Promise<void> {
   try {
     console.log('[RepCard Sync] Linking RepCard users to users table...');
     
+    // Helper to extract count from result
+    const getCount = (result: any): number => {
+      if (Array.isArray(result)) {
+        return Number(result[0]?.count || 0);
+      }
+      if (result?.rows && Array.isArray(result.rows)) {
+        return Number(result.rows[0]?.count || 0);
+      }
+      const arr = Array.from(result);
+      return Number(arr[0]?.count || 0);
+    };
+    
     // First, check what we're working with
     const statsBefore = await sql`
       SELECT 
-        (SELECT COUNT(*) FROM repcard_users WHERE email IS NOT NULL AND email != '') as repcard_count,
-        (SELECT COUNT(*) FROM users WHERE email IS NOT NULL AND email != '') as users_count,
-        (SELECT COUNT(*) FROM users WHERE repcard_user_id IS NOT NULL) as already_linked,
-        (SELECT COUNT(*) FROM users u
+        (SELECT COUNT(*)::bigint FROM repcard_users WHERE email IS NOT NULL AND email != '') as repcard_count,
+        (SELECT COUNT(*)::bigint FROM users WHERE email IS NOT NULL AND email != '') as users_count,
+        (SELECT COUNT(*)::bigint FROM users WHERE repcard_user_id IS NOT NULL) as already_linked,
+        (SELECT COUNT(*)::bigint FROM users u
          INNER JOIN repcard_users ru ON LOWER(u.email) = LOWER(ru.email)
          WHERE u.repcard_user_id IS NULL
            AND ru.email IS NOT NULL AND ru.email != '') as ready_to_link
     `;
     
-    const stats = statsBefore[0];
+    const stats = Array.isArray(statsBefore) ? statsBefore[0] : statsBefore.rows?.[0] || statsBefore[0];
     console.log(`[RepCard Sync] Stats: ${stats?.repcard_count || 0} RepCard users with email, ${stats?.users_count || 0} users with email, ${stats?.already_linked || 0} already linked, ${stats?.ready_to_link || 0} ready to link`);
 
     // Link RepCard users to users table (SAFE - only updates repcard_user_id)
@@ -1760,7 +1772,23 @@ export async function linkRepCardUsersToUsers(): Promise<void> {
         AND ru.email != ''
     `;
     
-    const linkedCount = result.count || 0;
+    // Get actual count of linked users (UPDATE doesn't return count directly)
+    const verifyResult = await sql`
+      SELECT COUNT(*)::bigint as count
+      FROM users
+      WHERE repcard_user_id IS NOT NULL
+    `;
+    const getCount = (result: any): number => {
+      if (Array.isArray(result)) {
+        return Number(result[0]?.count || 0);
+      }
+      if (result?.rows && Array.isArray(result.rows)) {
+        return Number(result.rows[0]?.count || 0);
+      }
+      const arr = Array.from(result);
+      return Number(arr[0]?.count || 0);
+    };
+    const linkedCount = getCount(verifyResult);
     console.log(`[RepCard Sync] ✅ Linked ${linkedCount} users to RepCard accounts`);
     
     // Log successful links
