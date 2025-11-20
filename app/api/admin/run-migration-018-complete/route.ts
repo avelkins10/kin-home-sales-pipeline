@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     console.log('[Migration 018 Complete] Migration executed successfully');
 
     // Verify the changes
-    const verification = await sql`
+    const verificationResult = await sql`
       SELECT 
         table_name,
         column_name,
@@ -44,6 +44,9 @@ export async function POST(request: NextRequest) {
         AND column_name IN ('setter_user_id', 'closer_user_id')
       ORDER BY table_name, column_name
     `;
+
+    // Handle query result format (sql template returns { rows: [...] })
+    const verification = (verificationResult as any).rows || verificationResult || [];
 
     const results = verification.map((row: any) => ({
       table: row.table_name,
