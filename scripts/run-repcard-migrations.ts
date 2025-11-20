@@ -30,7 +30,8 @@ const migrations = [
   '016_repcard_complete_data.sql',
   '017_repcard_settings.sql',
   '017_make_repcard_users_company_id_nullable.sql',
-  '018_normalize_repcard_user_ids_to_integer.sql'
+  '018_normalize_repcard_user_ids_to_integer.sql',
+  '019_make_repcard_offices_company_id_nullable.sql'
 ];
 
 async function runMigrations() {

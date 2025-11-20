@@ -447,6 +447,15 @@ export async function syncOffices(): Promise<SyncEntityResult> {
       recordsFetched++;
       
       try {
+        // Handle companyId - may be missing from API response
+        const companyIdForDb: number | null = (office.companyId != null && office.companyId !== undefined && office.companyId !== '') 
+          ? Number(office.companyId) 
+          : null;
+        
+        if (companyIdForDb === null) {
+          console.log(`[RepCard Sync] Office ${office.id} missing companyId - will sync with NULL`);
+        }
+
         const result = await sql`
           INSERT INTO repcard_offices (
             repcard_office_id,
@@ -462,7 +471,7 @@ export async function syncOffices(): Promise<SyncEntityResult> {
           )
           VALUES (
             ${office.id},
-            ${office.companyId},
+            ${companyIdForDb}, // Allow NULL if API doesn't provide it
             ${office.name},
             ${office.address || null},
             ${office.city || null},
@@ -491,10 +500,13 @@ export async function syncOffices(): Promise<SyncEntityResult> {
         } else {
           recordsUpdated++;
         }
-        recordsFetched++;
 
       } catch (error) {
-        console.error(`[RepCard Sync] Failed to process office ${office.id}:`, error);
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.error(`[RepCard Sync] Failed to process office ${office.id}:`, errorMsg);
+        if (recordsFailed < 3) {
+          console.error(`[RepCard Sync] Office data that failed:`, JSON.stringify(office, null, 2));
+        }
         recordsFailed++;
       }
     }
