@@ -448,33 +448,74 @@ export async function GET(request: NextRequest) {
     
     console.log(`[RepCard Leaderboard] Found ${users.length} RepCard users (role: ${role}, offices: ${officeIds?.length || 0})`);
     
+    // CRITICAL: Even if users array is empty, we should still query repcard_users directly
+    // This ensures we show ALL RepCard users, not just linked ones
     if (users.length === 0) {
-      console.log(`[RepCard Leaderboard] ⚠️ No RepCard users found`);
-      console.log(`[RepCard Leaderboard] Role filter: ${role}, Office IDs: ${officeIds?.join(',') || 'none'}`);
+      console.log(`[RepCard Leaderboard] ⚠️ Initial user query returned 0, querying repcard_users directly`);
       
-      // Return empty response with helpful metadata
-      const response: LeaderboardResponse = {
-        leaderboard: [],
-        metadata: {
-          role,
-          metric,
-          timeRange,
-          startDate: calculatedStartDate,
-          endDate: calculatedEndDate,
-          officeIds: officeIds ? officeIds.map(String) : undefined,
-          totalEntries: 0,
-          page,
-          limit,
-          totalPages: 0,
-          cached: false,
-          calculatedAt: new Date().toISOString(),
-          warning: 'No users found with RepCard IDs. Users need to be linked to RepCard to appear in leaderboards.'
-        }
-      };
+      // Query ALL RepCard users directly (bypassing the initial filter)
+      if (role !== 'all') {
+        const result = await sql`
+          SELECT
+            COALESCE(u.id, ru.repcard_user_id::text) as id,
+            COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as name,
+            COALESCE(u.email, ru.email) as email,
+            ru.repcard_user_id,
+            COALESCE(u.sales_office[1], ru.office_name) as office,
+            COALESCE(u.role, ru.role) as role,
+            COALESCE(ru.team_name, '') as team
+          FROM repcard_users ru
+          LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+          WHERE ru.status = 1
+            AND (COALESCE(u.role, ru.role) = ${role} OR (u.role IS NULL AND ru.role = ${role}))
+          LIMIT 1000
+        `;
+        users = Array.from(result);
+      } else {
+        const result = await sql`
+          SELECT
+            COALESCE(u.id, ru.repcard_user_id::text) as id,
+            COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as name,
+            COALESCE(u.email, ru.email) as email,
+            ru.repcard_user_id,
+            COALESCE(u.sales_office[1], ru.office_name) as office,
+            COALESCE(u.role, ru.role) as role,
+            COALESCE(ru.team_name, '') as team
+          FROM repcard_users ru
+          LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+          WHERE ru.status = 1
+          LIMIT 1000
+        `;
+        users = Array.from(result);
+      }
+      console.log(`[RepCard Leaderboard] ✅ Direct repcard_users query returned ${users.length} users`);
       
-      const duration = Date.now() - start;
-      logApiResponse('GET', path, duration, { status: 200, cached: false, requestId });
-      return NextResponse.json(response);
+      // If still 0, return empty response
+      if (users.length === 0) {
+        console.log(`[RepCard Leaderboard] ⚠️ No RepCard users found after direct query`);
+        const response: LeaderboardResponse = {
+          leaderboard: [],
+          metadata: {
+            role,
+            metric,
+            timeRange,
+            startDate: calculatedStartDate,
+            endDate: calculatedEndDate,
+            officeIds: officeIds ? officeIds.map(String) : undefined,
+            totalEntries: 0,
+            page,
+            limit,
+            totalPages: 0,
+            cached: false,
+            calculatedAt: new Date().toISOString(),
+            warning: 'No RepCard users found. Check sync status or filters.'
+          }
+        };
+        
+        const duration = Date.now() - start;
+        logApiResponse('GET', path, duration, { status: 200, cached: false, requestId });
+        return NextResponse.json(response);
+      }
     }
     
     // Fetch metric data based on selected metric
@@ -764,6 +805,9 @@ export async function GET(request: NextRequest) {
         const customerCounts = Array.from(customerCountsRaw);
         
         console.log(`[RepCard Leaderboard] doors_knocked query returned ${customerCounts.length} RepCard users with data`);
+        if (customerCounts.length > 0) {
+          console.log(`[RepCard Leaderboard] Sample data:`, JSON.stringify(customerCounts.slice(0, 3), null, 2));
+        }
 
         // Map directly to leaderboard entries
         leaderboardEntries = customerCounts.map((row: any) => ({
@@ -1374,8 +1418,18 @@ export async function GET(request: NextRequest) {
     });
     
     // Debug: Log final results
-    console.log(`[RepCard Leaderboard] Final: ${leaderboardEntries.length} entries, top 3:`, 
-      leaderboardEntries.slice(0, 3).map(e => `${e.userName}: ${e.metricValue}`).join(', '));
+    console.log(`[RepCard Leaderboard] Final: ${leaderboardEntries.length} entries`);
+    if (leaderboardEntries.length > 0) {
+      console.log(`[RepCard Leaderboard] Top 3 entries:`, 
+        leaderboardEntries.slice(0, 3).map(e => `${e.userName}: ${e.metricValue}`).join(', '));
+      console.log(`[RepCard Leaderboard] Sample entry:`, JSON.stringify(leaderboardEntries[0], null, 2));
+    } else {
+      console.log(`[RepCard Leaderboard] ⚠️ NO ENTRIES - Debugging...`);
+      console.log(`[RepCard Leaderboard] Users found: ${users.length}`);
+      console.log(`[RepCard Leaderboard] Metric: ${metric}, Role: ${role}, TimeRange: ${timeRange}`);
+      console.log(`[RepCard Leaderboard] Date range: ${calculatedStartDate} to ${calculatedEndDate}`);
+      console.log(`[RepCard Leaderboard] Office IDs: ${officeIds?.join(',') || 'none'}`);
+    }
     
     // Apply pagination
     const totalEntries = leaderboardEntries.length;
