@@ -25,7 +25,8 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('startDate') || undefined;
     const endDate = searchParams.get('endDate') || undefined;
     const repcardUserId = searchParams.get('repcardUserId') || undefined;
-    const officeId = searchParams.get('officeId') || undefined;
+    const officeIdParam = searchParams.get('officeId') || searchParams.get('officeIds') || undefined;
+    const officeIds = officeIdParam ? officeIdParam.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id)) : [];
     const includeDetails = searchParams.get('includeDetails') === 'true';
 
     // Calculate date range (default: last 90 days)
@@ -58,14 +59,6 @@ export async function GET(request: NextRequest) {
       return Number(rows[0]?.count || 0);
     };
 
-    // Build WHERE clause for filtering
-    let whereClause = sql`WHERE 1=1`;
-    if (repcardUserId) {
-      whereClause = sql`WHERE ru.repcard_user_id = ${parseInt(repcardUserId)}`;
-    }
-    if (officeId) {
-      whereClause = sql`${whereClause} AND ru.office_id = ${parseInt(officeId)}`;
-    }
 
     // 1. OVERVIEW METRICS
     const overviewResult = await sql`
@@ -87,8 +80,8 @@ export async function GET(request: NextRequest) {
       LEFT JOIN repcard_status_logs sl ON c.repcard_customer_id = sl.repcard_customer_id
       WHERE c.created_at::date >= ${calculatedStartDate}::date
         AND c.created_at::date <= ${calculatedEndDate}::date
-        ${repcardUserId ? sql`AND c.setter_user_id = ${parseInt(repcardUserId)}` : sql``}
-        ${officeId ? sql`AND c.office_id = ${parseInt(officeId)}` : sql``}
+        ${repcardUserId ? sql`AND c.setter_user_id = ${parseInt(repcardUserId)}` : sql`AND TRUE`}
+        ${officeIds.length > 0 ? sql`AND c.office_id = ANY(${officeIds}::int[])` : sql`AND TRUE`}
     `;
     const overview = getRows(overviewResult)[0] || {};
 
@@ -132,8 +125,8 @@ export async function GET(request: NextRequest) {
         LEFT JOIN repcard_offices ro ON c.office_id = ro.repcard_office_id
         WHERE c.created_at::date >= ${calculatedStartDate}::date
           AND c.created_at::date <= ${calculatedEndDate}::date
-          ${repcardUserId ? sql`AND c.setter_user_id = ${parseInt(repcardUserId)}` : sql``}
-          ${officeId ? sql`AND c.office_id = ${parseInt(officeId)}` : sql``}
+          ${repcardUserId ? sql`AND c.setter_user_id = ${parseInt(repcardUserId)}` : sql`AND TRUE`}
+          ${officeIds.length > 0 ? sql`AND c.office_id = ANY(${officeIds}::int[])` : sql`AND TRUE`}
         ORDER BY c.created_at DESC
         LIMIT 100
       `;
@@ -186,8 +179,8 @@ export async function GET(request: NextRequest) {
           (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
           OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
         )
-        ${repcardUserId ? sql`AND (a.setter_user_id = ${parseInt(repcardUserId)} OR a.closer_user_id = ${parseInt(repcardUserId)})` : sql``}
-        ${officeId ? sql`AND a.office_id = ${parseInt(officeId)}` : sql``}
+        ${repcardUserId ? sql`AND (a.setter_user_id = ${parseInt(repcardUserId)} OR a.closer_user_id = ${parseInt(repcardUserId)})` : sql`AND TRUE`}
+        ${officeIds.length > 0 ? sql`AND a.office_id = ANY(${officeIds}::int[])` : sql`AND TRUE`}
         ORDER BY COALESCE(a.scheduled_at, a.created_at) DESC
         LIMIT 100
       `;
@@ -215,7 +208,7 @@ export async function GET(request: NextRequest) {
         LEFT JOIN users u_changed_by ON u_changed_by.repcard_user_id = ru_changed_by.repcard_user_id
         WHERE sl.changed_at::date >= ${calculatedStartDate}::date
           AND sl.changed_at::date <= ${calculatedEndDate}::date
-          ${repcardUserId ? sql`AND sl.changed_by_user_id = ${parseInt(repcardUserId)}` : sql``}
+          ${repcardUserId ? sql`AND sl.changed_by_user_id = ${parseInt(repcardUserId)}` : sql`AND TRUE`}
         ORDER BY sl.changed_at DESC
         LIMIT 100
       `;
@@ -246,7 +239,7 @@ export async function GET(request: NextRequest) {
         LEFT JOIN users u_uploader ON u_uploader.repcard_user_id = ru_uploader.repcard_user_id
         WHERE att.created_at::date >= ${calculatedStartDate}::date
           AND att.created_at::date <= ${calculatedEndDate}::date
-          ${repcardUserId ? sql`AND att.uploaded_by_user_id = ${parseInt(repcardUserId)}` : sql``}
+          ${repcardUserId ? sql`AND att.uploaded_by_user_id = ${parseInt(repcardUserId)}` : sql`AND TRUE`}
         UNION ALL
         SELECT 
           att.id as attachment_id,
@@ -268,7 +261,7 @@ export async function GET(request: NextRequest) {
         LEFT JOIN users u_uploader ON u_uploader.repcard_user_id = ru_uploader.repcard_user_id
         WHERE att.created_at::date >= ${calculatedStartDate}::date
           AND att.created_at::date <= ${calculatedEndDate}::date
-          ${repcardUserId ? sql`AND att.uploaded_by_user_id = ${parseInt(repcardUserId)}` : sql``}
+          ${repcardUserId ? sql`AND att.uploaded_by_user_id = ${parseInt(repcardUserId)}` : sql`AND TRUE`}
         ORDER BY created_at DESC
         LIMIT 100
       `;
@@ -295,7 +288,7 @@ export async function GET(request: NextRequest) {
         LEFT JOIN users u_author ON u_author.repcard_user_id = ru_author.repcard_user_id
         WHERE n.created_at::date >= ${calculatedStartDate}::date
           AND n.created_at::date <= ${calculatedEndDate}::date
-          ${repcardUserId ? sql`AND n.repcard_user_id = ${parseInt(repcardUserId)}` : sql``}
+          ${repcardUserId ? sql`AND n.repcard_user_id = ${parseInt(repcardUserId)}` : sql`AND TRUE`}
         ORDER BY n.created_at DESC
         LIMIT 100
       `;
@@ -336,9 +329,9 @@ export async function GET(request: NextRequest) {
         AND n.created_at::date >= ${calculatedStartDate}::date
         AND n.created_at::date <= ${calculatedEndDate}::date
       LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
-      WHERE ru.status = 1
-        ${repcardUserId ? sql`AND ru.repcard_user_id = ${parseInt(repcardUserId)}` : sql``}
-        ${officeId ? sql`AND ru.office_id = ${parseInt(officeId)}` : sql``}
+        WHERE ru.status = 1
+        ${repcardUserId ? sql`AND ru.repcard_user_id = ${parseInt(repcardUserId)}` : sql`AND TRUE`}
+        ${officeIds.length > 0 ? sql`AND ru.office_id = ANY(${officeIds}::int[])` : sql`AND TRUE`}
       GROUP BY ru.repcard_user_id, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.office_id, u.name, u.sales_office
       HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
         OR COUNT(DISTINCT a.repcard_appointment_id) > 0
