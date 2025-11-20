@@ -757,7 +757,7 @@ export async function GET(request: NextRequest) {
         WHERE ru.status = 1
           AND ru.repcard_user_id::text = ${repcardUserId!}::text
           AND ru.office_id::text = ANY(${officeIds.map(id => id.toString())}::text[])
-        GROUP BY ru.repcard_user_id, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.office_id, u.name, u.sales_office
+        GROUP BY ru.repcard_user_id, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.office_id, ru.team_name, u.name, u.sales_office
         HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
           OR COUNT(DISTINCT a.repcard_appointment_id) > 0
         ORDER BY doors_knocked DESC, appointments_set DESC
@@ -798,7 +798,7 @@ export async function GET(request: NextRequest) {
         LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
         WHERE ru.status = 1
           AND ru.repcard_user_id::text = ${repcardUserId!}::text
-        GROUP BY ru.repcard_user_id, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.office_id, u.name, u.sales_office
+        GROUP BY ru.repcard_user_id, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.office_id, ru.team_name, u.name, u.sales_office
         HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
           OR COUNT(DISTINCT a.repcard_appointment_id) > 0
         ORDER BY doors_knocked DESC, appointments_set DESC
@@ -839,7 +839,7 @@ export async function GET(request: NextRequest) {
         LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
         WHERE ru.status = 1
           AND ru.office_id::text = ANY(${officeIds.map(id => id.toString())}::text[])
-        GROUP BY ru.repcard_user_id, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.office_id, u.name, u.sales_office
+        GROUP BY ru.repcard_user_id, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.office_id, ru.team_name, u.name, u.sales_office
         HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
           OR COUNT(DISTINCT a.repcard_appointment_id) > 0
         ORDER BY doors_knocked DESC, appointments_set DESC
@@ -879,7 +879,7 @@ export async function GET(request: NextRequest) {
           AND n.created_at::date <= ${calculatedEndDate}::date
         LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
         WHERE ru.status = 1
-        GROUP BY ru.repcard_user_id, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.office_id, u.name, u.sales_office
+        GROUP BY ru.repcard_user_id, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.office_id, ru.team_name, u.name, u.sales_office
         HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
           OR COUNT(DISTINCT a.repcard_appointment_id) > 0
         ORDER BY doors_knocked DESC, appointments_set DESC
