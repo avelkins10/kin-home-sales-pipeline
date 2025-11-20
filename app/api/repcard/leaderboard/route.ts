@@ -1212,15 +1212,50 @@ export async function GET(request: NextRequest) {
     } // End of else block for RepCard/QuickBase data fetching (closes else from line 594)
     } // Close the if-else chain starting at line 424
     
-    // CRITICAL FIX: If we have users but no leaderboard entries, create entries with 0 counts
-    // This ensures the frontend shows users even when they have no data
-    if (leaderboardEntries.length === 0 && users.length > 0) {
-      console.log(`[RepCard Leaderboard] ⚠️ No data found for ${users.length} users, creating entries with 0 counts`);
-      leaderboardEntries = users.map((user: any) => ({
+    // CRITICAL FIX: Always ensure we return users from repcard_users table, even with 0 counts
+    // This ensures the frontend shows ALL RepCard users, not just those with data
+    if (leaderboardEntries.length === 0) {
+      console.log(`[RepCard Leaderboard] ⚠️ No leaderboard entries found, fetching all RepCard users`);
+      
+      // Fetch all active RepCard users directly
+      let allRepcardUsersRaw;
+      if (role !== 'all') {
+        allRepcardUsersRaw = await sql`
+          SELECT
+            COALESCE(u.id, ru.repcard_user_id::text) as user_id,
+            COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as user_name,
+            COALESCE(u.email, ru.email) as user_email,
+            COALESCE(u.sales_office[1], ru.office_name) as office,
+            COALESCE(u.role, ru.role) as role
+          FROM repcard_users ru
+          LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
+          WHERE ru.status = 1
+            AND (COALESCE(u.role, ru.role) = ${role} OR (u.role IS NULL AND ru.role = ${role}))
+          LIMIT 1000
+        `;
+      } else {
+        allRepcardUsersRaw = await sql`
+          SELECT
+            COALESCE(u.id, ru.repcard_user_id::text) as user_id,
+            COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as user_name,
+            COALESCE(u.email, ru.email) as user_email,
+            COALESCE(u.sales_office[1], ru.office_name) as office,
+            COALESCE(u.role, ru.role) as role
+          FROM repcard_users ru
+          LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
+          WHERE ru.status = 1
+          LIMIT 1000
+        `;
+      }
+      
+      const allRepcardUsers = Array.from(allRepcardUsersRaw);
+      console.log(`[RepCard Leaderboard] Found ${allRepcardUsers.length} RepCard users to display`);
+      
+      leaderboardEntries = allRepcardUsers.map((user: any) => ({
         rank: 0,
-        userId: user.id,
-        userName: user.name,
-        userEmail: user.email,
+        userId: user.user_id,
+        userName: user.user_name || 'Unknown',
+        userEmail: user.user_email,
         office: user.office,
         role: user.role,
         metricValue: 0,
