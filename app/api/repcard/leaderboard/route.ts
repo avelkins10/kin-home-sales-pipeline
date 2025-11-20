@@ -1216,7 +1216,6 @@ export async function GET(request: NextRequest) {
                     (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
                   )
                 WHERE ru.status = 1
-                  AND ru.repcard_user_id::text = ANY(${repcardUserIds.map(String)}::text[])
                 GROUP BY ru.repcard_user_id, u.id, u.name, u.email, u.sales_office, u.role, ru.first_name, ru.last_name, ru.email, ru.office_name, ru.role
                 ORDER BY count DESC
               `;
@@ -1298,8 +1297,7 @@ export async function GET(request: NextRequest) {
             c.raw_data->'customFields'->>'systemCost' as system_cost
           FROM repcard_status_logs sl
           LEFT JOIN repcard_customers c ON c.repcard_customer_id = sl.repcard_customer_id
-          WHERE sl.changed_by_user_id::text = ANY(${repcardUserIds.map(String)}::text[])
-            AND sl.changed_at::date >= ${calculatedStartDate}::date
+          WHERE sl.changed_at::date >= ${calculatedStartDate}::date
             AND sl.changed_at::date <= ${calculatedEndDate}::date
             AND (
               LOWER(sl.new_status) LIKE '%sold%' OR
