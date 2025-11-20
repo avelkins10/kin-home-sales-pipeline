@@ -310,30 +310,57 @@ export async function GET(request: NextRequest) {
     // Optionally join users table for app-specific info (names, roles) if linked
     if (officeIds && officeIds.length > 0) {
       // Filter by office_id from repcard_users or repcard_offices
-      const officeQuery = await sql`
-        SELECT DISTINCT 
-          ru.repcard_user_id, 
-          ru.first_name, 
-          ru.last_name, 
-          ru.email, 
-          ru.office_id, 
-          ru.office_name, 
-          ru.role as repcard_role, 
-          ru.status,
-          u.id as app_user_id, 
-          u.name as app_user_name, 
-          u.role as app_role, 
-          u.sales_office[1] as app_office
-        FROM repcard_users ru
-        LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
-        LEFT JOIN repcard_offices ro ON ro.repcard_office_id = ru.office_id
-        LEFT JOIN offices o ON o.name = ru.office_name OR o.name = ANY(u.sales_office)
-        WHERE ru.status = 1
-          AND (ro.repcard_office_id = ANY(${officeIds}::int[]) 
-               OR o.quickbase_office_id = ANY(${officeIds}::int[]))
-        ${role !== 'all' ? sql`AND (ru.role = ${role} OR u.role = ${role})` : sql``}
-        LIMIT 1000
-      `;
+      let officeQuery;
+      if (role !== 'all') {
+        officeQuery = await sql`
+          SELECT DISTINCT 
+            ru.repcard_user_id, 
+            ru.first_name, 
+            ru.last_name, 
+            ru.email, 
+            ru.office_id, 
+            ru.office_name, 
+            ru.role as repcard_role, 
+            ru.status,
+            u.id as app_user_id, 
+            u.name as app_user_name, 
+            u.role as app_role, 
+            u.sales_office[1] as app_office
+          FROM repcard_users ru
+          LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+          LEFT JOIN repcard_offices ro ON ro.repcard_office_id = ru.office_id
+          LEFT JOIN offices o ON o.name = ru.office_name OR o.name = ANY(u.sales_office)
+          WHERE ru.status = 1
+            AND (ro.repcard_office_id = ANY(${officeIds}::int[]) 
+                 OR o.quickbase_office_id = ANY(${officeIds}::int[]))
+            AND (ru.role = ${role} OR u.role = ${role})
+          LIMIT 1000
+        `;
+      } else {
+        officeQuery = await sql`
+          SELECT DISTINCT 
+            ru.repcard_user_id, 
+            ru.first_name, 
+            ru.last_name, 
+            ru.email, 
+            ru.office_id, 
+            ru.office_name, 
+            ru.role as repcard_role, 
+            ru.status,
+            u.id as app_user_id, 
+            u.name as app_user_name, 
+            u.role as app_role, 
+            u.sales_office[1] as app_office
+          FROM repcard_users ru
+          LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+          LEFT JOIN repcard_offices ro ON ro.repcard_office_id = ru.office_id
+          LEFT JOIN offices o ON o.name = ru.office_name OR o.name = ANY(u.sales_office)
+          WHERE ru.status = 1
+            AND (ro.repcard_office_id = ANY(${officeIds}::int[]) 
+                 OR o.quickbase_office_id = ANY(${officeIds}::int[]))
+          LIMIT 1000
+        `;
+      }
       repcardUsers = Array.from(officeQuery);
       
       if (repcardUsers.length === 0) {
@@ -345,26 +372,49 @@ export async function GET(request: NextRequest) {
     
     // If no office filter or office filter failed, get all active RepCard users
     if (repcardUsers.length === 0) {
-      const allUsersQuery = await sql`
-        SELECT DISTINCT 
-          ru.repcard_user_id, 
-          ru.first_name, 
-          ru.last_name, 
-          ru.email,
-          ru.office_id, 
-          ru.office_name, 
-          ru.role as repcard_role, 
-          ru.status,
-          u.id as app_user_id, 
-          u.name as app_user_name, 
-          u.role as app_role, 
-          u.sales_office[1] as app_office
-        FROM repcard_users ru
-        LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
-        WHERE ru.status = 1
-        ${role !== 'all' ? sql`AND (ru.role = ${role} OR u.role = ${role})` : sql``}
-        LIMIT 1000
-      `;
+      let allUsersQuery;
+      if (role !== 'all') {
+        allUsersQuery = await sql`
+          SELECT DISTINCT 
+            ru.repcard_user_id, 
+            ru.first_name, 
+            ru.last_name, 
+            ru.email,
+            ru.office_id, 
+            ru.office_name, 
+            ru.role as repcard_role, 
+            ru.status,
+            u.id as app_user_id, 
+            u.name as app_user_name, 
+            u.role as app_role, 
+            u.sales_office[1] as app_office
+          FROM repcard_users ru
+          LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+          WHERE ru.status = 1
+            AND (ru.role = ${role} OR u.role = ${role})
+          LIMIT 1000
+        `;
+      } else {
+        allUsersQuery = await sql`
+          SELECT DISTINCT 
+            ru.repcard_user_id, 
+            ru.first_name, 
+            ru.last_name, 
+            ru.email,
+            ru.office_id, 
+            ru.office_name, 
+            ru.role as repcard_role, 
+            ru.status,
+            u.id as app_user_id, 
+            u.name as app_user_name, 
+            u.role as app_role, 
+            u.sales_office[1] as app_office
+          FROM repcard_users ru
+          LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+          WHERE ru.status = 1
+          LIMIT 1000
+        `;
+      }
       repcardUsers = Array.from(allUsersQuery);
     }
     
