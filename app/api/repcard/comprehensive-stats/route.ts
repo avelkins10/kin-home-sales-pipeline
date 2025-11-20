@@ -364,7 +364,7 @@ export async function GET(request: NextRequest) {
             ru_closer.repcard_user_id as closer_repcard_user_id,
             COALESCE(u_closer.name, TRIM(ru_closer.first_name || ' ' || ru_closer.last_name), ru_closer.email) as closer_name,
             ro.name as office_name,
-            (SELECT COUNT(*) FROM repcard_appointment_attachments WHERE repcard_appointment_id = a.repcard_appointment_id)::bigint as attachment_count
+            (SELECT COUNT(*) FROM repcard_appointment_attachments WHERE repcard_appointment_id::text = a.repcard_appointment_id::text)::bigint as attachment_count
           FROM repcard_appointments a
           LEFT JOIN repcard_customers c ON a.repcard_customer_id::text = c.repcard_customer_id::text
           LEFT JOIN repcard_users ru_setter ON a.setter_user_id::text = ru_setter.repcard_user_id::text
@@ -408,7 +408,7 @@ export async function GET(request: NextRequest) {
             ru_closer.repcard_user_id as closer_repcard_user_id,
             COALESCE(u_closer.name, TRIM(ru_closer.first_name || ' ' || ru_closer.last_name), ru_closer.email) as closer_name,
             ro.name as office_name,
-            (SELECT COUNT(*) FROM repcard_appointment_attachments WHERE repcard_appointment_id = a.repcard_appointment_id)::bigint as attachment_count
+            (SELECT COUNT(*) FROM repcard_appointment_attachments WHERE repcard_appointment_id::text = a.repcard_appointment_id::text)::bigint as attachment_count
           FROM repcard_appointments a
           LEFT JOIN repcard_customers c ON a.repcard_customer_id::text = c.repcard_customer_id::text
           LEFT JOIN repcard_users ru_setter ON a.setter_user_id::text = ru_setter.repcard_user_id::text
@@ -451,7 +451,7 @@ export async function GET(request: NextRequest) {
             ru_closer.repcard_user_id as closer_repcard_user_id,
             COALESCE(u_closer.name, TRIM(ru_closer.first_name || ' ' || ru_closer.last_name), ru_closer.email) as closer_name,
             ro.name as office_name,
-            (SELECT COUNT(*) FROM repcard_appointment_attachments WHERE repcard_appointment_id = a.repcard_appointment_id)::bigint as attachment_count
+            (SELECT COUNT(*) FROM repcard_appointment_attachments WHERE repcard_appointment_id::text = a.repcard_appointment_id::text)::bigint as attachment_count
           FROM repcard_appointments a
           LEFT JOIN repcard_customers c ON a.repcard_customer_id::text = c.repcard_customer_id::text
           LEFT JOIN repcard_users ru_setter ON a.setter_user_id::text = ru_setter.repcard_user_id::text
@@ -494,7 +494,7 @@ export async function GET(request: NextRequest) {
             ru_closer.repcard_user_id as closer_repcard_user_id,
             COALESCE(u_closer.name, TRIM(ru_closer.first_name || ' ' || ru_closer.last_name), ru_closer.email) as closer_name,
             ro.name as office_name,
-            (SELECT COUNT(*) FROM repcard_appointment_attachments WHERE repcard_appointment_id = a.repcard_appointment_id)::bigint as attachment_count
+            (SELECT COUNT(*) FROM repcard_appointment_attachments WHERE repcard_appointment_id::text = a.repcard_appointment_id::text)::bigint as attachment_count
           FROM repcard_appointments a
           LEFT JOIN repcard_customers c ON a.repcard_customer_id::text = c.repcard_customer_id::text
           LEFT JOIN repcard_users ru_setter ON a.setter_user_id::text = ru_setter.repcard_user_id::text
