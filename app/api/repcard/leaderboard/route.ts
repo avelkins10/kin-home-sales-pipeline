@@ -1089,7 +1089,7 @@ export async function GET(request: NextRequest) {
                     OR
                     (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
                   )
-                WHERE u.repcard_user_id = ANY(${repcardUserIds}::int[])
+                WHERE u.repcard_user_id::text = ANY(${repcardUserIds.map(String)}::text[])
                 GROUP BY u.id, u.name, u.email, u.repcard_user_id, u.sales_office, u.role
                 ORDER BY count DESC
               `;
