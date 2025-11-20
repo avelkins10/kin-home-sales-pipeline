@@ -1172,10 +1172,10 @@ export async function GET(request: NextRequest) {
         const statusLogs = Array.from(statusLogsRaw);
 
         // Group sales by user
-        const salesByUser = new Map<string, { count: number; revenue: number }>();
+        const salesByUser = new Map<number, { count: number; revenue: number }>();
         
         for (const log of statusLogs) {
-          const userId = log.changed_by_user_id?.toString();
+          const userId = log.changed_by_user_id;
           if (!userId) continue;
           
           if (!salesByUser.has(userId)) {
@@ -1193,7 +1193,7 @@ export async function GET(request: NextRequest) {
         }
 
         leaderboardEntries = (users as any[]).map((user: any) => {
-          const userSales = salesByUser.get(user.repcard_user_id?.toString()) || { count: 0, revenue: 0 };
+          const userSales = salesByUser.get(user.repcard_user_id) || { count: 0, revenue: 0 };
           
           return {
             rank: 0,
