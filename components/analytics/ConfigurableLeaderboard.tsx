@@ -315,13 +315,6 @@ export function ConfigurableLeaderboard({
       </Card>
     );
   }
-          <Button onClick={() => refetch()} variant="outline">
-            Retry
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
 
   // Empty state
   if (!data?.leaderboard || data.leaderboard.length === 0) {
