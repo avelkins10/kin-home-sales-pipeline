@@ -483,6 +483,7 @@ export async function syncOffices(): Promise<SyncEntityResult> {
           )
           ON CONFLICT (repcard_office_id)
           DO UPDATE SET
+            company_id = EXCLUDED.company_id,
             name = EXCLUDED.name,
             address = EXCLUDED.address,
             city = EXCLUDED.city,
@@ -1548,8 +1549,7 @@ export async function syncLeaderboards(options: {
                 office_name = EXCLUDED.office_name,
                 team_id = EXCLUDED.team_id,
                 team_name = EXCLUDED.team_name,
-                raw_data = EXCLUDED.raw_data,
-                synced_at = NOW()
+                raw_data = EXCLUDED.raw_data
               RETURNING (xmax = 0) AS inserted
             `;
 
