@@ -862,7 +862,7 @@ export async function GET(request: NextRequest) {
                 COALESCE(u.id, ru.repcard_user_id::text) as user_id,
                 COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as user_name,
                 COALESCE(u.email, ru.email) as user_email,
-                ru.repcard_user_id::text as repcard_user_id,
+                ru.repcard_user_id,
                 COALESCE(u.sales_office[1], ru.office_name) as office,
                 COALESCE(u.role, ru.role) as role,
                 COUNT(a.repcard_appointment_id) as count
@@ -886,7 +886,7 @@ export async function GET(request: NextRequest) {
                 COALESCE(u.id, ru.repcard_user_id::text) as user_id,
                 COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as user_name,
                 COALESCE(u.email, ru.email) as user_email,
-                ru.repcard_user_id::text as repcard_user_id,
+                ru.repcard_user_id,
                 COALESCE(u.sales_office[1], ru.office_name) as office,
                 COALESCE(u.role, ru.role) as role,
                 COUNT(a.repcard_appointment_id) as count
@@ -912,7 +912,7 @@ export async function GET(request: NextRequest) {
                 COALESCE(u.id, ru.repcard_user_id::text) as user_id,
                 COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as user_name,
                 COALESCE(u.email, ru.email) as user_email,
-                ru.repcard_user_id::text as repcard_user_id,
+                ru.repcard_user_id,
                 COALESCE(u.sales_office[1], ru.office_name) as office,
                 COALESCE(u.role, ru.role) as role,
                 COUNT(a.repcard_appointment_id) as count
@@ -934,7 +934,7 @@ export async function GET(request: NextRequest) {
                 COALESCE(u.id, ru.repcard_user_id::text) as user_id,
                 COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as user_name,
                 COALESCE(u.email, ru.email) as user_email,
-                ru.repcard_user_id::text as repcard_user_id,
+                ru.repcard_user_id,
                 COALESCE(u.sales_office[1], ru.office_name) as office,
                 COALESCE(u.role, ru.role) as role,
                 COUNT(a.repcard_appointment_id) as count
