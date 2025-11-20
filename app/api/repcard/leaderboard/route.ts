@@ -895,14 +895,20 @@ export async function GET(request: NextRequest) {
         
         // If no results and role filter is applied, also check users that might have been filtered out
         if (leaderboardEntries.length === 0 && role !== 'all') {
-          // Fallback: get all users and create entries with 0 counts
+          // Fallback: get all RepCard users and create entries with 0 counts
           const allUsers = await sql`
-            SELECT 
-              u.id, u.name, u.email, u.repcard_user_id, u.sales_office[1] as office, u.role,
+            SELECT
+              COALESCE(u.id, ru.repcard_user_id::text) as id,
+              COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as name,
+              COALESCE(u.email, ru.email) as email,
+              ru.repcard_user_id,
+              COALESCE(u.sales_office[1], ru.office_name) as office,
+              COALESCE(u.role, ru.role) as role,
               COALESCE(ru.team_name, '') as team
-            FROM users u
-            LEFT JOIN repcard_users ru ON u.repcard_user_id = ru.repcard_user_id
-            WHERE u.repcard_user_id IS NOT NULL AND u.role = ${role}
+            FROM repcard_users ru
+            LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
+            WHERE ru.status = 1
+              AND (COALESCE(u.role, ru.role) = ${role} OR (u.role IS NULL AND ru.role = ${role}))
             LIMIT 1000
           `;
           leaderboardEntries = Array.from(allUsers).map((user: any) => ({
