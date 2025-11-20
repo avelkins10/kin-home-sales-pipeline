@@ -1781,36 +1781,52 @@ export async function linkRepCardUsersToUsers(): Promise<void> {
     const linkedCount = getCount(verifyResult);
     console.log(`[RepCard Sync] ✅ Linked ${linkedCount} users to RepCard accounts`);
     
-    // Log successful links
+    // Log successful links (optional - don't fail if logging fails)
     if (linkedCount > 0) {
-      const linkedUsers = await sql`
-        SELECT u.id, u.email, u.repcard_user_id
-        FROM users u
-        WHERE u.repcard_user_id IS NOT NULL
-          AND u.last_synced_from_repcard_at > NOW() - INTERVAL '1 minute'
-      `;
-      
-      for (const user of linkedUsers) {
-        await sql`
-          INSERT INTO user_sync_log (
-            user_id,
-            source_system,
-            external_id,
-            match_method,
-            confidence,
-            synced_at,
-            notes
-          ) VALUES (
-            ${user.id},
-            'repcard',
-            ${user.repcard_user_id},
-            'email',
-            1.0,
-            NOW(),
-            'Auto-linked from comprehensive RepCard sync'
-          )
-          ON CONFLICT DO NOTHING
+      try {
+        const linkedUsersResult = await sql`
+          SELECT u.id, u.email, u.repcard_user_id
+          FROM users u
+          WHERE u.repcard_user_id IS NOT NULL
+            AND u.last_synced_from_repcard_at > NOW() - INTERVAL '1 minute'
         `;
+        
+        // Convert result to array (handle different result formats)
+        const linkedUsers = Array.isArray(linkedUsersResult) 
+          ? linkedUsersResult 
+          : (linkedUsersResult?.rows || Array.from(linkedUsersResult));
+        
+        // Only log if user_sync_log table exists (optional table)
+        for (const user of linkedUsers) {
+          try {
+            await sql`
+              INSERT INTO user_sync_log (
+                user_id,
+                source_system,
+                external_id,
+                match_method,
+                confidence,
+                synced_at,
+                notes
+              ) VALUES (
+                ${user.id},
+                'repcard',
+                ${user.repcard_user_id},
+                'email',
+                1.0,
+                NOW(),
+                'Auto-linked from comprehensive RepCard sync'
+              )
+              ON CONFLICT DO NOTHING
+            `;
+          } catch (logError) {
+            // Ignore logging errors - table might not exist, that's OK
+            console.debug(`[RepCard Sync] Could not log user sync for ${user.id}:`, logError instanceof Error ? logError.message : String(logError));
+          }
+        }
+      } catch (logError) {
+        // Ignore logging errors - this is optional logging
+        console.debug('[RepCard Sync] Could not log linked users (non-fatal):', logError instanceof Error ? logError.message : String(logError));
       }
     }
     
