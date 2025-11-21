@@ -204,56 +204,74 @@ export function CloserPerformanceTable({
   // Combine data from all queries - build union of users across all datasets
   const allUserIds = new Set<string>();
   
-  // Collect user IDs from all successful queries
-  if (salesClosedData?.leaderboard && Array.isArray(salesClosedData.leaderboard)) {
-    salesClosedData.leaderboard.forEach(entry => allUserIds.add(entry.userId));
-  }
-  if (revenueData?.leaderboard && Array.isArray(revenueData.leaderboard)) {
-    revenueData.leaderboard.forEach(entry => allUserIds.add(entry.userId));
-  }
-  if (appointmentsSatData && Array.isArray(appointmentsSatData)) {
-    appointmentsSatData.forEach(entry => allUserIds.add(entry.userId));
-  }
-  if (followUpsData && Array.isArray(followUpsData)) {
-    followUpsData.forEach(entry => allUserIds.add(entry.userId));
+  // Collect user IDs from all successful queries with error handling
+  try {
+    if (salesClosedData?.leaderboard && Array.isArray(salesClosedData.leaderboard)) {
+      salesClosedData.leaderboard.forEach(entry => {
+        if (entry?.userId) allUserIds.add(entry.userId);
+      });
+    }
+    if (revenueData?.leaderboard && Array.isArray(revenueData.leaderboard)) {
+      revenueData.leaderboard.forEach(entry => {
+        if (entry?.userId) allUserIds.add(entry.userId);
+      });
+    }
+    if (appointmentsSatData && Array.isArray(appointmentsSatData)) {
+      appointmentsSatData.forEach(entry => {
+        if (entry?.userId) allUserIds.add(entry.userId);
+      });
+    }
+    if (followUpsData && Array.isArray(followUpsData)) {
+      followUpsData.forEach(entry => {
+        if (entry?.userId) allUserIds.add(entry.userId);
+      });
+    }
+  } catch (error) {
+    console.error('[CloserPerformanceTable] Error collecting user IDs:', error);
   }
   
-  // Build combined metrics from union of all users
-  const combinedMetrics: CloserMetrics[] = Array.from(allUserIds).map(userId => {
-    const salesEntry = Array.isArray(salesClosedData?.leaderboard) 
-      ? salesClosedData.leaderboard.find(e => e.userId === userId) 
-      : undefined;
-    const revenueEntry = Array.isArray(revenueData?.leaderboard)
-      ? revenueData.leaderboard.find(e => e.userId === userId)
-      : undefined;
-    const appointmentsEntry = Array.isArray(appointmentsSatData)
-      ? appointmentsSatData.find(e => e.userId === userId)
-      : undefined;
-    const followUpsEntry = Array.isArray(followUpsData)
-      ? followUpsData.find(e => e.userId === userId)
-      : undefined;
-    
-    // Use the first available entry for user info, fallback to defaults
-    const baseEntry = salesEntry || revenueEntry || appointmentsEntry || followUpsEntry;
-    
-    const salesClosed = salesEntry?.metricValue || 0;
-    const revenue = revenueEntry?.metricValue || 0;
-    const appointmentsSat = appointmentsEntry?.appointmentsSat || 0;
-    const followUps = followUpsEntry?.followUps || 0;
-    
-    return {
-      userId,
-      closerName: baseEntry?.userName || baseEntry?.closerName || 'Unknown',
-      closerEmail: baseEntry?.userEmail || baseEntry?.closerEmail || '',
-      office: baseEntry?.office || 'Unknown',
-      appointmentsSat,
-      salesClosed,
-      sitCloseRate: appointmentsSat > 0 ? (salesClosed / appointmentsSat) * 100 : 0,
-      revenue,
-      avgDealSize: salesClosed > 0 ? revenue / salesClosed : 0,
-      followUps
-    };
-  });
+  // Build combined metrics from union of all users with error handling
+  let combinedMetrics: CloserMetrics[] = [];
+  try {
+    combinedMetrics = Array.from(allUserIds).map(userId => {
+      const salesEntry = Array.isArray(salesClosedData?.leaderboard) 
+        ? salesClosedData.leaderboard.find(e => e?.userId === userId) 
+        : undefined;
+      const revenueEntry = Array.isArray(revenueData?.leaderboard)
+        ? revenueData.leaderboard.find(e => e?.userId === userId)
+        : undefined;
+      const appointmentsEntry = Array.isArray(appointmentsSatData)
+        ? appointmentsSatData.find(e => e?.userId === userId)
+        : undefined;
+      const followUpsEntry = Array.isArray(followUpsData)
+        ? followUpsData.find(e => e?.userId === userId)
+        : undefined;
+      
+      // Use the first available entry for user info, fallback to defaults
+      const baseEntry = salesEntry || revenueEntry || appointmentsEntry || followUpsEntry;
+      
+      const salesClosed = salesEntry?.metricValue || 0;
+      const revenue = revenueEntry?.metricValue || 0;
+      const appointmentsSat = appointmentsEntry?.appointmentsSat || 0;
+      const followUps = followUpsEntry?.followUps || 0;
+      
+      return {
+        userId,
+        closerName: baseEntry?.userName || baseEntry?.closerName || 'Unknown',
+        closerEmail: baseEntry?.userEmail || baseEntry?.closerEmail || '',
+        office: baseEntry?.office || 'Unknown',
+        appointmentsSat,
+        salesClosed,
+        sitCloseRate: appointmentsSat > 0 ? (salesClosed / appointmentsSat) * 100 : 0,
+        revenue,
+        avgDealSize: salesClosed > 0 ? revenue / salesClosed : 0,
+        followUps
+      };
+    });
+  } catch (error) {
+    console.error('[CloserPerformanceTable] Error building combined metrics:', error);
+    combinedMetrics = [];
+  }
 
   // Apply search filter
   const filteredData = combinedMetrics.filter(closer => 
