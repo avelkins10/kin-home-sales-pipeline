@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
           COUNT(DISTINCT c.repcard_customer_id)::bigint as doors_knocked,
           COUNT(DISTINCT a.repcard_appointment_id)::bigint as appointments_set,
           COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' THEN a.repcard_appointment_id END)::bigint as sales_closed,
-          COUNT(DISTINCT CASE WHEN att.id IS NOT NULL THEN c.repcard_customer_id END)::bigint as customers_with_attachments,
+          COUNT(DISTINCT CASE WHEN (att_customer.id IS NOT NULL OR att_appt.id IS NOT NULL) THEN c.repcard_customer_id END)::bigint as customers_with_attachments,
           COUNT(DISTINCT n.repcard_note_id)::bigint as total_notes,
           COUNT(DISTINCT sl.repcard_log_id)::bigint as status_changes
         FROM repcard_customers c
@@ -81,7 +81,8 @@ export async function GET(request: NextRequest) {
             (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
             OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
           )
-        LEFT JOIN repcard_customer_attachments att ON c.repcard_customer_id::text = att.repcard_customer_id::text
+        LEFT JOIN repcard_customer_attachments att_customer ON c.repcard_customer_id::text = att_customer.repcard_customer_id::text
+        LEFT JOIN repcard_appointment_attachments att_appt ON c.repcard_customer_id::text = att_appt.repcard_customer_id::text
         LEFT JOIN repcard_customer_notes n ON c.repcard_customer_id::text = n.repcard_customer_id::text
         LEFT JOIN repcard_status_logs sl ON c.repcard_customer_id::text = sl.repcard_customer_id::text
         WHERE c.created_at::date >= ${calculatedStartDate}::date
@@ -95,7 +96,7 @@ export async function GET(request: NextRequest) {
           COUNT(DISTINCT c.repcard_customer_id)::bigint as doors_knocked,
           COUNT(DISTINCT a.repcard_appointment_id)::bigint as appointments_set,
           COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' THEN a.repcard_appointment_id END)::bigint as sales_closed,
-          COUNT(DISTINCT CASE WHEN att.id IS NOT NULL THEN c.repcard_customer_id END)::bigint as customers_with_attachments,
+          COUNT(DISTINCT CASE WHEN (att_customer.id IS NOT NULL OR att_appt.id IS NOT NULL) THEN c.repcard_customer_id END)::bigint as customers_with_attachments,
           COUNT(DISTINCT n.repcard_note_id)::bigint as total_notes,
           COUNT(DISTINCT sl.repcard_log_id)::bigint as status_changes
         FROM repcard_customers c
@@ -104,7 +105,8 @@ export async function GET(request: NextRequest) {
             (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
             OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
           )
-        LEFT JOIN repcard_customer_attachments att ON c.repcard_customer_id::text = att.repcard_customer_id::text
+        LEFT JOIN repcard_customer_attachments att_customer ON c.repcard_customer_id::text = att_customer.repcard_customer_id::text
+        LEFT JOIN repcard_appointment_attachments att_appt ON c.repcard_customer_id::text = att_appt.repcard_customer_id::text
         LEFT JOIN repcard_customer_notes n ON c.repcard_customer_id::text = n.repcard_customer_id::text
         LEFT JOIN repcard_status_logs sl ON c.repcard_customer_id::text = sl.repcard_customer_id::text
         WHERE c.created_at::date >= ${calculatedStartDate}::date
@@ -117,7 +119,7 @@ export async function GET(request: NextRequest) {
           COUNT(DISTINCT c.repcard_customer_id)::bigint as doors_knocked,
           COUNT(DISTINCT a.repcard_appointment_id)::bigint as appointments_set,
           COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' THEN a.repcard_appointment_id END)::bigint as sales_closed,
-          COUNT(DISTINCT CASE WHEN att.id IS NOT NULL THEN c.repcard_customer_id END)::bigint as customers_with_attachments,
+          COUNT(DISTINCT CASE WHEN (att_customer.id IS NOT NULL OR att_appt.id IS NOT NULL) THEN c.repcard_customer_id END)::bigint as customers_with_attachments,
           COUNT(DISTINCT n.repcard_note_id)::bigint as total_notes,
           COUNT(DISTINCT sl.repcard_log_id)::bigint as status_changes
         FROM repcard_customers c
@@ -126,7 +128,8 @@ export async function GET(request: NextRequest) {
             (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
             OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
           )
-        LEFT JOIN repcard_customer_attachments att ON c.repcard_customer_id::text = att.repcard_customer_id::text
+        LEFT JOIN repcard_customer_attachments att_customer ON c.repcard_customer_id::text = att_customer.repcard_customer_id::text
+        LEFT JOIN repcard_appointment_attachments att_appt ON c.repcard_customer_id::text = att_appt.repcard_customer_id::text
         LEFT JOIN repcard_customer_notes n ON c.repcard_customer_id::text = n.repcard_customer_id::text
         LEFT JOIN repcard_status_logs sl ON c.repcard_customer_id::text = sl.repcard_customer_id::text
         WHERE c.created_at::date >= ${calculatedStartDate}::date
@@ -139,7 +142,7 @@ export async function GET(request: NextRequest) {
           COUNT(DISTINCT c.repcard_customer_id)::bigint as doors_knocked,
           COUNT(DISTINCT a.repcard_appointment_id)::bigint as appointments_set,
           COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' THEN a.repcard_appointment_id END)::bigint as sales_closed,
-          COUNT(DISTINCT CASE WHEN att.id IS NOT NULL THEN c.repcard_customer_id END)::bigint as customers_with_attachments,
+          COUNT(DISTINCT CASE WHEN (att_customer.id IS NOT NULL OR att_appt.id IS NOT NULL) THEN c.repcard_customer_id END)::bigint as customers_with_attachments,
           COUNT(DISTINCT n.repcard_note_id)::bigint as total_notes,
           COUNT(DISTINCT sl.repcard_log_id)::bigint as status_changes
         FROM repcard_customers c
@@ -148,7 +151,8 @@ export async function GET(request: NextRequest) {
             (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
             OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
           )
-        LEFT JOIN repcard_customer_attachments att ON c.repcard_customer_id::text = att.repcard_customer_id::text
+        LEFT JOIN repcard_customer_attachments att_customer ON c.repcard_customer_id::text = att_customer.repcard_customer_id::text
+        LEFT JOIN repcard_appointment_attachments att_appt ON c.repcard_customer_id::text = att_appt.repcard_customer_id::text
         LEFT JOIN repcard_customer_notes n ON c.repcard_customer_id::text = n.repcard_customer_id::text
         LEFT JOIN repcard_status_logs sl ON c.repcard_customer_id::text = sl.repcard_customer_id::text
         WHERE c.created_at::date >= ${calculatedStartDate}::date
@@ -191,7 +195,14 @@ export async function GET(request: NextRequest) {
             c.raw_data->>'offset' as offset,
             -- Counts
             (SELECT COUNT(*) FROM repcard_appointments WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as appointment_count,
-            (SELECT COUNT(*) FROM repcard_customer_attachments WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as attachment_count,
+            (
+              SELECT COUNT(*) 
+              FROM (
+                SELECT repcard_customer_id FROM repcard_customer_attachments WHERE repcard_customer_id::text = c.repcard_customer_id::text
+                UNION ALL
+                SELECT repcard_customer_id FROM repcard_appointment_attachments WHERE repcard_customer_id::text = c.repcard_customer_id::text
+              ) combined_attachments
+            )::bigint as attachment_count,
             (SELECT COUNT(*) FROM repcard_customer_notes WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as note_count
           FROM repcard_customers c
           LEFT JOIN repcard_users ru_setter ON c.setter_user_id::text = ru_setter.repcard_user_id::text
@@ -234,7 +245,14 @@ export async function GET(request: NextRequest) {
             c.raw_data->>'offset' as offset,
             -- Counts
             (SELECT COUNT(*) FROM repcard_appointments WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as appointment_count,
-            (SELECT COUNT(*) FROM repcard_customer_attachments WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as attachment_count,
+            (
+              SELECT COUNT(*) 
+              FROM (
+                SELECT repcard_customer_id FROM repcard_customer_attachments WHERE repcard_customer_id::text = c.repcard_customer_id::text
+                UNION ALL
+                SELECT repcard_customer_id FROM repcard_appointment_attachments WHERE repcard_customer_id::text = c.repcard_customer_id::text
+              ) combined_attachments
+            )::bigint as attachment_count,
             (SELECT COUNT(*) FROM repcard_customer_notes WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as note_count
           FROM repcard_customers c
           LEFT JOIN repcard_users ru_setter ON c.setter_user_id::text = ru_setter.repcard_user_id::text
@@ -276,7 +294,14 @@ export async function GET(request: NextRequest) {
             c.raw_data->>'offset' as offset,
             -- Counts
             (SELECT COUNT(*) FROM repcard_appointments WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as appointment_count,
-            (SELECT COUNT(*) FROM repcard_customer_attachments WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as attachment_count,
+            (
+              SELECT COUNT(*) 
+              FROM (
+                SELECT repcard_customer_id FROM repcard_customer_attachments WHERE repcard_customer_id::text = c.repcard_customer_id::text
+                UNION ALL
+                SELECT repcard_customer_id FROM repcard_appointment_attachments WHERE repcard_customer_id::text = c.repcard_customer_id::text
+              ) combined_attachments
+            )::bigint as attachment_count,
             (SELECT COUNT(*) FROM repcard_customer_notes WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as note_count
           FROM repcard_customers c
           LEFT JOIN repcard_users ru_setter ON c.setter_user_id::text = ru_setter.repcard_user_id::text
@@ -318,7 +343,14 @@ export async function GET(request: NextRequest) {
             c.raw_data->>'offset' as offset,
             -- Counts
             (SELECT COUNT(*) FROM repcard_appointments WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as appointment_count,
-            (SELECT COUNT(*) FROM repcard_customer_attachments WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as attachment_count,
+            (
+              SELECT COUNT(*) 
+              FROM (
+                SELECT repcard_customer_id FROM repcard_customer_attachments WHERE repcard_customer_id::text = c.repcard_customer_id::text
+                UNION ALL
+                SELECT repcard_customer_id FROM repcard_appointment_attachments WHERE repcard_customer_id::text = c.repcard_customer_id::text
+              ) combined_attachments
+            )::bigint as attachment_count,
             (SELECT COUNT(*) FROM repcard_customer_notes WHERE repcard_customer_id::text = c.repcard_customer_id::text)::bigint as note_count
           FROM repcard_customers c
           LEFT JOIN repcard_users ru_setter ON c.setter_user_id::text = ru_setter.repcard_user_id::text
@@ -736,7 +768,7 @@ export async function GET(request: NextRequest) {
           COUNT(DISTINCT a.repcard_appointment_id)::bigint as appointments_set,
           COUNT(DISTINCT CASE WHEN a.closer_user_id::text = ru.repcard_user_id::text THEN a.repcard_appointment_id END)::bigint as appointments_closed,
           COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' AND a.closer_user_id::text = ru.repcard_user_id::text THEN a.repcard_appointment_id END)::bigint as sales_closed,
-          COUNT(DISTINCT CASE WHEN att.id IS NOT NULL THEN c.repcard_customer_id END)::bigint as customers_with_attachments,
+          COUNT(DISTINCT CASE WHEN (att_customer.id IS NOT NULL OR att_appt.id IS NOT NULL) THEN c.repcard_customer_id END)::bigint as customers_with_attachments,
           COUNT(DISTINCT n.repcard_note_id)::bigint as notes_written,
           COUNT(DISTINCT CASE WHEN a.is_within_48_hours = TRUE THEN a.repcard_appointment_id END)::bigint as appointments_within_48h
         FROM repcard_users ru
@@ -751,7 +783,8 @@ export async function GET(request: NextRequest) {
             (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
             OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
           )
-        LEFT JOIN repcard_customer_attachments att ON c.repcard_customer_id::text = att.repcard_customer_id::text
+        LEFT JOIN repcard_customer_attachments att_customer ON c.repcard_customer_id::text = att_customer.repcard_customer_id::text
+        LEFT JOIN repcard_appointment_attachments att_appt ON c.repcard_customer_id::text = att_appt.repcard_customer_id::text
         LEFT JOIN repcard_customer_notes n ON n.repcard_user_id::text = ru.repcard_user_id::text
           AND n.created_at::date >= ${calculatedStartDate}::date
           AND n.created_at::date <= ${calculatedEndDate}::date
@@ -778,7 +811,7 @@ export async function GET(request: NextRequest) {
           COUNT(DISTINCT a.repcard_appointment_id)::bigint as appointments_set,
           COUNT(DISTINCT CASE WHEN a.closer_user_id::text = ru.repcard_user_id::text THEN a.repcard_appointment_id END)::bigint as appointments_closed,
           COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' AND a.closer_user_id::text = ru.repcard_user_id::text THEN a.repcard_appointment_id END)::bigint as sales_closed,
-          COUNT(DISTINCT CASE WHEN att.id IS NOT NULL THEN c.repcard_customer_id END)::bigint as customers_with_attachments,
+          COUNT(DISTINCT CASE WHEN (att_customer.id IS NOT NULL OR att_appt.id IS NOT NULL) THEN c.repcard_customer_id END)::bigint as customers_with_attachments,
           COUNT(DISTINCT n.repcard_note_id)::bigint as notes_written,
           COUNT(DISTINCT CASE WHEN a.is_within_48_hours = TRUE THEN a.repcard_appointment_id END)::bigint as appointments_within_48h
         FROM repcard_users ru
@@ -793,7 +826,8 @@ export async function GET(request: NextRequest) {
             (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
             OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
           )
-        LEFT JOIN repcard_customer_attachments att ON c.repcard_customer_id::text = att.repcard_customer_id::text
+        LEFT JOIN repcard_customer_attachments att_customer ON c.repcard_customer_id::text = att_customer.repcard_customer_id::text
+        LEFT JOIN repcard_appointment_attachments att_appt ON c.repcard_customer_id::text = att_appt.repcard_customer_id::text
         LEFT JOIN repcard_customer_notes n ON n.repcard_user_id::text = ru.repcard_user_id::text
           AND n.created_at::date >= ${calculatedStartDate}::date
           AND n.created_at::date <= ${calculatedEndDate}::date
@@ -819,7 +853,7 @@ export async function GET(request: NextRequest) {
           COUNT(DISTINCT a.repcard_appointment_id)::bigint as appointments_set,
           COUNT(DISTINCT CASE WHEN a.closer_user_id::text = ru.repcard_user_id::text THEN a.repcard_appointment_id END)::bigint as appointments_closed,
           COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' AND a.closer_user_id::text = ru.repcard_user_id::text THEN a.repcard_appointment_id END)::bigint as sales_closed,
-          COUNT(DISTINCT CASE WHEN att.id IS NOT NULL THEN c.repcard_customer_id END)::bigint as customers_with_attachments,
+          COUNT(DISTINCT CASE WHEN (att_customer.id IS NOT NULL OR att_appt.id IS NOT NULL) THEN c.repcard_customer_id END)::bigint as customers_with_attachments,
           COUNT(DISTINCT n.repcard_note_id)::bigint as notes_written,
           COUNT(DISTINCT CASE WHEN a.is_within_48_hours = TRUE THEN a.repcard_appointment_id END)::bigint as appointments_within_48h
         FROM repcard_users ru
@@ -834,7 +868,8 @@ export async function GET(request: NextRequest) {
             (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
             OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
           )
-        LEFT JOIN repcard_customer_attachments att ON c.repcard_customer_id::text = att.repcard_customer_id::text
+        LEFT JOIN repcard_customer_attachments att_customer ON c.repcard_customer_id::text = att_customer.repcard_customer_id::text
+        LEFT JOIN repcard_appointment_attachments att_appt ON c.repcard_customer_id::text = att_appt.repcard_customer_id::text
         LEFT JOIN repcard_customer_notes n ON n.repcard_user_id::text = ru.repcard_user_id::text
           AND n.created_at::date >= ${calculatedStartDate}::date
           AND n.created_at::date <= ${calculatedEndDate}::date
@@ -860,7 +895,7 @@ export async function GET(request: NextRequest) {
           COUNT(DISTINCT a.repcard_appointment_id)::bigint as appointments_set,
           COUNT(DISTINCT CASE WHEN a.closer_user_id::text = ru.repcard_user_id::text THEN a.repcard_appointment_id END)::bigint as appointments_closed,
           COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' AND a.closer_user_id::text = ru.repcard_user_id::text THEN a.repcard_appointment_id END)::bigint as sales_closed,
-          COUNT(DISTINCT CASE WHEN att.id IS NOT NULL THEN c.repcard_customer_id END)::bigint as customers_with_attachments,
+          COUNT(DISTINCT CASE WHEN (att_customer.id IS NOT NULL OR att_appt.id IS NOT NULL) THEN c.repcard_customer_id END)::bigint as customers_with_attachments,
           COUNT(DISTINCT n.repcard_note_id)::bigint as notes_written,
           COUNT(DISTINCT CASE WHEN a.is_within_48_hours = TRUE THEN a.repcard_appointment_id END)::bigint as appointments_within_48h
         FROM repcard_users ru
@@ -875,7 +910,8 @@ export async function GET(request: NextRequest) {
             (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
             OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
           )
-        LEFT JOIN repcard_customer_attachments att ON c.repcard_customer_id::text = att.repcard_customer_id::text
+        LEFT JOIN repcard_customer_attachments att_customer ON c.repcard_customer_id::text = att_customer.repcard_customer_id::text
+        LEFT JOIN repcard_appointment_attachments att_appt ON c.repcard_customer_id::text = att_appt.repcard_customer_id::text
         LEFT JOIN repcard_customer_notes n ON n.repcard_user_id::text = ru.repcard_user_id::text
           AND n.created_at::date >= ${calculatedStartDate}::date
           AND n.created_at::date <= ${calculatedEndDate}::date
