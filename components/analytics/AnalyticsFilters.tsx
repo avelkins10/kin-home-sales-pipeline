@@ -46,6 +46,7 @@ export function AnalyticsFilters({
   isLoading = false
 }: AnalyticsFiltersProps) {
   const timeRanges: { value: TimeRange; label: string }[] = [
+    { value: 'today', label: 'Today' },
     { value: 'month', label: 'Month to Date' },
     { value: 'last_month', label: 'Last Month' },
     { value: 'ytd', label: 'Year to Date' },

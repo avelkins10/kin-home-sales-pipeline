@@ -60,7 +60,7 @@ export default function AnalyticsPage() {
     const endDateParam = searchParams.get('endDate');
     const tabParam = searchParams.get('tab');
 
-    if (timeRangeParam && ['ytd', 'last_30', 'last_90', 'last_12_months', 'custom', 'lifetime', 'month', 'last_month'].includes(timeRangeParam)) {
+    if (timeRangeParam && ['ytd', 'last_30', 'last_90', 'last_12_months', 'custom', 'lifetime', 'month', 'last_month', 'today'].includes(timeRangeParam)) {
       setTimeRange(timeRangeParam);
     }
 
