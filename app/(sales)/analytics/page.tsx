@@ -361,35 +361,6 @@ export default function AnalyticsPage() {
                 showExport={true}
               />
 
-              {/* NEW: Setter Performance Table - Full Width */}
-              <SetterPerformanceTable
-                userId={session.user.id}
-                role={session.user.role}
-                timeRange={timeRange}
-                customDateRange={customDateRange}
-                officeIds={selectedOfficeIds}
-                showExport={true}
-              />
-
-              {/* NEW: Closer Dashboard - Full Width */}
-              <CloserDashboard
-                userId={session.user.id}
-                role={session.user.role}
-                timeRange={timeRange}
-                customDateRange={customDateRange}
-                officeIds={selectedOfficeIds}
-              />
-
-              {/* NEW: Closer Performance Table - Full Width */}
-              <CloserPerformanceTable
-                userId={session.user.id}
-                role={session.user.role}
-                timeRange={timeRange}
-                customDateRange={customDateRange}
-                officeIds={selectedOfficeIds}
-                showExport={true}
-              />
-
               {/* Rep Benchmark Comparison - Full Width */}
               <RepBenchmarkComparisonCard
                 userId={session.user.id}
@@ -407,6 +378,41 @@ export default function AnalyticsPage() {
                 timeRange={timeRange}
                 customDateRange={customDateRange}
                 officeIds={selectedOfficeIds}
+              />
+            </>
+          }
+          setterPerformanceContent={
+            <>
+              {/* Setter Performance Table - Full Width */}
+              <SetterPerformanceTable
+                userId={session.user.id}
+                role={session.user.role}
+                timeRange={timeRange}
+                customDateRange={customDateRange}
+                officeIds={selectedOfficeIds}
+                showExport={true}
+              />
+            </>
+          }
+          closerPerformanceContent={
+            <>
+              {/* Closer Dashboard - Full Width */}
+              <CloserDashboard
+                userId={session.user.id}
+                role={session.user.role}
+                timeRange={timeRange}
+                customDateRange={customDateRange}
+                officeIds={selectedOfficeIds}
+              />
+
+              {/* Closer Performance Table - Full Width */}
+              <CloserPerformanceTable
+                userId={session.user.id}
+                role={session.user.role}
+                timeRange={timeRange}
+                customDateRange={customDateRange}
+                officeIds={selectedOfficeIds}
+                showExport={true}
               />
             </>
           }

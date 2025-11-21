@@ -2,11 +2,13 @@
 
 import { ReactNode } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BarChart3, Users, TrendingUp, AlertTriangle, Trophy, DoorOpen, Zap } from 'lucide-react';
+import { BarChart3, Users, TrendingUp, AlertTriangle, Trophy, DoorOpen, Zap, UserCheck, UserCog } from 'lucide-react';
 
 interface AnalyticsTabsProps {
   overviewContent: ReactNode;
   performanceContent: ReactNode;
+  setterPerformanceContent: ReactNode;
+  closerPerformanceContent: ReactNode;
   comparisonsContent: ReactNode;
   analysisContent: ReactNode;
   leaderboardsContent: ReactNode;
@@ -19,6 +21,8 @@ interface AnalyticsTabsProps {
 export function AnalyticsTabs({
   overviewContent,
   performanceContent,
+  setterPerformanceContent,
+  closerPerformanceContent,
   comparisonsContent,
   analysisContent,
   leaderboardsContent,
@@ -33,7 +37,7 @@ export function AnalyticsTabs({
       className="w-full"
       onValueChange={onTabChange}
     >
-      <TabsList className="grid w-full grid-cols-3 md:grid-cols-7 h-auto p-1.5 bg-slate-100 rounded-xl mb-8 shadow-sm">
+      <TabsList className="grid w-full grid-cols-3 md:grid-cols-9 h-auto p-1.5 bg-slate-100 rounded-xl mb-8 shadow-sm">
         <TabsTrigger
           value="overview"
           className="flex items-center justify-center gap-2 py-3 px-4 data-[state=active]:bg-white data-[state=active]:shadow-md rounded-lg transition-all duration-200 font-medium text-sm"
@@ -47,6 +51,20 @@ export function AnalyticsTabs({
         >
           <Users className="h-4 w-4" />
           <span className="hidden sm:inline">Performance</span>
+        </TabsTrigger>
+        <TabsTrigger
+          value="setter-performance"
+          className="flex items-center justify-center gap-2 py-3 px-4 data-[state=active]:bg-white data-[state=active]:shadow-md rounded-lg transition-all duration-200 font-medium text-sm"
+        >
+          <UserCheck className="h-4 w-4" />
+          <span className="hidden sm:inline">Setter</span>
+        </TabsTrigger>
+        <TabsTrigger
+          value="closer-performance"
+          className="flex items-center justify-center gap-2 py-3 px-4 data-[state=active]:bg-white data-[state=active]:shadow-md rounded-lg transition-all duration-200 font-medium text-sm"
+        >
+          <UserCog className="h-4 w-4" />
+          <span className="hidden sm:inline">Closer</span>
         </TabsTrigger>
         <TabsTrigger
           value="comparisons"
@@ -91,6 +109,14 @@ export function AnalyticsTabs({
 
       <TabsContent value="performance" className="mt-0 space-y-6 animate-in fade-in-50 duration-200">
         {performanceContent}
+      </TabsContent>
+
+      <TabsContent value="setter-performance" className="mt-0 space-y-6 animate-in fade-in-50 duration-200">
+        {setterPerformanceContent}
+      </TabsContent>
+
+      <TabsContent value="closer-performance" className="mt-0 space-y-6 animate-in fade-in-50 duration-200">
+        {closerPerformanceContent}
       </TabsContent>
 
       <TabsContent value="comparisons" className="mt-0 space-y-6 animate-in fade-in-50 duration-200">
