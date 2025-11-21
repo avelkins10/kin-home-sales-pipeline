@@ -3173,7 +3173,7 @@ export async function getOfficeMetrics(
 export async function getRepPerformance(
   userId: string,
   role: string,
-  timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | 'last_30' | 'last_90' | 'last_12_months' = 'ytd',
+  timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | 'today' | 'last_month' | 'last_30' | 'last_90' | 'last_12_months' = 'ytd',
   officeIds?: number[],
   customDateRange?: { startDate: string; endDate: string },
   reqId?: string,
@@ -3209,6 +3209,15 @@ export async function getRepPerformance(
       let endDate: string;
       
       switch (timeRange) {
+        case 'today':
+          startDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(now);
+          endDate = startDate;
+          break;
         case 'ytd':
           startDate = `${currentYear}-01-01`;
           endDate = new Intl.DateTimeFormat('en-CA', {
@@ -3232,6 +3241,23 @@ export async function getRepPerformance(
             month: '2-digit',
             day: '2-digit',
           }).format(monthStart);
+          break;
+        case 'last_month':
+          const lastMonth = new Date(currentYear, currentMonth - 1, 1);
+          const lastMonthStart = new Date(lastMonth.getFullYear(), lastMonth.getMonth(), 1);
+          const lastMonthEnd = new Date(lastMonth.getFullYear(), lastMonth.getMonth() + 1, 0);
+          startDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(lastMonthStart);
+          endDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(lastMonthEnd);
           break;
         case 'week':
           const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -3831,7 +3857,7 @@ export async function getPipelineForecast(
 export async function getMilestoneTimings(
   userId: string,
   role: string,
-  timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | 'last_30' | 'last_90' | 'last_12_months' = 'ytd',
+  timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | 'today' | 'last_month' | 'last_30' | 'last_90' | 'last_12_months' = 'ytd',
   officeIds?: number[],
   customDateRange?: { startDate: string; endDate: string },
   reqId?: string,
@@ -3867,6 +3893,15 @@ export async function getMilestoneTimings(
       let endDate: string;
       
       switch (timeRange) {
+        case 'today':
+          startDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(now);
+          endDate = startDate;
+          break;
         case 'ytd':
           startDate = `${currentYear}-01-01`;
           endDate = new Intl.DateTimeFormat('en-CA', {
@@ -3890,6 +3925,23 @@ export async function getMilestoneTimings(
             month: '2-digit',
             day: '2-digit',
           }).format(monthStart);
+          break;
+        case 'last_month':
+          const lastMonth = new Date(currentYear, currentMonth - 1, 1);
+          const lastMonthStart = new Date(lastMonth.getFullYear(), lastMonth.getMonth(), 1);
+          const lastMonthEnd = new Date(lastMonth.getFullYear(), lastMonth.getMonth() + 1, 0);
+          startDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(lastMonthStart);
+          endDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(lastMonthEnd);
           break;
         case 'week':
           const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);

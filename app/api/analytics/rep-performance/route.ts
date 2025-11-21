@@ -76,10 +76,10 @@ export async function GET(req: Request) {
     }
 
     // Extract time range parameter with validation
-    const timeRange = searchParams.get('timeRange') as 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | null;
-    const validTimeRanges = ['lifetime', 'ytd', 'month', 'week', 'custom', 'last_30', 'last_90', 'last_12_months'];
+    const timeRange = searchParams.get('timeRange') as 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | 'today' | 'last_month' | 'last_30' | 'last_90' | 'last_12_months' | null;
+    const validTimeRanges = ['lifetime', 'ytd', 'month', 'week', 'custom', 'today', 'last_month', 'last_30', 'last_90', 'last_12_months'];
     if (timeRange && !validTimeRanges.includes(timeRange)) {
-      return NextResponse.json({ error: 'Invalid timeRange parameter. Must be one of: lifetime, ytd, month, week, custom' }, { status: 400 });
+      return NextResponse.json({ error: `Invalid timeRange parameter. Must be one of: ${validTimeRanges.join(', ')}` }, { status: 400 });
     }
     const effectiveTimeRange = timeRange || 'ytd'; // Default to YTD for analytics
 
