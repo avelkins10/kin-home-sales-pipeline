@@ -54,5 +54,11 @@
     "enabled": true,
     "autoAlias": true,
     "silent": false
+  },
+  "git": {
+    "deploymentEnabled": {
+      "main": true,
+      "production": true
+    }
   }
 }
