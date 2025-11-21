@@ -169,11 +169,13 @@ export async function GET(request: NextRequest) {
       .filter(Boolean);
     
     // Get RepCard appointments for these closers
+    // Use status_category which is already calculated and normalized
     const appointmentsResult = await sql`
       SELECT 
         a.repcard_appointment_id,
         a.closer_user_id::text as closer_user_id,
         a.disposition,
+        a.status_category,
         a.scheduled_at,
         a.completed_at,
         a.notes,
@@ -246,7 +248,7 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    // Process appointments
+    // Process appointments - use status_category which is already normalized
     for (const appt of appointments) {
       const closerId = appt.closer_user_id;
       if (!closerId || !metricsMap.has(closerId)) continue;
@@ -254,49 +256,68 @@ export async function GET(request: NextRequest) {
       const metrics = metricsMap.get(closerId)!;
       metrics.appointmentsAssigned++;
       
-      const disposition = (appt.disposition || '').toLowerCase();
+      // Use status_category which is already calculated and normalized in the database
+      const statusCategory = appt.status_category || 'pending';
       
-      // Categorize disposition
-      if (disposition.includes('sat_closed') || disposition.includes('closed')) {
-        metrics.closed++;
-        metrics.appointmentsSat++;
-      } else if (disposition.includes('sat_follow') || disposition.includes('follow')) {
-        metrics.followUps++;
-        metrics.appointmentsSat++;
-      } else if (disposition.includes('sat') || disposition.includes('scheduled')) {
-        metrics.otherSits++;
-        metrics.appointmentsSat++;
-      } else if (disposition.includes('no_show') || disposition.includes('noshow')) {
-        metrics.noShow++;
-        metrics.appointmentsNoSit++;
-        // Extract reason from notes if available
-        if (appt.notes) {
-          const reason = extractNoSitReason(appt.notes);
-          if (reason) {
-            metrics.noSitReasons[reason] = (metrics.noSitReasons[reason] || 0) + 1;
+      // Categorize based on status_category
+      switch (statusCategory) {
+        case 'sat_closed':
+          metrics.closed++;
+          metrics.appointmentsSat++;
+          break;
+        case 'sat_no_close':
+          // These are sits that didn't close - could be follow-ups or other sits
+          // Check notes/disposition for more detail
+          const disposition = (appt.disposition || '').toLowerCase();
+          if (disposition.includes('follow') || disposition.includes('follow-up')) {
+            metrics.followUps++;
+          } else {
+            metrics.otherSits++;
           }
-        }
-      } else if (disposition.includes('cancel')) {
-        metrics.cancelled++;
-        metrics.appointmentsNoSit++;
-        if (appt.notes) {
-          const reason = extractNoSitReason(appt.notes);
-          if (reason) {
-            metrics.noSitReasons[reason] = (metrics.noSitReasons[reason] || 0) + 1;
-          }
-        }
-      } else if (disposition.includes('reschedule')) {
-        metrics.rescheduled++;
-        metrics.appointmentsNoSit++;
-      } else {
-        // Unknown disposition - count as no sit if not completed
-        if (!appt.completed_at) {
+          metrics.appointmentsSat++;
+          break;
+        case 'no_show':
+          metrics.noShow++;
           metrics.appointmentsNoSit++;
-        }
+          // Extract reason from notes if available
+          if (appt.notes) {
+            const reason = extractNoSitReason(appt.notes);
+            if (reason) {
+              metrics.noSitReasons[reason] = (metrics.noSitReasons[reason] || 0) + 1;
+            }
+          }
+          break;
+        case 'cancelled':
+          metrics.cancelled++;
+          metrics.appointmentsNoSit++;
+          if (appt.notes) {
+            const reason = extractNoSitReason(appt.notes);
+            if (reason) {
+              metrics.noSitReasons[reason] = (metrics.noSitReasons[reason] || 0) + 1;
+            }
+          }
+          break;
+        case 'rescheduled':
+          metrics.rescheduled++;
+          metrics.appointmentsNoSit++;
+          break;
+        case 'completed':
+          // Completed but no specific disposition - count as sit
+          metrics.otherSits++;
+          metrics.appointmentsSat++;
+          break;
+        case 'scheduled':
+        case 'pending':
+        default:
+          // Not yet completed - don't count as sit or no-sit yet
+          // These are future appointments
+          break;
       }
     }
     
     // Process QuickBase projects
+    // IMPORTANT: Not all appointments have QuickBase projects!
+    // Only appointments that resulted in sales (sat_closed) typically have projects
     const projectsByCloser = new Map<string, any[]>();
     for (const project of projects) {
       const closerId = project[PROJECT_FIELDS.CLOSER_ID]?.value;
@@ -309,7 +330,7 @@ export async function GET(request: NextRequest) {
       projectsByCloser.get(closerIdStr)!.push(project);
     }
     
-    // Calculate project metrics
+    // Calculate project metrics - only for closers who have projects
     for (const [closerId, closerProjects] of projectsByCloser.entries()) {
       if (!metricsMap.has(closerId)) continue;
       
@@ -322,7 +343,7 @@ export async function GET(request: NextRequest) {
       let totalRevenue = 0;
       
       for (const project of closerProjects) {
-        // Use commissionable PPW if available, fallback to gross PPW
+        // Use commissionable PPW if available, fallback to net PPW, then gross PPW
         const ppw = project[PROJECT_FIELDS.COMMISSIONABLE_PPW]?.value || 
                    project[PROJECT_FIELDS.NET_PPW]?.value || 
                    project[PROJECT_FIELDS.GROSS_PPW]?.value;
@@ -349,6 +370,13 @@ export async function GET(request: NextRequest) {
         : 0;
       metrics.totalRevenue = totalRevenue;
     }
+    
+    // Note: Closers with appointments but no projects will have:
+    // - projectsLinked: 0
+    // - avgPPW: 0
+    // - avgSystemSize: 0
+    // - totalRevenue: 0
+    // This is correct - not all appointments result in QuickBase projects!
     
     // Calculate sit rate
     for (const metrics of metricsMap.values()) {
