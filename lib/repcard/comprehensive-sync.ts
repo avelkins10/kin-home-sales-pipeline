@@ -167,6 +167,17 @@ export async function syncUsers(options: {
         const users = Array.isArray(response.result.data) ? response.result.data : [];
         console.log(`[RepCard Sync] Page ${page}: Got ${users.length} users`);
 
+        // Debug pagination info
+        const paginationInfo = {
+          currentPage: response.result.currentPage,
+          lastPage: response.result.lastPage,
+          total: response.result.total,
+          perPage: response.result.perPage,
+          from: response.result.from,
+          to: response.result.to
+        };
+        console.log(`[RepCard Sync] Pagination info:`, JSON.stringify(paginationInfo));
+
         // Batch lookup company_ids from offices for users missing it
         const usersNeedingCompanyId = users.filter(u => {
           const companyId = u.companyId || (u as any).company_id || null;
@@ -373,6 +384,12 @@ export async function syncUsers(options: {
         }
 
         hasMore = response.result.currentPage < response.result.lastPage;
+        console.log(`[RepCard Sync Users] hasMore = ${hasMore} (currentPage: ${response.result.currentPage}, lastPage: ${response.result.lastPage})`);
+
+        if (!hasMore) {
+          console.log(`[RepCard Sync Users] ✅ Reached last page. Total users synced: ${recordsFetched}`);
+        }
+
         page++;
 
       } catch (error) {
@@ -448,6 +465,13 @@ export async function syncOffices(): Promise<SyncEntityResult> {
 
     for (const office of offices) {
       try {
+        // Skip offices without names - they're invalid
+        if (!office.name || office.name.trim() === '') {
+          console.warn(`[RepCard Sync] Skipping office ${office.id} - missing name (city: ${office.city || 'N/A'})`);
+          recordsFailed++;
+          continue;
+        }
+
         const result = await sql`
           INSERT INTO repcard_offices (
             repcard_office_id,

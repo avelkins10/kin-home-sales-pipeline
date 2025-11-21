@@ -300,129 +300,117 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    // NEW APPROACH: Query RepCard users directly from repcard_users table
-    // This shows ALL RepCard data regardless of user linking status
-    // User linking is optional - it just adds app-specific names/roles
+    // FIXED APPROACH: Query app users table as primary source since it has all 384 RepCard-linked users
+    // repcard_users table only has 100 users, but users table has 384 users linked via repcard_user_id
+    // This ensures we show ALL RepCard users, not just the subset in repcard_users table
     let repcardUsers: any[] = [];
     let officeFilterFailed = false;
 
-    // Build query for RepCard users - use repcard_users as primary source
-    // Optionally join users table for app-specific info (names, roles) if linked
+    // Build query for app users that are linked to RepCard (repcard_user_id IS NOT NULL)
+    // Join to repcard_users for additional RepCard-specific data if available
     if (officeIds && officeIds.length > 0) {
-      // Filter by office_id from repcard_users or repcard_offices
+      // Filter by office from app users' sales_office
       let officeQuery;
       if (role !== 'all') {
         officeQuery = await sql`
-          SELECT DISTINCT 
-            ru.repcard_user_id, 
-            ru.first_name, 
-            ru.last_name, 
-            ru.email, 
-            ru.office_id, 
-            ru.office_name, 
-            ru.role as repcard_role, 
-            ru.status,
-            u.id as app_user_id, 
-            u.name as app_user_name, 
-            u.role as app_role, 
-            u.sales_office[1] as app_office
-          FROM repcard_users ru
-          LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
-          LEFT JOIN repcard_offices ro ON ro.repcard_office_id = ru.office_id
-          LEFT JOIN offices o ON o.name = ru.office_name OR o.name = ANY(u.sales_office)
-          WHERE ru.status = 1
-            AND (ro.repcard_office_id = ANY(${officeIds}::int[]) 
-                 OR o.quickbase_office_id = ANY(${officeIds}::int[]))
-            AND (ru.role = ${role} OR u.role = ${role})
+          SELECT DISTINCT
+            u.repcard_user_id,
+            u.name as app_user_name,
+            u.email,
+            u.role as app_role,
+            u.sales_office[1] as app_office,
+            u.id as app_user_id,
+            ru.first_name,
+            ru.last_name,
+            ru.office_name as repcard_office_name,
+            ru.role as repcard_role,
+            ru.status as repcard_status
+          FROM users u
+          LEFT JOIN repcard_users ru ON ru.repcard_user_id = u.repcard_user_id
+          LEFT JOIN offices o ON o.name = ANY(u.sales_office)
+          WHERE u.repcard_user_id IS NOT NULL
+            AND u.role = ${role}
+            AND o.quickbase_office_id = ANY(${officeIds}::int[])
           LIMIT 1000
         `;
       } else {
         officeQuery = await sql`
-          SELECT DISTINCT 
-            ru.repcard_user_id, 
-            ru.first_name, 
-            ru.last_name, 
-            ru.email, 
-            ru.office_id, 
-            ru.office_name, 
-            ru.role as repcard_role, 
-            ru.status,
-            u.id as app_user_id, 
-            u.name as app_user_name, 
-            u.role as app_role, 
-            u.sales_office[1] as app_office
-          FROM repcard_users ru
-          LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
-          LEFT JOIN repcard_offices ro ON ro.repcard_office_id = ru.office_id
-          LEFT JOIN offices o ON o.name = ru.office_name OR o.name = ANY(u.sales_office)
-          WHERE ru.status = 1
-            AND (ro.repcard_office_id = ANY(${officeIds}::int[]) 
-                 OR o.quickbase_office_id = ANY(${officeIds}::int[]))
+          SELECT DISTINCT
+            u.repcard_user_id,
+            u.name as app_user_name,
+            u.email,
+            u.role as app_role,
+            u.sales_office[1] as app_office,
+            u.id as app_user_id,
+            ru.first_name,
+            ru.last_name,
+            ru.office_name as repcard_office_name,
+            ru.role as repcard_role,
+            ru.status as repcard_status
+          FROM users u
+          LEFT JOIN repcard_users ru ON ru.repcard_user_id = u.repcard_user_id
+          LEFT JOIN offices o ON o.name = ANY(u.sales_office)
+          WHERE u.repcard_user_id IS NOT NULL
+            AND o.quickbase_office_id = ANY(${officeIds}::int[])
           LIMIT 1000
         `;
       }
       repcardUsers = Array.from(officeQuery);
-      
-      // If office filter returns 0 users, it means RepCard office IDs don't match QuickBase office IDs
-      // This is expected - RepCard has its own office system
-      // Fall back to showing ALL RepCard users (office filter doesn't apply to RepCard data)
+
+      // If office filter returns 0 users, fall back to all users
       if (repcardUsers.length === 0) {
-        console.log(`[RepCard Leaderboard] ⚠️ Office filter returned 0 RepCard users (RepCard offices don't match QuickBase offices)`);
-        console.log(`[RepCard Leaderboard] Falling back to ALL RepCard users - office filter ignored for RepCard data`);
+        console.log(`[RepCard Leaderboard] ⚠️ Office filter returned 0 users`);
+        console.log(`[RepCard Leaderboard] Falling back to ALL RepCard-linked users`);
         officeFilterFailed = true;
-        // Don't clear officeIds - we'll just ignore it for RepCard queries
       }
     }
-    
-    // If no office filter or office filter failed, get all active RepCard users
-    // NOTE: RepCard office IDs don't match QuickBase office IDs, so we show all RepCard data
+
+    // If no office filter or office filter failed, get all RepCard-linked users from app users table
     if (repcardUsers.length === 0) {
       let allUsersQuery;
       if (role !== 'all') {
         allUsersQuery = await sql`
-          SELECT DISTINCT 
-            ru.repcard_user_id, 
-            ru.first_name, 
-            ru.last_name, 
-            ru.email,
-            ru.office_id, 
-            ru.office_name, 
-            ru.role as repcard_role, 
-            ru.status,
-            u.id as app_user_id, 
-            u.name as app_user_name, 
-            u.role as app_role, 
-            u.sales_office[1] as app_office
-          FROM repcard_users ru
-          LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
-          WHERE ru.status = 1
-            AND (ru.role = ${role} OR u.role = ${role})
+          SELECT DISTINCT
+            u.repcard_user_id,
+            u.name as app_user_name,
+            u.email,
+            u.role as app_role,
+            u.sales_office[1] as app_office,
+            u.id as app_user_id,
+            ru.first_name,
+            ru.last_name,
+            ru.office_name as repcard_office_name,
+            ru.role as repcard_role,
+            ru.status as repcard_status
+          FROM users u
+          LEFT JOIN repcard_users ru ON ru.repcard_user_id = u.repcard_user_id
+          WHERE u.repcard_user_id IS NOT NULL
+            AND u.role = ${role}
           LIMIT 1000
         `;
       } else {
         allUsersQuery = await sql`
-          SELECT DISTINCT 
-            ru.repcard_user_id, 
-            ru.first_name, 
-            ru.last_name, 
-            ru.email,
-            ru.office_id, 
-            ru.office_name, 
-            ru.role as repcard_role, 
-            ru.status,
-            u.id as app_user_id, 
-            u.name as app_user_name, 
-            u.role as app_role, 
-            u.sales_office[1] as app_office
-          FROM repcard_users ru
-          LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
-          WHERE ru.status = 1
+          SELECT DISTINCT
+            u.repcard_user_id,
+            u.name as app_user_name,
+            u.email,
+            u.role as app_role,
+            u.sales_office[1] as app_office,
+            u.id as app_user_id,
+            ru.first_name,
+            ru.last_name,
+            ru.office_name as repcard_office_name,
+            ru.role as repcard_role,
+            ru.status as repcard_status
+          FROM users u
+          LEFT JOIN repcard_users ru ON ru.repcard_user_id = u.repcard_user_id
+          WHERE u.repcard_user_id IS NOT NULL
           LIMIT 1000
         `;
       }
       repcardUsers = Array.from(allUsersQuery);
     }
-    
+
     // Extract RepCard user IDs for metric queries
     const repcardUserIds = repcardUsers.map((ru: any) => ru.repcard_user_id).filter(Boolean);
     
@@ -451,21 +439,21 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(response);
     }
     
-    console.log(`[RepCard Leaderboard] Found ${repcardUserIds.length} RepCard users for leaderboard`);
-    
-    // Create user map for easy lookup (prefer app user info, fallback to RepCard info)
+    console.log(`[RepCard Leaderboard] Found ${repcardUserIds.length} RepCard-linked users for leaderboard`);
+
+    // Create user map for easy lookup - now primarily using app user data
     const userMap = new Map();
     repcardUsers.forEach((ru: any) => {
       userMap.set(ru.repcard_user_id, {
-        userId: ru.app_user_id || `repcard_${ru.repcard_user_id}`, // Use app user ID if linked, otherwise create temp ID
-        userName: ru.app_user_name || `${ru.first_name || ''} ${ru.last_name || ''}`.trim() || ru.email || `RepCard User ${ru.repcard_user_id}`,
+        userId: ru.app_user_id, // Always use app user ID (required)
+        userName: ru.app_user_name || `${ru.first_name || ''} ${ru.last_name || ''}`.trim() || ru.email || `User ${ru.repcard_user_id}`,
         userEmail: ru.email,
         repcardUserId: ru.repcard_user_id,
-        office: ru.app_office || ru.office_name,
-        role: ru.app_role || ru.repcard_role
+        office: ru.app_office || ru.repcard_office_name,
+        role: ru.app_role || ru.repcard_role // App role takes precedence
       });
     });
-    
+
     // For backward compatibility, create users array
     const users = Array.from(userMap.values());
     

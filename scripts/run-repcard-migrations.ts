@@ -30,7 +30,11 @@ const migrations = [
   '016_repcard_complete_data.sql',
   '017_repcard_settings.sql',
   '017_make_repcard_users_company_id_nullable.sql',
-  '018_normalize_repcard_user_ids_to_integer.sql'
+  '018_normalize_repcard_user_ids_to_integer.sql',
+  '020_add_repcard_composite_indexes.sql',
+  '028_add_repcard_reschedule_tracking.sql',
+  '029_add_repcard_office_mapping.sql',
+  '030_create_repcard_unified_attachments.sql'
 ];
 
 async function runMigrations() {

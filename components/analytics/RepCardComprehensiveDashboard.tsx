@@ -34,6 +34,7 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import { formatRepCardDate, formatRepCardDateRange } from '@/lib/utils/repcard-date-helpers';
+import { RepCardRescheduleMetricsCard } from './RepCardRescheduleMetricsCard';
 
 interface ComprehensiveStats {
   success: boolean;
@@ -319,7 +320,7 @@ export function RepCardComprehensiveDashboard() {
       </div>
 
       {/* Secondary Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="hover:shadow-md transition-shadow">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
@@ -361,7 +362,28 @@ export function RepCardComprehensiveDashboard() {
             </div>
           </CardContent>
         </Card>
+
+        <Card className="hover:shadow-md transition-shadow border-l-4 border-l-orange-500">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-orange-100 rounded-lg">
+                <RefreshCw className="h-5 w-5 text-orange-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-2xl font-bold">{appointments.length}</p>
+                <p className="text-xs text-muted-foreground">Total Appointments</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Reschedule Quality Metrics */}
+      <RepCardRescheduleMetricsCard
+        startDate={dateRange.startDate}
+        endDate={dateRange.endDate}
+        className="mt-4"
+      />
 
       {/* Top Performers Quick View */}
       {(topDoorsKnocked.length > 0 || topSales.length > 0) && (
@@ -810,19 +832,44 @@ export function RepCardComprehensiveDashboard() {
                 {appointments.length === 0 ? (
                   <p className="text-center text-muted-foreground py-8">No appointments found</p>
                 ) : (
-                  appointments.map((appt) => (
-                    <Card key={appt.repcardAppointmentId} className="hover:shadow-md transition-shadow">
+                  appointments.map((appt) => {
+                    // Determine reschedule status for color coding
+                    const getRescheduleIndicator = () => {
+                      if (!appt.isReschedule) {
+                        return { color: 'bg-green-100 text-green-800 border-green-300', label: 'Original', icon: 'check' };
+                      }
+                      if (appt.rescheduleCount === 1) {
+                        return { color: 'bg-yellow-100 text-yellow-800 border-yellow-300', label: '1st Reschedule', icon: 'refresh' };
+                      }
+                      return { color: 'bg-red-100 text-red-800 border-red-300', label: `${appt.rescheduleCount} Reschedules`, icon: 'alert' };
+                    };
+
+                    const rescheduleIndicator = getRescheduleIndicator();
+                    const cardBorderColor = appt.isReschedule
+                      ? (appt.rescheduleCount === 1 ? 'border-l-yellow-500' : 'border-l-red-500')
+                      : 'border-l-green-500';
+
+                    return (
+                    <Card key={appt.repcardAppointmentId} className={cn("hover:shadow-md transition-shadow border-l-4", cardBorderColor)}>
                       <CardContent className="pt-6">
                         <div className="flex flex-col md:flex-row gap-4">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between mb-3">
                               <div>
                                 <h3 className="font-semibold text-lg mb-2">{appt.customer?.name || 'Unknown Customer'}</h3>
-                                {appt.disposition && (
-                                  <Badge className={getDispositionColor(appt.disposition)}>
-                                    {appt.disposition}
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  {appt.disposition && (
+                                    <Badge className={getDispositionColor(appt.disposition)}>
+                                      {appt.disposition}
+                                    </Badge>
+                                  )}
+                                  <Badge className={rescheduleIndicator.color}>
+                                    {rescheduleIndicator.icon === 'check' && <CheckCircle2 className="h-3 w-3 mr-1 inline" />}
+                                    {rescheduleIndicator.icon === 'refresh' && <RefreshCw className="h-3 w-3 mr-1 inline" />}
+                                    {rescheduleIndicator.icon === 'alert' && <AlertCircle className="h-3 w-3 mr-1 inline" />}
+                                    {rescheduleIndicator.label}
                                   </Badge>
-                                )}
+                                </div>
                               </div>
                               {appt.attachmentCount > 0 && (
                                 <Badge variant="secondary" className="text-xs shrink-0">
@@ -889,7 +936,8 @@ export function RepCardComprehensiveDashboard() {
                         </div>
                       </CardContent>
                     </Card>
-                  ))
+                  );
+                  })
                 )}
               </div>
             </CardContent>

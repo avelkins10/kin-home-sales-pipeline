@@ -582,7 +582,40 @@ export async function syncAppointments(options: {
               }
             }
 
-            // Upsert appointment with ALL fields
+            // Determine reschedule status before inserting
+            // Check if there are existing appointments for this customer
+            let isReschedule = false;
+            let rescheduleCount = 0;
+            let originalAppointmentId: string | null = null;
+
+            if (appointment.contact?.id) {
+              const existingAppointmentsResult = await sql`
+                SELECT
+                  id,
+                  repcard_appointment_id,
+                  scheduled_at,
+                  created_at,
+                  is_reschedule,
+                  original_appointment_id
+                FROM repcard_appointments
+                WHERE repcard_customer_id = ${appointment.contact.id}
+                  AND repcard_appointment_id != ${appointment.id}
+                ORDER BY COALESCE(scheduled_at, created_at) ASC
+              `;
+              const existingAppointments = existingAppointmentsResult.rows || existingAppointmentsResult;
+
+              if (existingAppointments.length > 0) {
+                // This is a reschedule
+                isReschedule = true;
+                rescheduleCount = existingAppointments.length;
+
+                // Link to original appointment (first one for this customer)
+                const firstAppointment = existingAppointments[0];
+                originalAppointmentId = firstAppointment.original_appointment_id || firstAppointment.id;
+              }
+            }
+
+            // Upsert appointment with ALL fields including reschedule tracking
             // Ensure all required fields are present
             if (!appointment.createdAt || !appointment.updatedAt) {
               console.warn(`[RepCard Sync] Appointment ${appointment.id} missing required timestamps, skipping`);
@@ -605,6 +638,9 @@ export async function syncAppointments(options: {
                 duration,
                 notes,
                 is_within_48_hours,
+                is_reschedule,
+                reschedule_count,
+                original_appointment_id,
                 created_at,
                 updated_at,
                 raw_data
@@ -623,6 +659,9 @@ export async function syncAppointments(options: {
                 ${appointment.durationTime || null},
                 ${appointment.notes || null},
                 ${isWithin48Hours},
+                ${isReschedule},
+                ${rescheduleCount},
+                ${originalAppointmentId},
                 ${appointment.createdAt},
                 ${appointment.updatedAt},
                 ${JSON.stringify(appointment)}
@@ -640,6 +679,9 @@ export async function syncAppointments(options: {
                 duration = EXCLUDED.duration,
                 notes = EXCLUDED.notes,
                 is_within_48_hours = EXCLUDED.is_within_48_hours,
+                is_reschedule = EXCLUDED.is_reschedule,
+                reschedule_count = EXCLUDED.reschedule_count,
+                original_appointment_id = EXCLUDED.original_appointment_id,
                 updated_at = EXCLUDED.updated_at,
                 raw_data = EXCLUDED.raw_data,
                 synced_at = NOW()
