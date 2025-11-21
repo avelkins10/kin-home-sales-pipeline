@@ -85,8 +85,13 @@ export function CloserDashboard({
     queryFn: async () => {
       const params = buildQueryParams();
       const response = await fetch(`${getBaseUrl()}/api/analytics/closer-dashboard?${params}`);
-      if (!response.ok) throw new Error('Failed to fetch closer dashboard data');
-      return response.json();
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to fetch closer dashboard data');
+      }
+      const data = await response.json();
+      // Ensure we return an array
+      return Array.isArray(data) ? data : [];
     },
     staleTime: 15 * 60 * 1000, // 15 minutes
   });

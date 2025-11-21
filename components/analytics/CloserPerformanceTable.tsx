@@ -160,8 +160,13 @@ export function CloserPerformanceTable({
       }
       
       const response = await fetch(`${getBaseUrl()}/api/analytics/closer-appointments-sat?${params}`);
-      if (!response.ok) throw new Error('Failed to fetch appointments sat data');
-      return response.json();
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to fetch appointments sat data');
+      }
+      const data = await response.json();
+      // Ensure we return an array
+      return Array.isArray(data) ? data : [];
     },
     staleTime: 15 * 60 * 1000,
   });
@@ -185,8 +190,13 @@ export function CloserPerformanceTable({
       }
       
       const response = await fetch(`${getBaseUrl()}/api/analytics/closer-followups?${params}`);
-      if (!response.ok) throw new Error('Failed to fetch follow-ups data');
-      return response.json();
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to fetch follow-ups data');
+      }
+      const data = await response.json();
+      // Ensure we return an array
+      return Array.isArray(data) ? data : [];
     },
     staleTime: 30 * 60 * 1000, // 30 minutes (more expensive query)
   });
@@ -195,25 +205,33 @@ export function CloserPerformanceTable({
   const allUserIds = new Set<string>();
   
   // Collect user IDs from all successful queries
-  if (salesClosedData?.leaderboard) {
+  if (salesClosedData?.leaderboard && Array.isArray(salesClosedData.leaderboard)) {
     salesClosedData.leaderboard.forEach(entry => allUserIds.add(entry.userId));
   }
-  if (revenueData?.leaderboard) {
+  if (revenueData?.leaderboard && Array.isArray(revenueData.leaderboard)) {
     revenueData.leaderboard.forEach(entry => allUserIds.add(entry.userId));
   }
-  if (appointmentsSatData) {
+  if (appointmentsSatData && Array.isArray(appointmentsSatData)) {
     appointmentsSatData.forEach(entry => allUserIds.add(entry.userId));
   }
-  if (followUpsData) {
+  if (followUpsData && Array.isArray(followUpsData)) {
     followUpsData.forEach(entry => allUserIds.add(entry.userId));
   }
   
   // Build combined metrics from union of all users
   const combinedMetrics: CloserMetrics[] = Array.from(allUserIds).map(userId => {
-    const salesEntry = salesClosedData?.leaderboard?.find(e => e.userId === userId);
-    const revenueEntry = revenueData?.leaderboard?.find(e => e.userId === userId);
-    const appointmentsEntry = appointmentsSatData?.find(e => e.userId === userId);
-    const followUpsEntry = followUpsData?.find(e => e.userId === userId);
+    const salesEntry = Array.isArray(salesClosedData?.leaderboard) 
+      ? salesClosedData.leaderboard.find(e => e.userId === userId) 
+      : undefined;
+    const revenueEntry = Array.isArray(revenueData?.leaderboard)
+      ? revenueData.leaderboard.find(e => e.userId === userId)
+      : undefined;
+    const appointmentsEntry = Array.isArray(appointmentsSatData)
+      ? appointmentsSatData.find(e => e.userId === userId)
+      : undefined;
+    const followUpsEntry = Array.isArray(followUpsData)
+      ? followUpsData.find(e => e.userId === userId)
+      : undefined;
     
     // Use the first available entry for user info, fallback to defaults
     const baseEntry = salesEntry || revenueEntry || appointmentsEntry || followUpsEntry;
