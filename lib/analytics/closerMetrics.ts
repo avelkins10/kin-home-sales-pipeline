@@ -85,9 +85,10 @@ export async function getAppointmentsSatByCloser(
        AND o.quickbase_office_id = ANY($1::int[])`,
       [officeIds]
     );
-    closers = result.rows;
+    closers = Array.isArray(result.rows) ? result.rows : Array.from(result.rows || []);
   } else {
-    closers = await closersQuery as unknown as any[];
+    const closersResult = await closersQuery;
+    closers = Array.isArray(closersResult) ? closersResult : Array.from(closersResult || []);
   }
   
   // Get RepCard user IDs for all closers
@@ -121,8 +122,10 @@ export async function getAppointmentsSatByCloser(
         perPage: 100
       });
 
-      allAppointments.push(...response.result.data);
-      hasMore = response.result.currentPage < (response.result.totalPages || 1);
+      const appointmentsData = response.result?.data || [];
+      const appointmentsArray = Array.isArray(appointmentsData) ? appointmentsData : [];
+      allAppointments.push(...appointmentsArray);
+      hasMore = response.result?.currentPage < (response.result?.totalPages || 1);
       page++;
     } catch (error) {
       console.error(`Failed to fetch appointments page ${page}:`, error);
@@ -183,9 +186,10 @@ export async function getFollowUpsByCloser(
        AND o.quickbase_office_id = ANY($1::int[])`,
       [officeIds]
     );
-    closers = result.rows;
+    closers = Array.isArray(result.rows) ? result.rows : Array.from(result.rows || []);
   } else {
-    closers = await closersQuery as unknown as any[];
+    const closersResult = await closersQuery;
+    closers = Array.isArray(closersResult) ? closersResult : Array.from(closersResult || []);
   }
   
   // Fetch quality metrics for each closer
