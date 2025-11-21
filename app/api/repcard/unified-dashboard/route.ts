@@ -38,25 +38,32 @@ export async function GET(request: NextRequest) {
       return Array.from(result);
     };
 
-    // Build date filters
-    const dateFilter = startDate && endDate
-      ? sql`AND a.scheduled_at >= ${startDate}::timestamptz AND a.scheduled_at <= ${endDate}::timestamptz`
-      : sql``;
-
     // ========================================
     // 1. QUALITY METRICS
     // ========================================
-    const qualityResult = await sql`
-      SELECT
-        COUNT(DISTINCT a.id)::int as total_appointments,
-        COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE)::int as within_48h,
-        COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = TRUE)::int as reschedules,
-        COUNT(DISTINCT CASE WHEN att.id IS NOT NULL THEN a.id END)::int as with_power_bill
-      FROM repcard_appointments a
-      LEFT JOIN repcard_appointment_attachments att ON att.repcard_appointment_id = a.repcard_appointment_id
-        AND att.attachment_type = 'power_bill'
-      WHERE 1=1 ${dateFilter}
-    `;
+    const qualityResult = startDate && endDate
+      ? await sql`
+          SELECT
+            COUNT(DISTINCT a.id)::int as total_appointments,
+            COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE)::int as within_48h,
+            COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = TRUE)::int as reschedules,
+            COUNT(DISTINCT CASE WHEN att.id IS NOT NULL THEN a.id END)::int as with_power_bill
+          FROM repcard_appointments a
+          LEFT JOIN repcard_appointment_attachments att ON att.repcard_appointment_id = a.repcard_appointment_id
+            AND att.attachment_type = 'power_bill'
+          WHERE a.scheduled_at >= ${startDate}::timestamptz
+            AND a.scheduled_at <= ${endDate}::timestamptz
+        `
+      : await sql`
+          SELECT
+            COUNT(DISTINCT a.id)::int as total_appointments,
+            COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE)::int as within_48h,
+            COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = TRUE)::int as reschedules,
+            COUNT(DISTINCT CASE WHEN att.id IS NOT NULL THEN a.id END)::int as with_power_bill
+          FROM repcard_appointments a
+          LEFT JOIN repcard_appointment_attachments att ON att.repcard_appointment_id = a.repcard_appointment_id
+            AND att.attachment_type = 'power_bill'
+        `;
 
     const qualityData = getRows(qualityResult)[0] as any;
     const totalAppts = qualityData?.total_appointments || 0;
@@ -69,25 +76,47 @@ export async function GET(request: NextRequest) {
     };
 
     // Top reschedulers
-    const topReschedulersResult = await sql`
-      SELECT
-        u.repcard_user_id,
-        u.name,
-        COUNT(DISTINCT a.id)::int as total_appointments,
-        COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = TRUE)::int as reschedules,
-        CASE
-          WHEN COUNT(DISTINCT a.id) > 0 THEN
-            (COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = TRUE)::float / COUNT(DISTINCT a.id)::float) * 100
-          ELSE 0
-        END as reschedule_rate
-      FROM repcard_appointments a
-      LEFT JOIN users u ON u.repcard_user_id = a.setter_user_id
-      WHERE u.repcard_user_id IS NOT NULL ${dateFilter}
-      GROUP BY u.repcard_user_id, u.name
-      HAVING COUNT(DISTINCT a.id) >= 5
-      ORDER BY reschedule_rate DESC
-      LIMIT 5
-    `;
+    const topReschedulersResult = startDate && endDate
+      ? await sql`
+          SELECT
+            u.repcard_user_id,
+            u.name,
+            COUNT(DISTINCT a.id)::int as total_appointments,
+            COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = TRUE)::int as reschedules,
+            CASE
+              WHEN COUNT(DISTINCT a.id) > 0 THEN
+                (COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = TRUE)::float / COUNT(DISTINCT a.id)::float) * 100
+              ELSE 0
+            END as reschedule_rate
+          FROM repcard_appointments a
+          LEFT JOIN users u ON u.repcard_user_id = a.setter_user_id
+          WHERE u.repcard_user_id IS NOT NULL
+            AND a.scheduled_at >= ${startDate}::timestamptz
+            AND a.scheduled_at <= ${endDate}::timestamptz
+          GROUP BY u.repcard_user_id, u.name
+          HAVING COUNT(DISTINCT a.id) >= 5
+          ORDER BY reschedule_rate DESC
+          LIMIT 5
+        `
+      : await sql`
+          SELECT
+            u.repcard_user_id,
+            u.name,
+            COUNT(DISTINCT a.id)::int as total_appointments,
+            COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = TRUE)::int as reschedules,
+            CASE
+              WHEN COUNT(DISTINCT a.id) > 0 THEN
+                (COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = TRUE)::float / COUNT(DISTINCT a.id)::float) * 100
+              ELSE 0
+            END as reschedule_rate
+          FROM repcard_appointments a
+          LEFT JOIN users u ON u.repcard_user_id = a.setter_user_id
+          WHERE u.repcard_user_id IS NOT NULL
+          GROUP BY u.repcard_user_id, u.name
+          HAVING COUNT(DISTINCT a.id) >= 5
+          ORDER BY reschedule_rate DESC
+          LIMIT 5
+        `;
 
     const topReschedulers = getRows(topReschedulersResult).map((row: any) => ({
       userId: row.repcard_user_id,
@@ -100,34 +129,65 @@ export async function GET(request: NextRequest) {
     // ========================================
     // 2. OFFICE PERFORMANCE
     // ========================================
-    const officeResult = await sql`
-      SELECT
-        o.repcard_office_id,
-        o.name as office_name,
-        COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
-        COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_set,
-        COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' THEN a.repcard_appointment_id END)::int as sales_closed,
-        COUNT(DISTINCT u.repcard_user_id)::int as active_reps,
-        CASE
-          WHEN COUNT(DISTINCT c.repcard_customer_id) > 0 THEN
-            (COUNT(DISTINCT a.repcard_appointment_id)::float / COUNT(DISTINCT c.repcard_customer_id)::float) * 100
-          ELSE 0
-        END as conversion_rate,
-        CASE
-          WHEN COUNT(DISTINCT a.repcard_appointment_id) > 0 THEN
-            (COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' THEN a.repcard_appointment_id END)::float /
-             COUNT(DISTINCT a.repcard_appointment_id)::float) * 100
-          ELSE 0
-        END as close_rate
-      FROM repcard_offices o
-      LEFT JOIN repcard_customers c ON c.office_id = o.repcard_office_id
-      LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id ${dateFilter}
-      LEFT JOIN users u ON u.repcard_user_id = c.setter_user_id
-      GROUP BY o.repcard_office_id, o.name
-      HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
-      ORDER BY doors_knocked DESC
-      LIMIT 10
-    `;
+    const officeResult = startDate && endDate
+      ? await sql`
+          SELECT
+            o.repcard_office_id,
+            o.name as office_name,
+            COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
+            COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_set,
+            COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' THEN a.repcard_appointment_id END)::int as sales_closed,
+            COUNT(DISTINCT u.repcard_user_id)::int as active_reps,
+            CASE
+              WHEN COUNT(DISTINCT c.repcard_customer_id) > 0 THEN
+                (COUNT(DISTINCT a.repcard_appointment_id)::float / COUNT(DISTINCT c.repcard_customer_id)::float) * 100
+              ELSE 0
+            END as conversion_rate,
+            CASE
+              WHEN COUNT(DISTINCT a.repcard_appointment_id) > 0 THEN
+                (COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' THEN a.repcard_appointment_id END)::float /
+                 COUNT(DISTINCT a.repcard_appointment_id)::float) * 100
+              ELSE 0
+            END as close_rate
+          FROM repcard_offices o
+          LEFT JOIN repcard_customers c ON c.office_id = o.repcard_office_id
+          LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id
+            AND a.scheduled_at >= ${startDate}::timestamptz
+            AND a.scheduled_at <= ${endDate}::timestamptz
+          LEFT JOIN users u ON u.repcard_user_id = c.setter_user_id
+          GROUP BY o.repcard_office_id, o.name
+          HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
+          ORDER BY doors_knocked DESC
+          LIMIT 10
+        `
+      : await sql`
+          SELECT
+            o.repcard_office_id,
+            o.name as office_name,
+            COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
+            COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_set,
+            COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' THEN a.repcard_appointment_id END)::int as sales_closed,
+            COUNT(DISTINCT u.repcard_user_id)::int as active_reps,
+            CASE
+              WHEN COUNT(DISTINCT c.repcard_customer_id) > 0 THEN
+                (COUNT(DISTINCT a.repcard_appointment_id)::float / COUNT(DISTINCT c.repcard_customer_id)::float) * 100
+              ELSE 0
+            END as conversion_rate,
+            CASE
+              WHEN COUNT(DISTINCT a.repcard_appointment_id) > 0 THEN
+                (COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' THEN a.repcard_appointment_id END)::float /
+                 COUNT(DISTINCT a.repcard_appointment_id)::float) * 100
+              ELSE 0
+            END as close_rate
+          FROM repcard_offices o
+          LEFT JOIN repcard_customers c ON c.office_id = o.repcard_office_id
+          LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id
+          LEFT JOIN users u ON u.repcard_user_id = c.setter_user_id
+          GROUP BY o.repcard_office_id, o.name
+          HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
+          ORDER BY doors_knocked DESC
+          LIMIT 10
+        `;
 
     const officePerformance = getRows(officeResult).map((row: any) => ({
       officeId: row.repcard_office_id,
@@ -145,27 +205,51 @@ export async function GET(request: NextRequest) {
     // ========================================
 
     // Top doors knocked
-    const topDoorsResult = await sql`
-      SELECT
-        u.repcard_user_id,
-        u.name,
-        u.role,
-        COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
-        COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_set,
-        CASE
-          WHEN COUNT(DISTINCT c.repcard_customer_id) > 0 THEN
-            (COUNT(DISTINCT a.repcard_appointment_id)::float / COUNT(DISTINCT c.repcard_customer_id)::float) * 100
-          ELSE 0
-        END as conversion_rate
-      FROM users u
-      LEFT JOIN repcard_customers c ON c.setter_user_id = u.repcard_user_id
-      LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id ${dateFilter}
-      WHERE u.repcard_user_id IS NOT NULL
-      GROUP BY u.repcard_user_id, u.name, u.role
-      HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
-      ORDER BY doors_knocked DESC
-      LIMIT 10
-    `;
+    const topDoorsResult = startDate && endDate
+      ? await sql`
+          SELECT
+            u.repcard_user_id,
+            u.name,
+            u.role,
+            COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
+            COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_set,
+            CASE
+              WHEN COUNT(DISTINCT c.repcard_customer_id) > 0 THEN
+                (COUNT(DISTINCT a.repcard_appointment_id)::float / COUNT(DISTINCT c.repcard_customer_id)::float) * 100
+              ELSE 0
+            END as conversion_rate
+          FROM users u
+          LEFT JOIN repcard_customers c ON c.setter_user_id = u.repcard_user_id
+          LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id
+            AND a.scheduled_at >= ${startDate}::timestamptz
+            AND a.scheduled_at <= ${endDate}::timestamptz
+          WHERE u.repcard_user_id IS NOT NULL
+          GROUP BY u.repcard_user_id, u.name, u.role
+          HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
+          ORDER BY doors_knocked DESC
+          LIMIT 10
+        `
+      : await sql`
+          SELECT
+            u.repcard_user_id,
+            u.name,
+            u.role,
+            COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
+            COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_set,
+            CASE
+              WHEN COUNT(DISTINCT c.repcard_customer_id) > 0 THEN
+                (COUNT(DISTINCT a.repcard_appointment_id)::float / COUNT(DISTINCT c.repcard_customer_id)::float) * 100
+              ELSE 0
+            END as conversion_rate
+          FROM users u
+          LEFT JOIN repcard_customers c ON c.setter_user_id = u.repcard_user_id
+          LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id
+          WHERE u.repcard_user_id IS NOT NULL
+          GROUP BY u.repcard_user_id, u.name, u.role
+          HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
+          ORDER BY doors_knocked DESC
+          LIMIT 10
+        `;
 
     const topDoors = getRows(topDoorsResult).map((row: any) => ({
       userId: row.repcard_user_id,
@@ -177,27 +261,51 @@ export async function GET(request: NextRequest) {
     }));
 
     // Top converters
-    const topConvertersResult = await sql`
-      SELECT
-        u.repcard_user_id,
-        u.name,
-        u.role,
-        COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
-        COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_set,
-        CASE
-          WHEN COUNT(DISTINCT c.repcard_customer_id) > 0 THEN
-            (COUNT(DISTINCT a.repcard_appointment_id)::float / COUNT(DISTINCT c.repcard_customer_id)::float) * 100
-          ELSE 0
-        END as conversion_rate
-      FROM users u
-      LEFT JOIN repcard_customers c ON c.setter_user_id = u.repcard_user_id
-      LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id ${dateFilter}
-      WHERE u.repcard_user_id IS NOT NULL
-      GROUP BY u.repcard_user_id, u.name, u.role
-      HAVING COUNT(DISTINCT c.repcard_customer_id) >= 10
-      ORDER BY conversion_rate DESC
-      LIMIT 10
-    `;
+    const topConvertersResult = startDate && endDate
+      ? await sql`
+          SELECT
+            u.repcard_user_id,
+            u.name,
+            u.role,
+            COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
+            COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_set,
+            CASE
+              WHEN COUNT(DISTINCT c.repcard_customer_id) > 0 THEN
+                (COUNT(DISTINCT a.repcard_appointment_id)::float / COUNT(DISTINCT c.repcard_customer_id)::float) * 100
+              ELSE 0
+            END as conversion_rate
+          FROM users u
+          LEFT JOIN repcard_customers c ON c.setter_user_id = u.repcard_user_id
+          LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id
+            AND a.scheduled_at >= ${startDate}::timestamptz
+            AND a.scheduled_at <= ${endDate}::timestamptz
+          WHERE u.repcard_user_id IS NOT NULL
+          GROUP BY u.repcard_user_id, u.name, u.role
+          HAVING COUNT(DISTINCT c.repcard_customer_id) >= 10
+          ORDER BY conversion_rate DESC
+          LIMIT 10
+        `
+      : await sql`
+          SELECT
+            u.repcard_user_id,
+            u.name,
+            u.role,
+            COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
+            COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_set,
+            CASE
+              WHEN COUNT(DISTINCT c.repcard_customer_id) > 0 THEN
+                (COUNT(DISTINCT a.repcard_appointment_id)::float / COUNT(DISTINCT c.repcard_customer_id)::float) * 100
+              ELSE 0
+            END as conversion_rate
+          FROM users u
+          LEFT JOIN repcard_customers c ON c.setter_user_id = u.repcard_user_id
+          LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id
+          WHERE u.repcard_user_id IS NOT NULL
+          GROUP BY u.repcard_user_id, u.name, u.role
+          HAVING COUNT(DISTINCT c.repcard_customer_id) >= 10
+          ORDER BY conversion_rate DESC
+          LIMIT 10
+        `;
 
     const topConverters = getRows(topConvertersResult).map((row: any) => ({
       userId: row.repcard_user_id,
@@ -209,27 +317,51 @@ export async function GET(request: NextRequest) {
     }));
 
     // Top closers
-    const topClosersResult = await sql`
-      SELECT
-        u.repcard_user_id,
-        u.name,
-        u.role,
-        COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_run,
-        COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' THEN a.repcard_appointment_id END)::int as sales_closed,
-        CASE
-          WHEN COUNT(DISTINCT a.repcard_appointment_id) > 0 THEN
-            (COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' THEN a.repcard_appointment_id END)::float /
-             COUNT(DISTINCT a.repcard_appointment_id)::float) * 100
-          ELSE 0
-        END as close_rate
-      FROM users u
-      LEFT JOIN repcard_appointments a ON a.closer_user_id = u.repcard_user_id ${dateFilter}
-      WHERE u.repcard_user_id IS NOT NULL
-      GROUP BY u.repcard_user_id, u.name, u.role
-      HAVING COUNT(DISTINCT a.repcard_appointment_id) > 0
-      ORDER BY sales_closed DESC
-      LIMIT 10
-    `;
+    const topClosersResult = startDate && endDate
+      ? await sql`
+          SELECT
+            u.repcard_user_id,
+            u.name,
+            u.role,
+            COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_run,
+            COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' THEN a.repcard_appointment_id END)::int as sales_closed,
+            CASE
+              WHEN COUNT(DISTINCT a.repcard_appointment_id) > 0 THEN
+                (COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' THEN a.repcard_appointment_id END)::float /
+                 COUNT(DISTINCT a.repcard_appointment_id)::float) * 100
+              ELSE 0
+            END as close_rate
+          FROM users u
+          LEFT JOIN repcard_appointments a ON a.closer_user_id = u.repcard_user_id
+            AND a.scheduled_at >= ${startDate}::timestamptz
+            AND a.scheduled_at <= ${endDate}::timestamptz
+          WHERE u.repcard_user_id IS NOT NULL
+          GROUP BY u.repcard_user_id, u.name, u.role
+          HAVING COUNT(DISTINCT a.repcard_appointment_id) > 0
+          ORDER BY sales_closed DESC
+          LIMIT 10
+        `
+      : await sql`
+          SELECT
+            u.repcard_user_id,
+            u.name,
+            u.role,
+            COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_run,
+            COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' THEN a.repcard_appointment_id END)::int as sales_closed,
+            CASE
+              WHEN COUNT(DISTINCT a.repcard_appointment_id) > 0 THEN
+                (COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' THEN a.repcard_appointment_id END)::float /
+                 COUNT(DISTINCT a.repcard_appointment_id)::float) * 100
+              ELSE 0
+            END as close_rate
+          FROM users u
+          LEFT JOIN repcard_appointments a ON a.closer_user_id = u.repcard_user_id
+          WHERE u.repcard_user_id IS NOT NULL
+          GROUP BY u.repcard_user_id, u.name, u.role
+          HAVING COUNT(DISTINCT a.repcard_appointment_id) > 0
+          ORDER BY sales_closed DESC
+          LIMIT 10
+        `;
 
     const topClosers = getRows(topClosersResult).map((row: any) => ({
       userId: row.repcard_user_id,
