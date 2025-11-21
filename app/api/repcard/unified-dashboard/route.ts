@@ -150,7 +150,7 @@ export async function GET(request: NextRequest) {
               ELSE 0
             END as close_rate
           FROM repcard_offices o
-          LEFT JOIN repcard_customers c ON c.office_id = o.repcard_office_id
+          LEFT JOIN repcard_customers c ON c.office_id = o.repcard_office_id::TEXT
           LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
@@ -180,7 +180,7 @@ export async function GET(request: NextRequest) {
               ELSE 0
             END as close_rate
           FROM repcard_offices o
-          LEFT JOIN repcard_customers c ON c.office_id = o.repcard_office_id
+          LEFT JOIN repcard_customers c ON c.office_id = o.repcard_office_id::TEXT
           LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id
           LEFT JOIN users u ON u.repcard_user_id = c.setter_user_id
           GROUP BY o.repcard_office_id, o.name
