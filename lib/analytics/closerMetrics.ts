@@ -15,8 +15,26 @@ function calculateDateRange(
   let endDate: string = now.toISOString().split('T')[0];
   
   switch (timeRange) {
+    case 'today':
+      startDate = now.toISOString().split('T')[0];
+      endDate = now.toISOString().split('T')[0];
+      break;
     case 'ytd':
       startDate = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0];
+      break;
+    case 'month':
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+      break;
+    case 'last_month':
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      startDate = lastMonth.toISOString().split('T')[0];
+      const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+      endDate = lastMonthEnd.toISOString().split('T')[0];
+      break;
+    case 'week':
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - now.getDay());
+      startDate = weekStart.toISOString().split('T')[0];
       break;
     case 'last_30':
       const last30 = new Date(now);
