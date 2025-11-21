@@ -256,6 +256,26 @@ export async function syncUsers(options: {
               }
             }
 
+            // Convert status string to integer
+            // RepCard API returns "ACTIVE" or "DEACTIVATE" as strings
+            // Database expects INTEGER: 1 = active, 0 = inactive
+            const statusValue = (() => {
+              const status = (user as any).status;
+              if (typeof status === 'string') {
+                const statusUpper = status.toUpperCase();
+                if (statusUpper === 'ACTIVE') return 1;
+                if (statusUpper === 'DEACTIVATE' || statusUpper === 'DEACTIVATED' || statusUpper === 'INACTIVE') return 0;
+                // Default to active for unknown status strings
+                console.warn(`[RepCard Sync] Unknown status string "${status}" for user ${user.id}, defaulting to active (1)`);
+                return 1;
+              }
+              if (typeof status === 'number') {
+                return status;
+              }
+              // Default to active if status is missing or invalid
+              return 1;
+            })();
+
             // Upsert user - handle NULL company_id properly
             const result = await sql`
               INSERT INTO repcard_users (
@@ -291,7 +311,7 @@ export async function syncUsers(options: {
                 ${(user as any).phone || null},
                 ${(user as any).username || null},
                 ${(user as any).role || null},
-                ${(user as any).status ?? 1},
+                ${statusValue},
                 ${(user as any).office || (user as any).office_name || null},
                 ${(user as any).team || null},
                 ${(user as any).jobTitle || (user as any).job_title || null},
