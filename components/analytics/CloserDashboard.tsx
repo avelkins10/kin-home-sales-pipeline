@@ -90,6 +90,11 @@ export function CloserDashboard({
         throw new Error(errorData.error || 'Failed to fetch closer dashboard data');
       }
       const data = await response.json();
+      // Check if response is an error object
+      if (data?.error) {
+        console.warn('[CloserDashboard] API returned error:', data.error);
+        return [];
+      }
       // Ensure we return an array
       return Array.isArray(data) ? data : [];
     },

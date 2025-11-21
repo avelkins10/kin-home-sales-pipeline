@@ -165,6 +165,11 @@ export function CloserPerformanceTable({
         throw new Error(errorData.error || 'Failed to fetch appointments sat data');
       }
       const data = await response.json();
+      // Check if response is an error object
+      if (data?.error) {
+        console.warn('[CloserPerformanceTable] API returned error:', data.error);
+        return [];
+      }
       // Ensure we return an array
       return Array.isArray(data) ? data : [];
     },
@@ -195,6 +200,11 @@ export function CloserPerformanceTable({
         throw new Error(errorData.error || 'Failed to fetch follow-ups data');
       }
       const data = await response.json();
+      // Check if response is an error object
+      if (data?.error) {
+        console.warn('[CloserPerformanceTable] API returned error:', data.error);
+        return [];
+      }
       // Ensure we return an array
       return Array.isArray(data) ? data : [];
     },
