@@ -1086,7 +1086,7 @@ function buildTimeRangeFilter(timeRange: 'lifetime' | 'month' | 'week'): string 
 export async function getEnhancedDashboardMetrics(
   userId: string,
   role: string,
-  timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | 'last_30' | 'last_90' | 'last_12_months' = 'lifetime',
+  timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | 'today' | 'last_month' | 'last_30' | 'last_90' | 'last_12_months' = 'lifetime',
   officeIds?: number[],
   customDateRange?: { startDate: string; endDate: string },
   scope: 'personal' | 'team' = 'team', // NEW PARAMETER
@@ -1218,6 +1218,26 @@ export async function getEnhancedDashboardMetrics(
   // Year-to-date range: January 1st of current year to today
   const ytdStart = new Date(currentYear, 0, 1); // January 1st
   const ytdEnd = new Date(); // Today
+  
+  // Today's date range
+  const todayStart = new Date(currentYear, currentMonth, now.getDate());
+  todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date(currentYear, currentMonth, now.getDate());
+  todayEnd.setHours(23, 59, 59, 999);
+  
+  // Last month date range
+  const lastMonth = new Date(currentYear, currentMonth - 1, 1);
+  const lastMonthStart = new Date(lastMonth.getFullYear(), lastMonth.getMonth(), 1);
+  const lastMonthEnd = new Date(lastMonth.getFullYear(), lastMonth.getMonth() + 1, 0);
+  lastMonthEnd.setHours(23, 59, 59, 999);
+  
+  // Last 30/90/12 months date ranges
+  const last30Start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  last30Start.setHours(0, 0, 0, 0);
+  const last90Start = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+  last90Start.setHours(0, 0, 0, 0);
+  const last12MonthsStart = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+  last12MonthsStart.setHours(0, 0, 0, 0);
 
   // Custom date range support
   let customStart: Date | undefined;
@@ -1241,12 +1261,22 @@ export async function getEnhancedDashboardMetrics(
     switch (timeRange) {
       case 'custom':
         return customStart && customEnd && projectDate >= customStart && projectDate <= customEnd;
+      case 'today':
+        return projectDate >= todayStart && projectDate <= todayEnd;
       case 'ytd':
         return projectDate >= ytdStart && projectDate <= ytdEnd;
       case 'month':
         return projectDate >= monthStart && projectDate <= monthEnd;
+      case 'last_month':
+        return projectDate >= lastMonthStart && projectDate <= lastMonthEnd;
       case 'week':
         return projectDate >= oneWeekAgo;
+      case 'last_30':
+        return projectDate >= last30Start && projectDate <= ytdEnd;
+      case 'last_90':
+        return projectDate >= last90Start && projectDate <= ytdEnd;
+      case 'last_12_months':
+        return projectDate >= last12MonthsStart && projectDate <= ytdEnd;
       case 'lifetime':
       default:
         return true;
@@ -1265,12 +1295,22 @@ export async function getEnhancedDashboardMetrics(
     switch (timeRange) {
       case 'custom':
         return customStart && customEnd && projectDate >= customStart && projectDate <= customEnd;
+      case 'today':
+        return projectDate >= todayStart && projectDate <= todayEnd;
       case 'ytd':
         return projectDate >= ytdStart && projectDate <= ytdEnd;
       case 'month':
         return projectDate >= monthStart && projectDate <= monthEnd;
+      case 'last_month':
+        return projectDate >= lastMonthStart && projectDate <= lastMonthEnd;
       case 'week':
         return projectDate >= oneWeekAgo;
+      case 'last_30':
+        return projectDate >= last30Start && projectDate <= ytdEnd;
+      case 'last_90':
+        return projectDate >= last90Start && projectDate <= ytdEnd;
+      case 'last_12_months':
+        return projectDate >= last12MonthsStart && projectDate <= ytdEnd;
       case 'lifetime':
       default:
         return true;
@@ -1289,12 +1329,22 @@ export async function getEnhancedDashboardMetrics(
     switch (timeRange) {
       case 'custom':
         return customStart && customEnd && projectDate >= customStart && projectDate <= customEnd;
+      case 'today':
+        return projectDate >= todayStart && projectDate <= todayEnd;
       case 'ytd':
         return projectDate >= ytdStart && projectDate <= ytdEnd;
       case 'month':
         return projectDate >= monthStart && projectDate <= monthEnd;
+      case 'last_month':
+        return projectDate >= lastMonthStart && projectDate <= lastMonthEnd;
       case 'week':
         return projectDate >= oneWeekAgo;
+      case 'last_30':
+        return projectDate >= last30Start && projectDate <= ytdEnd;
+      case 'last_90':
+        return projectDate >= last90Start && projectDate <= ytdEnd;
+      case 'last_12_months':
+        return projectDate >= last12MonthsStart && projectDate <= ytdEnd;
       case 'lifetime':
       default:
         return true;
@@ -1370,7 +1420,7 @@ export async function getEnhancedDashboardMetrics(
 // Calculate basic metrics (existing functionality)
 // NOTE: This function receives ALL data (not filtered by period) to calculate absolute metrics
 // like "Active Projects" and "On Hold" which should always show current state
-function calculateBasicMetrics(allData: any[], installedInPeriod: any[], timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | 'last_30' | 'last_90' | 'last_12_months') {
+function calculateBasicMetrics(allData: any[], installedInPeriod: any[], timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | 'today' | 'last_month' | 'last_30' | 'last_90' | 'last_12_months') {
   const now = new Date();
   const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const currentMonth = now.getMonth();
@@ -1865,7 +1915,7 @@ function getProjectBucketCounts(data: any[]) {
 }
 
 // Calculate retention rate with business-approved statuses
-function calculateRetentionRate(data: any[], timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | 'last_30' | 'last_90' | 'last_12_months' = 'lifetime'): { lifetime: number; period: number } {
+function calculateRetentionRate(data: any[], timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | 'today' | 'last_month' | 'last_30' | 'last_90' | 'last_12_months' = 'lifetime'): { lifetime: number; period: number } {
   // Business-approved status categories
   const retainedStatuses = ['Active', 'Completed', 'Installed', 'PTO Approved'];
   const lostStatuses = ['Cancelled', 'Canceled', 'Rejected', 'Pending Cancel'];
@@ -2685,7 +2735,7 @@ function calculateMonthlyInstalls(completedProjects: any[]): Array<{ month: stri
 export async function getOfficeMetrics(
   userId: string,
   role: string,
-  timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | 'last_30' | 'last_90' | 'last_12_months' = 'ytd',
+  timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | 'today' | 'last_month' | 'last_30' | 'last_90' | 'last_12_months' = 'ytd',
   officeIds?: number[],
   customDateRange?: { startDate: string; endDate: string },
   reqId?: string,
@@ -2743,6 +2793,10 @@ export async function getOfficeMetrics(
       let endDate: string;
 
       switch (timeRange) {
+        case 'today':
+          startDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`;
+          endDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`;
+          break;
         case 'ytd':
           startDate = `${currentYear}-01-01`;
           endDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`;
@@ -2750,6 +2804,14 @@ export async function getOfficeMetrics(
         case 'month':
           startDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
           endDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`;
+          break;
+        case 'last_month':
+          const lastMonth = new Date(nowInTimezone);
+          lastMonth.setMonth(lastMonth.getMonth() - 1);
+          const lastMonthStart = new Date(lastMonth.getFullYear(), lastMonth.getMonth(), 1);
+          const lastMonthEnd = new Date(lastMonth.getFullYear(), lastMonth.getMonth() + 1, 0);
+          startDate = `${lastMonthStart.getFullYear()}-${String(lastMonthStart.getMonth() + 1).padStart(2, '0')}-${String(lastMonthStart.getDate()).padStart(2, '0')}`;
+          endDate = `${lastMonthEnd.getFullYear()}-${String(lastMonthEnd.getMonth() + 1).padStart(2, '0')}-${String(lastMonthEnd.getDate()).padStart(2, '0')}`;
           break;
         case 'week':
           const weekAgo = new Date(nowInTimezone);

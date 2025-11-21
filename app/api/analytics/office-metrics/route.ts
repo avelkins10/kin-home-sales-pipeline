@@ -11,7 +11,7 @@ import type { OfficeMetrics } from '@/lib/types/analytics';
 const officeMetricsCache = new Map<string, { data: any; timestamp: number; ttl: number }>();
 
 // Determine TTL based on timeRange
-function getCacheTTL(timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | 'last_30' | 'last_90' | 'last_12_months'): number {
+function getCacheTTL(timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | 'today' | 'last_month' | 'last_30' | 'last_90' | 'last_12_months'): number {
   switch (timeRange) {
     case 'lifetime':
       return 120 * 1000; // 2 minutes for lifetime data (changes less frequently)
@@ -19,6 +19,10 @@ function getCacheTTL(timeRange: 'lifetime' | 'ytd' | 'month' | 'week' | 'custom'
       return 60 * 1000; // 1 minute for YTD data (changes daily)
     case 'month':
       return 60 * 1000; // 1 minute for monthly data
+    case 'today':
+      return 30 * 1000; // 30 seconds for today's data (changes frequently)
+    case 'last_month':
+      return 90 * 1000; // 90 seconds for last month (changes less frequently)
     case 'week':
       return 30 * 1000; // 30 seconds for weekly data (changes more frequently)
     case 'last_30':
@@ -74,10 +78,10 @@ export async function GET(req: Request) {
     }
 
     // Extract time range parameter with validation
-    const timeRange = searchParams.get('timeRange') as 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | null;
-    const validTimeRanges = ['lifetime', 'ytd', 'month', 'week', 'custom', 'last_30', 'last_90', 'last_12_months'];
+    const timeRange = searchParams.get('timeRange') as 'lifetime' | 'ytd' | 'month' | 'week' | 'custom' | 'today' | 'last_month' | 'last_30' | 'last_90' | 'last_12_months' | null;
+    const validTimeRanges = ['lifetime', 'ytd', 'month', 'week', 'custom', 'today', 'last_month', 'last_30', 'last_90', 'last_12_months'];
     if (timeRange && !validTimeRanges.includes(timeRange)) {
-      return NextResponse.json({ error: 'Invalid timeRange parameter. Must be one of: lifetime, ytd, month, week, custom' }, { status: 400 });
+      return NextResponse.json({ error: `Invalid timeRange parameter. Must be one of: ${validTimeRanges.join(', ')}` }, { status: 400 });
     }
     const effectiveTimeRange = timeRange || 'ytd'; // Default to YTD for analytics
 

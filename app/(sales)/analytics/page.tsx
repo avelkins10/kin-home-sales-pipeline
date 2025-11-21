@@ -78,6 +78,9 @@ export default function AnalyticsPage() {
         startDate: startDateParam,
         endDate: endDateParam
       });
+    } else if (timeRangeParam !== 'custom') {
+      // Clear customDateRange when switching away from 'custom'
+      setCustomDateRange(undefined);
     }
 
     if (tabParam && ['overview', 'performance', 'comparisons', 'analysis', 'leaderboards', 'canvassing', 'repcard'].includes(tabParam)) {
@@ -227,6 +230,8 @@ export default function AnalyticsPage() {
     } else {
       params.delete('startDate');
       params.delete('endDate');
+      // Clear customDateRange state when switching away from 'custom'
+      setCustomDateRange(undefined);
     }
     
     router.push(`/analytics?${params.toString()}`);
