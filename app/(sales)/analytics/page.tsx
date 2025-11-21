@@ -16,6 +16,7 @@ import { OfficeComparisonTable } from '@/components/analytics/OfficeComparisonTa
 import { RepPerformanceTable } from '@/components/analytics/RepPerformanceTable';
 import { SetterPerformanceTable } from '@/components/analytics/SetterPerformanceTable';
 import { CloserPerformanceTable } from '@/components/analytics/CloserPerformanceTable';
+import { CloserDashboard } from '@/components/analytics/CloserDashboard';
 import { RepBenchmarkComparisonCard } from '@/components/analytics/RepBenchmarkComparisonCard';
 import { ConfigurableLeaderboard } from '@/components/analytics/ConfigurableLeaderboard';
 import { CanvassingOverviewCard } from '@/components/analytics/CanvassingOverviewCard';
@@ -368,6 +369,15 @@ export default function AnalyticsPage() {
                 customDateRange={customDateRange}
                 officeIds={selectedOfficeIds}
                 showExport={true}
+              />
+
+              {/* NEW: Closer Dashboard - Full Width */}
+              <CloserDashboard
+                userId={session.user.id}
+                role={session.user.role}
+                timeRange={timeRange}
+                customDateRange={customDateRange}
+                officeIds={selectedOfficeIds}
               />
 
               {/* NEW: Closer Performance Table - Full Width */}
