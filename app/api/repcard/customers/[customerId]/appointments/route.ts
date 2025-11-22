@@ -61,8 +61,8 @@ export async function GET(
         c.address as customer_address
       FROM repcard_appointments a
       LEFT JOIN repcard_customers c ON c.id = ${customerId}
-      LEFT JOIN users setter ON setter.repcard_user_id = a.setter_user_id
-      LEFT JOIN users closer ON closer.repcard_user_id = a.closer_user_id
+      LEFT JOIN users setter ON setter.repcard_user_id::TEXT = a.setter_user_id
+      LEFT JOIN users closer ON closer.repcard_user_id::TEXT = a.closer_user_id
       WHERE a.customer_id = ${customerId}
       ORDER BY COALESCE(a.scheduled_at, a.created_at) ASC
     `;

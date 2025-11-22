@@ -81,13 +81,13 @@ export async function GET(request: NextRequest) {
         AND (
           EXISTS (
             SELECT 1 FROM repcard_customers c
-            WHERE c.setter_user_id = ru.repcard_user_id
+            WHERE c.setter_user_id = ru.repcard_user_id::TEXT
               AND c.created_at::date >= ${calculatedStartDate}::date
               AND c.created_at::date <= ${calculatedEndDate}::date
           )
           OR EXISTS (
             SELECT 1 FROM repcard_appointments a
-            WHERE a.setter_user_id = ru.repcard_user_id
+            WHERE a.setter_user_id = ru.repcard_user_id::TEXT
               AND (
                 (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
                 OR
@@ -145,7 +145,7 @@ export async function GET(request: NextRequest) {
         COALESCE(u.sales_office[1], ru.office_name) as office,
         COUNT(c.repcard_customer_id)::bigint as doors_knocked
       FROM repcard_users ru
-      LEFT JOIN repcard_customers c ON ru.repcard_user_id = c.setter_user_id
+      LEFT JOIN repcard_customers c ON ru.repcard_user_id::TEXT = c.setter_user_id
         AND c.created_at::date >= ${calculatedStartDate}::date
         AND c.created_at::date <= ${calculatedEndDate}::date
       LEFT JOIN users u ON u.repcard_user_id = ru.repcard_user_id
@@ -178,7 +178,7 @@ export async function GET(request: NextRequest) {
         COALESCE(u.sales_office[1], ru.office_name) as office,
         COUNT(a.repcard_appointment_id)::bigint as appointments
       FROM repcard_users ru
-      LEFT JOIN repcard_appointments a ON ru.repcard_user_id = a.setter_user_id
+      LEFT JOIN repcard_appointments a ON ru.repcard_user_id::TEXT = a.setter_user_id
         AND (
           (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
           OR
