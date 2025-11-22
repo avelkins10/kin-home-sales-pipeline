@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
             ELSE 0
           END as reschedule_rate
         FROM repcard_appointments a
-        LEFT JOIN users u ON u.repcard_user_id = a.setter_user_id OR u.repcard_user_id = a.closer_user_id
+        LEFT JOIN users u ON u.repcard_user_id::TEXT = a.setter_user_id OR u.repcard_user_id::TEXT = a.closer_user_id
         WHERE (a.setter_user_id::text = ${userId} OR a.closer_user_id::text = ${userId})
           AND a.office_id::text = ANY(${officeIds.map(id => id.toString())}::text[])
           AND a.scheduled_at >= ${startDate}::timestamptz
@@ -141,7 +141,7 @@ export async function GET(request: NextRequest) {
             ELSE 0
           END as reschedule_rate
         FROM repcard_appointments a
-        LEFT JOIN users u ON u.repcard_user_id = a.setter_user_id OR u.repcard_user_id = a.closer_user_id
+        LEFT JOIN users u ON u.repcard_user_id::TEXT = a.setter_user_id OR u.repcard_user_id::TEXT = a.closer_user_id
         WHERE (a.setter_user_id::text = ${userId} OR a.closer_user_id::text = ${userId})
           AND a.scheduled_at >= ${startDate}::timestamptz
           AND a.scheduled_at <= ${endDate}::timestamptz
@@ -163,7 +163,7 @@ export async function GET(request: NextRequest) {
             ELSE 0
           END as reschedule_rate
         FROM repcard_appointments a
-        LEFT JOIN users u ON u.repcard_user_id = a.setter_user_id OR u.repcard_user_id = a.closer_user_id
+        LEFT JOIN users u ON u.repcard_user_id::TEXT = a.setter_user_id OR u.repcard_user_id::TEXT = a.closer_user_id
         WHERE a.scheduled_at >= ${startDate}::timestamptz
           AND a.scheduled_at <= ${endDate}::timestamptz
         GROUP BY u.repcard_user_id, u.name
@@ -184,7 +184,7 @@ export async function GET(request: NextRequest) {
             ELSE 0
           END as reschedule_rate
         FROM repcard_appointments a
-        LEFT JOIN users u ON u.repcard_user_id = a.setter_user_id OR u.repcard_user_id = a.closer_user_id
+        LEFT JOIN users u ON u.repcard_user_id::TEXT = a.setter_user_id OR u.repcard_user_id::TEXT = a.closer_user_id
         GROUP BY u.repcard_user_id, u.name
         HAVING COUNT(DISTINCT a.id) >= 5
         ORDER BY reschedule_rate DESC, total_reschedules DESC

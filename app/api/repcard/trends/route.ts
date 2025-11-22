@@ -92,90 +92,269 @@ export async function GET(request: NextRequest) {
 
     if (metric === 'doors_knocked') {
       // Doors knocked by day/week/month
-      const result = await sql`
-        SELECT 
-          DATE_TRUNC(${groupBy}, c.created_at::date) as period,
-          COUNT(*)::bigint as value
-        FROM repcard_customers c
-        WHERE c.created_at::date >= ${calculatedStartDate}::date
-          AND c.created_at::date <= ${calculatedEndDate}::date
-          ${repcardUserId ? sql`AND c.setter_user_id = ${parseInt(repcardUserId)}` : sql``}
-          ${officeIds.length > 0 ? sql`AND c.office_id = ANY(${officeIds}::int[])` : sql``}
-        GROUP BY period
-        ORDER BY period ASC
-      `;
+      let result;
+      if (repcardUserId && officeIds.length > 0) {
+        result = await sql`
+          SELECT
+            DATE_TRUNC(${groupBy}, c.created_at::date) as period,
+            COUNT(*)::bigint as value
+          FROM repcard_customers c
+          WHERE c.created_at::date >= ${calculatedStartDate}::date
+            AND c.created_at::date <= ${calculatedEndDate}::date
+            AND c.setter_user_id = ${parseInt(repcardUserId)}
+            AND c.office_id = ANY(${officeIds}::int[])
+          GROUP BY period
+          ORDER BY period ASC
+        `;
+      } else if (repcardUserId) {
+        result = await sql`
+          SELECT
+            DATE_TRUNC(${groupBy}, c.created_at::date) as period,
+            COUNT(*)::bigint as value
+          FROM repcard_customers c
+          WHERE c.created_at::date >= ${calculatedStartDate}::date
+            AND c.created_at::date <= ${calculatedEndDate}::date
+            AND c.setter_user_id = ${parseInt(repcardUserId)}
+          GROUP BY period
+          ORDER BY period ASC
+        `;
+      } else if (officeIds.length > 0) {
+        result = await sql`
+          SELECT
+            DATE_TRUNC(${groupBy}, c.created_at::date) as period,
+            COUNT(*)::bigint as value
+          FROM repcard_customers c
+          WHERE c.created_at::date >= ${calculatedStartDate}::date
+            AND c.created_at::date <= ${calculatedEndDate}::date
+            AND c.office_id = ANY(${officeIds}::int[])
+          GROUP BY period
+          ORDER BY period ASC
+        `;
+      } else {
+        result = await sql`
+          SELECT
+            DATE_TRUNC(${groupBy}, c.created_at::date) as period,
+            COUNT(*)::bigint as value
+          FROM repcard_customers c
+          WHERE c.created_at::date >= ${calculatedStartDate}::date
+            AND c.created_at::date <= ${calculatedEndDate}::date
+          GROUP BY period
+          ORDER BY period ASC
+        `;
+      }
       trends = getRows(result).map((r: any) => ({
         date: r.period.toISOString().split('T')[0],
         value: Number(r.value || 0)
       }));
     } else if (metric === 'appointments_set') {
       // Appointments set by day/week/month
-      const result = await sql`
-        SELECT 
-          DATE_TRUNC(${groupBy}, COALESCE(a.scheduled_at::date, a.created_at::date)) as period,
-          COUNT(*)::bigint as value
-        FROM repcard_appointments a
-        WHERE (
-          (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
-          OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
-        )
-          ${repcardUserId ? sql`AND a.setter_user_id = ${parseInt(repcardUserId)}` : sql``}
-          ${officeIds.length > 0 ? sql`AND a.office_id = ANY(${officeIds}::int[])` : sql``}
-        GROUP BY period
-        ORDER BY period ASC
-      `;
+      let result;
+      if (repcardUserId && officeIds.length > 0) {
+        result = await sql`
+          SELECT
+            DATE_TRUNC(${groupBy}, COALESCE(a.scheduled_at::date, a.created_at::date)) as period,
+            COUNT(*)::bigint as value
+          FROM repcard_appointments a
+          WHERE (
+            (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
+            OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
+          )
+            AND a.setter_user_id = ${parseInt(repcardUserId)}
+            AND a.office_id = ANY(${officeIds}::int[])
+          GROUP BY period
+          ORDER BY period ASC
+        `;
+      } else if (repcardUserId) {
+        result = await sql`
+          SELECT
+            DATE_TRUNC(${groupBy}, COALESCE(a.scheduled_at::date, a.created_at::date)) as period,
+            COUNT(*)::bigint as value
+          FROM repcard_appointments a
+          WHERE (
+            (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
+            OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
+          )
+            AND a.setter_user_id = ${parseInt(repcardUserId)}
+          GROUP BY period
+          ORDER BY period ASC
+        `;
+      } else if (officeIds.length > 0) {
+        result = await sql`
+          SELECT
+            DATE_TRUNC(${groupBy}, COALESCE(a.scheduled_at::date, a.created_at::date)) as period,
+            COUNT(*)::bigint as value
+          FROM repcard_appointments a
+          WHERE (
+            (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
+            OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
+          )
+            AND a.office_id = ANY(${officeIds}::int[])
+          GROUP BY period
+          ORDER BY period ASC
+        `;
+      } else {
+        result = await sql`
+          SELECT
+            DATE_TRUNC(${groupBy}, COALESCE(a.scheduled_at::date, a.created_at::date)) as period,
+            COUNT(*)::bigint as value
+          FROM repcard_appointments a
+          WHERE (
+            (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
+            OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
+          )
+          GROUP BY period
+          ORDER BY period ASC
+        `;
+      }
       trends = getRows(result).map((r: any) => ({
         date: r.period.toISOString().split('T')[0],
         value: Number(r.value || 0)
       }));
     } else if (metric === 'sales_closed') {
       // Sales closed by day/week/month (from status logs)
-      const result = await sql`
-        SELECT 
-          DATE_TRUNC(${groupBy}, sl.changed_at::date) as period,
-          COUNT(*)::bigint as value
-        FROM repcard_status_logs sl
-        WHERE sl.changed_at::date >= ${calculatedStartDate}::date
-          AND sl.changed_at::date <= ${calculatedEndDate}::date
-          AND (sl.new_status ILIKE '%closed%' OR sl.new_status ILIKE '%sold%')
-          ${repcardUserId ? sql`AND sl.changed_by_user_id = ${parseInt(repcardUserId)}` : sql``}
-        GROUP BY period
-        ORDER BY period ASC
-      `;
+      let result;
+      if (repcardUserId) {
+        result = await sql`
+          SELECT
+            DATE_TRUNC(${groupBy}, sl.changed_at::date) as period,
+            COUNT(*)::bigint as value
+          FROM repcard_status_logs sl
+          WHERE sl.changed_at::date >= ${calculatedStartDate}::date
+            AND sl.changed_at::date <= ${calculatedEndDate}::date
+            AND (sl.new_status ILIKE '%closed%' OR sl.new_status ILIKE '%sold%')
+            AND sl.changed_by_user_id = ${parseInt(repcardUserId)}
+          GROUP BY period
+          ORDER BY period ASC
+        `;
+      } else {
+        result = await sql`
+          SELECT
+            DATE_TRUNC(${groupBy}, sl.changed_at::date) as period,
+            COUNT(*)::bigint as value
+          FROM repcard_status_logs sl
+          WHERE sl.changed_at::date >= ${calculatedStartDate}::date
+            AND sl.changed_at::date <= ${calculatedEndDate}::date
+            AND (sl.new_status ILIKE '%closed%' OR sl.new_status ILIKE '%sold%')
+          GROUP BY period
+          ORDER BY period ASC
+        `;
+      }
       trends = getRows(result).map((r: any) => ({
         date: r.period.toISOString().split('T')[0],
         value: Number(r.value || 0)
       }));
     } else if (metric === 'conversion_rate') {
       // Conversion rate over time (appointments / doors)
-      const doorsResult = await sql`
-        SELECT 
-          DATE_TRUNC(${groupBy}, c.created_at::date) as period,
-          COUNT(*)::bigint as doors
-        FROM repcard_customers c
-        WHERE c.created_at::date >= ${calculatedStartDate}::date
-          AND c.created_at::date <= ${calculatedEndDate}::date
-          ${repcardUserId ? sql`AND c.setter_user_id = ${parseInt(repcardUserId)}` : sql``}
-          ${officeIds.length > 0 ? sql`AND c.office_id = ANY(${officeIds}::int[])` : sql``}
-        GROUP BY period
-        ORDER BY period ASC
-      `;
+      let doorsResult;
+      if (repcardUserId && officeIds.length > 0) {
+        doorsResult = await sql`
+          SELECT
+            DATE_TRUNC(${groupBy}, c.created_at::date) as period,
+            COUNT(*)::bigint as doors
+          FROM repcard_customers c
+          WHERE c.created_at::date >= ${calculatedStartDate}::date
+            AND c.created_at::date <= ${calculatedEndDate}::date
+            AND c.setter_user_id = ${parseInt(repcardUserId)}
+            AND c.office_id = ANY(${officeIds}::int[])
+          GROUP BY period
+          ORDER BY period ASC
+        `;
+      } else if (repcardUserId) {
+        doorsResult = await sql`
+          SELECT
+            DATE_TRUNC(${groupBy}, c.created_at::date) as period,
+            COUNT(*)::bigint as doors
+          FROM repcard_customers c
+          WHERE c.created_at::date >= ${calculatedStartDate}::date
+            AND c.created_at::date <= ${calculatedEndDate}::date
+            AND c.setter_user_id = ${parseInt(repcardUserId)}
+          GROUP BY period
+          ORDER BY period ASC
+        `;
+      } else if (officeIds.length > 0) {
+        doorsResult = await sql`
+          SELECT
+            DATE_TRUNC(${groupBy}, c.created_at::date) as period,
+            COUNT(*)::bigint as doors
+          FROM repcard_customers c
+          WHERE c.created_at::date >= ${calculatedStartDate}::date
+            AND c.created_at::date <= ${calculatedEndDate}::date
+            AND c.office_id = ANY(${officeIds}::int[])
+          GROUP BY period
+          ORDER BY period ASC
+        `;
+      } else {
+        doorsResult = await sql`
+          SELECT
+            DATE_TRUNC(${groupBy}, c.created_at::date) as period,
+            COUNT(*)::bigint as doors
+          FROM repcard_customers c
+          WHERE c.created_at::date >= ${calculatedStartDate}::date
+            AND c.created_at::date <= ${calculatedEndDate}::date
+          GROUP BY period
+          ORDER BY period ASC
+        `;
+      }
       const doorsMap = new Map(getRows(doorsResult).map((r: any) => [r.period.toISOString().split('T')[0], Number(r.doors || 0)]));
 
-      const appointmentsResult = await sql`
-        SELECT 
-          DATE_TRUNC(${groupBy}, COALESCE(a.scheduled_at::date, a.created_at::date)) as period,
-          COUNT(*)::bigint as appointments
-        FROM repcard_appointments a
-        WHERE (
-          (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
-          OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
-        )
-          ${repcardUserId ? sql`AND a.setter_user_id = ${parseInt(repcardUserId)}` : sql``}
-          ${officeIds.length > 0 ? sql`AND a.office_id = ANY(${officeIds}::int[])` : sql``}
-        GROUP BY period
-        ORDER BY period ASC
-      `;
+      let appointmentsResult;
+      if (repcardUserId && officeIds.length > 0) {
+        appointmentsResult = await sql`
+          SELECT
+            DATE_TRUNC(${groupBy}, COALESCE(a.scheduled_at::date, a.created_at::date)) as period,
+            COUNT(*)::bigint as appointments
+          FROM repcard_appointments a
+          WHERE (
+            (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
+            OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
+          )
+            AND a.setter_user_id = ${parseInt(repcardUserId)}
+            AND a.office_id = ANY(${officeIds}::int[])
+          GROUP BY period
+          ORDER BY period ASC
+        `;
+      } else if (repcardUserId) {
+        appointmentsResult = await sql`
+          SELECT
+            DATE_TRUNC(${groupBy}, COALESCE(a.scheduled_at::date, a.created_at::date)) as period,
+            COUNT(*)::bigint as appointments
+          FROM repcard_appointments a
+          WHERE (
+            (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
+            OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
+          )
+            AND a.setter_user_id = ${parseInt(repcardUserId)}
+          GROUP BY period
+          ORDER BY period ASC
+        `;
+      } else if (officeIds.length > 0) {
+        appointmentsResult = await sql`
+          SELECT
+            DATE_TRUNC(${groupBy}, COALESCE(a.scheduled_at::date, a.created_at::date)) as period,
+            COUNT(*)::bigint as appointments
+          FROM repcard_appointments a
+          WHERE (
+            (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
+            OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
+          )
+            AND a.office_id = ANY(${officeIds}::int[])
+          GROUP BY period
+          ORDER BY period ASC
+        `;
+      } else {
+        appointmentsResult = await sql`
+          SELECT
+            DATE_TRUNC(${groupBy}, COALESCE(a.scheduled_at::date, a.created_at::date)) as period,
+            COUNT(*)::bigint as appointments
+          FROM repcard_appointments a
+          WHERE (
+            (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
+            OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
+          )
+          GROUP BY period
+          ORDER BY period ASC
+        `;
+      }
       const appointmentsMap = new Map(getRows(appointmentsResult).map((r: any) => [r.period.toISOString().split('T')[0], Number(r.appointments || 0)]));
 
       // Combine and calculate conversion rate

@@ -76,103 +76,354 @@ export async function GET(request: NextRequest) {
     };
 
     // Total appointments scheduled
-    const totalAppointmentsResult = await sql`
-      SELECT COUNT(*)::bigint as count
-      FROM repcard_appointments a
-      WHERE (
-        (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
-        OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
-      )
-        ${repcardUserId ? sql`AND a.setter_user_id = ${parseInt(repcardUserId)}` : sql``}
-        ${officeIds.length > 0 ? sql`AND a.office_id = ANY(${officeIds}::int[])` : sql``}
-    `;
-    const totalAppointments = getCount(totalAppointmentsResult);
-
-    // Appointments that were completed (showed up)
-    const completedAppointmentsResult = await sql`
-      SELECT COUNT(*)::bigint as count
-      FROM repcard_appointments a
-      WHERE a.completed_at IS NOT NULL
-        AND a.completed_at::date >= ${calculatedStartDate}::date
-        AND a.completed_at::date <= ${calculatedEndDate}::date
-        ${repcardUserId ? sql`AND a.setter_user_id = ${parseInt(repcardUserId)}` : sql``}
-        ${officeIds.length > 0 ? sql`AND a.office_id = ANY(${officeIds}::int[])` : sql``}
-    `;
-    const completedAppointments = getCount(completedAppointmentsResult);
-
-    // Appointments that sat (completed and not cancelled/no-show)
-    const satAppointmentsResult = await sql`
-      SELECT COUNT(*)::bigint as count
-      FROM repcard_appointments a
-      WHERE a.completed_at IS NOT NULL
-        AND a.completed_at::date >= ${calculatedStartDate}::date
-        AND a.completed_at::date <= ${calculatedEndDate}::date
-        AND a.status_category NOT IN ('cancelled', 'no_show')
-        ${repcardUserId ? sql`AND a.setter_user_id = ${parseInt(repcardUserId)}` : sql``}
-        ${officeIds.length > 0 ? sql`AND a.office_id = ANY(${officeIds}::int[])` : sql``}
-    `;
-    const satAppointments = getCount(satAppointmentsResult);
-
-    // Appointments that closed (sat_closed)
-    const closedAppointmentsResult = await sql`
-      SELECT COUNT(*)::bigint as count
-      FROM repcard_appointments a
-      WHERE a.status_category = 'sat_closed'
-        AND a.completed_at::date >= ${calculatedStartDate}::date
-        AND a.completed_at::date <= ${calculatedEndDate}::date
-        ${repcardUserId ? sql`AND a.setter_user_id = ${parseInt(repcardUserId)}` : sql``}
-        ${officeIds.length > 0 ? sql`AND a.office_id = ANY(${officeIds}::int[])` : sql``}
-    `;
-    const closedAppointments = getCount(closedAppointmentsResult);
-
-    // Appointments that were rescheduled
-    const rescheduledAppointmentsResult = await sql`
-      SELECT COUNT(*)::bigint as count
-      FROM repcard_appointments a
-      WHERE a.status_category = 'rescheduled'
-        AND (
+    let totalAppointmentsResult;
+    if (repcardUserId && officeIds.length > 0) {
+      totalAppointmentsResult = await sql`
+        SELECT COUNT(*)::bigint as count
+        FROM repcard_appointments a
+        WHERE (
           (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
           OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
         )
-        ${repcardUserId ? sql`AND a.setter_user_id = ${parseInt(repcardUserId)}` : sql``}
-        ${officeIds.length > 0 ? sql`AND a.office_id = ANY(${officeIds}::int[])` : sql``}
-    `;
+          AND a.setter_user_id = ${repcardUserId}
+          AND a.office_id = ANY(${officeIds}::int[])
+      `;
+    } else if (repcardUserId) {
+      totalAppointmentsResult = await sql`
+        SELECT COUNT(*)::bigint as count
+        FROM repcard_appointments a
+        WHERE (
+          (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
+          OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
+        )
+          AND a.setter_user_id = ${repcardUserId}
+      `;
+    } else if (officeIds.length > 0) {
+      totalAppointmentsResult = await sql`
+        SELECT COUNT(*)::bigint as count
+        FROM repcard_appointments a
+        WHERE (
+          (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
+          OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
+        )
+          AND a.office_id = ANY(${officeIds}::int[])
+      `;
+    } else {
+      totalAppointmentsResult = await sql`
+        SELECT COUNT(*)::bigint as count
+        FROM repcard_appointments a
+        WHERE (
+          (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
+          OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
+        )
+      `;
+    }
+    const totalAppointments = getCount(totalAppointmentsResult);
+
+    // Appointments that were completed (showed up)
+    let completedAppointmentsResult;
+    if (repcardUserId && officeIds.length > 0) {
+      completedAppointmentsResult = await sql`
+        SELECT COUNT(*)::bigint as count
+        FROM repcard_appointments a
+        WHERE a.completed_at IS NOT NULL
+          AND a.completed_at::date >= ${calculatedStartDate}::date
+          AND a.completed_at::date <= ${calculatedEndDate}::date
+          AND a.setter_user_id = ${parseInt(repcardUserId)}
+          AND a.office_id = ANY(${officeIds}::int[])
+      `;
+    } else if (repcardUserId) {
+      completedAppointmentsResult = await sql`
+        SELECT COUNT(*)::bigint as count
+        FROM repcard_appointments a
+        WHERE a.completed_at IS NOT NULL
+          AND a.completed_at::date >= ${calculatedStartDate}::date
+          AND a.completed_at::date <= ${calculatedEndDate}::date
+          AND a.setter_user_id = ${parseInt(repcardUserId)}
+      `;
+    } else if (officeIds.length > 0) {
+      completedAppointmentsResult = await sql`
+        SELECT COUNT(*)::bigint as count
+        FROM repcard_appointments a
+        WHERE a.completed_at IS NOT NULL
+          AND a.completed_at::date >= ${calculatedStartDate}::date
+          AND a.completed_at::date <= ${calculatedEndDate}::date
+          AND a.office_id = ANY(${officeIds}::int[])
+      `;
+    } else {
+      completedAppointmentsResult = await sql`
+        SELECT COUNT(*)::bigint as count
+        FROM repcard_appointments a
+        WHERE a.completed_at IS NOT NULL
+          AND a.completed_at::date >= ${calculatedStartDate}::date
+          AND a.completed_at::date <= ${calculatedEndDate}::date
+      `;
+    }
+    const completedAppointments = getCount(completedAppointmentsResult);
+
+    // Appointments that sat (completed and not cancelled/no-show)
+    let satAppointmentsResult;
+    if (repcardUserId && officeIds.length > 0) {
+      satAppointmentsResult = await sql`
+        SELECT COUNT(*)::bigint as count
+        FROM repcard_appointments a
+        WHERE a.completed_at IS NOT NULL
+          AND a.completed_at::date >= ${calculatedStartDate}::date
+          AND a.completed_at::date <= ${calculatedEndDate}::date
+          AND a.status_category NOT IN ('cancelled', 'no_show')
+          AND a.setter_user_id = ${parseInt(repcardUserId)}
+          AND a.office_id = ANY(${officeIds}::int[])
+      `;
+    } else if (repcardUserId) {
+      satAppointmentsResult = await sql`
+        SELECT COUNT(*)::bigint as count
+        FROM repcard_appointments a
+        WHERE a.completed_at IS NOT NULL
+          AND a.completed_at::date >= ${calculatedStartDate}::date
+          AND a.completed_at::date <= ${calculatedEndDate}::date
+          AND a.status_category NOT IN ('cancelled', 'no_show')
+          AND a.setter_user_id = ${parseInt(repcardUserId)}
+      `;
+    } else if (officeIds.length > 0) {
+      satAppointmentsResult = await sql`
+        SELECT COUNT(*)::bigint as count
+        FROM repcard_appointments a
+        WHERE a.completed_at IS NOT NULL
+          AND a.completed_at::date >= ${calculatedStartDate}::date
+          AND a.completed_at::date <= ${calculatedEndDate}::date
+          AND a.status_category NOT IN ('cancelled', 'no_show')
+          AND a.office_id = ANY(${officeIds}::int[])
+      `;
+    } else {
+      satAppointmentsResult = await sql`
+        SELECT COUNT(*)::bigint as count
+        FROM repcard_appointments a
+        WHERE a.completed_at IS NOT NULL
+          AND a.completed_at::date >= ${calculatedStartDate}::date
+          AND a.completed_at::date <= ${calculatedEndDate}::date
+          AND a.status_category NOT IN ('cancelled', 'no_show')
+      `;
+    }
+    const satAppointments = getCount(satAppointmentsResult);
+
+    // Appointments that closed (sat_closed)
+    let closedAppointmentsResult;
+    if (repcardUserId && officeIds.length > 0) {
+      closedAppointmentsResult = await sql`
+        SELECT COUNT(*)::bigint as count
+        FROM repcard_appointments a
+        WHERE a.status_category = 'sat_closed'
+          AND a.completed_at::date >= ${calculatedStartDate}::date
+          AND a.completed_at::date <= ${calculatedEndDate}::date
+          AND a.setter_user_id = ${parseInt(repcardUserId)}
+          AND a.office_id = ANY(${officeIds}::int[])
+      `;
+    } else if (repcardUserId) {
+      closedAppointmentsResult = await sql`
+        SELECT COUNT(*)::bigint as count
+        FROM repcard_appointments a
+        WHERE a.status_category = 'sat_closed'
+          AND a.completed_at::date >= ${calculatedStartDate}::date
+          AND a.completed_at::date <= ${calculatedEndDate}::date
+          AND a.setter_user_id = ${parseInt(repcardUserId)}
+      `;
+    } else if (officeIds.length > 0) {
+      closedAppointmentsResult = await sql`
+        SELECT COUNT(*)::bigint as count
+        FROM repcard_appointments a
+        WHERE a.status_category = 'sat_closed'
+          AND a.completed_at::date >= ${calculatedStartDate}::date
+          AND a.completed_at::date <= ${calculatedEndDate}::date
+          AND a.office_id = ANY(${officeIds}::int[])
+      `;
+    } else {
+      closedAppointmentsResult = await sql`
+        SELECT COUNT(*)::bigint as count
+        FROM repcard_appointments a
+        WHERE a.status_category = 'sat_closed'
+          AND a.completed_at::date >= ${calculatedStartDate}::date
+          AND a.completed_at::date <= ${calculatedEndDate}::date
+      `;
+    }
+    const closedAppointments = getCount(closedAppointmentsResult);
+
+    // Appointments that were rescheduled
+    let rescheduledAppointmentsResult;
+    if (repcardUserId && officeIds.length > 0) {
+      rescheduledAppointmentsResult = await sql`
+        SELECT COUNT(*)::bigint as count
+        FROM repcard_appointments a
+        WHERE a.status_category = 'rescheduled'
+          AND (
+            (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
+            OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
+          )
+          AND a.setter_user_id = ${parseInt(repcardUserId)}
+          AND a.office_id = ANY(${officeIds}::int[])
+      `;
+    } else if (repcardUserId) {
+      rescheduledAppointmentsResult = await sql`
+        SELECT COUNT(*)::bigint as count
+        FROM repcard_appointments a
+        WHERE a.status_category = 'rescheduled'
+          AND (
+            (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
+            OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
+          )
+          AND a.setter_user_id = ${parseInt(repcardUserId)}
+      `;
+    } else if (officeIds.length > 0) {
+      rescheduledAppointmentsResult = await sql`
+        SELECT COUNT(*)::bigint as count
+        FROM repcard_appointments a
+        WHERE a.status_category = 'rescheduled'
+          AND (
+            (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
+            OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
+          )
+          AND a.office_id = ANY(${officeIds}::int[])
+      `;
+    } else {
+      rescheduledAppointmentsResult = await sql`
+        SELECT COUNT(*)::bigint as count
+        FROM repcard_appointments a
+        WHERE a.status_category = 'rescheduled'
+          AND (
+            (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
+            OR (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
+          )
+      `;
+    }
     const rescheduledAppointments = getCount(rescheduledAppointmentsResult);
 
     // Customers with follow-up appointments
-    const followUpCustomersResult = await sql`
-      SELECT COUNT(DISTINCT c.repcard_customer_id)::bigint as count
-      FROM repcard_customers c
-      WHERE EXISTS (
-        SELECT 1 FROM repcard_appointments a1
-        WHERE a1.repcard_customer_id = c.repcard_customer_id
-          AND a1.created_at::date >= ${calculatedStartDate}::date
-          AND a1.created_at::date <= ${calculatedEndDate}::date
-      )
-      AND EXISTS (
-        SELECT 1 FROM repcard_appointments a2
-        WHERE a2.repcard_customer_id = c.repcard_customer_id
-          AND a2.created_at > (
-            SELECT MIN(a3.created_at) FROM repcard_appointments a3
-            WHERE a3.repcard_customer_id = c.repcard_customer_id
-          )
-      )
-      AND c.created_at::date >= ${calculatedStartDate}::date
-      AND c.created_at::date <= ${calculatedEndDate}::date
-      ${repcardUserId ? sql`AND c.setter_user_id = ${parseInt(repcardUserId)}` : sql``}
-      ${officeIds.length > 0 ? sql`AND c.office_id = ANY(${officeIds}::int[])` : sql``}
-    `;
+    let followUpCustomersResult;
+    if (repcardUserId && officeIds.length > 0) {
+      followUpCustomersResult = await sql`
+        SELECT COUNT(DISTINCT c.repcard_customer_id)::bigint as count
+        FROM repcard_customers c
+        WHERE EXISTS (
+          SELECT 1 FROM repcard_appointments a1
+          WHERE a1.repcard_customer_id = c.repcard_customer_id
+            AND a1.created_at::date >= ${calculatedStartDate}::date
+            AND a1.created_at::date <= ${calculatedEndDate}::date
+        )
+        AND EXISTS (
+          SELECT 1 FROM repcard_appointments a2
+          WHERE a2.repcard_customer_id = c.repcard_customer_id
+            AND a2.created_at > (
+              SELECT MIN(a3.created_at) FROM repcard_appointments a3
+              WHERE a3.repcard_customer_id = c.repcard_customer_id
+            )
+        )
+        AND c.created_at::date >= ${calculatedStartDate}::date
+        AND c.created_at::date <= ${calculatedEndDate}::date
+        AND c.setter_user_id = ${parseInt(repcardUserId)}
+        AND c.office_id = ANY(${officeIds}::int[])
+      `;
+    } else if (repcardUserId) {
+      followUpCustomersResult = await sql`
+        SELECT COUNT(DISTINCT c.repcard_customer_id)::bigint as count
+        FROM repcard_customers c
+        WHERE EXISTS (
+          SELECT 1 FROM repcard_appointments a1
+          WHERE a1.repcard_customer_id = c.repcard_customer_id
+            AND a1.created_at::date >= ${calculatedStartDate}::date
+            AND a1.created_at::date <= ${calculatedEndDate}::date
+        )
+        AND EXISTS (
+          SELECT 1 FROM repcard_appointments a2
+          WHERE a2.repcard_customer_id = c.repcard_customer_id
+            AND a2.created_at > (
+              SELECT MIN(a3.created_at) FROM repcard_appointments a3
+              WHERE a3.repcard_customer_id = c.repcard_customer_id
+            )
+        )
+        AND c.created_at::date >= ${calculatedStartDate}::date
+        AND c.created_at::date <= ${calculatedEndDate}::date
+        AND c.setter_user_id = ${parseInt(repcardUserId)}
+      `;
+    } else if (officeIds.length > 0) {
+      followUpCustomersResult = await sql`
+        SELECT COUNT(DISTINCT c.repcard_customer_id)::bigint as count
+        FROM repcard_customers c
+        WHERE EXISTS (
+          SELECT 1 FROM repcard_appointments a1
+          WHERE a1.repcard_customer_id = c.repcard_customer_id
+            AND a1.created_at::date >= ${calculatedStartDate}::date
+            AND a1.created_at::date <= ${calculatedEndDate}::date
+        )
+        AND EXISTS (
+          SELECT 1 FROM repcard_appointments a2
+          WHERE a2.repcard_customer_id = c.repcard_customer_id
+            AND a2.created_at > (
+              SELECT MIN(a3.created_at) FROM repcard_appointments a3
+              WHERE a3.repcard_customer_id = c.repcard_customer_id
+            )
+        )
+        AND c.created_at::date >= ${calculatedStartDate}::date
+        AND c.created_at::date <= ${calculatedEndDate}::date
+        AND c.office_id = ANY(${officeIds}::int[])
+      `;
+    } else {
+      followUpCustomersResult = await sql`
+        SELECT COUNT(DISTINCT c.repcard_customer_id)::bigint as count
+        FROM repcard_customers c
+        WHERE EXISTS (
+          SELECT 1 FROM repcard_appointments a1
+          WHERE a1.repcard_customer_id = c.repcard_customer_id
+            AND a1.created_at::date >= ${calculatedStartDate}::date
+            AND a1.created_at::date <= ${calculatedEndDate}::date
+        )
+        AND EXISTS (
+          SELECT 1 FROM repcard_appointments a2
+          WHERE a2.repcard_customer_id = c.repcard_customer_id
+            AND a2.created_at > (
+              SELECT MIN(a3.created_at) FROM repcard_appointments a3
+              WHERE a3.repcard_customer_id = c.repcard_customer_id
+            )
+        )
+        AND c.created_at::date >= ${calculatedStartDate}::date
+        AND c.created_at::date <= ${calculatedEndDate}::date
+      `;
+    }
     const followUpCustomers = getCount(followUpCustomersResult);
 
     // Total customers
-    const totalCustomersResult = await sql`
-      SELECT COUNT(*)::bigint as count
-      FROM repcard_customers c
-      WHERE c.created_at::date >= ${calculatedStartDate}::date
-        AND c.created_at::date <= ${calculatedEndDate}::date
-        ${repcardUserId ? sql`AND c.setter_user_id = ${parseInt(repcardUserId)}` : sql``}
-        ${officeIds.length > 0 ? sql`AND c.office_id = ANY(${officeIds}::int[])` : sql``}
-    `;
+    let totalCustomersResult;
+    if (repcardUserId && officeIds.length > 0) {
+      totalCustomersResult = await sql`
+        SELECT COUNT(*)::bigint as count
+        FROM repcard_customers c
+        WHERE c.created_at::date >= ${calculatedStartDate}::date
+          AND c.created_at::date <= ${calculatedEndDate}::date
+          AND c.setter_user_id = ${parseInt(repcardUserId)}
+          AND c.office_id = ANY(${officeIds}::int[])
+      `;
+    } else if (repcardUserId) {
+      totalCustomersResult = await sql`
+        SELECT COUNT(*)::bigint as count
+        FROM repcard_customers c
+        WHERE c.created_at::date >= ${calculatedStartDate}::date
+          AND c.created_at::date <= ${calculatedEndDate}::date
+          AND c.setter_user_id = ${parseInt(repcardUserId)}
+      `;
+    } else if (officeIds.length > 0) {
+      totalCustomersResult = await sql`
+        SELECT COUNT(*)::bigint as count
+        FROM repcard_customers c
+        WHERE c.created_at::date >= ${calculatedStartDate}::date
+          AND c.created_at::date <= ${calculatedEndDate}::date
+          AND c.office_id = ANY(${officeIds}::int[])
+      `;
+    } else {
+      totalCustomersResult = await sql`
+        SELECT COUNT(*)::bigint as count
+        FROM repcard_customers c
+        WHERE c.created_at::date >= ${calculatedStartDate}::date
+          AND c.created_at::date <= ${calculatedEndDate}::date
+      `;
+    }
     const totalCustomers = getCount(totalCustomersResult);
 
     // Calculate rates
