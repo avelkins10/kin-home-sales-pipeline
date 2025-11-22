@@ -47,18 +47,7 @@ export async function GET(request: NextRequest) {
             COUNT(DISTINCT a.id)::int as total_appointments,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE)::int as within_48h,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = TRUE)::int as reschedules,
-            COUNT(DISTINCT CASE
-              WHEN EXISTS (
-                SELECT 1 FROM repcard_appointment_attachments att
-                WHERE att.repcard_appointment_id::TEXT = a.repcard_appointment_id
-                  AND (att.attachment_type ILIKE '%power%' OR att.attachment_type ILIKE '%bill%')
-              ) OR EXISTS (
-                SELECT 1 FROM repcard_customer_attachments catt
-                WHERE catt.repcard_customer_id::TEXT = a.repcard_customer_id
-                  AND (catt.attachment_type ILIKE '%power%' OR catt.attachment_type ILIKE '%bill%')
-              )
-              THEN a.id
-            END)::int as with_power_bill
+            0::int as with_power_bill
           FROM repcard_appointments a
           WHERE a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
@@ -68,18 +57,7 @@ export async function GET(request: NextRequest) {
             COUNT(DISTINCT a.id)::int as total_appointments,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE)::int as within_48h,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = TRUE)::int as reschedules,
-            COUNT(DISTINCT CASE
-              WHEN EXISTS (
-                SELECT 1 FROM repcard_appointment_attachments att
-                WHERE att.repcard_appointment_id::TEXT = a.repcard_appointment_id
-                  AND (att.attachment_type ILIKE '%power%' OR att.attachment_type ILIKE '%bill%')
-              ) OR EXISTS (
-                SELECT 1 FROM repcard_customer_attachments catt
-                WHERE catt.repcard_customer_id::TEXT = a.repcard_customer_id
-                  AND (catt.attachment_type ILIKE '%power%' OR catt.attachment_type ILIKE '%bill%')
-              )
-              THEN a.id
-            END)::int as with_power_bill
+            0::int as with_power_bill
           FROM repcard_appointments a
         `;
 
@@ -287,18 +265,7 @@ export async function GET(request: NextRequest) {
             u.role,
             COUNT(DISTINCT a.id)::int as appointments_set,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE)::int as within_48h_count,
-            COUNT(DISTINCT CASE
-              WHEN EXISTS (
-                SELECT 1 FROM repcard_appointment_attachments att
-                WHERE att.repcard_appointment_id::TEXT = a.repcard_appointment_id
-                  AND (att.attachment_type ILIKE '%power%' OR att.attachment_type ILIKE '%bill%')
-              ) OR EXISTS (
-                SELECT 1 FROM repcard_customer_attachments catt
-                WHERE catt.repcard_customer_id::TEXT = a.repcard_customer_id
-                  AND (catt.attachment_type ILIKE '%power%' OR catt.attachment_type ILIKE '%bill%')
-              )
-              THEN a.id
-            END)::int as with_power_bill_count,
+            0::int as with_power_bill_count,
             COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
             CASE
               WHEN COUNT(DISTINCT c.repcard_customer_id) > 0 THEN
@@ -323,18 +290,7 @@ export async function GET(request: NextRequest) {
             u.role,
             COUNT(DISTINCT a.id)::int as appointments_set,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE)::int as within_48h_count,
-            COUNT(DISTINCT CASE
-              WHEN EXISTS (
-                SELECT 1 FROM repcard_appointment_attachments att
-                WHERE att.repcard_appointment_id::TEXT = a.repcard_appointment_id
-                  AND (att.attachment_type ILIKE '%power%' OR att.attachment_type ILIKE '%bill%')
-              ) OR EXISTS (
-                SELECT 1 FROM repcard_customer_attachments catt
-                WHERE catt.repcard_customer_id::TEXT = a.repcard_customer_id
-                  AND (catt.attachment_type ILIKE '%power%' OR catt.attachment_type ILIKE '%bill%')
-              )
-              THEN a.id
-            END)::int as with_power_bill_count,
+            0::int as with_power_bill_count,
             COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
             CASE
               WHEN COUNT(DISTINCT c.repcard_customer_id) > 0 THEN
