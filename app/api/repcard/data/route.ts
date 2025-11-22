@@ -157,8 +157,9 @@ export async function GET(request: NextRequest) {
       }
 
       case 'attachments': {
-        const customerAttachments = await sql`
-          SELECT 
+        // Build customer attachments query
+        let customerQuery = `
+          SELECT
             id,
             repcard_attachment_id,
             customer_id,
@@ -172,17 +173,31 @@ export async function GET(request: NextRequest) {
             updated_at
           FROM repcard_customer_attachments
           WHERE 1=1
-            ${actualRepcardUserId ? sql`AND uploaded_by_user_id = ${actualRepcardUserId}` : sql``}
-            ${customerId ? sql`AND repcard_customer_id = ${parseInt(customerId)}` : sql``}
-            ${startDate ? sql`AND created_at >= ${startDate}::timestamp` : sql``}
-            ${endDate ? sql`AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')` : sql``}
+        `;
+
+        if (actualRepcardUserId) {
+          const userIdNum = typeof actualRepcardUserId === 'string' ? parseInt(actualRepcardUserId) : actualRepcardUserId;
+          customerQuery += ` AND uploaded_by_user_id = ${userIdNum}`;
+        }
+        if (customerId) {
+          customerQuery += ` AND repcard_customer_id = ${parseInt(customerId)}`;
+        }
+        if (startDate) {
+          customerQuery += ` AND created_at >= '${startDate}'::timestamp`;
+        }
+        if (endDate) {
+          customerQuery += ` AND created_at <= ('${endDate}'::timestamp + INTERVAL '1 day')`;
+        }
+
+        customerQuery += `
           ORDER BY created_at DESC
           LIMIT ${limit}
           OFFSET ${offset}
         `;
 
-        const appointmentAttachments = await sql`
-          SELECT 
+        // Build appointment attachments query
+        let appointmentQuery = `
+          SELECT
             id,
             repcard_attachment_id,
             appointment_id,
@@ -198,26 +213,43 @@ export async function GET(request: NextRequest) {
             updated_at
           FROM repcard_appointment_attachments
           WHERE 1=1
-            ${actualRepcardUserId ? sql`AND uploaded_by_user_id = ${actualRepcardUserId}` : sql``}
-            ${customerId ? sql`AND repcard_customer_id = ${parseInt(customerId)}` : sql``}
-            ${startDate ? sql`AND created_at >= ${startDate}::timestamp` : sql``}
-            ${endDate ? sql`AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')` : sql``}
+        `;
+
+        if (actualRepcardUserId) {
+          const userIdNum = typeof actualRepcardUserId === 'string' ? parseInt(actualRepcardUserId) : actualRepcardUserId;
+          appointmentQuery += ` AND uploaded_by_user_id = ${userIdNum}`;
+        }
+        if (customerId) {
+          appointmentQuery += ` AND repcard_customer_id = ${parseInt(customerId)}`;
+        }
+        if (startDate) {
+          appointmentQuery += ` AND created_at >= '${startDate}'::timestamp`;
+        }
+        if (endDate) {
+          appointmentQuery += ` AND created_at <= ('${endDate}'::timestamp + INTERVAL '1 day')`;
+        }
+
+        appointmentQuery += `
           ORDER BY created_at DESC
           LIMIT ${limit}
           OFFSET ${offset}
         `;
 
+        const customerAttachmentsResult = await sql.unsafe(customerQuery);
+        const appointmentAttachmentsResult = await sql.unsafe(appointmentQuery);
+
         data = [
-          ...Array.from(customerAttachments).map((a: any) => ({ ...a, source: 'customer' })),
-          ...Array.from(appointmentAttachments).map((a: any) => ({ ...a, source: 'appointment' }))
+          ...Array.from(customerAttachmentsResult).map((a: any) => ({ ...a, source: 'customer' })),
+          ...Array.from(appointmentAttachmentsResult).map((a: any) => ({ ...a, source: 'appointment' }))
         ];
         total = data.length; // Simplified - could be more accurate
         break;
       }
 
       case 'users': {
-        const result = await sql`
-          SELECT 
+        // Build query dynamically
+        let query = `
+          SELECT
             id,
             repcard_user_id,
             company_id,
@@ -241,31 +273,58 @@ export async function GET(request: NextRequest) {
             synced_at
           FROM repcard_users
           WHERE 1=1
-            ${actualRepcardUserId ? sql`AND repcard_user_id = ${parseInt(actualRepcardUserId)}` : sql``}
-            ${officeId ? sql`AND office_id = ${parseInt(officeId)}` : sql``}
-            ${startDate ? sql`AND created_at >= ${startDate}::timestamp` : sql``}
-            ${endDate ? sql`AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')` : sql``}
+        `;
+
+        if (actualRepcardUserId) {
+          query += ` AND repcard_user_id = ${parseInt(actualRepcardUserId)}`;
+        }
+        if (officeId) {
+          query += ` AND office_id = ${parseInt(officeId)}`;
+        }
+        if (startDate) {
+          query += ` AND created_at >= '${startDate}'::timestamp`;
+        }
+        if (endDate) {
+          query += ` AND created_at <= ('${endDate}'::timestamp + INTERVAL '1 day')`;
+        }
+
+        query += `
           ORDER BY last_name, first_name
           LIMIT ${limit}
           OFFSET ${offset}
         `;
+
+        const result = await sql.unsafe(query);
         data = Array.from(result);
-        
-        const countResult = await sql`
+
+        // Build count query
+        let countQuery = `
           SELECT COUNT(*) as count FROM repcard_users
           WHERE 1=1
-            ${actualRepcardUserId ? sql`AND repcard_user_id = ${parseInt(actualRepcardUserId)}` : sql``}
-            ${officeId ? sql`AND office_id = ${parseInt(officeId)}` : sql``}
-            ${startDate ? sql`AND created_at >= ${startDate}::timestamp` : sql``}
-            ${endDate ? sql`AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')` : sql``}
         `;
+
+        if (actualRepcardUserId) {
+          countQuery += ` AND repcard_user_id = ${parseInt(actualRepcardUserId)}`;
+        }
+        if (officeId) {
+          countQuery += ` AND office_id = ${parseInt(officeId)}`;
+        }
+        if (startDate) {
+          countQuery += ` AND created_at >= '${startDate}'::timestamp`;
+        }
+        if (endDate) {
+          countQuery += ` AND created_at <= ('${endDate}'::timestamp + INTERVAL '1 day')`;
+        }
+
+        const countResult = await sql.unsafe(countQuery);
         total = parseInt(Array.from(countResult)[0]?.count || '0');
         break;
       }
 
       case 'offices': {
-        const result = await sql`
-          SELECT 
+        // Build query dynamically
+        let query = `
+          SELECT
             id,
             repcard_office_id,
             company_id,
@@ -279,25 +338,40 @@ export async function GET(request: NextRequest) {
             synced_at
           FROM repcard_offices
           WHERE 1=1
-            ${officeId ? sql`AND repcard_office_id = ${parseInt(officeId)}` : sql``}
+        `;
+
+        if (officeId) {
+          query += ` AND repcard_office_id = ${parseInt(officeId)}`;
+        }
+
+        query += `
           ORDER BY name
           LIMIT ${limit}
           OFFSET ${offset}
         `;
+
+        const result = await sql.unsafe(query);
         data = Array.from(result);
-        
-        const countResult = await sql`
+
+        // Build count query
+        let countQuery = `
           SELECT COUNT(*) as count FROM repcard_offices
           WHERE 1=1
-            ${officeId ? sql`AND repcard_office_id = ${parseInt(officeId)}` : sql``}
         `;
+
+        if (officeId) {
+          countQuery += ` AND repcard_office_id = ${parseInt(officeId)}`;
+        }
+
+        const countResult = await sql.unsafe(countQuery);
         total = parseInt(Array.from(countResult)[0]?.count || '0');
         break;
       }
 
       case 'status_logs': {
-        const result = await sql`
-          SELECT 
+        // Build query dynamically
+        let query = `
+          SELECT
             id,
             repcard_log_id,
             customer_id,
@@ -309,24 +383,52 @@ export async function GET(request: NextRequest) {
             synced_at
           FROM repcard_status_logs
           WHERE 1=1
-            ${actualRepcardUserId ? sql`AND changed_by_user_id = ${actualRepcardUserId}` : sql``}
-            ${customerId ? sql`AND repcard_customer_id = ${parseInt(customerId)}` : sql``}
-            ${startDate ? sql`AND changed_at >= ${startDate}::timestamp` : sql``}
-            ${endDate ? sql`AND changed_at <= (${endDate}::timestamp + INTERVAL '1 day')` : sql``}
+        `;
+
+        if (actualRepcardUserId) {
+          const userIdNum = typeof actualRepcardUserId === 'string' ? parseInt(actualRepcardUserId) : actualRepcardUserId;
+          query += ` AND changed_by_user_id = ${userIdNum}`;
+        }
+        if (customerId) {
+          query += ` AND repcard_customer_id = ${parseInt(customerId)}`;
+        }
+        if (startDate) {
+          query += ` AND changed_at >= '${startDate}'::timestamp`;
+        }
+        if (endDate) {
+          query += ` AND changed_at <= ('${endDate}'::timestamp + INTERVAL '1 day')`;
+        }
+
+        query += `
           ORDER BY changed_at DESC
           LIMIT ${limit}
           OFFSET ${offset}
         `;
+
+        const result = await sql.unsafe(query);
         data = Array.from(result);
-        
-        const countResult = await sql`
+
+        // Build count query
+        let countQuery = `
           SELECT COUNT(*) as count FROM repcard_status_logs
           WHERE 1=1
-            ${actualRepcardUserId ? sql`AND changed_by_user_id = ${actualRepcardUserId}` : sql``}
-            ${customerId ? sql`AND repcard_customer_id = ${parseInt(customerId)}` : sql``}
-            ${startDate ? sql`AND changed_at >= ${startDate}::timestamp` : sql``}
-            ${endDate ? sql`AND changed_at <= (${endDate}::timestamp + INTERVAL '1 day')` : sql``}
         `;
+
+        if (actualRepcardUserId) {
+          const userIdNum = typeof actualRepcardUserId === 'string' ? parseInt(actualRepcardUserId) : actualRepcardUserId;
+          countQuery += ` AND changed_by_user_id = ${userIdNum}`;
+        }
+        if (customerId) {
+          countQuery += ` AND repcard_customer_id = ${parseInt(customerId)}`;
+        }
+        if (startDate) {
+          countQuery += ` AND changed_at >= '${startDate}'::timestamp`;
+        }
+        if (endDate) {
+          countQuery += ` AND changed_at <= ('${endDate}'::timestamp + INTERVAL '1 day')`;
+        }
+
+        const countResult = await sql.unsafe(countQuery);
         total = parseInt(Array.from(countResult)[0]?.count || '0');
         break;
       }
