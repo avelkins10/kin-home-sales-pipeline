@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = TRUE)::int as reschedules,
             COUNT(DISTINCT CASE WHEN att.id IS NOT NULL THEN a.id END)::int as with_power_bill
           FROM repcard_appointments a
-          LEFT JOIN repcard_appointment_attachments att ON att.repcard_appointment_id = a.repcard_appointment_id
+          LEFT JOIN repcard_appointment_attachments att ON att.repcard_appointment_id::TEXT = a.repcard_appointment_id
             AND att.attachment_type = 'power_bill'
           WHERE a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = TRUE)::int as reschedules,
             COUNT(DISTINCT CASE WHEN att.id IS NOT NULL THEN a.id END)::int as with_power_bill
           FROM repcard_appointments a
-          LEFT JOIN repcard_appointment_attachments att ON att.repcard_appointment_id = a.repcard_appointment_id
+          LEFT JOIN repcard_appointment_attachments att ON att.repcard_appointment_id::TEXT = a.repcard_appointment_id
             AND att.attachment_type = 'power_bill'
         `;
 
