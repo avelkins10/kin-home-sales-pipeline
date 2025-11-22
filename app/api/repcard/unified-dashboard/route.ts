@@ -47,10 +47,19 @@ export async function GET(request: NextRequest) {
             COUNT(DISTINCT a.id)::int as total_appointments,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE)::int as within_48h,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = TRUE)::int as reschedules,
-            COUNT(DISTINCT CASE WHEN att.id IS NOT NULL THEN a.id END)::int as with_power_bill
+            COUNT(DISTINCT CASE
+              WHEN EXISTS (
+                SELECT 1 FROM repcard_appointment_attachments att
+                WHERE att.repcard_appointment_id::TEXT = a.repcard_appointment_id
+                  AND (att.attachment_type ILIKE '%power%' OR att.attachment_type ILIKE '%bill%')
+              ) OR EXISTS (
+                SELECT 1 FROM repcard_customer_attachments catt
+                WHERE catt.repcard_customer_id::TEXT = a.repcard_customer_id
+                  AND (catt.attachment_type ILIKE '%power%' OR catt.attachment_type ILIKE '%bill%')
+              )
+              THEN a.id
+            END)::int as with_power_bill
           FROM repcard_appointments a
-          LEFT JOIN repcard_appointment_attachments att ON att.repcard_appointment_id::TEXT = a.repcard_appointment_id
-            AND att.attachment_type = 'power_bill'
           WHERE a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
         `
@@ -59,10 +68,19 @@ export async function GET(request: NextRequest) {
             COUNT(DISTINCT a.id)::int as total_appointments,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE)::int as within_48h,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = TRUE)::int as reschedules,
-            COUNT(DISTINCT CASE WHEN att.id IS NOT NULL THEN a.id END)::int as with_power_bill
+            COUNT(DISTINCT CASE
+              WHEN EXISTS (
+                SELECT 1 FROM repcard_appointment_attachments att
+                WHERE att.repcard_appointment_id::TEXT = a.repcard_appointment_id
+                  AND (att.attachment_type ILIKE '%power%' OR att.attachment_type ILIKE '%bill%')
+              ) OR EXISTS (
+                SELECT 1 FROM repcard_customer_attachments catt
+                WHERE catt.repcard_customer_id::TEXT = a.repcard_customer_id
+                  AND (catt.attachment_type ILIKE '%power%' OR catt.attachment_type ILIKE '%bill%')
+              )
+              THEN a.id
+            END)::int as with_power_bill
           FROM repcard_appointments a
-          LEFT JOIN repcard_appointment_attachments att ON att.repcard_appointment_id::TEXT = a.repcard_appointment_id
-            AND att.attachment_type = 'power_bill'
         `;
 
     const qualityData = getRows(qualityResult)[0] as any;
@@ -260,29 +278,42 @@ export async function GET(request: NextRequest) {
       conversionRate: parseFloat(row.conversion_rate || '0'),
     }));
 
-    // Top converters
-    const topConvertersResult = startDate && endDate
+    // Top appointment setters (with quality metrics)
+    const topAppointmentSettersResult = startDate && endDate
       ? await sql`
           SELECT
             u.repcard_user_id,
             u.name,
             u.role,
+            COUNT(DISTINCT a.id)::int as appointments_set,
+            COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE)::int as within_48h_count,
+            COUNT(DISTINCT CASE
+              WHEN EXISTS (
+                SELECT 1 FROM repcard_appointment_attachments att
+                WHERE att.repcard_appointment_id::TEXT = a.repcard_appointment_id
+                  AND (att.attachment_type ILIKE '%power%' OR att.attachment_type ILIKE '%bill%')
+              ) OR EXISTS (
+                SELECT 1 FROM repcard_customer_attachments catt
+                WHERE catt.repcard_customer_id::TEXT = a.repcard_customer_id
+                  AND (catt.attachment_type ILIKE '%power%' OR catt.attachment_type ILIKE '%bill%')
+              )
+              THEN a.id
+            END)::int as with_power_bill_count,
             COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
-            COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_set,
             CASE
               WHEN COUNT(DISTINCT c.repcard_customer_id) > 0 THEN
-                (COUNT(DISTINCT a.repcard_appointment_id)::float / COUNT(DISTINCT c.repcard_customer_id)::float) * 100
+                (COUNT(DISTINCT a.id)::float / COUNT(DISTINCT c.repcard_customer_id)::float) * 100
               ELSE 0
             END as conversion_rate
           FROM users u
-          LEFT JOIN repcard_customers c ON c.setter_user_id = u.repcard_user_id::TEXT
-          LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id
+          LEFT JOIN repcard_appointments a ON a.setter_user_id = u.repcard_user_id::TEXT
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
+          LEFT JOIN repcard_customers c ON c.repcard_customer_id = a.repcard_customer_id
           WHERE u.repcard_user_id IS NOT NULL
           GROUP BY u.repcard_user_id, u.name, u.role
-          HAVING COUNT(DISTINCT c.repcard_customer_id) >= 10
-          ORDER BY conversion_rate DESC
+          HAVING COUNT(DISTINCT a.id) > 0
+          ORDER BY appointments_set DESC
           LIMIT 10
         `
       : await sql`
@@ -290,29 +321,44 @@ export async function GET(request: NextRequest) {
             u.repcard_user_id,
             u.name,
             u.role,
+            COUNT(DISTINCT a.id)::int as appointments_set,
+            COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE)::int as within_48h_count,
+            COUNT(DISTINCT CASE
+              WHEN EXISTS (
+                SELECT 1 FROM repcard_appointment_attachments att
+                WHERE att.repcard_appointment_id::TEXT = a.repcard_appointment_id
+                  AND (att.attachment_type ILIKE '%power%' OR att.attachment_type ILIKE '%bill%')
+              ) OR EXISTS (
+                SELECT 1 FROM repcard_customer_attachments catt
+                WHERE catt.repcard_customer_id::TEXT = a.repcard_customer_id
+                  AND (catt.attachment_type ILIKE '%power%' OR catt.attachment_type ILIKE '%bill%')
+              )
+              THEN a.id
+            END)::int as with_power_bill_count,
             COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
-            COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_set,
             CASE
               WHEN COUNT(DISTINCT c.repcard_customer_id) > 0 THEN
-                (COUNT(DISTINCT a.repcard_appointment_id)::float / COUNT(DISTINCT c.repcard_customer_id)::float) * 100
+                (COUNT(DISTINCT a.id)::float / COUNT(DISTINCT c.repcard_customer_id)::float) * 100
               ELSE 0
             END as conversion_rate
           FROM users u
-          LEFT JOIN repcard_customers c ON c.setter_user_id = u.repcard_user_id::TEXT
-          LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id
+          LEFT JOIN repcard_appointments a ON a.setter_user_id = u.repcard_user_id::TEXT
+          LEFT JOIN repcard_customers c ON c.repcard_customer_id = a.repcard_customer_id
           WHERE u.repcard_user_id IS NOT NULL
           GROUP BY u.repcard_user_id, u.name, u.role
-          HAVING COUNT(DISTINCT c.repcard_customer_id) >= 10
-          ORDER BY conversion_rate DESC
+          HAVING COUNT(DISTINCT a.id) > 0
+          ORDER BY appointments_set DESC
           LIMIT 10
         `;
 
-    const topConverters = getRows(topConvertersResult).map((row: any) => ({
+    const topAppointmentSetters = getRows(topAppointmentSettersResult).map((row: any) => ({
       userId: row.repcard_user_id,
       name: row.name,
       role: row.role,
-      doorsKnocked: row.doors_knocked,
       appointmentsSet: row.appointments_set,
+      within48hCount: row.within_48h_count,
+      withPowerBillCount: row.with_power_bill_count,
+      doorsKnocked: row.doors_knocked,
       conversionRate: parseFloat(row.conversion_rate || '0'),
     }));
 
@@ -420,7 +466,7 @@ export async function GET(request: NextRequest) {
       officePerformance,
       leaderboards: {
         topDoors,
-        topConverters,
+        topAppointmentSetters,
         topClosers,
       },
       canvassing: canvassingActivity,

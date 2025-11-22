@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { format, subDays, startOfYear, startOfMonth, subMonths } from 'date-fns';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AnalyticsHeader } from '@/components/analytics/AnalyticsHeader';
 import { AnalyticsFilters } from '@/components/analytics/AnalyticsFilters';
@@ -31,6 +32,54 @@ import { BenchmarkComparisonCard } from '@/components/analytics/BenchmarkCompari
 import { VisualComparisonsCard } from '@/components/analytics/VisualComparisonsCard';
 import { isManagerRole } from '@/lib/utils/role-helpers';
 import type { TimeRange, CustomDateRange } from '@/lib/types/dashboard';
+
+/**
+ * Convert TimeRange to actual date strings for API calls
+ */
+function getDateRangeFromTimeRange(timeRange: TimeRange, customDateRange?: CustomDateRange): { startDate: string; endDate: string } | undefined {
+  if (timeRange === 'custom' && customDateRange) {
+    return customDateRange;
+  }
+
+  const now = new Date();
+  const endDate = format(now, 'yyyy-MM-dd');
+  let startDate: string;
+
+  switch (timeRange) {
+    case 'today':
+      startDate = format(now, 'yyyy-MM-dd');
+      break;
+    case 'last_30':
+      startDate = format(subDays(now, 30), 'yyyy-MM-dd');
+      break;
+    case 'last_90':
+      startDate = format(subDays(now, 90), 'yyyy-MM-dd');
+      break;
+    case 'last_12_months':
+      startDate = format(subDays(now, 365), 'yyyy-MM-dd');
+      break;
+    case 'ytd':
+      startDate = format(startOfYear(now), 'yyyy-MM-dd');
+      break;
+    case 'month':
+      startDate = format(startOfMonth(now), 'yyyy-MM-dd');
+      break;
+    case 'last_month':
+      const lastMonth = subMonths(now, 1);
+      startDate = format(startOfMonth(lastMonth), 'yyyy-MM-dd');
+      return {
+        startDate,
+        endDate: format(subDays(startOfMonth(now), 1), 'yyyy-MM-dd') // Last day of previous month
+      };
+    case 'lifetime':
+      // Return undefined for lifetime to fetch all data
+      return undefined;
+    default:
+      return undefined;
+  }
+
+  return { startDate, endDate };
+}
 
 
 export default function AnalyticsPage() {
@@ -586,8 +635,8 @@ export default function AnalyticsPage() {
           }
           repcardContent={
             <RepCardUnifiedDashboard
-              startDate={customDateRange?.startDate}
-              endDate={customDateRange?.endDate}
+              startDate={getDateRangeFromTimeRange(timeRange, customDateRange)?.startDate}
+              endDate={getDateRangeFromTimeRange(timeRange, customDateRange)?.endDate}
             />
           }
         />

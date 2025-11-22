@@ -34,17 +34,20 @@ CREATE INDEX IF NOT EXISTS idx_repcard_customers_office_created ON repcard_custo
 CREATE OR REPLACE FUNCTION update_appointment_metrics()
 RETURNS TRIGGER AS $$
 BEGIN
-  -- Calculate is_within_48_hours: appointment created within 48 hours of customer creation
-  IF NEW.repcard_customer_id IS NOT NULL THEN
-    SELECT 
-      CASE 
-        WHEN (NEW.created_at - c.created_at) <= INTERVAL '48 hours' THEN TRUE
+  -- Calculate is_within_48_hours: appointment scheduled within 48 hours of customer creation (door knock)
+  IF NEW.repcard_customer_id IS NOT NULL AND NEW.scheduled_at IS NOT NULL THEN
+    SELECT
+      CASE
+        WHEN (NEW.scheduled_at - c.created_at) <= INTERVAL '48 hours' THEN TRUE
         ELSE FALSE
       END
     INTO NEW.is_within_48_hours
     FROM repcard_customers c
     WHERE c.repcard_customer_id = NEW.repcard_customer_id
     LIMIT 1;
+  ELSE
+    -- If no scheduled_at, mark as FALSE
+    NEW.is_within_48_hours := FALSE;
   END IF;
 
   -- Set office_id from customer if not set

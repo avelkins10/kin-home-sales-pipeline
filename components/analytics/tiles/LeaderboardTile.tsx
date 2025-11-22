@@ -12,6 +12,8 @@ interface RepData {
   doorsKnocked?: number;
   appointmentsSet?: number;
   conversionRate?: number;
+  within48hCount?: number;
+  withPowerBillCount?: number;
   appointmentsRun?: number;
   salesClosed?: number;
   closeRate?: number;
@@ -19,7 +21,7 @@ interface RepData {
 
 interface LeaderboardData {
   topDoors: RepData[];
-  topConverters: RepData[];
+  topAppointmentSetters: RepData[];
   topClosers: RepData[];
 }
 
@@ -119,14 +121,14 @@ export function LeaderboardTile({ data, onExpand, isLoading }: Props) {
             )}
           </div>
 
-          {/* Top Converters */}
+          {/* Appointments Set with Quality Metrics */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <Target className="h-4 w-4 text-green-600" />
-              <h4 className="text-sm font-semibold text-gray-700">Top Converters</h4>
+              <h4 className="text-sm font-semibold text-gray-700">Appointments Set</h4>
             </div>
             <div className="space-y-2">
-              {data.topConverters.slice(0, 3).map((rep, idx) => (
+              {data.topAppointmentSetters.slice(0, 3).map((rep, idx) => (
                 <div
                   key={rep.userId}
                   className="p-2 rounded-lg bg-gradient-to-br from-green-50 to-green-100/50 border border-green-200"
@@ -139,20 +141,28 @@ export function LeaderboardTile({ data, onExpand, isLoading }: Props) {
                       {rep.name}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between ml-8">
+                  <div className="ml-8 space-y-1">
                     <p className="text-2xl font-bold text-green-900">
-                      {rep.conversionRate?.toFixed(1)}%
+                      {rep.appointmentsSet?.toLocaleString() || 0}
                     </p>
-                    <Badge variant="outline" className="text-xs">
-                      {rep.doorsKnocked} doors
-                    </Badge>
+                    <div className="flex flex-wrap gap-1">
+                      <Badge variant="outline" className="text-[10px] px-1 py-0">
+                        {rep.within48hCount || 0} in 48h
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px] px-1 py-0">
+                        {rep.withPowerBillCount || 0} w/PB
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px] px-1 py-0">
+                        {rep.conversionRate?.toFixed(0)}%
+                      </Badge>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
-            {data.topConverters.length > 3 && (
+            {data.topAppointmentSetters.length > 3 && (
               <p className="text-xs text-center text-muted-foreground">
-                +{data.topConverters.length - 3} more
+                +{data.topAppointmentSetters.length - 3} more
               </p>
             )}
           </div>
