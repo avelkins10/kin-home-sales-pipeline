@@ -15,6 +15,7 @@ import { MilestoneConfigTab } from '@/components/settings/MilestoneConfigTab'
 import { Card, CardContent } from '@/components/ui/card'
 import RepCardDebugTab from '@/components/settings/RepCardDebugTab'
 import { RepCardConfigTab } from '@/components/settings/RepCardConfigTab'
+import RepCardDataDebugTab from '@/components/settings/RepCardDataDebugTab'
 
 export default async function SettingsPage() {
   const session = await getServerSession(authOptions)
@@ -109,6 +110,7 @@ export default async function SettingsPage() {
                 <TabsTrigger value="system">System</TabsTrigger>
                 <TabsTrigger value="audit">Audit Logs</TabsTrigger>
                 <TabsTrigger value="repcard-debug">RepCard Debug</TabsTrigger>
+                <TabsTrigger value="repcard-data-debug">RepCard Data Debug</TabsTrigger>
                 <TabsTrigger value="repcard-config">RepCard Config</TabsTrigger>
               </>
             )}
@@ -164,6 +166,12 @@ export default async function SettingsPage() {
               <Suspense fallback={<Skeleton className="h-96 w-full" />}>
                 <TabsContent value="repcard-debug">
                   <RepCardDebugTab />
+                </TabsContent>
+              </Suspense>
+
+              <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+                <TabsContent value="repcard-data-debug">
+                  <RepCardDataDebugTab />
                 </TabsContent>
               </Suspense>
 

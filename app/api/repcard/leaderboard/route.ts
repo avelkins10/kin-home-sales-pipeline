@@ -1228,55 +1228,50 @@ export async function GET(request: NextRequest) {
           }));
         }
       } else if (metric === 'sales_closed' || metric === 'revenue') {
-        // Query synced status logs from database (much faster than API calls)
-        // Filter for "sold" statuses - check both old_status and new_status transitions
-        const statusLogsRaw = await sql`
+        // Query from appointments table using closer_user_id (who ran the appointment)
+        // This provides accurate closer attribution
+        const appointmentsRaw = await sql`
           SELECT
-            sl.changed_by_user_id,
-            sl.repcard_customer_id,
-            sl.new_status,
-            sl.old_status,
-            sl.changed_at,
+            a.closer_user_id,
+            a.repcard_appointment_id,
+            a.repcard_customer_id,
+            a.disposition,
+            a.scheduled_at,
             c.raw_data->'customFields'->>'systemCost' as system_cost
-          FROM repcard_status_logs sl
-          LEFT JOIN repcard_customers c ON c.repcard_customer_id = sl.repcard_customer_id
-          WHERE sl.changed_by_user_id = ANY(${repcardUserIds}::int[])
-            AND sl.changed_at::date >= ${calculatedStartDate}::date
-            AND sl.changed_at::date <= ${calculatedEndDate}::date
-            AND (
-              LOWER(sl.new_status) LIKE '%sold%' OR
-              LOWER(sl.new_status) LIKE '%closed%' OR
-              LOWER(sl.new_status) LIKE '%won%' OR
-              LOWER(sl.new_status) LIKE '%install%'
-            )
+          FROM repcard_appointments a
+          LEFT JOIN repcard_customers c ON c.repcard_customer_id = a.repcard_customer_id
+          WHERE a.closer_user_id = ANY(${repcardUserIds}::int[])
+            AND a.scheduled_at::date >= ${calculatedStartDate}::date
+            AND a.scheduled_at::date <= ${calculatedEndDate}::date
+            AND a.disposition ILIKE '%closed%'
         `;
-        const statusLogs = Array.from(statusLogsRaw);
+        const appointments = Array.from(appointmentsRaw);
 
-        // Group sales by user
+        // Group sales by closer
         const salesByUser = new Map<string, { count: number; revenue: number }>();
-        
-        for (const log of statusLogs) {
-          const userId = log.changed_by_user_id;
+
+        for (const appt of appointments) {
+          const userId = appt.closer_user_id;
           if (!userId) continue;
-          
+
           const userIdStr = String(userId);
           if (!salesByUser.has(userIdStr)) {
             salesByUser.set(userIdStr, { count: 0, revenue: 0 });
           }
-          
+
           const userSales = salesByUser.get(userIdStr)!;
           userSales.count++;
-          
+
           // Add revenue if available
-          if (log.system_cost) {
-            const cost = parseFloat(log.system_cost) || 0;
+          if (appt.system_cost) {
+            const cost = parseFloat(appt.system_cost) || 0;
             userSales.revenue += cost;
           }
         }
 
         leaderboardEntries = (users as any[]).map((user: any) => {
           const userSales = salesByUser.get(String(user.repcard_user_id)) || { count: 0, revenue: 0 };
-          
+
           return {
             rank: 0,
             userId: user.id,
