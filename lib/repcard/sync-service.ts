@@ -584,6 +584,52 @@ export async function syncAppointments(options: {
               }
             }
 
+            // Calculate has_power_bill: ANY attachment = power bill (simplified for now)
+            let hasPowerBill = false;
+            if (appointment.contact?.id) {
+              // Check for customer attachments
+              const customerAttachmentsResult = customerId
+                ? await sql`SELECT COUNT(*)::int as count FROM repcard_customer_attachments WHERE customer_id = ${customerId} LIMIT 1`
+                : await sql`SELECT COUNT(*)::int as count FROM repcard_customer_attachments WHERE repcard_customer_id = ${appointment.contact.id}::text LIMIT 1`;
+              const customerAttRows = customerAttachmentsResult.rows || customerAttachmentsResult;
+              const customerAttCount = customerAttRows.length > 0 ? (customerAttRows[0]?.count || 0) : 0;
+              
+              // Check for appointment attachments
+              const appointmentAttachmentsResult = await sql`
+                SELECT COUNT(*)::int as count 
+                FROM repcard_appointment_attachments 
+                WHERE repcard_appointment_id = ${appointment.id}::text 
+                LIMIT 1
+              `;
+              const appointmentAttRows = appointmentAttachmentsResult.rows || appointmentAttachmentsResult;
+              const appointmentAttCount = appointmentAttRows.length > 0 ? (appointmentAttRows[0]?.count || 0) : 0;
+              
+              hasPowerBill = customerAttCount > 0 || appointmentAttCount > 0;
+            }
+
+            // Calculate has_power_bill: ANY attachment = power bill (simplified for now)
+            let hasPowerBill = false;
+            if (appointment.contact?.id) {
+              // Check for customer attachments
+              const customerAttachmentsResult = customerId
+                ? await sql`SELECT COUNT(*)::int as count FROM repcard_customer_attachments WHERE customer_id = ${customerId} LIMIT 1`
+                : await sql`SELECT COUNT(*)::int as count FROM repcard_customer_attachments WHERE repcard_customer_id = ${appointment.contact.id}::text LIMIT 1`;
+              const customerAttRows = customerAttachmentsResult.rows || customerAttachmentsResult;
+              const customerAttCount = customerAttRows.length > 0 ? (customerAttRows[0]?.count || 0) : 0;
+              
+              // Check for appointment attachments
+              const appointmentAttachmentsResult = await sql`
+                SELECT COUNT(*)::int as count 
+                FROM repcard_appointment_attachments 
+                WHERE repcard_appointment_id = ${appointment.id}::text 
+                LIMIT 1
+              `;
+              const appointmentAttRows = appointmentAttachmentsResult.rows || appointmentAttachmentsResult;
+              const appointmentAttCount = appointmentAttRows.length > 0 ? (appointmentAttRows[0]?.count || 0) : 0;
+              
+              hasPowerBill = customerAttCount > 0 || appointmentAttCount > 0;
+            }
+
             // Determine reschedule status before inserting
             // Check if there are existing appointments for this customer
             let isReschedule = false;
@@ -640,6 +686,7 @@ export async function syncAppointments(options: {
                 duration,
                 notes,
                 is_within_48_hours,
+                has_power_bill,
                 is_reschedule,
                 reschedule_count,
                 original_appointment_id,
@@ -661,6 +708,7 @@ export async function syncAppointments(options: {
                 ${appointment.durationTime || null},
                 ${appointment.notes || null},
                 ${isWithin48Hours},
+                ${hasPowerBill},
                 ${isReschedule},
                 ${rescheduleCount},
                 ${originalAppointmentId},
@@ -681,6 +729,7 @@ export async function syncAppointments(options: {
                 duration = EXCLUDED.duration,
                 notes = EXCLUDED.notes,
                 is_within_48_hours = EXCLUDED.is_within_48_hours,
+                has_power_bill = EXCLUDED.has_power_bill,
                 is_reschedule = EXCLUDED.is_reschedule,
                 reschedule_count = EXCLUDED.reschedule_count,
                 original_appointment_id = EXCLUDED.original_appointment_id,

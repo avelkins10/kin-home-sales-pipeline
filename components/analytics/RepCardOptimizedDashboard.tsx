@@ -26,12 +26,15 @@ import {
   AlertCircle,
   CheckCircle2,
   BarChart3,
-  ChevronRight
+  ChevronRight,
+  Paperclip,
+  ExternalLink
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatPercentage, formatLargeNumber } from '@/lib/utils/formatters';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 interface RepCardOptimizedDashboardProps {
   startDate?: string;
@@ -658,6 +661,10 @@ function StatCard({
 }
 
 function SettersView({ data, isLoading, dateRange }: { data: any[]; isLoading: boolean; dateRange: string }) {
+  const [selectedSetter, setSelectedSetter] = useState<any>(null);
+  const [attachments, setAttachments] = useState<any[]>([]);
+  const [loadingAttachments, setLoadingAttachments] = useState(false);
+
   if (isLoading) {
     return <Skeleton className="h-96" />;
   }
@@ -669,6 +676,24 @@ function SettersView({ data, isLoading, dateRange }: { data: any[]; isLoading: b
   const totalPB = data.reduce((sum, s) => sum + (s.withPowerBillCount || 0), 0);
   const totalHighQuality = data.reduce((sum, s) => sum + (s.bothCount || 0), 0);
   const avgConversion = totalDoors > 0 ? (totalAppointments / totalDoors) * 100 : 0;
+
+  const loadAttachments = async (setter: any) => {
+    setSelectedSetter(setter);
+    setLoadingAttachments(true);
+    try {
+      // Fetch attachments for this setter's appointments
+      const response = await fetch(`/api/repcard/data?type=attachments&repcardUserId=${setter.userId}&limit=100`);
+      if (response.ok) {
+        const result = await response.json();
+        setAttachments(result.data || []);
+      }
+    } catch (error) {
+      console.error('Failed to load attachments:', error);
+      setAttachments([]);
+    } finally {
+      setLoadingAttachments(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -742,7 +767,11 @@ function SettersView({ data, isLoading, dateRange }: { data: any[]; isLoading: b
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex flex-col items-end">
-                            <Badge variant={appointmentPBRate >= 80 ? 'default' : 'secondary'} className="mb-1">
+                            <Badge 
+                              variant={appointmentPBRate >= 80 ? 'default' : 'secondary'} 
+                              className="mb-1 cursor-help"
+                              title={`${setter.withPowerBillCount || 0} appointments with attachments (any attachment = power bill)`}
+                            >
                               {setter.withPowerBillCount || 0}
                             </Badge>
                             <span className="text-xs text-muted-foreground">
