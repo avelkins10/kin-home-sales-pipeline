@@ -162,7 +162,10 @@ export async function GET(request: NextRequest) {
       withPowerBill: `${withPowerBill} (${qualityMetrics.powerBillRate.toFixed(1)}%)`,
       withBoth: `${both} (${qualityMetrics.withBoth.percentage.toFixed(1)}%)`,
       withNeither: `${neither} (${qualityMetrics.withNeither.percentage.toFixed(1)}%)`,
-      reschedules: `${reschedules} (${qualityMetrics.rescheduleRate.toFixed(1)}%)`
+      reschedules: `${reschedules} (${qualityMetrics.rescheduleRate.toFixed(1)}%)`,
+      null48h,
+      nullPB,
+      dateRange: { startDate, endDate }
     });
 
     // Top reschedulers
