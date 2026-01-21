@@ -468,7 +468,7 @@ export default function RepCardManagementTab() {
                   This will update all appointments to calculate:
                   <ul className="list-disc list-inside mt-2 space-y-1">
                     <li><strong>is_within_48_hours:</strong> Whether appointment was scheduled within 48 hours of customer creation</li>
-                    <li><strong>has_power_bill:</strong> Whether customer/appointment has a power bill attachment</li>
+                    <li><strong>has_power_bill:</strong> Whether customer/appointment has any attachment (simplified: any attachment = power bill)</li>
                   </ul>
                 </AlertDescription>
               </Alert>
