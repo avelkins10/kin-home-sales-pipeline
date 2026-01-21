@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
         END
       )
       FROM repcard_customers c
-      WHERE a.repcard_customer_id = c.repcard_customer_id
+      WHERE a.repcard_customer_id::text = c.repcard_customer_id::text
         AND a.scheduled_at IS NOT NULL
     `;
     const within48hUpdated = Array.isArray(within48hResult) ? 0 : (within48hResult as any).rowCount || 0;
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
       SET is_within_48_hours = FALSE
       WHERE NOT EXISTS (
         SELECT 1 FROM repcard_customers c 
-        WHERE c.repcard_customer_id = a.repcard_customer_id
+        WHERE c.repcard_customer_id::text = a.repcard_customer_id::text
       )
     `;
     const within48hNoCustomerUpdated = Array.isArray(within48hNoCustomerResult) ? 0 : (within48hNoCustomerResult as any).rowCount || 0;
