@@ -200,7 +200,7 @@ export function RepCardOptimizedDashboard({
                 Quality Metrics
               </CardTitle>
               <CardDescription>
-                Appointment quality based on 48-hour speed and power bill collection
+                Appointment quality based on 48-hour speed and attachment collection (any attachment = power bill)
               </CardDescription>
             </CardHeader>
             <CardContent>

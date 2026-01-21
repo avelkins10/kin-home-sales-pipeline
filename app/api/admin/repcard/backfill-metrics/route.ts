@@ -73,8 +73,8 @@ export async function POST(request: NextRequest) {
     console.log(`[RepCard Backfill] Updated ${within48NoCustomerUpdated} appointments without customers for is_within_48_hours`);
 
     // Step 2: Backfill has_power_bill - UPDATE ALL appointments (force update)
-    // SIMPLIFIED: Any attachment = power bill (for now)
-    console.log('[RepCard Backfill] Step 2: Backfilling has_power_bill for all appointments...');
+    // SIMPLIFIED: Any attachment to customer or appointment = power bill
+    console.log('[RepCard Backfill] Step 2: Backfilling has_power_bill for all appointments (any attachment = PB)...');
     const powerBillResult = await sql`
       UPDATE repcard_appointments a
       SET has_power_bill = (
