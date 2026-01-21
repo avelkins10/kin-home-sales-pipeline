@@ -3,14 +3,22 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Target, RefreshCw, FileText, Zap, TrendingUp, TrendingDown, ChevronRight } from 'lucide-react';
+import { Target, RefreshCw, FileText, Zap, TrendingUp, TrendingDown, ChevronRight, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface QualityData {
   totalAppointments: number;
-  appointmentSpeed: number;
+  appointmentSpeed: number; // % within 48h
+  powerBillRate: number; // % with power bill
+  withBoth?: {
+    count: number;
+    percentage: number;
+  };
+  withNeither?: {
+    count: number;
+    percentage: number;
+  };
   rescheduleRate: number;
-  powerBillRate: number;
 }
 
 interface TopRescheduler {
@@ -181,6 +189,52 @@ export function QualityTile({ data, topReschedulers, onExpand, isLoading }: Prop
             </p>
           </div>
         </div>
+
+        {/* Combined Quality Metrics - Shows Both and Neither */}
+        {(data.withBoth || data.withNeither) && (
+          <div className="pt-4 border-t">
+            <h4 className="text-sm font-semibold text-gray-700 mb-3">Quality Breakdown</h4>
+            <div className="grid grid-cols-2 gap-4">
+              {/* High Quality: Both */}
+              {data.withBoth && (
+                <div className="p-3 rounded-lg bg-gradient-to-br from-green-50 to-green-100/50 border border-green-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Target className="h-4 w-4 text-green-600" />
+                    <span className="text-xs font-semibold text-green-700">High Quality</span>
+                  </div>
+                  <p className="text-2xl font-bold text-green-900">
+                    {data.withBoth.count}
+                  </p>
+                  <p className="text-xs text-green-600 mt-1">
+                    {data.withBoth.percentage.toFixed(1)}% have both PB & 48h
+                  </p>
+                  <p className="text-xs text-green-500 mt-1">
+                    Higher likelihood to sit
+                  </p>
+                </div>
+              )}
+
+              {/* Low Quality: Neither */}
+              {data.withNeither && (
+                <div className="p-3 rounded-lg bg-gradient-to-br from-red-50 to-red-100/50 border border-red-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertCircle className="h-4 w-4 text-red-600" />
+                    <span className="text-xs font-semibold text-red-700">Low Quality</span>
+                  </div>
+                  <p className="text-2xl font-bold text-red-900">
+                    {data.withNeither.count}
+                  </p>
+                  <p className="text-xs text-red-600 mt-1">
+                    {data.withNeither.percentage.toFixed(1)}% have neither
+                  </p>
+                  <p className="text-xs text-red-500 mt-1">
+                    Higher cancellation risk
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Top Reschedulers Preview */}
         {topReschedulers.length > 0 && (

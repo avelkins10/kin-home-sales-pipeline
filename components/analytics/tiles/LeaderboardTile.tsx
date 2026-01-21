@@ -14,6 +14,8 @@ interface RepData {
   conversionRate?: number;
   within48hCount?: number;
   withPowerBillCount?: number;
+  bothCount?: number; // High quality: both PB and 48h
+  neitherCount?: number; // Low quality: neither PB nor 48h
   appointmentsRun?: number;
   salesClosed?: number;
   closeRate?: number;
@@ -152,6 +154,16 @@ export function LeaderboardTile({ data, onExpand, isLoading }: Props) {
                       <Badge variant="outline" className="text-[10px] px-1 py-0">
                         {rep.withPowerBillCount || 0} w/PB
                       </Badge>
+                      {(rep.bothCount !== undefined || rep.neitherCount !== undefined) && (
+                        <>
+                          <Badge variant="outline" className="text-[10px] px-1 py-0 bg-green-50 text-green-700 border-green-200">
+                            {rep.bothCount || 0} both
+                          </Badge>
+                          <Badge variant="outline" className="text-[10px] px-1 py-0 bg-red-50 text-red-700 border-red-200">
+                            {rep.neitherCount || 0} neither
+                          </Badge>
+                        </>
+                      )}
                       <Badge variant="outline" className="text-[10px] px-1 py-0">
                         {rep.conversionRate?.toFixed(0)}%
                       </Badge>

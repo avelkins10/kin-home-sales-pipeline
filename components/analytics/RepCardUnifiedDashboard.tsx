@@ -3,13 +3,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import { AlertCircle, RefreshCw, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { QualityTile } from './tiles/QualityTile';
 import { OfficeTile } from './tiles/OfficeTile';
 import { LeaderboardTile } from './tiles/LeaderboardTile';
 import { CanvassingTile } from './tiles/CanvassingTile';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { RepCardComprehensiveDashboard } from './RepCardComprehensiveDashboard';
 
 interface Props {
@@ -32,8 +32,28 @@ export function RepCardUnifiedDashboard({ startDate, endDate, className }: Props
       if (!response.ok) throw new Error('Failed to fetch dashboard data');
       return response.json();
     },
-    refetchInterval: 60000, // Refresh every minute
+    refetchInterval: 30000, // Refresh every 30 seconds (aligned with sync optimization)
   });
+
+  // Calculate time since last sync
+  const syncStatus = useMemo(() => {
+    if (!data?.metadata?.lastSyncTime) return null;
+    const lastSync = new Date(data.metadata.lastSyncTime);
+    const now = new Date();
+    const diffMs = now.getTime() - lastSync.getTime();
+    const diffMinutes = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMinutes / 60);
+    
+    if (diffMinutes < 1) {
+      return { text: 'Just now', color: 'text-green-600' };
+    } else if (diffMinutes < 60) {
+      return { text: `${diffMinutes} min ago`, color: diffMinutes <= 5 ? 'text-green-600' : diffMinutes <= 10 ? 'text-yellow-600' : 'text-orange-600' };
+    } else if (diffHours < 24) {
+      return { text: `${diffHours} hr ago`, color: 'text-orange-600' };
+    } else {
+      return { text: `${Math.floor(diffHours / 24)} days ago`, color: 'text-red-600' };
+    }
+  }, [data?.metadata?.lastSyncTime]);
 
   // If a view is expanded, show the comprehensive dashboard instead
   if (expandedView) {
@@ -86,11 +106,19 @@ export function RepCardUnifiedDashboard({ startDate, endDate, className }: Props
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">RepCard Dashboard</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            {startDate && endDate
-              ? `${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}`
-              : 'Last 30 days'}
-          </p>
+          <div className="flex items-center gap-3 mt-1">
+            <p className="text-sm text-muted-foreground">
+              {startDate && endDate
+                ? `${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}`
+                : 'Last 30 days'}
+            </p>
+            {syncStatus && (
+              <div className={cn('flex items-center gap-1 text-xs', syncStatus.color)}>
+                <Clock className="h-3 w-3" />
+                <span>Last synced: {syncStatus.text}</span>
+              </div>
+            )}
+          </div>
         </div>
         <Button
           variant="outline"

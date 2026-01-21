@@ -62,7 +62,7 @@ export function RepCardRescheduleMetricsCard({
       }
       return response.json();
     },
-    refetchInterval: 60000, // Refresh every minute
+    refetchInterval: 30000, // Refresh every 30 seconds (aligned with sync optimization)
   });
 
   if (isLoading) {

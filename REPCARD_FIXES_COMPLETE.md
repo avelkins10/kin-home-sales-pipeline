@@ -1,183 +1,126 @@
-# RepCard Analytics Fixes - Complete Implementation
+# RepCard Comprehensive Fixes - Complete Summary
 
-## What Was Fixed
+**Date:** 2025-01-28  
+**Status:** ✅ **FIXES APPLIED**
 
-### 1. ✅ Diagnostic API Endpoint (`/api/repcard/diagnostic`)
-**File**: `app/api/repcard/diagnostic/route.ts`
+---
 
-Created a comprehensive diagnostic endpoint that checks:
-- Environment variables (REPCARD_API_KEY)
-- RepCard API connectivity
-- Database tables existence
-- Data counts in all RepCard tables
-- User linking status (repcard_user_id)
-- Date range data availability
-- Returns actionable recommendations
+## ✅ Fixes Completed
 
-**Access**: Super Admin only
+### 1. User Stats Attribution Fix ✅
+**File:** `app/api/repcard/users/[userId]/stats/route.ts`
 
-### 2. ✅ Diagnostic Banner Component
-**File**: `components/analytics/RepCardDiagnosticBanner.tsx`
+**Changes:**
+- ✅ **Role-based appointment fetching**: Setters get appointments where `setter_user_id` matches, closers get appointments where `closer_user_id` matches
+- ✅ **Role-based volume stats calculation**:
+  - **Setters**: doors_knocked, appointments_set, appointments_with_power_bill, appointments_within_48h, reschedule_count
+  - **Closers**: appointments_sat, sales_closed, revenue, reschedule_count
+- ✅ **Added reschedule metrics**: Now includes `is_reschedule`, `reschedule_count`, `original_appointment_id` in queries
+- ✅ **Updated response type**: Added new fields to `UserVolumeStats` interface
 
-Visual banner that appears at top of RepCard analytics tab:
-- ✅ Green banner when healthy
-- ⚠️ Yellow alert with specific issues and fix steps
-- 🔄 Refresh button
-- 🔗 Link to sync dashboard
+### 2. Type Definitions Updated ✅
+**File:** `lib/repcard/types.ts`
 
-**Visibility**: Super Admin only
+**Changes:**
+- ✅ Added `appointmentsSat` to `UserVolumeStats` (for closers)
+- ✅ Added `rescheduleCount` to `UserVolumeStats`
+- ✅ Added `appointmentsWithPowerBill` to `UserVolumeStats` (for setters)
+- ✅ Added `appointmentsWithin48h` to `UserVolumeStats` (for setters)
 
-### 3. ✅ Enhanced Error Messages
-**File**: `components/analytics/RepCardOverviewCard.tsx`
+### 3. Leaderboard Attribution ✅
+**File:** `app/api/repcard/leaderboard/route.ts`
 
-Added helpful warning when all metrics are zero, explaining:
-- No data synced yet
-- Users not linked to RepCard
-- Data outside selected time range
+**Verification:**
+- ✅ `doors_knocked`: Uses `setter_user_id` ✅ CORRECT
+- ✅ `appointments_set`: Uses `setter_user_id` ✅ CORRECT
+- ✅ `sales_closed`: Uses `closer_user_id` ✅ CORRECT
+- ✅ `revenue`: Uses `closer_user_id` ✅ CORRECT
+- ✅ `appointment_speed`: Uses `setter_user_id` ✅ CORRECT
+- ✅ `attachment_rate`: Uses `setter_user_id` ✅ CORRECT
+- ✅ Fixed type cast in sales/revenue query (line 1244)
 
-### 4. ✅ Leaderboard Route Improvements
-**File**: `app/api/repcard/leaderboard/route.ts`
+### 4. Diagnostic Scripts Created ✅
+**Files:**
+- ✅ `scripts/check-repcard-schema.ts` - Check database schema state
+- ✅ `scripts/fix-repcard-attribution.ts` - Check attribution correctness
 
-**Fixes**:
-- Better error messages when no users found
-- Ensures users with 0 counts are returned (not empty arrays)
-- Added warning metadata field
-- Improved logging for debugging
+---
 
-**Key Changes**:
-```typescript
-// Now returns users with 0 counts instead of empty array
-if (leaderboardEntries.length === 0 && users.length > 0) {
-  leaderboardEntries = users.map((user) => ({
-    ...user,
-    metricValue: 0
-  }));
-}
-```
+## 📋 Attribution Rules (Verified)
 
-### 5. ✅ Type Definition Updates
-**File**: `lib/repcard/types.ts`
+### Setter Metrics ✅
+- **Doors Knocked**: `repcard_customers.setter_user_id` ✅
+- **Appointments Set**: `repcard_appointments.setter_user_id` ✅
+- **Appointments Within 48h**: `repcard_appointments.setter_user_id` + time calc ✅
+- **Power Bill Attachment**: `repcard_customers.setter_user_id` + attachments ✅
+- **Appointment Speed**: `repcard_appointments.setter_user_id` + time calc ✅
+- **Reschedule Count**: `repcard_appointments.setter_user_id` + `is_reschedule` ✅
 
-Added `warning` field to `LeaderboardResponse` metadata for diagnostic messages.
+### Closer Metrics ✅
+- **Sales Closed**: `repcard_appointments.closer_user_id` + `disposition ILIKE '%closed%'` ✅
+- **Revenue**: `repcard_appointments.closer_user_id` + closed + cost ✅
+- **Appointments Sat**: `repcard_appointments.closer_user_id` ✅
+- **Reschedule Count**: `repcard_appointments.closer_user_id` + `is_reschedule` ✅
 
-## How to Use
+---
 
-### Step 1: Check Diagnostic Banner
-1. Navigate to **Analytics** → **RepCard** tab
-2. If Super Admin, you'll see diagnostic banner
-3. Follow the recommendations shown
+## ⚠️ Known Issues (Non-Critical)
 
-### Step 2: Common Fixes
+### 1. Type Casting
+**Status:** Keep for now (migration 018 partial)
+- `users.repcard_user_id` = INTEGER ✅
+- `repcard_customers.setter_user_id` = TEXT ⚠️
+- `repcard_appointments.setter_user_id` = TEXT ⚠️
+- `repcard_appointments.closer_user_id` = TEXT ⚠️
 
-#### Issue: "REPCARD_API_KEY not set"
-```bash
-# Add to Vercel production
-vercel env add REPCARD_API_KEY production
-# Paste your API key when prompted
-# Then redeploy
-vercel --prod
-```
+**Impact:** Queries use `::TEXT` casts which prevent index usage (slower but works)
 
-#### Issue: "No data synced"
-1. Navigate to `/admin/repcard-sync`
-2. Click "Run Full Sync"
-3. Wait 2-5 minutes
+**Solution:** Complete migration 018 to normalize all types to INTEGER
 
-#### Issue: "No users linked"
-Run SQL to link users:
-```sql
-UPDATE users u
-SET repcard_user_id = ru.repcard_user_id::text
-FROM repcard_users ru
-WHERE LOWER(u.email) = LOWER(ru.email)
-  AND u.repcard_user_id IS NULL;
-```
+### 2. Office Attribution
+**Status:** Uses `COALESCE(u.sales_office[1], ru.office_name)` ✅
+- App office takes precedence over RepCard office
+- May need verification that office names match
 
-### Step 3: Verify Fix
-1. Refresh the diagnostic banner
-2. Should show green "healthy" status
-3. Analytics should display data
+---
 
-## Testing Checklist
+## 🧪 Testing Checklist
 
-- [ ] Diagnostic banner appears (Super Admin only)
-- [ ] Banner shows correct status (green/yellow)
-- [ ] Recommendations are actionable
-- [ ] Leaderboard returns users (even with 0 counts)
-- [ ] RepCard Overview shows metrics
-- [ ] No console errors
-- [ ] No API errors in Vercel logs
+After deployment:
+- [ ] Setter sees only setter metrics (doors, appointments set, speed, attachments)
+- [ ] Closer sees only closer metrics (sales, revenue, appointments sat)
+- [ ] Reschedule metrics display correctly
+- [ ] Office filtering works
+- [ ] Users with zero metrics appear in leaderboards
+- [ ] Type casts work (migration partial)
+- [ ] Queries use correct user_id fields
 
-## Files Modified
+---
 
-1. ✅ `app/api/repcard/diagnostic/route.ts` - New diagnostic endpoint
-2. ✅ `components/analytics/RepCardDiagnosticBanner.tsx` - New diagnostic banner
-3. ✅ `components/analytics/RepCardOverviewCard.tsx` - Enhanced error messages
-4. ✅ `app/(sales)/analytics/page.tsx` - Added diagnostic banner
-5. ✅ `app/api/repcard/leaderboard/route.ts` - Improved error handling
-6. ✅ `lib/repcard/types.ts` - Added warning field to types
+## 🚀 Next Steps
 
-## Next Steps
+1. **Test Attribution** - Verify setters/closers see correct metrics
+2. **Add Reschedule Display** - Already in `RepCardMetricsCard`, verify it works
+3. **Complete Migration 018** - Normalize all types to INTEGER (optional performance improvement)
+4. **Verify Office Mapping** - Ensure office names match between systems
 
-1. **Deploy to Production**
-   ```bash
-   git add .
-   git commit -m "Fix RepCard analytics: Add diagnostic tools and improve error handling"
-   git push
-   ```
+---
 
-2. **Check Production**
-   - Navigate to Analytics → RepCard tab
-   - Check diagnostic banner
-   - Follow recommendations if issues found
+## 📝 Files Modified
 
-3. **Monitor Logs**
-   - Check Vercel function logs for `[RepCard Leaderboard]` messages
-   - Look for warnings or errors
+1. ✅ `app/api/repcard/users/[userId]/stats/route.ts` - Role-based attribution
+2. ✅ `lib/repcard/types.ts` - Updated type definitions
+3. ✅ `app/api/repcard/leaderboard/route.ts` - Fixed type cast
+4. ✅ `scripts/check-repcard-schema.ts` - Created diagnostic script
+5. ✅ `scripts/fix-repcard-attribution.ts` - Created attribution checker
 
-## Expected Behavior
+---
 
-### When Everything Works:
-- ✅ Diagnostic banner: Green "healthy" status
-- ✅ RepCard Overview: Shows metrics (may be 0 if no data)
-- ✅ Leaderboards: Show users (even with 0 counts)
-- ✅ Quality Metrics: Display correctly
+## ✨ Summary
 
-### When Issues Exist:
-- ⚠️ Diagnostic banner: Yellow with specific issues
-- ⚠️ RepCard Overview: Warning message explaining why data is missing
-- ⚠️ Leaderboards: May show "No data" but with helpful message
+**Attribution:** ✅ FIXED - Setters and closers now get correct metrics
+**Reschedule Metrics:** ✅ ADDED - Database queries include reschedule data
+**Type Casts:** ⚠️ KEEP - Migration 018 partial, casts needed for now
+**Office Attribution:** ✅ VERIFIED - Uses app office with RepCard fallback
 
-## Debugging
-
-### Check Diagnostic Endpoint Directly
-```bash
-curl https://your-domain.com/api/repcard/diagnostic \
-  -H "Cookie: next-auth.session-token=YOUR_SESSION_TOKEN"
-```
-
-### Check Vercel Logs
-```bash
-vercel logs --follow | grep -i repcard
-```
-
-### Common Error Messages
-
-**"No users found with RepCard IDs"**
-→ Users need `repcard_user_id` set. Link users by email.
-
-**"No data synced from RepCard"**
-→ Run sync via `/admin/repcard-sync`
-
-**"REPCARD_API_KEY not set"**
-→ Add API key to Vercel production environment
-
-**"API connection failed"**
-→ Check API key is valid, check network connectivity
-
-## Summary
-
-All fixes are complete and ready for deployment. The diagnostic system will automatically identify 90%+ of issues and provide actionable fixes. The leaderboard now properly handles edge cases and returns users even when they have no data.
-
-
-
+**Status:** Ready for testing! 🎉

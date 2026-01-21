@@ -13,7 +13,7 @@ export const runtime = 'nodejs';
 // NOTE: In-memory cache won't persist across serverless invocations
 // For production, consider using Redis (Upstash) for cache persistence
 const leaderboardCache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL = 1800000; // 30 minutes in milliseconds (reduced API calls to avoid rate limiting)
+const CACHE_TTL = 300000; // 5 minutes in milliseconds (aligned with 5-minute sync interval)
 const MAX_CACHE_ENTRIES = 100;
 
 // Type definitions are now imported from lib/repcard/types
@@ -252,12 +252,13 @@ export async function GET(request: NextRequest) {
               (scheduled_at IS NULL AND created_at::date >= ${calculatedStartDate}::date AND created_at::date <= ${calculatedEndDate}::date)
             )) as appointments,
             (SELECT COUNT(*) FROM repcard_appointments a
-             INNER JOIN users u ON u.repcard_user_id::TEXT = a.setter_user_id
-             WHERE (
-               (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
-               OR
-               (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
-             )) as matched_appointments,
+             LEFT JOIN users u ON u.repcard_user_id = a.setter_user_id
+             WHERE u.repcard_user_id IS NOT NULL
+               AND (
+                 (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${calculatedStartDate}::date AND a.scheduled_at::date <= ${calculatedEndDate}::date)
+                 OR
+                 (a.scheduled_at IS NULL AND a.created_at::date >= ${calculatedStartDate}::date AND a.created_at::date <= ${calculatedEndDate}::date)
+               )) as matched_appointments,
             (SELECT MIN(created_at) FROM repcard_customers) as earliest_customer,
             (SELECT MAX(created_at) FROM repcard_customers) as latest_customer
         `;
@@ -1240,7 +1241,7 @@ export async function GET(request: NextRequest) {
             c.raw_data->'customFields'->>'systemCost' as system_cost
           FROM repcard_appointments a
           LEFT JOIN repcard_customers c ON c.repcard_customer_id = a.repcard_customer_id
-          WHERE a.closer_user_id = ANY(${repcardUserIds}::int[])
+          WHERE a.closer_user_id::text = ANY(${repcardUserIds.map(String)}::text[])
             AND a.scheduled_at::date >= ${calculatedStartDate}::date
             AND a.scheduled_at::date <= ${calculatedEndDate}::date
             AND a.disposition ILIKE '%closed%'

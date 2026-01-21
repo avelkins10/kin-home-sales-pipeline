@@ -12,7 +12,7 @@ export const runtime = 'nodejs';
 // NOTE: In-memory cache won't persist across serverless invocations
 // For production, consider using Redis (Upstash) for cache persistence
 const userStatsCache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL = 900000; // 15 minutes in milliseconds
+const CACHE_TTL = 300000; // 5 minutes in milliseconds (aligned with 5-minute sync interval)
 const MAX_CACHE_ENTRIES = 100;
 
 // Calculate date range based on timeRange
@@ -228,24 +228,60 @@ export async function GET(
       repcardCustomers = Array.from(customersResult);
 
       // Fetch appointments from database
-      const appointmentsResult = await sql`
-        SELECT 
-          repcard_appointment_id,
-          repcard_customer_id,
-          scheduled_at,
-          completed_at,
-          disposition,
-          status_category,
-          created_at,
-          updated_at,
-          raw_data
-        FROM repcard_appointments
-        WHERE setter_user_id::text = ${String(user.repcard_user_id)}
-          AND scheduled_at >= ${startDate}::timestamp
-          AND scheduled_at <= (${endDate}::timestamp + INTERVAL '1 day')
-        ORDER BY scheduled_at DESC
-        LIMIT 1000
-      `;
+      // CRITICAL FIX: Fetch based on role - setters get appointments they set, closers get appointments they closed
+      let appointmentsQuery;
+      if (user.role === 'closer') {
+        // Closers: Get appointments where they are the closer
+        appointmentsQuery = sql`
+          SELECT 
+            repcard_appointment_id,
+            repcard_customer_id,
+            setter_user_id,
+            closer_user_id,
+            scheduled_at,
+            completed_at,
+            disposition,
+            status_category,
+            is_reschedule,
+            reschedule_count,
+            original_appointment_id,
+            created_at,
+            updated_at,
+            raw_data
+          FROM repcard_appointments
+          WHERE closer_user_id::text = ${String(user.repcard_user_id)}
+            AND scheduled_at >= ${startDate}::timestamp
+            AND scheduled_at <= (${endDate}::timestamp + INTERVAL '1 day')
+          ORDER BY scheduled_at DESC
+          LIMIT 1000
+        `;
+      } else {
+        // Setters: Get appointments where they are the setter
+        appointmentsQuery = sql`
+          SELECT 
+            repcard_appointment_id,
+            repcard_customer_id,
+            setter_user_id,
+            closer_user_id,
+            scheduled_at,
+            completed_at,
+            disposition,
+            status_category,
+            is_reschedule,
+            reschedule_count,
+            original_appointment_id,
+            created_at,
+            updated_at,
+            raw_data
+          FROM repcard_appointments
+          WHERE setter_user_id::text = ${String(user.repcard_user_id)}
+            AND scheduled_at >= ${startDate}::timestamp
+            AND scheduled_at <= (${endDate}::timestamp + INTERVAL '1 day')
+          ORDER BY scheduled_at DESC
+          LIMIT 1000
+        `;
+      }
+      const appointmentsResult = await appointmentsQuery;
       repcardAppointments = Array.from(appointmentsResult);
 
       console.log(`[RepCard Stats] Fetched ${repcardCustomers.length} customers and ${repcardAppointments.length} appointments from database for user ${user.id}`);
@@ -311,12 +347,160 @@ export async function GET(
       }
     }
     
-    // Fetch quality metrics (uses database queries internally)
+    // Fetch quality metrics from DATABASE (not API) - CRITICAL FIX
     let qualityMetrics;
     try {
-      qualityMetrics = await getQualityMetricsForUser(user.id, startDate, endDate);
+      // Calculate appointment speed (within 48 hours) from database
+      let appointmentSpeedQuery;
+      if (user.role === 'closer') {
+        appointmentSpeedQuery = sql`
+          SELECT 
+            COUNT(*)::int as total_appointments,
+            COUNT(*) FILTER (WHERE is_within_48_hours = TRUE)::int as within_48h,
+            AVG(CASE 
+              WHEN scheduled_at IS NOT NULL AND c.created_at IS NOT NULL 
+              THEN EXTRACT(EPOCH FROM (scheduled_at - c.created_at)) / 3600.0 
+              ELSE NULL 
+            END) as avg_hours
+          FROM repcard_appointments a
+          LEFT JOIN repcard_customers c ON c.repcard_customer_id = a.repcard_customer_id
+          WHERE a.closer_user_id::text = ${String(user.repcard_user_id)}
+            AND a.scheduled_at >= ${startDate}::timestamp
+            AND a.scheduled_at <= (${endDate}::timestamp + INTERVAL '1 day')
+        `;
+      } else {
+        appointmentSpeedQuery = sql`
+          SELECT 
+            COUNT(*)::int as total_appointments,
+            COUNT(*) FILTER (WHERE is_within_48_hours = TRUE)::int as within_48h,
+            AVG(CASE 
+              WHEN scheduled_at IS NOT NULL AND c.created_at IS NOT NULL 
+              THEN EXTRACT(EPOCH FROM (scheduled_at - c.created_at)) / 3600.0 
+              ELSE NULL 
+            END) as avg_hours
+          FROM repcard_appointments a
+          LEFT JOIN repcard_customers c ON c.repcard_customer_id = a.repcard_customer_id
+          WHERE a.setter_user_id::text = ${String(user.repcard_user_id)}
+            AND a.scheduled_at >= ${startDate}::timestamp
+            AND a.scheduled_at <= (${endDate}::timestamp + INTERVAL '1 day')
+        `;
+      }
+      
+      const speedResult = Array.from(await appointmentSpeedQuery);
+      const speedData = speedResult[0] || { total_appointments: 0, within_48h: 0, avg_hours: 0 };
+      const totalAppointments = Number(speedData.total_appointments) || 0;
+      const within48h = Number(speedData.within_48h) || 0;
+      const avgHours = Number(speedData.avg_hours) || 0;
+      const appointmentSpeedPercentage = totalAppointments > 0 ? (within48h / totalAppointments) * 100 : 0;
+
+      // Calculate attachment rate (power bill) from database
+      let attachmentQuery;
+      if (user.role === 'closer') {
+        // For closers, count appointments with power bill
+        attachmentQuery = sql`
+          SELECT 
+            COUNT(DISTINCT a.repcard_customer_id)::int as total_customers,
+            COUNT(DISTINCT CASE WHEN a.has_power_bill = TRUE THEN a.repcard_customer_id END)::int as with_attachments,
+            COUNT(*) FILTER (WHERE a.has_power_bill = TRUE)::int as total_attachments
+          FROM repcard_appointments a
+          WHERE a.closer_user_id::text = ${String(user.repcard_user_id)}
+            AND a.scheduled_at >= ${startDate}::timestamp
+            AND a.scheduled_at <= (${endDate}::timestamp + INTERVAL '1 day')
+        `;
+      } else {
+        // For setters, count customers with attachments
+        attachmentQuery = sql`
+          SELECT 
+            COUNT(DISTINCT c.repcard_customer_id)::int as total_customers,
+            COUNT(DISTINCT CASE WHEN att.id IS NOT NULL THEN c.repcard_customer_id END)::int as with_attachments,
+            COUNT(att.id)::int as total_attachments
+          FROM repcard_customers c
+          LEFT JOIN repcard_customer_attachments att ON c.repcard_customer_id = att.repcard_customer_id::text
+          WHERE c.setter_user_id::text = ${String(user.repcard_user_id)}
+            AND c.created_at >= ${startDate}::timestamp
+            AND c.created_at <= (${endDate}::timestamp + INTERVAL '1 day')
+        `;
+      }
+      
+      const attachmentResult = Array.from(await attachmentQuery);
+      const attachmentData = attachmentResult[0] || { total_customers: 0, with_attachments: 0, total_attachments: 0 };
+      const totalCustomers = Number(attachmentData.total_customers) || 0;
+      const withAttachments = Number(attachmentData.with_attachments) || 0;
+      const totalAttachments = Number(attachmentData.total_attachments) || 0;
+      const attachmentPercentage = totalCustomers > 0 ? (withAttachments / totalCustomers) * 100 : 0;
+
+      // Calculate reschedule rate from database
+      let rescheduleQuery;
+      if (user.role === 'closer') {
+        rescheduleQuery = sql`
+          SELECT 
+            COUNT(DISTINCT a.repcard_customer_id)::int as total_customers,
+            COUNT(*) FILTER (WHERE a.is_reschedule = TRUE)::int as total_reschedules,
+            COUNT(DISTINCT CASE WHEN a.is_reschedule = TRUE THEN a.repcard_customer_id END)::int as customers_with_reschedules
+          FROM repcard_appointments a
+          WHERE a.closer_user_id::text = ${String(user.repcard_user_id)}
+            AND a.scheduled_at >= ${startDate}::timestamp
+            AND a.scheduled_at <= (${endDate}::timestamp + INTERVAL '1 day')
+        `;
+      } else {
+        rescheduleQuery = sql`
+          SELECT 
+            COUNT(DISTINCT a.repcard_customer_id)::int as total_customers,
+            COUNT(*) FILTER (WHERE a.is_reschedule = TRUE)::int as total_reschedules,
+            COUNT(DISTINCT CASE WHEN a.is_reschedule = TRUE THEN a.repcard_customer_id END)::int as customers_with_reschedules
+          FROM repcard_appointments a
+          WHERE a.setter_user_id::text = ${String(user.repcard_user_id)}
+            AND a.scheduled_at >= ${startDate}::timestamp
+            AND a.scheduled_at <= (${endDate}::timestamp + INTERVAL '1 day')
+        `;
+      }
+      
+      const rescheduleResult = Array.from(await rescheduleQuery);
+      const rescheduleData = rescheduleResult[0] || { total_customers: 0, total_reschedules: 0, customers_with_reschedules: 0 };
+      const totalRescheduleCustomers = Number(rescheduleData.total_customers) || 0;
+      const totalReschedules = Number(rescheduleData.total_reschedules) || 0;
+      const customersWithReschedules = Number(rescheduleData.customers_with_reschedules) || 0;
+      const avgReschedules = totalRescheduleCustomers > 0 ? totalReschedules / totalRescheduleCustomers : 0;
+
+      // Follow-up consistency (simplified - would need more complex logic)
+      const followUpConsistency = {
+        customersRequiringFollowUps: 0,
+        customersWithFollowUps: 0,
+        percentageWithFollowUps: 0,
+        totalFollowUpAppointments: 0
+      };
+
+      qualityMetrics = {
+        appointmentSpeed: {
+          totalAppointments,
+          appointmentsWithin24Hours: within48h, // Note: This is actually 48h, but keeping name for compatibility
+          percentageWithin24Hours: appointmentSpeedPercentage,
+          averageHoursToSchedule: avgHours
+        },
+        attachmentRate: {
+          totalCustomers,
+          customersWithAttachments: withAttachments,
+          percentageWithAttachments: attachmentPercentage,
+          totalAttachments
+        },
+        rescheduleRate: {
+          totalCustomers: totalRescheduleCustomers,
+          totalReschedules,
+          averageReschedulesPerCustomer: avgReschedules,
+          customersWithReschedules
+        },
+        followUpConsistency,
+        period: { startDate, endDate },
+        calculatedAt: new Date().toISOString()
+      };
+
+      console.log(`[RepCard Stats] Quality metrics calculated from database:`, {
+        appointmentSpeed: `${appointmentSpeedPercentage.toFixed(1)}% (${within48h}/${totalAppointments})`,
+        attachmentRate: `${attachmentPercentage.toFixed(1)}% (${withAttachments}/${totalCustomers})`,
+        rescheduleRate: avgReschedules.toFixed(2)
+      });
     } catch (error) {
-      logError('repcard-user-stats', error as Error, { requestId, context: 'Quality metrics fetch', userId: user.id });
+      logError('repcard-user-stats', error as Error, { requestId, context: 'Quality metrics fetch from database', userId: user.id });
       qualityMetrics = {
         appointmentSpeed: { percentageWithin24Hours: 0, averageHoursToSchedule: 0, totalAppointments: 0, appointmentsWithin24Hours: 0 },
         attachmentRate: { percentageWithAttachments: 0, totalAttachments: 0, totalCustomers: 0, customersWithAttachments: 0 },
@@ -365,15 +549,83 @@ export async function GET(
       // Continue with RepCard data only
     }
     
-    // Calculate volume stats
-    const doorsKnocked = repcardCustomers?.length || 0;
-    const appointmentsSet = repcardAppointments?.length || 0;
-    const salesClosed = Number(quickbaseSales.sales_count) || 0;
-    const revenueGenerated = Number(quickbaseSales.total_revenue) || 0;
+    // Calculate volume stats - CRITICAL: Role-based attribution
+    let doorsKnocked = 0;
+    let appointmentsSet = 0;
+    let appointmentsSat = 0; // For closers: appointments they sat
+    let salesClosed = 0;
+    let revenueGenerated = 0;
+    let rescheduleCount = 0;
+    let appointmentsWithPowerBill = 0;
+    let appointmentsWithin48h = 0;
+
+    if (user.role === 'setter') {
+      // Setter metrics: doors knocked, appointments set, quality metrics
+      doorsKnocked = repcardCustomers?.length || 0;
+      appointmentsSet = repcardAppointments?.length || 0;
+      
+      // Calculate setter-specific quality metrics
+      appointmentsWithPowerBill = repcardAppointments.filter((apt: any) => {
+        // Check if customer has attachments (power bill)
+        const customer = repcardCustomers.find((c: any) => c.repcard_customer_id === apt.repcard_customer_id);
+        return customer && customer.raw_data?.attachments && customer.raw_data.attachments.length > 0;
+      }).length;
+      
+      // Calculate appointments within 48 hours
+      appointmentsWithin48h = repcardAppointments.filter((apt: any) => {
+        const customer = repcardCustomers.find((c: any) => c.repcard_customer_id === apt.repcard_customer_id);
+        if (!customer || !apt.scheduled_at || !customer.created_at) return false;
+        const hoursDiff = (new Date(apt.scheduled_at).getTime() - new Date(customer.created_at).getTime()) / (1000 * 60 * 60);
+        return hoursDiff <= 48;
+      }).length;
+      
+      // Reschedule count for setter (appointments they set that were rescheduled)
+      rescheduleCount = repcardAppointments.filter((apt: any) => apt.is_reschedule === true).length;
+      
+      salesClosed = Number(quickbaseSales.sales_count) || 0;
+      revenueGenerated = Number(quickbaseSales.total_revenue) || 0;
+    } else if (user.role === 'closer') {
+      // Closer metrics: appointments sat, sales closed, revenue, outcomes
+      appointmentsSat = repcardAppointments?.length || 0; // Appointments where they are the closer
+      
+      // Sales closed from appointments (disposition contains 'closed')
+      const closedAppointments = repcardAppointments.filter((apt: any) => 
+        apt.disposition && apt.disposition.toLowerCase().includes('closed')
+      );
+      salesClosed = closedAppointments.length;
+      
+      // Revenue from closed appointments
+      revenueGenerated = closedAppointments.reduce((sum: number, apt: any) => {
+        const customer = repcardCustomers.find((c: any) => c.repcard_customer_id === apt.repcard_customer_id);
+        if (customer && customer.raw_data?.customFields?.systemCost) {
+          return sum + (parseFloat(customer.raw_data.customFields.systemCost) || 0);
+        }
+        return sum;
+      }, 0);
+      
+      // Add QuickBase sales if available
+      salesClosed += Number(quickbaseSales.sales_count) || 0;
+      revenueGenerated += Number(quickbaseSales.total_revenue) || 0;
+      
+      // Reschedule count for closer (appointments they ran that were reschedules)
+      rescheduleCount = repcardAppointments.filter((apt: any) => apt.is_reschedule === true).length;
+    } else {
+      // Both roles or unknown - show all metrics
+      doorsKnocked = repcardCustomers?.length || 0;
+      appointmentsSet = repcardAppointments.filter((apt: any) => 
+        apt.setter_user_id && String(apt.setter_user_id) === String(user.repcard_user_id)
+      ).length;
+      appointmentsSat = repcardAppointments.filter((apt: any) => 
+        apt.closer_user_id && String(apt.closer_user_id) === String(user.repcard_user_id)
+      ).length;
+      salesClosed = Number(quickbaseSales.sales_count) || 0;
+      revenueGenerated = Number(quickbaseSales.total_revenue) || 0;
+      rescheduleCount = repcardAppointments.filter((apt: any) => apt.is_reschedule === true).length;
+    }
     
     // Calculate efficiency stats
     const doorsPerAppointment = appointmentsSet > 0 ? doorsKnocked / appointmentsSet : 0;
-    const appointmentsPerSale = salesClosed > 0 ? appointmentsSet / salesClosed : 0;
+    const appointmentsPerSale = salesClosed > 0 ? (appointmentsSat || appointmentsSet) / salesClosed : 0;
     const averageDealSize = salesClosed > 0 ? revenueGenerated / salesClosed : 0;
     
     // Calculate average time to close (simplified - would need more complex logic for real implementation)
@@ -392,8 +644,12 @@ export async function GET(
       volumeStats: {
         doorsKnocked,
         appointmentsSet,
+        appointmentsSat: appointmentsSat || 0, // For closers: appointments they sat
         salesClosed,
-        revenueGenerated
+        revenueGenerated,
+        rescheduleCount, // Total reschedules
+        appointmentsWithPowerBill, // Setter metric: appointments with PB attached
+        appointmentsWithin48h // Setter metric: appointments set within 48h
       },
       qualityStats: {
         appointmentSpeed: {

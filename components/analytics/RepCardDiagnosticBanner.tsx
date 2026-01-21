@@ -24,7 +24,7 @@ export function RepCardDiagnosticBanner() {
       return response.json();
     },
     enabled: isAuthorized,
-    refetchInterval: 60000, // Refresh every minute
+    refetchInterval: 30000, // Refresh every 30 seconds (aligned with sync optimization)
     staleTime: 30000,
     retry: 1
   });

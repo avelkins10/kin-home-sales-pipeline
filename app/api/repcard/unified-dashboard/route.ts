@@ -5,6 +5,29 @@ import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
 
 export const runtime = 'nodejs';
 
+// Cache implementation
+const unifiedDashboardCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TTL = 300000; // 5 minutes in milliseconds (aligned with 5-minute sync interval)
+const MAX_CACHE_ENTRIES = 50;
+
+// Clean up expired cache entries
+function cleanCache() {
+  const now = Date.now();
+  for (const [key, value] of Array.from(unifiedDashboardCache.entries())) {
+    if (now - value.timestamp > CACHE_TTL) {
+      unifiedDashboardCache.delete(key);
+    }
+  }
+  
+  // LRU eviction if cache is too large
+  if (unifiedDashboardCache.size > MAX_CACHE_ENTRIES) {
+    const entries = Array.from(unifiedDashboardCache.entries());
+    entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
+    const toDelete = entries.slice(0, unifiedDashboardCache.size - MAX_CACHE_ENTRIES);
+    toDelete.forEach(([key]) => unifiedDashboardCache.delete(key));
+  }
+}
+
 /**
  * GET /api/repcard/unified-dashboard
  *
@@ -31,6 +54,24 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
+    // Build cache key
+    const cacheKey = `unified-dashboard:${startDate || 'all'}:${endDate || 'all'}`;
+    
+    // Check cache
+    cleanCache();
+    const cached = unifiedDashboardCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      const duration = Date.now() - start;
+      logApiResponse('GET', path, duration, { status: 200, cached: true, requestId });
+      return NextResponse.json({
+        ...cached.data,
+        metadata: {
+          ...cached.data.metadata,
+          cached: true
+        }
+      });
+    }
+
     // Helper to extract rows
     const getRows = (result: any): any[] => {
       if (Array.isArray(result)) return result;
@@ -40,22 +81,21 @@ export async function GET(request: NextRequest) {
 
     // ========================================
     // 1. QUALITY METRICS
+    // Track 4 separate metrics:
+    // 1. Appointments with power bill (regardless of 48h)
+    // 2. Appointments within 48h (regardless of power bill)
+    // 3. Appointments with BOTH (power bill AND 48h) - HIGH QUALITY
+    // 4. Appointments with NEITHER (no power bill AND not 48h) - LOW QUALITY
     // ========================================
     const qualityResult = startDate && endDate
       ? await sql`
           SELECT
             COUNT(DISTINCT a.id)::int as total_appointments,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE)::int as within_48h,
-            COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = TRUE)::int as reschedules,
-            COUNT(DISTINCT a.id) FILTER (
-              WHERE EXISTS (
-                SELECT 1 FROM repcard_appointment_attachments aa
-                WHERE aa.repcard_appointment_id::TEXT = a.repcard_appointment_id::TEXT
-              ) OR EXISTS (
-                SELECT 1 FROM repcard_customer_attachments ca
-                WHERE ca.repcard_customer_id::TEXT = a.repcard_customer_id::TEXT
-              )
-            )::int as with_power_bill
+            COUNT(DISTINCT a.id) FILTER (WHERE a.has_power_bill = TRUE)::int as with_power_bill,
+            COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE AND a.has_power_bill = TRUE)::int as both,
+            COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = FALSE AND a.has_power_bill = FALSE)::int as neither,
+            COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = TRUE)::int as reschedules
           FROM repcard_appointments a
           WHERE a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
@@ -64,28 +104,48 @@ export async function GET(request: NextRequest) {
           SELECT
             COUNT(DISTINCT a.id)::int as total_appointments,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE)::int as within_48h,
-            COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = TRUE)::int as reschedules,
-            COUNT(DISTINCT a.id) FILTER (
-              WHERE EXISTS (
-                SELECT 1 FROM repcard_appointment_attachments aa
-                WHERE aa.repcard_appointment_id::TEXT = a.repcard_appointment_id::TEXT
-              ) OR EXISTS (
-                SELECT 1 FROM repcard_customer_attachments ca
-                WHERE ca.repcard_customer_id::TEXT = a.repcard_customer_id::TEXT
-              )
-            )::int as with_power_bill
+            COUNT(DISTINCT a.id) FILTER (WHERE a.has_power_bill = TRUE)::int as with_power_bill,
+            COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE AND a.has_power_bill = TRUE)::int as both,
+            COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = FALSE AND a.has_power_bill = FALSE)::int as neither,
+            COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = TRUE)::int as reschedules
           FROM repcard_appointments a
         `;
 
     const qualityData = getRows(qualityResult)[0] as any;
     const totalAppts = qualityData?.total_appointments || 0;
+    const within48h = qualityData?.within_48h || 0;
+    const withPowerBill = qualityData?.with_power_bill || 0;
+    const both = qualityData?.both || 0;
+    const neither = qualityData?.neither || 0;
+    const reschedules = qualityData?.reschedules || 0;
 
+    // Calculate percentages for all 4 metrics
     const qualityMetrics = {
       totalAppointments: totalAppts,
-      appointmentSpeed: totalAppts > 0 ? ((qualityData.within_48h / totalAppts) * 100) : 0,
-      rescheduleRate: totalAppts > 0 ? ((qualityData.reschedules / totalAppts) * 100) : 0,
-      powerBillRate: totalAppts > 0 ? ((qualityData.with_power_bill / totalAppts) * 100) : 0,
+      // Individual metrics (percentages)
+      appointmentSpeed: totalAppts > 0 ? ((within48h / totalAppts) * 100) : 0,
+      powerBillRate: totalAppts > 0 ? ((withPowerBill / totalAppts) * 100) : 0,
+      // Combined metrics (counts and percentages)
+      withBoth: {
+        count: both,
+        percentage: totalAppts > 0 ? ((both / totalAppts) * 100) : 0
+      },
+      withNeither: {
+        count: neither,
+        percentage: totalAppts > 0 ? ((neither / totalAppts) * 100) : 0
+      },
+      rescheduleRate: totalAppts > 0 ? ((reschedules / totalAppts) * 100) : 0,
     };
+
+    // Debug logging
+    console.log(`[RepCard Unified Dashboard] Quality metrics:`, {
+      totalAppts,
+      within48h: `${within48h} (${qualityMetrics.appointmentSpeed.toFixed(1)}%)`,
+      withPowerBill: `${withPowerBill} (${qualityMetrics.powerBillRate.toFixed(1)}%)`,
+      withBoth: `${both} (${qualityMetrics.withBoth.percentage.toFixed(1)}%)`,
+      withNeither: `${neither} (${qualityMetrics.withNeither.percentage.toFixed(1)}%)`,
+      reschedules: `${reschedules} (${qualityMetrics.rescheduleRate.toFixed(1)}%)`
+    });
 
     // Top reschedulers
     const topReschedulersResult = startDate && endDate
@@ -273,6 +333,7 @@ export async function GET(request: NextRequest) {
     }));
 
     // Top appointment setters (with quality metrics)
+    // Track: total, within 48h, with PB, both, neither
     const topAppointmentSettersResult = startDate && endDate
       ? await sql`
           SELECT
@@ -281,15 +342,9 @@ export async function GET(request: NextRequest) {
             u.role,
             COUNT(DISTINCT a.id)::int as appointments_set,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE)::int as within_48h_count,
-            COUNT(DISTINCT a.id) FILTER (
-              WHERE EXISTS (
-                SELECT 1 FROM repcard_appointment_attachments aa
-                WHERE aa.repcard_appointment_id::TEXT = a.repcard_appointment_id::TEXT
-              ) OR EXISTS (
-                SELECT 1 FROM repcard_customer_attachments ca
-                WHERE ca.repcard_customer_id::TEXT = a.repcard_customer_id::TEXT
-              )
-            )::int as with_power_bill_count,
+            COUNT(DISTINCT a.id) FILTER (WHERE a.has_power_bill = TRUE)::int as with_power_bill_count,
+            COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE AND a.has_power_bill = TRUE)::int as both_count,
+            COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = FALSE AND a.has_power_bill = FALSE)::int as neither_count,
             COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
             CASE
               WHEN COUNT(DISTINCT c.repcard_customer_id) > 0 THEN
@@ -314,15 +369,9 @@ export async function GET(request: NextRequest) {
             u.role,
             COUNT(DISTINCT a.id)::int as appointments_set,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE)::int as within_48h_count,
-            COUNT(DISTINCT a.id) FILTER (
-              WHERE EXISTS (
-                SELECT 1 FROM repcard_appointment_attachments aa
-                WHERE aa.repcard_appointment_id::TEXT = a.repcard_appointment_id::TEXT
-              ) OR EXISTS (
-                SELECT 1 FROM repcard_customer_attachments ca
-                WHERE ca.repcard_customer_id::TEXT = a.repcard_customer_id::TEXT
-              )
-            )::int as with_power_bill_count,
+            COUNT(DISTINCT a.id) FILTER (WHERE a.has_power_bill = TRUE)::int as with_power_bill_count,
+            COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE AND a.has_power_bill = TRUE)::int as both_count,
+            COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = FALSE AND a.has_power_bill = FALSE)::int as neither_count,
             COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
             CASE
               WHEN COUNT(DISTINCT c.repcard_customer_id) > 0 THEN
@@ -346,6 +395,8 @@ export async function GET(request: NextRequest) {
       appointmentsSet: row.appointments_set,
       within48hCount: row.within_48h_count,
       withPowerBillCount: row.with_power_bill_count,
+      bothCount: row.both_count || 0, // High quality: both PB and 48h
+      neitherCount: row.neither_count || 0, // Low quality: neither PB nor 48h
       doorsKnocked: row.doors_knocked,
       conversionRate: parseFloat(row.conversion_rate || '0'),
     }));
@@ -445,6 +496,29 @@ export async function GET(request: NextRequest) {
     };
 
     // ========================================
+    // SYNC STATUS
+    // Get last successful sync time for appointments (most relevant for dashboard)
+    // ========================================
+    let lastSyncTime: Date | null = null;
+    try {
+      const lastSyncResult = await sql`
+        SELECT completed_at, last_record_date
+        FROM repcard_sync_log
+        WHERE entity_type = 'appointments'
+          AND status = 'completed'
+        ORDER BY completed_at DESC
+        LIMIT 1
+      `;
+      const lastSyncRows = getRows(lastSyncResult);
+      if (lastSyncRows.length > 0 && lastSyncRows[0].completed_at) {
+        lastSyncTime = new Date(lastSyncRows[0].completed_at);
+      }
+    } catch (error) {
+      console.error('[RepCard Unified Dashboard] Error fetching sync status:', error);
+      // Continue without sync status if query fails
+    }
+
+    // ========================================
     // RESPONSE
     // ========================================
     const response = {
@@ -461,8 +535,16 @@ export async function GET(request: NextRequest) {
       metadata: {
         fetchedAt: new Date().toISOString(),
         dateRange: { startDate, endDate },
+        cached: false,
+        lastSyncTime: lastSyncTime ? lastSyncTime.toISOString() : null,
       },
     };
+
+    // Cache result
+    unifiedDashboardCache.set(cacheKey, {
+      data: response,
+      timestamp: Date.now()
+    });
 
     const duration = Date.now() - start;
     logApiResponse('GET', path, duration, { status: 200, cached: false, requestId });

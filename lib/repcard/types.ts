@@ -500,8 +500,12 @@ export interface RepCardUserSyncResult {
 export interface UserVolumeStats {
   doorsKnocked: number;
   appointmentsSet: number;
+  appointmentsSat?: number; // For closers: appointments they sat
   salesClosed: number;
   revenueGenerated: number;
+  rescheduleCount?: number; // Total reschedules
+  appointmentsWithPowerBill?: number; // Setter metric: appointments with PB attached
+  appointmentsWithin48h?: number; // Setter metric: appointments set within 48h
 }
 
 export interface UserQualityStats {
