@@ -33,7 +33,9 @@ export async function GET(request: NextRequest) {
     // ========================================
     // 1. CUSTOMERS METRICS
     // ========================================
-    const customersMetrics = await sql`
+    let customersMetrics;
+    try {
+      customersMetrics = await sql`
       SELECT 
         COUNT(*)::int as total_customers,
         COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days')::int as customers_last_30_days,
@@ -49,10 +51,16 @@ export async function GET(request: NextRequest) {
         MAX(created_at) as latest_customer
       FROM repcard_customers
     `;
+    } catch (error) {
+      console.error('[RepCard Comprehensive Metrics] Error in customersMetrics:', error);
+      throw error;
+    }
     const customers = getRows(customersMetrics)[0] || {};
 
     // Customers by status
-    const customersByStatus = await sql`
+    let customersByStatus;
+    try {
+      customersByStatus = await sql`
       SELECT 
         status,
         COUNT(*)::int as count
@@ -61,9 +69,15 @@ export async function GET(request: NextRequest) {
       GROUP BY status
       ORDER BY count DESC
     `;
+    } catch (error) {
+      console.error('[RepCard Comprehensive Metrics] Error in customersByStatus:', error);
+      customersByStatus = [];
+    }
 
     // Customers by office
-    const customersByOffice = await sql`
+    let customersByOffice;
+    try {
+      customersByOffice = await sql`
       SELECT 
         o.name as office_name,
         o.repcard_office_id,
@@ -73,11 +87,17 @@ export async function GET(request: NextRequest) {
       GROUP BY o.repcard_office_id, o.name
       ORDER BY count DESC
     `;
+    } catch (error) {
+      console.error('[RepCard Comprehensive Metrics] Error in customersByOffice:', error);
+      customersByOffice = [];
+    }
 
     // ========================================
     // 2. APPOINTMENTS METRICS
     // ========================================
-    const appointmentsMetrics = await sql`
+    let appointmentsMetrics;
+    try {
+      appointmentsMetrics = await sql`
       SELECT 
         COUNT(*)::int as total_appointments,
         COUNT(*) FILTER (WHERE scheduled_at >= NOW() - INTERVAL '30 days')::int as appointments_last_30_days,
@@ -101,10 +121,16 @@ export async function GET(request: NextRequest) {
         MAX(scheduled_at) as latest_appointment
       FROM repcard_appointments
     `;
+    } catch (error) {
+      console.error('[RepCard Comprehensive Metrics] Error in appointmentsMetrics:', error);
+      throw error;
+    }
     const appointments = getRows(appointmentsMetrics)[0] || {};
 
     // Appointments by disposition
-    const appointmentsByDisposition = await sql`
+    let appointmentsByDisposition;
+    try {
+      appointmentsByDisposition = await sql`
       SELECT 
         disposition,
         COUNT(*)::int as count
@@ -113,9 +139,15 @@ export async function GET(request: NextRequest) {
       GROUP BY disposition
       ORDER BY count DESC
     `;
+    } catch (error) {
+      console.error('[RepCard Comprehensive Metrics] Error in appointmentsByDisposition:', error);
+      appointmentsByDisposition = [];
+    }
 
     // Appointments by status category
-    const appointmentsByStatusCategory = await sql`
+    let appointmentsByStatusCategory;
+    try {
+      appointmentsByStatusCategory = await sql`
       SELECT 
         status_category,
         COUNT(*)::int as count
@@ -124,11 +156,17 @@ export async function GET(request: NextRequest) {
       GROUP BY status_category
       ORDER BY count DESC
     `;
+    } catch (error) {
+      console.error('[RepCard Comprehensive Metrics] Error in appointmentsByStatusCategory:', error);
+      appointmentsByStatusCategory = [];
+    }
 
     // ========================================
     // 3. QUALITY METRICS
     // ========================================
-    const qualityMetrics = await sql`
+    let qualityMetrics;
+    try {
+      qualityMetrics = await sql`
       SELECT 
         COUNT(*)::int as total_appointments,
         COUNT(*) FILTER (WHERE is_within_48_hours = TRUE)::int as within_48h_count,
@@ -154,12 +192,18 @@ export async function GET(request: NextRequest) {
       FROM repcard_appointments
       WHERE scheduled_at >= NOW() - INTERVAL '30 days'
     `;
+    } catch (error) {
+      console.error('[RepCard Comprehensive Metrics] Error in qualityMetrics:', error);
+      throw error;
+    }
     const quality = getRows(qualityMetrics)[0] || {};
 
     // ========================================
     // 4. ATTACHMENTS METRICS
     // ========================================
-    const attachmentsMetrics = await sql`
+    let attachmentsMetrics;
+    try {
+      attachmentsMetrics = await sql`
       SELECT 
         (SELECT COUNT(*)::int FROM repcard_customer_attachments) as customer_attachments_total,
         (SELECT COUNT(*)::int FROM repcard_appointment_attachments) as appointment_attachments_total,
@@ -169,13 +213,17 @@ export async function GET(request: NextRequest) {
          FROM repcard_customer_attachments) as power_bill_attachments_customer,
         (SELECT COUNT(*) FILTER (WHERE attachment_type ILIKE '%power%' OR attachment_type ILIKE '%bill%' OR file_name ILIKE '%power%' OR file_name ILIKE '%bill%')::int 
          FROM repcard_appointment_attachments) as power_bill_attachments_appointment
-      FROM repcard_customers
-      LIMIT 1
     `;
+    } catch (error) {
+      console.error('[RepCard Comprehensive Metrics] Error in attachmentsMetrics:', error);
+      throw error;
+    }
     const attachments = getRows(attachmentsMetrics)[0] || {};
 
     // Attachments by type
-    const attachmentsByType = await sql`
+    let attachmentsByType;
+    try {
+      attachmentsByType = await sql`
       SELECT 
         COALESCE(attachment_type, 'Unknown') as attachment_type,
         COUNT(*)::int as count
@@ -187,11 +235,17 @@ export async function GET(request: NextRequest) {
       GROUP BY attachment_type
       ORDER BY count DESC
     `;
+    } catch (error) {
+      console.error('[RepCard Comprehensive Metrics] Error in attachmentsByType:', error);
+      attachmentsByType = [];
+    }
 
     // ========================================
     // 5. NOTES METRICS
     // ========================================
-    const notesMetrics = await sql`
+    let notesMetrics;
+    try {
+      notesMetrics = await sql`
       SELECT 
         COUNT(*)::int as total_notes,
         COUNT(DISTINCT repcard_customer_id)::int as customers_with_notes,
@@ -201,12 +255,18 @@ export async function GET(request: NextRequest) {
         MAX(created_at) as latest_note
       FROM repcard_customer_notes
     `;
+    } catch (error) {
+      console.error('[RepCard Comprehensive Metrics] Error in notesMetrics:', error);
+      notesMetrics = [];
+    }
     const notes = getRows(notesMetrics)[0] || {};
 
     // ========================================
     // 6. STATUS LOGS METRICS
     // ========================================
-    const statusLogsMetrics = await sql`
+    let statusLogsMetrics;
+    try {
+      statusLogsMetrics = await sql`
       SELECT 
         COUNT(*)::int as total_status_changes,
         COUNT(DISTINCT repcard_customer_id)::int as customers_with_status_changes,
@@ -217,10 +277,16 @@ export async function GET(request: NextRequest) {
         MAX(changed_at) as latest_change
       FROM repcard_status_logs
     `;
+    } catch (error) {
+      console.error('[RepCard Comprehensive Metrics] Error in statusLogsMetrics:', error);
+      statusLogsMetrics = [];
+    }
     const statusLogs = getRows(statusLogsMetrics)[0] || {};
 
     // Status changes by status
-    const statusChangesByStatus = await sql`
+    let statusChangesByStatus;
+    try {
+      statusChangesByStatus = await sql`
       SELECT 
         new_status,
         COUNT(*)::int as count
@@ -230,11 +296,17 @@ export async function GET(request: NextRequest) {
       ORDER BY count DESC
       LIMIT 20
     `;
+    } catch (error) {
+      console.error('[RepCard Comprehensive Metrics] Error in statusChangesByStatus:', error);
+      statusChangesByStatus = [];
+    }
 
     // ========================================
     // 7. USERS METRICS
     // ========================================
-    const usersMetrics = await sql`
+    let usersMetrics;
+    try {
+      usersMetrics = await sql`
       SELECT 
         COUNT(*)::int as total_users,
         COUNT(*) FILTER (WHERE status = 1)::int as active_users,
@@ -245,10 +317,16 @@ export async function GET(request: NextRequest) {
         COUNT(*) FILTER (WHERE first_appointment IS NOT NULL)::int as users_with_appointments
       FROM repcard_users
     `;
+    } catch (error) {
+      console.error('[RepCard Comprehensive Metrics] Error in usersMetrics:', error);
+      throw error;
+    }
     const users = getRows(usersMetrics)[0] || {};
 
     // Users by role
-    const usersByRole = await sql`
+    let usersByRole;
+    try {
+      usersByRole = await sql`
       SELECT 
         role,
         COUNT(*)::int as count
@@ -257,22 +335,34 @@ export async function GET(request: NextRequest) {
       GROUP BY role
       ORDER BY count DESC
     `;
+    } catch (error) {
+      console.error('[RepCard Comprehensive Metrics] Error in usersByRole:', error);
+      usersByRole = [];
+    }
 
     // ========================================
     // 8. OFFICES METRICS
     // ========================================
-    const officesMetrics = await sql`
+    let officesMetrics;
+    try {
+      officesMetrics = await sql`
       SELECT 
         COUNT(*)::int as total_offices,
         COUNT(DISTINCT company_id)::int as unique_companies
       FROM repcard_offices
     `;
+    } catch (error) {
+      console.error('[RepCard Comprehensive Metrics] Error in officesMetrics:', error);
+      throw error;
+    }
     const offices = getRows(officesMetrics)[0] || {};
 
     // ========================================
     // 9. CONVERSION METRICS
     // ========================================
-    const conversionMetrics = await sql`
+    let conversionMetrics;
+    try {
+      conversionMetrics = await sql`
       SELECT 
         (SELECT COUNT(*)::int FROM repcard_customers) as total_customers,
         (SELECT COUNT(*)::int FROM repcard_appointments) as total_appointments,
@@ -287,15 +377,19 @@ export async function GET(request: NextRequest) {
            NULLIF((SELECT COUNT(*)::int FROM repcard_appointments), 0)::float) * 100, 
           2
         ) as appointment_to_close_rate
-      FROM repcard_customers
-      LIMIT 1
     `;
+    } catch (error) {
+      console.error('[RepCard Comprehensive Metrics] Error in conversionMetrics:', error);
+      throw error;
+    }
     const conversion = getRows(conversionMetrics)[0] || {};
 
     // ========================================
     // 10. SYNC METRICS
     // ========================================
-    const syncMetrics = await sql`
+    let syncMetrics;
+    try {
+      syncMetrics = await sql`
       SELECT 
         entity_type,
         MAX(completed_at) as last_sync,
@@ -309,6 +403,10 @@ export async function GET(request: NextRequest) {
       GROUP BY entity_type
       ORDER BY last_sync DESC
     `;
+    } catch (error) {
+      console.error('[RepCard Comprehensive Metrics] Error in syncMetrics:', error);
+      syncMetrics = [];
+    }
 
     const duration = Date.now() - start;
     logApiResponse('GET', path, duration, { status: 200, requestId });
