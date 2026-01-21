@@ -98,7 +98,7 @@ export default function AnalyticsPage() {
   const [customDateRange, setCustomDateRange] = useState<CustomDateRange | undefined>();
   const [selectedOfficeIds, setSelectedOfficeIds] = useState<number[]>([]);
   const [selectedRepEmail, setSelectedRepEmail] = useState<string | undefined>();
-  const [activeTab, setActiveTab] = useState<string>('overview');
+  const [activeTab, setActiveTab] = useState<string>('repcard');
 
   // Loading and data states
   const [isExporting, setIsExporting] = useState(false);
@@ -116,7 +116,7 @@ export default function AnalyticsPage() {
     const endDateParam = searchParams.get('endDate');
     const tabParam = searchParams.get('tab');
 
-    if (timeRangeParam && ['ytd', 'last_30', 'last_90', 'last_12_months', 'custom', 'lifetime', 'month', 'last_month', 'today'].includes(timeRangeParam)) {
+    if (timeRangeParam && ['ytd', 'last_30', 'last_90', 'last_12_months', 'custom', 'lifetime', 'month', 'last_month', 'today', 'week'].includes(timeRangeParam)) {
       setTimeRange(timeRangeParam);
     }
 
@@ -141,15 +141,20 @@ export default function AnalyticsPage() {
 
     if (tabParam && ['overview', 'performance', 'comparisons', 'analysis', 'leaderboards', 'canvassing', 'repcard'].includes(tabParam)) {
       setActiveTab(tabParam);
+    } else if (!tabParam) {
+      // Default to repcard tab if no tab specified
+      setActiveTab('repcard');
     }
   }, [searchParams]);
 
-  // Persist default last_12_months to URL for fully shareable default state
+  // Persist default today to URL for RepCard tab (other tabs can use different defaults)
   useEffect(() => {
     const timeRangeParam = searchParams.get('timeRange');
-    if (!timeRangeParam) {
+    const tabParam = searchParams.get('tab');
+    if (!timeRangeParam && (!tabParam || tabParam === 'repcard')) {
       const params = new URLSearchParams(searchParams.toString());
-      params.set('timeRange', 'last_12_months');
+      params.set('timeRange', 'today');
+      if (!tabParam) params.set('tab', 'repcard');
       router.replace(`/analytics?${params.toString()}`);
     }
   }, [searchParams, router]);

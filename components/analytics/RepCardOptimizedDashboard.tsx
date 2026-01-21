@@ -173,54 +173,64 @@ export function RepCardOptimizedDashboard({
             {/* Quick Date Range Switcher */}
             <div className="flex items-center gap-2">
               <Button
-                variant={!startDate || dateRangeDisplay.includes('Today') ? 'default' : 'outline'}
+                variant={dateRangeDisplay === 'Today' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => {
-                  const today = new Date();
-                  const todayStr = today.toISOString().split('T')[0];
                   if (onTimeRangeChange) {
                     onTimeRangeChange('today');
                   } else {
-                    window.location.href = `/analytics?tab=repcard&timeRange=today`;
+                    const params = new URLSearchParams(window.location.search);
+                    params.set('timeRange', 'today');
+                    params.set('tab', 'repcard');
+                    window.location.href = `/analytics?${params.toString()}`;
                   }
                 }}
               >
                 Today
               </Button>
               <Button
-                variant="outline"
+                variant={dateRangeDisplay === 'Week to Date' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => {
                   if (onTimeRangeChange) {
                     onTimeRangeChange('week');
                   } else {
-                    window.location.href = `/analytics?tab=repcard&timeRange=week`;
+                    const params = new URLSearchParams(window.location.search);
+                    params.set('timeRange', 'week');
+                    params.set('tab', 'repcard');
+                    window.location.href = `/analytics?${params.toString()}`;
                   }
                 }}
               >
                 Week to Date
               </Button>
               <Button
-                variant="outline"
+                variant={dateRangeDisplay === 'Month to Date' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => {
                   if (onTimeRangeChange) {
                     onTimeRangeChange('month');
                   } else {
-                    window.location.href = `/analytics?tab=repcard&timeRange=month`;
+                    const params = new URLSearchParams(window.location.search);
+                    params.set('timeRange', 'month');
+                    params.set('tab', 'repcard');
+                    window.location.href = `/analytics?${params.toString()}`;
                   }
                 }}
               >
                 Month to Date
               </Button>
               <Button
-                variant="outline"
+                variant={dateRangeDisplay === 'Year to Date' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => {
                   if (onTimeRangeChange) {
                     onTimeRangeChange('ytd');
                   } else {
-                    window.location.href = `/analytics?tab=repcard&timeRange=ytd`;
+                    const params = new URLSearchParams(window.location.search);
+                    params.set('timeRange', 'ytd');
+                    params.set('tab', 'repcard');
+                    window.location.href = `/analytics?${params.toString()}`;
                   }
                 }}
               >
