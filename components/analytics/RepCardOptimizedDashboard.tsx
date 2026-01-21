@@ -35,6 +35,7 @@ import { formatPercentage, formatLargeNumber } from '@/lib/utils/formatters';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 interface RepCardOptimizedDashboardProps {
   startDate?: string;
@@ -767,13 +768,61 @@ function SettersView({ data, isLoading, dateRange }: { data: any[]; isLoading: b
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex flex-col items-end">
-                            <Badge 
-                              variant={appointmentPBRate >= 80 ? 'default' : 'secondary'} 
-                              className="mb-1 cursor-help"
-                              title={`${setter.withPowerBillCount || 0} appointments with attachments (any attachment = power bill)`}
-                            >
-                              {setter.withPowerBillCount || 0}
-                            </Badge>
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Badge 
+                                  variant={appointmentPBRate >= 80 ? 'default' : 'secondary'} 
+                                  className="mb-1 cursor-pointer hover:opacity-80 transition-opacity"
+                                  onClick={() => loadAttachments(setter)}
+                                >
+                                  {setter.withPowerBillCount || 0}
+                                </Badge>
+                              </DialogTrigger>
+                              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                                <DialogHeader>
+                                  <DialogTitle>Attachments for {setter.name}</DialogTitle>
+                                  <DialogDescription>
+                                    {setter.withPowerBillCount || 0} appointments with attachments (any attachment = power bill)
+                                  </DialogDescription>
+                                </DialogHeader>
+                                {loadingAttachments ? (
+                                  <div className="flex items-center justify-center py-8">
+                                    <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+                                  </div>
+                                ) : attachments.length > 0 ? (
+                                  <div className="space-y-2">
+                                    {attachments.map((att) => (
+                                      <Card key={att.id || att.repcard_attachment_id} className="hover:shadow-md transition-shadow">
+                                        <CardContent className="pt-4">
+                                          <div className="flex items-start gap-3">
+                                            <Paperclip className="h-5 w-5 text-blue-600 shrink-0 mt-1" />
+                                            <div className="flex-1 min-w-0">
+                                              <p className="font-medium text-sm truncate">{att.file_name || 'Untitled'}</p>
+                                              <p className="text-xs text-muted-foreground mt-1">
+                                                {att.attachment_type || 'No type'} • {att.file_size ? `${(att.file_size / 1024).toFixed(1)} KB` : 'Unknown size'}
+                                              </p>
+                                              {att.file_url && (
+                                                <a
+                                                  href={att.file_url}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline mt-2"
+                                                >
+                                                  <ExternalLink className="h-3 w-3" />
+                                                  View Attachment
+                                                </a>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </CardContent>
+                                      </Card>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground text-center py-8">No attachments found</p>
+                                )}
+                              </DialogContent>
+                            </Dialog>
                             <span className="text-xs text-muted-foreground">
                               {formatPercentage(appointmentPBRate)}
                             </span>
