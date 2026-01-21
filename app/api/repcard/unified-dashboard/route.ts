@@ -155,7 +155,7 @@ export async function GET(request: NextRequest) {
       nullPBCount: nullPB,
     };
 
-    // Debug logging
+    // Debug logging - ENHANCED to help diagnose issues
     console.log(`[RepCard Unified Dashboard] Quality metrics:`, {
       totalAppts,
       within48h: `${within48h} (${qualityMetrics.appointmentSpeed.toFixed(1)}%)`,
@@ -165,7 +165,16 @@ export async function GET(request: NextRequest) {
       reschedules: `${reschedules} (${qualityMetrics.rescheduleRate.toFixed(1)}%)`,
       null48h,
       nullPB,
-      dateRange: { startDate, endDate }
+      dateRange: { startDate, endDate },
+      rawData: {
+        total_appointments: qualityData?.total_appointments,
+        within_48h: qualityData?.within_48h,
+        with_power_bill: qualityData?.with_power_bill,
+        both: qualityData?.both,
+        neither: qualityData?.neither,
+        null_48h: qualityData?.null_48h,
+        null_pb: qualityData?.null_pb
+      }
     });
 
     // Top reschedulers
