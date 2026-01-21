@@ -99,6 +99,7 @@ export default function AnalyticsPage() {
   const [availableOffices, setAvailableOffices] = useState<Array<{ id: number; name: string; projectCount?: number }>>([]);
   const [availableReps, setAvailableReps] = useState<Array<{ email: string; name: string; role: 'closer' | 'setter' }>>([]);
   const [isInitializingFilters, setIsInitializingFilters] = useState(true);
+  const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
 
   // Parse URL params on mount and when they change
   useEffect(() => {
@@ -189,6 +190,9 @@ export default function AnalyticsPage() {
         // Set empty arrays on error to prevent infinite loading
         setAvailableOffices([]);
         setAvailableReps([]);
+      } finally {
+        // Mark that we've attempted to load data
+        setHasAttemptedLoad(true);
       }
     };
 
@@ -239,12 +243,12 @@ export default function AnalyticsPage() {
       // Offices already selected from URL params
       console.log('[Analytics] Offices already selected from URL');
       setIsInitializingFilters(false);
-    } else if (availableOffices.length === 0) {
-      // No offices available - still need to stop loading after reasonable time
-      console.warn('[Analytics] No offices available, stopping initialization');
+    } else if (availableOffices.length === 0 && hasAttemptedLoad) {
+      // No offices available after attempting to load - this is a real issue
+      console.warn('[Analytics] No offices available after load attempt, stopping initialization');
       setIsInitializingFilters(false);
     }
-  }, [availableOffices, session?.user, selectedOfficeIds.length]);
+  }, [availableOffices, session?.user, selectedOfficeIds.length, hasAttemptedLoad]);
 
   if (status === 'loading') {
     return <div>Loading...</div>;
