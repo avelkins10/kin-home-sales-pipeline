@@ -204,7 +204,32 @@ export function RepCardOptimizedDashboard({
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-24" />)}
                 </div>
-              ) : (
+              ) : quality.hasNullValues ? (
+                <Alert className="mb-4 border-yellow-200 bg-yellow-50">
+                  <AlertCircle className="h-4 w-4 text-yellow-600" />
+                  <AlertDescription className="text-yellow-800">
+                    <strong>Data needs backfill:</strong> {quality.null48hCount || 0} appointments have NULL for 48h speed, {quality.nullPBCount || 0} have NULL for power bill.
+                    <br />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2"
+                      onClick={() => {
+                        fetch('/api/admin/repcard/backfill-metrics', { method: 'POST' })
+                          .then(res => res.json())
+                          .then(data => {
+                            alert('Backfill started! Refresh the page in a moment.');
+                            window.location.reload();
+                          })
+                          .catch(err => alert('Backfill failed: ' + err.message));
+                      }}
+                    >
+                      Run Backfill Now
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+              {!isLoading && (
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <QualityMetricCard
                     label="48-Hour Speed"
@@ -243,7 +268,8 @@ export function RepCardOptimizedDashboard({
                     threshold={10}
                     invertThreshold
                   />
-                </div>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>

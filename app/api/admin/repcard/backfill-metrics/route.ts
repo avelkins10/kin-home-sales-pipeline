@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
     console.log(`[RepCard Backfill] Updated ${within48Updated} appointments for is_within_48_hours`);
 
     // Also update appointments without matching customers (set to FALSE)
+    // IMPORTANT: This must update ALL appointments without customers, not just NULL ones
     const within48NoCustomerResult = await sql`
       UPDATE repcard_appointments a
       SET is_within_48_hours = FALSE
@@ -60,7 +61,6 @@ export async function POST(request: NextRequest) {
         SELECT 1 FROM repcard_customers c 
         WHERE c.repcard_customer_id = a.repcard_customer_id
       )
-      AND a.is_within_48_hours IS NULL
     `;
     const within48NoCustomerUpdated = Array.isArray(within48NoCustomerResult) ? 0 : (within48NoCustomerResult as any).rowCount || 0;
     console.log(`[RepCard Backfill] Updated ${within48NoCustomerUpdated} appointments without customers for is_within_48_hours`);

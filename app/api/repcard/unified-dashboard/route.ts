@@ -95,7 +95,9 @@ export async function GET(request: NextRequest) {
             COUNT(DISTINCT a.id) FILTER (WHERE a.has_power_bill = TRUE)::int as with_power_bill,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE AND a.has_power_bill = TRUE)::int as both,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = FALSE AND a.has_power_bill = FALSE)::int as neither,
-            COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = TRUE)::int as reschedules
+            COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = TRUE)::int as reschedules,
+            COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours IS NULL)::int as null_48h,
+            COUNT(DISTINCT a.id) FILTER (WHERE a.has_power_bill IS NULL)::int as null_pb
           FROM repcard_appointments a
           WHERE a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
@@ -107,7 +109,9 @@ export async function GET(request: NextRequest) {
             COUNT(DISTINCT a.id) FILTER (WHERE a.has_power_bill = TRUE)::int as with_power_bill,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE AND a.has_power_bill = TRUE)::int as both,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = FALSE AND a.has_power_bill = FALSE)::int as neither,
-            COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = TRUE)::int as reschedules
+            COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = TRUE)::int as reschedules,
+            COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours IS NULL)::int as null_48h,
+            COUNT(DISTINCT a.id) FILTER (WHERE a.has_power_bill IS NULL)::int as null_pb
           FROM repcard_appointments a
         `;
 
@@ -118,6 +122,13 @@ export async function GET(request: NextRequest) {
     const both = qualityData?.both || 0;
     const neither = qualityData?.neither || 0;
     const reschedules = qualityData?.reschedules || 0;
+    const null48h = qualityData?.null_48h || 0;
+    const nullPB = qualityData?.null_pb || 0;
+
+    // Log warning if there are NULL values
+    if (null48h > 0 || nullPB > 0) {
+      console.warn(`[RepCard Unified Dashboard] WARNING: Found ${null48h} appointments with NULL is_within_48_hours and ${nullPB} with NULL has_power_bill. Run backfill to populate.`);
+    }
 
     // Calculate percentages for all 4 metrics
     const qualityMetrics = {
@@ -138,6 +149,10 @@ export async function GET(request: NextRequest) {
       },
       rescheduleRate: totalAppts > 0 ? ((reschedules / totalAppts) * 100) : 0,
       reschedules: reschedules, // Add count for display
+      // Add warnings for NULL values
+      hasNullValues: null48h > 0 || nullPB > 0,
+      null48hCount: null48h,
+      nullPBCount: nullPB,
     };
 
     // Debug logging
