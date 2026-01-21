@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
       success: true,
       results: {
         totalAppointmentsInDatabase: totalAppointments,
-        within48HoursUpdated: within48Updated + within48NoCustomerUpdated,
+        within48HoursUpdated: within48Updated,
         powerBillUpdated: powerBillUpdated,
         verification: {
           // Recent (last 30 days) - shown in UI

@@ -175,18 +175,18 @@ export async function GET(request: NextRequest) {
         COUNT(*) FILTER (WHERE is_within_48_hours = FALSE AND has_power_bill = FALSE)::int as neither_count,
         COUNT(*) FILTER (WHERE is_reschedule = TRUE)::int as reschedule_count,
         ROUND(
-          (COUNT(*) FILTER (WHERE is_within_48_hours = TRUE)::float / 
-           NULLIF(COUNT(*) FILTER (WHERE scheduled_at IS NOT NULL), 0)::float) * 100, 
+          ((COUNT(*) FILTER (WHERE is_within_48_hours = TRUE)::numeric / 
+           NULLIF(COUNT(*) FILTER (WHERE scheduled_at IS NOT NULL), 0)::numeric) * 100)::numeric, 
           2
         ) as within_48h_percentage,
         ROUND(
-          (COUNT(*) FILTER (WHERE has_power_bill = TRUE)::float / 
-           NULLIF(COUNT(*), 0)::float) * 100, 
+          ((COUNT(*) FILTER (WHERE has_power_bill = TRUE)::numeric / 
+           NULLIF(COUNT(*), 0)::numeric) * 100)::numeric, 
           2
         ) as power_bill_percentage,
         ROUND(
-          (COUNT(*) FILTER (WHERE is_reschedule = TRUE)::float / 
-           NULLIF(COUNT(*), 0)::float) * 100, 
+          ((COUNT(*) FILTER (WHERE is_reschedule = TRUE)::numeric / 
+           NULLIF(COUNT(*), 0)::numeric) * 100)::numeric, 
           2
         ) as reschedule_percentage
       FROM repcard_appointments
@@ -380,13 +380,13 @@ export async function GET(request: NextRequest) {
         (SELECT COUNT(*)::int FROM repcard_appointments) as total_appointments,
         (SELECT COUNT(*) FILTER (WHERE disposition ILIKE '%closed%')::int FROM repcard_appointments) as closed_appointments,
         ROUND(
-          ((SELECT COUNT(*)::int FROM repcard_appointments)::float / 
-           NULLIF((SELECT COUNT(*)::int FROM repcard_customers), 0)::float) * 100, 
+          (((SELECT COUNT(*)::int FROM repcard_appointments)::numeric / 
+           NULLIF((SELECT COUNT(*)::int FROM repcard_customers), 0)::numeric) * 100)::numeric, 
           2
         ) as customer_to_appointment_rate,
         ROUND(
-          ((SELECT COUNT(*) FILTER (WHERE disposition ILIKE '%closed%')::int FROM repcard_appointments)::float / 
-           NULLIF((SELECT COUNT(*)::int FROM repcard_appointments), 0)::float) * 100, 
+          (((SELECT COUNT(*) FILTER (WHERE disposition ILIKE '%closed%')::int FROM repcard_appointments)::numeric / 
+           NULLIF((SELECT COUNT(*)::int FROM repcard_appointments), 0)::numeric) * 100)::numeric, 
           2
         ) as appointment_to_close_rate
     `;
