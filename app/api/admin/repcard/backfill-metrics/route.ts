@@ -26,11 +26,18 @@ export async function POST(request: NextRequest) {
 
     console.log('[RepCard Backfill] Starting metrics backfill...');
 
+    // Helper to extract rows from SQL result
+    const getRows = (result: any): any[] => {
+      if (Array.isArray(result)) return result;
+      if (result?.rows && Array.isArray(result.rows)) return result.rows;
+      return Array.from(result);
+    };
+
     // Step 0: Get total appointment count for diagnostics
     const totalCountResult = await sql`
       SELECT COUNT(*)::int as total FROM repcard_appointments
     `;
-    const totalAppointments = Array.from(totalCountResult)[0]?.total || 0;
+    const totalAppointments = getRows(totalCountResult)[0]?.total || 0;
     console.log(`[RepCard Backfill] Total appointments in database: ${totalAppointments}`);
 
     // Step 1: Backfill is_within_48_hours - UPDATE ALL appointments (force update)
@@ -112,7 +119,8 @@ export async function POST(request: NextRequest) {
         COUNT(*) FILTER (WHERE has_power_bill IS NULL)::int as null_pb
       FROM repcard_appointments
     `;
-    const verifyAll = Array.from(verifyAllResult)[0] as any;
+    const verifyAll = getRows(verifyAllResult)[0] as any;
+    console.log(`[RepCard Backfill] All-time verification:`, verifyAll);
 
     // Last 30 days stats
     const verifyRecentResult = await sql`
@@ -125,7 +133,8 @@ export async function POST(request: NextRequest) {
       FROM repcard_appointments
       WHERE scheduled_at >= NOW() - INTERVAL '30 days'
     `;
-    const verifyRecent = Array.from(verifyRecentResult)[0] as any;
+    const verifyRecent = getRows(verifyRecentResult)[0] as any;
+    console.log(`[RepCard Backfill] Recent (30 days) verification:`, verifyRecent);
     
     // Use recent for display, but include all-time in response
     const verify = verifyRecent;
