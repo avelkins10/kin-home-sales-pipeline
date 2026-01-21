@@ -34,41 +34,41 @@ export async function POST(request: NextRequest) {
       return Array.from(result);
     };
 
-    // Step 1: Backfill is_within_48_hours for appointments with NULL values
-    console.log('[RepCard Auto-Backfill] Step 1: Backfilling is_within_48_hours...');
+    // Step 1: Backfill is_within_48_hours - UPDATE ALL appointments (recalculate to fix incorrect values)
+    console.log('[RepCard Auto-Backfill] Step 1: Recalculating is_within_48_hours for all appointments...');
     const within48hResult = await sql`
       UPDATE repcard_appointments a
       SET is_within_48_hours = (
         CASE
-          WHEN EXISTS (
-            SELECT 1 FROM repcard_customers c
-            WHERE c.repcard_customer_id::text = a.repcard_customer_id::text
-              AND c.created_at IS NOT NULL
-              AND a.scheduled_at IS NOT NULL
-              AND (a.scheduled_at - c.created_at) <= INTERVAL '48 hours'
-              AND (a.scheduled_at - c.created_at) >= INTERVAL '0 hours'
-          ) THEN TRUE
+          WHEN a.scheduled_at IS NOT NULL AND c.created_at IS NOT NULL
+            AND (a.scheduled_at - c.created_at) <= INTERVAL '48 hours' 
+            AND (a.scheduled_at - c.created_at) >= INTERVAL '0 hours' 
+          THEN TRUE
           ELSE FALSE
         END
       )
-      WHERE a.is_within_48_hours IS NULL
+      FROM repcard_customers c
+      WHERE a.repcard_customer_id = c.repcard_customer_id
         AND a.scheduled_at IS NOT NULL
     `;
-    const within48hUpdated = within48hResult.count || 0;
+    const within48hUpdated = Array.isArray(within48hResult) ? 0 : (within48hResult as any).rowCount || 0;
+    console.log(`[RepCard Auto-Backfill] Updated ${within48hUpdated} appointments for is_within_48_hours`);
 
-    // Also set FALSE for appointments without matching customers
-    await sql`
+    // Also set FALSE for appointments without matching customers (update ALL, not just NULL)
+    const within48hNoCustomerResult = await sql`
       UPDATE repcard_appointments a
       SET is_within_48_hours = FALSE
-      WHERE a.is_within_48_hours IS NULL
-        AND NOT EXISTS (
-          SELECT 1 FROM repcard_customers c
-          WHERE c.repcard_customer_id::text = a.repcard_customer_id::text
-        )
+      WHERE NOT EXISTS (
+        SELECT 1 FROM repcard_customers c 
+        WHERE c.repcard_customer_id = a.repcard_customer_id
+      )
     `;
+    const within48hNoCustomerUpdated = Array.isArray(within48hNoCustomerResult) ? 0 : (within48hNoCustomerResult as any).rowCount || 0;
+    console.log(`[RepCard Auto-Backfill] Updated ${within48hNoCustomerUpdated} appointments without customers for is_within_48_hours`);
 
-    // Step 2: Backfill has_power_bill - ANY attachment = power bill
-    console.log('[RepCard Auto-Backfill] Step 2: Backfilling has_power_bill...');
+    // Step 2: Backfill has_power_bill - UPDATE ALL appointments (recalculate to fix incorrect values)
+    // SIMPLIFIED: Any attachment to customer or appointment = power bill
+    console.log('[RepCard Auto-Backfill] Step 2: Recalculating has_power_bill for all appointments (any attachment = PB)...');
     const powerBillResult = await sql`
       UPDATE repcard_appointments a
       SET has_power_bill = (
@@ -83,9 +83,9 @@ export async function POST(request: NextRequest) {
           ELSE FALSE
         END
       )
-      WHERE a.has_power_bill IS NULL
     `;
-    const powerBillUpdated = powerBillResult.count || 0;
+    const powerBillUpdated = Array.isArray(powerBillResult) ? 0 : (powerBillResult as any).rowCount || 0;
+    console.log(`[RepCard Auto-Backfill] Updated ${powerBillUpdated} appointments for has_power_bill`);
 
     // Step 3: Verify results
     const verifyResult = await sql`
