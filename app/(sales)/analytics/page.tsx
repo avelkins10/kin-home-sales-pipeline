@@ -49,6 +49,12 @@ function getDateRangeFromTimeRange(timeRange: TimeRange, customDateRange?: Custo
     case 'today':
       startDate = format(now, 'yyyy-MM-dd');
       break;
+    case 'week':
+      // Week to date: start of current week (Monday)
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - now.getDay() + 1); // Monday
+      startDate = format(weekStart, 'yyyy-MM-dd');
+      break;
     case 'last_30':
       startDate = format(subDays(now, 30), 'yyyy-MM-dd');
       break;
@@ -87,8 +93,8 @@ export default function AnalyticsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   
-  // Filter state from URL params - default to last_12_months for better data visibility
-  const [timeRange, setTimeRange] = useState<TimeRange>('last_12_months');
+  // Filter state from URL params - default to today for RepCard (can be overridden per tab)
+  const [timeRange, setTimeRange] = useState<TimeRange>('today');
   const [customDateRange, setCustomDateRange] = useState<CustomDateRange | undefined>();
   const [selectedOfficeIds, setSelectedOfficeIds] = useState<number[]>([]);
   const [selectedRepEmail, setSelectedRepEmail] = useState<string | undefined>();
@@ -639,8 +645,10 @@ export default function AnalyticsPage() {
           }
           repcardContent={
             <RepCardOptimizedDashboard
-              startDate={getDateRangeFromTimeRange(timeRange, customDateRange)?.startDate}
-              endDate={getDateRangeFromTimeRange(timeRange, customDateRange)?.endDate}
+              startDate={getDateRangeFromTimeRange(timeRange === 'last_12_months' ? 'today' : timeRange, customDateRange)?.startDate}
+              endDate={getDateRangeFromTimeRange(timeRange === 'last_12_months' ? 'today' : timeRange, customDateRange)?.endDate}
+              defaultTimeRange={timeRange === 'last_12_months' ? 'today' : timeRange}
+              onTimeRangeChange={handleTimeRangeChange}
             />
           }
         />

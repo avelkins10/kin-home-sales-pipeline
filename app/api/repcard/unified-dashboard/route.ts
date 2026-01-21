@@ -352,8 +352,8 @@ export async function GET(request: NextRequest) {
       conversionRate: parseFloat(row.conversion_rate || '0'),
     }));
 
-    // Top appointment setters (with quality metrics)
-    // Track: total, within 48h, with PB, both, neither
+    // Top appointment setters (with quality metrics + hours on doors)
+    // Track: total, within 48h, with PB, both, neither, doors, hours on doors
     const topAppointmentSettersResult = startDate && endDate
       ? await sql`
           SELECT
@@ -366,6 +366,8 @@ export async function GET(request: NextRequest) {
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE AND a.has_power_bill = TRUE)::int as both_count,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = FALSE AND a.has_power_bill = FALSE)::int as neither_count,
             COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
+            -- Estimate hours on doors: count unique days with door knocks * 4 hours per day (average)
+            COUNT(DISTINCT DATE(c.created_at))::int * 4 as estimated_hours_on_doors,
             CASE
               WHEN COUNT(DISTINCT c.repcard_customer_id) > 0 THEN
                 (COUNT(DISTINCT a.id)::float / COUNT(DISTINCT c.repcard_customer_id)::float) * 100
@@ -376,9 +378,11 @@ export async function GET(request: NextRequest) {
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
           LEFT JOIN repcard_customers c ON c.repcard_customer_id = a.repcard_customer_id
+            AND c.created_at >= ${startDate}::timestamptz
+            AND c.created_at <= ${endDate}::timestamptz
           WHERE u.repcard_user_id IS NOT NULL
           GROUP BY u.repcard_user_id, u.name, u.role
-          HAVING COUNT(DISTINCT a.id) > 0
+          HAVING COUNT(DISTINCT a.id) > 0 OR COUNT(DISTINCT c.repcard_customer_id) > 0
           ORDER BY appointments_set DESC
           LIMIT 10
         `
@@ -393,6 +397,8 @@ export async function GET(request: NextRequest) {
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE AND a.has_power_bill = TRUE)::int as both_count,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = FALSE AND a.has_power_bill = FALSE)::int as neither_count,
             COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
+            -- Estimate hours on doors: count unique days with door knocks * 4 hours per day (average)
+            COUNT(DISTINCT DATE(c.created_at))::int * 4 as estimated_hours_on_doors,
             CASE
               WHEN COUNT(DISTINCT c.repcard_customer_id) > 0 THEN
                 (COUNT(DISTINCT a.id)::float / COUNT(DISTINCT c.repcard_customer_id)::float) * 100
@@ -403,7 +409,7 @@ export async function GET(request: NextRequest) {
           LEFT JOIN repcard_customers c ON c.repcard_customer_id = a.repcard_customer_id
           WHERE u.repcard_user_id IS NOT NULL
           GROUP BY u.repcard_user_id, u.name, u.role
-          HAVING COUNT(DISTINCT a.id) > 0
+          HAVING COUNT(DISTINCT a.id) > 0 OR COUNT(DISTINCT c.repcard_customer_id) > 0
           ORDER BY appointments_set DESC
           LIMIT 50
         `;
@@ -418,10 +424,11 @@ export async function GET(request: NextRequest) {
       bothCount: row.both_count || 0, // High quality: both PB and 48h
       neitherCount: row.neither_count || 0, // Low quality: neither PB nor 48h
       doorsKnocked: row.doors_knocked,
+      hoursOnDoors: row.estimated_hours_on_doors || 0,
       conversionRate: parseFloat(row.conversion_rate || '0'),
     }));
 
-    // Top closers
+    // Top closers - with appointment outcomes breakdown
     const topClosersResult = startDate && endDate
       ? await sql`
           SELECT
@@ -429,10 +436,16 @@ export async function GET(request: NextRequest) {
             u.name,
             u.role,
             COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_run,
-            COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' THEN a.repcard_appointment_id END)::int as sales_closed,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'sat_closed')::int as sat_closed,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'sat_no_close')::int as sat_no_close,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'no_show')::int as no_show,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'cancelled')::int as cancelled,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'rescheduled')::int as rescheduled,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'completed')::int as completed,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category IN ('sat_closed', 'sat_no_close', 'completed'))::int as appointments_sat,
             CASE
               WHEN COUNT(DISTINCT a.repcard_appointment_id) > 0 THEN
-                (COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' THEN a.repcard_appointment_id END)::float /
+                (COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'sat_closed')::float /
                  COUNT(DISTINCT a.repcard_appointment_id)::float) * 100
               ELSE 0
             END as close_rate
@@ -443,7 +456,7 @@ export async function GET(request: NextRequest) {
           WHERE u.repcard_user_id IS NOT NULL
           GROUP BY u.repcard_user_id, u.name, u.role
           HAVING COUNT(DISTINCT a.repcard_appointment_id) > 0
-          ORDER BY sales_closed DESC
+          ORDER BY appointments_run DESC
           LIMIT 10
         `
       : await sql`
@@ -452,10 +465,16 @@ export async function GET(request: NextRequest) {
             u.name,
             u.role,
             COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_run,
-            COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' THEN a.repcard_appointment_id END)::int as sales_closed,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'sat_closed')::int as sat_closed,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'sat_no_close')::int as sat_no_close,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'no_show')::int as no_show,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'cancelled')::int as cancelled,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'rescheduled')::int as rescheduled,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'completed')::int as completed,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category IN ('sat_closed', 'sat_no_close', 'completed'))::int as appointments_sat,
             CASE
               WHEN COUNT(DISTINCT a.repcard_appointment_id) > 0 THEN
-                (COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' THEN a.repcard_appointment_id END)::float /
+                (COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'sat_closed')::float /
                  COUNT(DISTINCT a.repcard_appointment_id)::float) * 100
               ELSE 0
             END as close_rate
@@ -464,7 +483,7 @@ export async function GET(request: NextRequest) {
           WHERE u.repcard_user_id IS NOT NULL
           GROUP BY u.repcard_user_id, u.name, u.role
           HAVING COUNT(DISTINCT a.repcard_appointment_id) > 0
-          ORDER BY sales_closed DESC
+          ORDER BY appointments_run DESC
           LIMIT 50
         `;
 
@@ -473,7 +492,13 @@ export async function GET(request: NextRequest) {
       name: row.name,
       role: row.role,
       appointmentsRun: row.appointments_run,
-      salesClosed: row.sales_closed,
+      satClosed: row.sat_closed || 0,
+      satNoClose: row.sat_no_close || 0,
+      noShow: row.no_show || 0,
+      cancelled: row.cancelled || 0,
+      rescheduled: row.rescheduled || 0,
+      completed: row.completed || 0,
+      appointmentsSat: row.appointments_sat || 0,
       closeRate: parseFloat(row.close_rate || '0'),
     }));
 

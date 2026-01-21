@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatPercentage, formatLargeNumber } from '@/lib/utils/formatters';
+import { format } from 'date-fns';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -40,15 +41,23 @@ interface RepCardOptimizedDashboardProps {
   startDate?: string;
   endDate?: string;
   className?: string;
+  defaultTimeRange?: TimeRange;
+  onTimeRangeChange?: (range: TimeRange, customRange?: CustomDateRange) => void;
 }
+
+type TimeRange = 'today' | 'week' | 'month' | 'ytd' | 'custom' | 'last_30' | 'last_90';
+type CustomDateRange = { startDate: string; endDate: string };
 
 export function RepCardOptimizedDashboard({ 
   startDate, 
   endDate, 
-  className 
+  className,
+  defaultTimeRange = 'today',
+  onTimeRangeChange
 }: RepCardOptimizedDashboardProps) {
   const { data: session } = useSession();
   const [activeView, setActiveView] = useState<'overview' | 'setters' | 'closers' | 'offices'>('overview');
+  const [selectedMetric, setSelectedMetric] = useState<'appointments' | 'doors' | 'quality' | 'hours'>('appointments');
 
   // Fetch unified dashboard data
   const { data, isLoading, error, refetch, isRefetching } = useQuery({
@@ -69,9 +78,36 @@ export function RepCardOptimizedDashboard({
   // Calculate date range display
   const dateRangeDisplay = useMemo(() => {
     if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Check if it's today
+      if (startDate === endDate && start.getTime() === today.getTime()) {
+        return 'Today';
+      }
+      // Check if it's week to date
+      if (startDate && endDate) {
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() - today.getDay() + 1); // Monday
+        if (startDate === format(weekStart, 'yyyy-MM-dd') && endDate === format(today, 'yyyy-MM-dd')) {
+          return 'Week to Date';
+        }
+        // Check if it's month to date
+        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        if (startDate === format(monthStart, 'yyyy-MM-dd') && endDate === format(today, 'yyyy-MM-dd')) {
+          return 'Month to Date';
+        }
+        // Check if it's year to date
+        const yearStart = new Date(today.getFullYear(), 0, 1);
+        if (startDate === format(yearStart, 'yyyy-MM-dd') && endDate === format(today, 'yyyy-MM-dd')) {
+          return 'Year to Date';
+        }
+      }
       return `${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}`;
     }
-    return 'Last 30 days';
+    return 'Today';
   }, [startDate, endDate]);
 
   // Sync status
@@ -134,6 +170,63 @@ export function RepCardOptimizedDashboard({
         <div>
           <h2 className="text-2xl font-bold tracking-tight">RepCard Analytics</h2>
           <div className="flex items-center gap-3 mt-1 flex-wrap">
+            {/* Quick Date Range Switcher */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant={!startDate || dateRangeDisplay.includes('Today') ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => {
+                  const today = new Date();
+                  const todayStr = today.toISOString().split('T')[0];
+                  if (onTimeRangeChange) {
+                    onTimeRangeChange('today');
+                  } else {
+                    window.location.href = `/analytics?tab=repcard&timeRange=today`;
+                  }
+                }}
+              >
+                Today
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (onTimeRangeChange) {
+                    onTimeRangeChange('week');
+                  } else {
+                    window.location.href = `/analytics?tab=repcard&timeRange=week`;
+                  }
+                }}
+              >
+                Week to Date
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (onTimeRangeChange) {
+                    onTimeRangeChange('month');
+                  } else {
+                    window.location.href = `/analytics?tab=repcard&timeRange=month`;
+                  }
+                }}
+              >
+                Month to Date
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (onTimeRangeChange) {
+                    onTimeRangeChange('ytd');
+                  } else {
+                    window.location.href = `/analytics?tab=repcard&timeRange=ytd`;
+                  }
+                }}
+              >
+                Year to Date
+              </Button>
+            </div>
             <Badge variant="outline" className="text-sm">
               <Calendar className="h-3 w-3 mr-1" />
               {dateRangeDisplay}
@@ -209,31 +302,7 @@ export function RepCardOptimizedDashboard({
                 </div>
               ) : (
                 <>
-                  {quality.hasNullValues && (
-                    <Alert className="mb-4 border-yellow-200 bg-yellow-50">
-                      <AlertCircle className="h-4 w-4 text-yellow-600" />
-                      <AlertDescription className="text-yellow-800">
-                        <strong>Data needs backfill:</strong> {quality.null48hCount || 0} appointments have NULL for 48h speed, {quality.nullPBCount || 0} have NULL for power bill.
-                        <br />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="mt-2"
-                          onClick={() => {
-                            fetch('/api/admin/repcard/backfill-metrics', { method: 'POST' })
-                              .then(res => res.json())
-                              .then(data => {
-                                alert('Backfill started! Refresh the page in a moment.');
-                                setTimeout(() => window.location.reload(), 2000);
-                              })
-                              .catch(err => alert('Backfill failed: ' + err.message));
-                          }}
-                        >
-                          Run Backfill Now
-                        </Button>
-                      </AlertDescription>
-                    </Alert>
-                  )}
+                  {/* Auto-backfill is running every 10 minutes - no manual action needed */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <QualityMetricCard
                     label="48-Hour Speed"
@@ -709,8 +778,44 @@ function SettersView({ data, isLoading, dateRange }: { data: any[]; isLoading: b
       {/* Performance Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Setter Performance Leaderboard</CardTitle>
-          <CardDescription>Top setters by appointments set and quality metrics - {dateRange}</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Setter Performance Leaderboard</CardTitle>
+              <CardDescription>Top setters - {dateRange}</CardDescription>
+            </div>
+            {/* Metric Switcher */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Sort by:</span>
+              <Button
+                variant={selectedMetric === 'appointments' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedMetric('appointments')}
+              >
+                Appointments
+              </Button>
+              <Button
+                variant={selectedMetric === 'doors' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedMetric('doors')}
+              >
+                Doors
+              </Button>
+              <Button
+                variant={selectedMetric === 'quality' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedMetric('quality')}
+              >
+                Quality
+              </Button>
+              <Button
+                variant={selectedMetric === 'hours' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedMetric('hours')}
+              >
+                Hours
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {data.length > 0 ? (
@@ -721,6 +826,7 @@ function SettersView({ data, isLoading, dateRange }: { data: any[]; isLoading: b
                     <TableHead>Rank</TableHead>
                     <TableHead>Setter</TableHead>
                     <TableHead className="text-right">Doors</TableHead>
+                    <TableHead className="text-right">Hours</TableHead>
                     <TableHead className="text-right">Appointments</TableHead>
                     <TableHead className="text-right">48h Speed</TableHead>
                     <TableHead className="text-right">Power Bill</TableHead>
@@ -730,7 +836,24 @@ function SettersView({ data, isLoading, dateRange }: { data: any[]; isLoading: b
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.map((setter, idx) => {
+                  {data
+                    .sort((a, b) => {
+                      switch (selectedMetric) {
+                        case 'appointments':
+                          return (b.appointmentsSet || 0) - (a.appointmentsSet || 0);
+                        case 'doors':
+                          return (b.doorsKnocked || 0) - (a.doorsKnocked || 0);
+                        case 'quality':
+                          const aQuality = (a.bothCount || 0) / Math.max(a.appointmentsSet || 1, 1);
+                          const bQuality = (b.bothCount || 0) / Math.max(b.appointmentsSet || 1, 1);
+                          return bQuality - aQuality;
+                        case 'hours':
+                          return (b.hoursOnDoors || 0) - (a.hoursOnDoors || 0);
+                        default:
+                          return 0;
+                      }
+                    })
+                    .map((setter, idx) => {
                     const appointment48hRate = (setter.appointmentsSet || 0) > 0 
                       ? ((setter.within48hCount || 0) / (setter.appointmentsSet || 1)) * 100 
                       : 0;
@@ -754,6 +877,7 @@ function SettersView({ data, isLoading, dateRange }: { data: any[]; isLoading: b
                         </TableCell>
                         <TableCell className="font-medium">{setter.name}</TableCell>
                         <TableCell className="text-right">{formatLargeNumber(setter.doorsKnocked || 0)}</TableCell>
+                        <TableCell className="text-right">{formatLargeNumber(setter.hoursOnDoors || 0)}h</TableCell>
                         <TableCell className="text-right font-bold text-lg">{formatLargeNumber(setter.appointmentsSet || 0)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex flex-col items-end">
@@ -864,13 +988,17 @@ function ClosersView({ data, isLoading, dateRange }: { data: any[]; isLoading: b
 
   // Calculate summary stats
   const totalAppointmentsRun = data.reduce((sum, c) => sum + (c.appointmentsRun || 0), 0);
-  const totalSalesClosed = data.reduce((sum, c) => sum + (c.salesClosed || 0), 0);
-  const avgCloseRate = totalAppointmentsRun > 0 ? (totalSalesClosed / totalAppointmentsRun) * 100 : 0;
+  const totalSatClosed = data.reduce((sum, c) => sum + (c.satClosed || 0), 0);
+  const totalSatNoClose = data.reduce((sum, c) => sum + (c.satNoClose || 0), 0);
+  const totalNoShow = data.reduce((sum, c) => sum + (c.noShow || 0), 0);
+  const totalCancelled = data.reduce((sum, c) => sum + (c.cancelled || 0), 0);
+  const totalAppointmentsSat = data.reduce((sum, c) => sum + (c.appointmentsSat || 0), 0);
+  const avgCloseRate = totalAppointmentsRun > 0 ? (totalSatClosed / totalAppointmentsRun) * 100 : 0;
 
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatCard 
           label="Total Appointments Run" 
           value={totalAppointmentsRun} 
@@ -878,13 +1006,19 @@ function ClosersView({ data, isLoading, dateRange }: { data: any[]; isLoading: b
           color="blue" 
         />
         <StatCard 
-          label="Total Sales Closed" 
-          value={totalSalesClosed} 
+          label="Sat & Closed" 
+          value={totalSatClosed} 
           icon={<Trophy className="h-5 w-5" />} 
           color="green" 
         />
         <StatCard 
-          label="Average Close Rate" 
+          label="Appointments Sat" 
+          value={totalAppointmentsSat} 
+          icon={<CheckCircle2 className="h-5 w-5" />} 
+          color="blue" 
+        />
+        <StatCard 
+          label="Close Rate" 
           value={avgCloseRate} 
           format="percentage"
           icon={<Target className="h-5 w-5" />} 
