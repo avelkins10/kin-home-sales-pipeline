@@ -16,9 +16,19 @@ import {
   Settings,
   BarChart3,
   PlayCircle,
-  Loader2
+  Loader2,
+  ChevronDown,
+  ChevronRight,
+  Users,
+  Calendar,
+  FileText,
+  StickyNote,
+  TrendingUp,
+  Building,
+  Activity
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 /**
  * Unified RepCard Management Tab
@@ -44,7 +54,18 @@ export default function RepCardManagementTab() {
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
-  // Fetch data overview
+  // Fetch comprehensive metrics - ALL RepCard data
+  const { data: comprehensiveMetrics, isLoading: loadingMetrics } = useQuery({
+    queryKey: ['repcard-comprehensive-metrics'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/repcard/comprehensive-metrics');
+      if (!res.ok) throw new Error('Failed to fetch comprehensive metrics');
+      return res.json();
+    },
+    refetchInterval: 60000, // Refresh every minute
+  });
+
+  // Fetch data overview (legacy)
   const { data: dataOverview, isLoading: loadingOverview } = useQuery({
     queryKey: ['repcard-data-overview'],
     queryFn: async () => {
@@ -123,84 +144,219 @@ export default function RepCardManagementTab() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Overview Tab */}
+        {/* Overview Tab - Comprehensive Metrics */}
         <TabsContent value="overview" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {loadingMetrics ? (
             <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stats?.total_customers || 0}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium">Total Appointments</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stats?.total_appointments || 0}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium">Linked Users</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stats?.linked_users || 0}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium">Closed Appointments</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-blue-600">{stats?.total_closed_appointments || 0}</div>
-                <div className="text-sm text-muted-foreground mt-1">
-                  {stats?.with_closer_assigned || 0} with closer assigned
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-muted-foreground">Loading comprehensive metrics...</span>
                 </div>
               </CardContent>
             </Card>
+          ) : comprehensiveMetrics?.metrics ? (
+            <div className="space-y-4">
+              <Alert>
+                <Database className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Source of Truth:</strong> This page shows every metric available from RepCard data. 
+                  All metrics are calculated from the synced database tables.
+                  {comprehensiveMetrics.generatedAt && (
+                    <span className="block mt-1 text-xs">
+                      Last updated: {new Date(comprehensiveMetrics.generatedAt).toLocaleString()}
+                    </span>
+                  )}
+                </AlertDescription>
+              </Alert>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium">Without Closer</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-yellow-600">{stats?.without_closer || 0}</div>
-              </CardContent>
-            </Card>
+              {/* Customers Section */}
+              <MetricSection
+                title="Customers (Door Knocks)"
+                icon={<Users className="w-5 h-5" />}
+                metrics={comprehensiveMetrics.metrics.customers}
+                breakdowns={{
+                  byStatus: comprehensiveMetrics.metrics.customers.byStatus,
+                  byOffice: comprehensiveMetrics.metrics.customers.byOffice,
+                }}
+              />
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium">Last Sync</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {lastAppointmentSync ? (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      {lastAppointmentSync.status === 'completed' ? (
-                        <CheckCircle className="h-4 w-4 text-green-500" />
-                      ) : (
-                        <XCircle className="h-4 w-4 text-red-500" />
-                      )}
-                      <span className="text-sm font-medium">{lastAppointmentSync.status}</span>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {lastAppointmentSync.completed_at
-                        ? new Date(lastAppointmentSync.completed_at).toLocaleString()
-                        : 'Never'}
-                    </div>
+              {/* Appointments Section */}
+              <MetricSection
+                title="Appointments"
+                icon={<Calendar className="w-5 h-5" />}
+                metrics={comprehensiveMetrics.metrics.appointments}
+                breakdowns={{
+                  byDisposition: comprehensiveMetrics.metrics.appointments.byDisposition,
+                  byStatusCategory: comprehensiveMetrics.metrics.appointments.byStatusCategory,
+                }}
+              />
+
+              {/* Quality Metrics Section */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5" />
+                    Quality Metrics (Last 30 Days)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <MetricCard
+                      label="48-Hour Speed"
+                      value={`${comprehensiveMetrics.metrics.quality.within_48h_percentage || 0}%`}
+                      subValue={`${comprehensiveMetrics.metrics.quality.within_48h_count || 0} of ${comprehensiveMetrics.metrics.quality.total_appointments || 0}`}
+                    />
+                    <MetricCard
+                      label="Power Bill Rate"
+                      value={`${comprehensiveMetrics.metrics.quality.power_bill_percentage || 0}%`}
+                      subValue={`${comprehensiveMetrics.metrics.quality.with_power_bill_count || 0} appointments`}
+                    />
+                    <MetricCard
+                      label="Both Metrics"
+                      value={`${comprehensiveMetrics.metrics.quality.both_count || 0}`}
+                      subValue="High quality"
+                    />
+                    <MetricCard
+                      label="Reschedule Rate"
+                      value={`${comprehensiveMetrics.metrics.quality.reschedule_percentage || 0}%`}
+                      subValue={`${comprehensiveMetrics.metrics.quality.reschedule_count || 0} reschedules`}
+                    />
                   </div>
-                ) : (
-                  <div className="text-sm text-muted-foreground">No sync data</div>
-                )}
+                </CardContent>
+              </Card>
+
+              {/* Attachments Section */}
+              <MetricSection
+                title="Attachments"
+                icon={<FileText className="w-5 h-5" />}
+                metrics={comprehensiveMetrics.metrics.attachments}
+                breakdowns={{
+                  byType: comprehensiveMetrics.metrics.attachments.byType,
+                }}
+              />
+
+              {/* Notes Section */}
+              <MetricSection
+                title="Notes"
+                icon={<StickyNote className="w-5 h-5" />}
+                metrics={comprehensiveMetrics.metrics.notes}
+              />
+
+              {/* Status Logs Section */}
+              <MetricSection
+                title="Status Changes"
+                icon={<Activity className="w-5 h-5" />}
+                metrics={comprehensiveMetrics.metrics.statusLogs}
+                breakdowns={{
+                  byStatus: comprehensiveMetrics.metrics.statusLogs.byStatus,
+                }}
+              />
+
+              {/* Users Section */}
+              <MetricSection
+                title="Users"
+                icon={<Users className="w-5 h-5" />}
+                metrics={comprehensiveMetrics.metrics.users}
+                breakdowns={{
+                  byRole: comprehensiveMetrics.metrics.users.byRole,
+                }}
+              />
+
+              {/* Offices Section */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Building className="w-5 h-5" />
+                    Offices
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4">
+                    <MetricCard
+                      label="Total Offices"
+                      value={comprehensiveMetrics.metrics.offices.total_offices || 0}
+                    />
+                    <MetricCard
+                      label="Unique Companies"
+                      value={comprehensiveMetrics.metrics.offices.unique_companies || 0}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Conversion Metrics */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5" />
+                    Conversion Rates
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <MetricCard
+                      label="Customer → Appointment"
+                      value={`${comprehensiveMetrics.metrics.conversion.customer_to_appointment_rate || 0}%`}
+                      subValue={`${comprehensiveMetrics.metrics.conversion.total_appointments || 0} appointments from ${comprehensiveMetrics.metrics.conversion.total_customers || 0} customers`}
+                    />
+                    <MetricCard
+                      label="Appointment → Close"
+                      value={`${comprehensiveMetrics.metrics.conversion.appointment_to_close_rate || 0}%`}
+                      subValue={`${comprehensiveMetrics.metrics.conversion.closed_appointments || 0} closed`}
+                    />
+                    <MetricCard
+                      label="Total Closed"
+                      value={comprehensiveMetrics.metrics.conversion.closed_appointments || 0}
+                      subValue="Sales closed"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Sync Status */}
+              {comprehensiveMetrics.metrics.sync && comprehensiveMetrics.metrics.sync.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <RefreshCw className="w-5 h-5" />
+                      Sync History
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {comprehensiveMetrics.metrics.sync.map((sync: any) => (
+                        <div key={sync.entity_type} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div>
+                            <div className="font-medium capitalize">{sync.entity_type}</div>
+                            <div className="text-sm text-muted-foreground">
+                              Last sync: {sync.last_sync ? new Date(sync.last_sync).toLocaleString() : 'Never'}
+                            </div>
+                          </div>
+                          <div className="text-right text-sm">
+                            <div>Fetched: {sync.total_fetched?.toLocaleString() || 0}</div>
+                            <div>Inserted: {sync.total_inserted?.toLocaleString() || 0}</div>
+                            <div>Updated: {sync.total_updated?.toLocaleString() || 0}</div>
+                            <div className="mt-1">
+                              <Badge variant={sync.failed_syncs > 0 ? 'destructive' : 'default'}>
+                                {sync.successful_syncs} success, {sync.failed_syncs} failed
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center text-muted-foreground">No metrics data available</div>
               </CardContent>
             </Card>
-          </div>
+          )}
         </TabsContent>
 
         {/* Sync Status Tab */}
@@ -402,6 +558,104 @@ export default function RepCardManagementTab() {
           </Card>
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+// Helper component for metric sections
+function MetricSection({ 
+  title, 
+  icon, 
+  metrics, 
+  breakdowns 
+}: { 
+  title: string; 
+  icon: React.ReactNode;
+  metrics: any;
+  breakdowns?: Record<string, any[]>;
+}) {
+  const [isOpen, setIsOpen] = useState(true);
+
+  if (!metrics || !metrics.summary) return null;
+
+  const summary = metrics.summary;
+
+  return (
+    <Card>
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="cursor-pointer hover:bg-gray-50 transition-colors">
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {icon}
+                {title}
+              </div>
+              {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+            </CardTitle>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="space-y-4">
+            {/* Summary metrics grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {Object.entries(summary).map(([key, value]: [string, any]) => {
+                if (key.includes('earliest') || key.includes('latest')) return null;
+                return (
+                  <MetricCard
+                    key={key}
+                    label={key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    value={typeof value === 'number' ? value.toLocaleString() : value || 'N/A'}
+                  />
+                );
+              })}
+            </div>
+
+            {/* Breakdowns */}
+            {breakdowns && Object.entries(breakdowns).map(([breakdownKey, breakdownData]: [string, any[]]) => {
+              if (!breakdownData || breakdownData.length === 0) return null;
+              return (
+                <div key={breakdownKey} className="mt-4 pt-4 border-t">
+                  <h4 className="font-semibold mb-2 capitalize">
+                    {breakdownKey.replace(/([A-Z])/g, ' $1').trim()}
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {breakdownData.slice(0, 10).map((item: any, idx: number) => (
+                      <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
+                        <span className="truncate">{item[breakdownKey.includes('Status') ? 'new_status' : breakdownKey.includes('Disposition') ? 'disposition' : breakdownKey.includes('Office') ? 'office_name' : breakdownKey.includes('Role') ? 'role' : 'attachment_type'] || 'N/A'}</span>
+                        <Badge variant="secondary" className="ml-2">{item.count}</Badge>
+                      </div>
+                    ))}
+                    {breakdownData.length > 10 && (
+                      <div className="text-sm text-muted-foreground p-2">
+                        +{breakdownData.length - 10} more
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
+  );
+}
+
+// Helper component for metric cards
+function MetricCard({ 
+  label, 
+  value, 
+  subValue 
+}: { 
+  label: string; 
+  value: string | number;
+  subValue?: string;
+}) {
+  return (
+    <div className="p-4 bg-gray-50 rounded-lg">
+      <div className="text-xs text-muted-foreground mb-1">{label}</div>
+      <div className="text-2xl font-bold">{value}</div>
+      {subValue && <div className="text-xs text-muted-foreground mt-1">{subValue}</div>}
     </div>
   );
 }
