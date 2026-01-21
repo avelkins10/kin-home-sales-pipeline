@@ -82,21 +82,27 @@ export async function POST(request: NextRequest) {
             SELECT 1 FROM repcard_customer_attachments ca
             WHERE ca.repcard_customer_id::text = a.repcard_customer_id::text
               AND (
-                ca.attachment_type ILIKE '%power%' 
-                OR ca.attachment_type ILIKE '%bill%' 
-                OR ca.file_name ILIKE '%power%' 
-                OR ca.file_name ILIKE '%bill%'
-                OR ca.attachment_type IS NULL
+                (ca.attachment_type IS NOT NULL AND (
+                  ca.attachment_type ILIKE '%power%' 
+                  OR ca.attachment_type ILIKE '%bill%'
+                ))
+                OR (ca.file_name IS NOT NULL AND (
+                  ca.file_name ILIKE '%power%' 
+                  OR ca.file_name ILIKE '%bill%'
+                ))
               )
           ) OR EXISTS (
             SELECT 1 FROM repcard_appointment_attachments aa
             WHERE aa.repcard_appointment_id::text = a.repcard_appointment_id::text
               AND (
-                aa.attachment_type ILIKE '%power%' 
-                OR aa.attachment_type ILIKE '%bill%' 
-                OR aa.file_name ILIKE '%power%' 
-                OR aa.file_name ILIKE '%bill%'
-                OR aa.attachment_type IS NULL
+                (aa.attachment_type IS NOT NULL AND (
+                  aa.attachment_type ILIKE '%power%' 
+                  OR aa.attachment_type ILIKE '%bill%'
+                ))
+                OR (aa.file_name IS NOT NULL AND (
+                  aa.file_name ILIKE '%power%' 
+                  OR aa.file_name ILIKE '%bill%'
+                ))
               )
           ) THEN TRUE
           ELSE FALSE

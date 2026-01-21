@@ -568,7 +568,7 @@ export async function syncAppointments(options: {
             // Calculate is_within_48_hours if we have customer data
             // Note: This could be optimized by batching, but individual query is fine for now
             let isWithin48Hours = false;
-            if (appointment.contact?.id && customerId) {
+            if (appointment.contact?.id && customerId && appointment.startAt) {
               // Use customerId if available, otherwise query by repcard_customer_id
               const customerCreatedResult = customerId 
                 ? await sql`SELECT created_at FROM repcard_customers WHERE id = ${customerId} LIMIT 1`
@@ -576,8 +576,10 @@ export async function syncAppointments(options: {
               const customerCreatedRows = customerCreatedResult.rows || customerCreatedResult;
               if (customerCreatedRows.length > 0 && customerCreatedRows[0].created_at) {
                 const customerCreated = new Date(customerCreatedRows[0].created_at);
-                const appointmentCreated = new Date(appointment.createdAt);
-                const diffHours = (appointmentCreated.getTime() - customerCreated.getTime()) / (1000 * 60 * 60);
+                // FIXED: Use startAt (scheduled_at) instead of createdAt
+                // This measures if appointment is scheduled within 48h of customer creation (door knock)
+                const appointmentScheduled = new Date(appointment.startAt);
+                const diffHours = (appointmentScheduled.getTime() - customerCreated.getTime()) / (1000 * 60 * 60);
                 isWithin48Hours = diffHours >= 0 && diffHours <= 48;
               }
             }
