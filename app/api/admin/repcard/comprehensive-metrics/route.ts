@@ -207,16 +207,28 @@ export async function GET(request: NextRequest) {
       SELECT 
         (SELECT COUNT(*)::int FROM repcard_customer_attachments) as customer_attachments_total,
         (SELECT COUNT(*)::int FROM repcard_appointment_attachments) as appointment_attachments_total,
-        (SELECT COUNT(DISTINCT repcard_customer_id)::int FROM repcard_customer_attachments) as customers_with_attachments,
-        (SELECT COUNT(DISTINCT repcard_appointment_id)::int FROM repcard_appointment_attachments) as appointments_with_attachments,
-        (SELECT COUNT(*) FILTER (WHERE attachment_type ILIKE '%power%' OR attachment_type ILIKE '%bill%' OR file_name ILIKE '%power%' OR file_name ILIKE '%bill%')::int 
-         FROM repcard_customer_attachments) as power_bill_attachments_customer,
-        (SELECT COUNT(*) FILTER (WHERE attachment_type ILIKE '%power%' OR attachment_type ILIKE '%bill%' OR file_name ILIKE '%power%' OR file_name ILIKE '%bill%')::int 
-         FROM repcard_appointment_attachments) as power_bill_attachments_appointment
+        (SELECT COUNT(DISTINCT repcard_customer_id)::int FROM repcard_customer_attachments WHERE repcard_customer_id IS NOT NULL) as customers_with_attachments,
+        (SELECT COUNT(DISTINCT repcard_appointment_id)::int FROM repcard_appointment_attachments WHERE repcard_appointment_id IS NOT NULL) as appointments_with_attachments,
+        (SELECT COUNT(*)::int 
+         FROM repcard_customer_attachments 
+         WHERE (attachment_type IS NOT NULL AND (attachment_type ILIKE '%power%' OR attachment_type ILIKE '%bill%'))
+            OR (file_name IS NOT NULL AND (file_name ILIKE '%power%' OR file_name ILIKE '%bill%'))) as power_bill_attachments_customer,
+        (SELECT COUNT(*)::int 
+         FROM repcard_appointment_attachments 
+         WHERE (attachment_type IS NOT NULL AND (attachment_type ILIKE '%power%' OR attachment_type ILIKE '%bill%'))
+            OR (file_name IS NOT NULL AND (file_name ILIKE '%power%' OR file_name ILIKE '%bill%'))) as power_bill_attachments_appointment
     `;
     } catch (error) {
       console.error('[RepCard Comprehensive Metrics] Error in attachmentsMetrics:', error);
-      throw error;
+      // Don't throw - return empty metrics instead
+      attachmentsMetrics = [{
+        customer_attachments_total: 0,
+        appointment_attachments_total: 0,
+        customers_with_attachments: 0,
+        appointments_with_attachments: 0,
+        power_bill_attachments_customer: 0,
+        power_bill_attachments_appointment: 0
+      }];
     }
     const attachments = getRows(attachmentsMetrics)[0] || {};
 
@@ -448,6 +460,15 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     const duration = Date.now() - start;
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    console.error('[RepCard Comprehensive Metrics] Full error:', {
+      message: errorMessage,
+      stack: errorStack,
+      requestId
+    });
+    
     logError('repcard-comprehensive-metrics', error as Error, { requestId });
     logApiResponse('GET', path, duration, { status: 500, requestId });
     
@@ -455,7 +476,8 @@ export async function GET(request: NextRequest) {
       {
         success: false,
         error: 'Failed to fetch comprehensive metrics',
-        message: error instanceof Error ? error.message : 'Unknown error',
+        message: errorMessage,
+        ...(process.env.NODE_ENV === 'development' && { stack: errorStack }),
       },
       { status: 500 }
     );
