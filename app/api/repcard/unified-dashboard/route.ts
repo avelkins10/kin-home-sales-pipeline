@@ -354,35 +354,49 @@ export async function GET(request: NextRequest) {
 
     // Top appointment setters (with quality metrics + hours on doors)
     // Track: total, within 48h, with PB, both, neither, doors, hours on doors
+    // FIXED: Count doors separately (all customers created by setter in date range)
+    // FIXED: Count appointments separately (all appointments set by setter in date range)
+    // FIXED: Join customers to appointments for quality metrics, but don't restrict doors by appointment date
     const topAppointmentSettersResult = startDate && endDate
       ? await sql`
           SELECT
             u.repcard_user_id,
             u.name,
             u.role,
+            -- Appointments set in date range
             COUNT(DISTINCT a.id)::int as appointments_set,
+            -- Quality metrics for appointments in date range
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE)::int as within_48h_count,
             COUNT(DISTINCT a.id) FILTER (WHERE a.has_power_bill = TRUE)::int as with_power_bill_count,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE AND a.has_power_bill = TRUE)::int as both_count,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = FALSE AND a.has_power_bill = FALSE)::int as neither_count,
-            COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
-            -- Estimate hours on doors: count unique days with door knocks * 4 hours per day (average)
-            COUNT(DISTINCT DATE(c.created_at))::int * 4 as estimated_hours_on_doors,
+            -- Doors knocked: all customers created by this setter in date range (regardless of appointments)
+            COALESCE(doors_subquery.doors_knocked, 0)::int as doors_knocked,
+            -- Hours on doors: count unique days with door knocks * 4 hours per day (average)
+            COALESCE(doors_subquery.estimated_hours_on_doors, 0)::int as estimated_hours_on_doors,
             CASE
-              WHEN COUNT(DISTINCT c.repcard_customer_id) > 0 THEN
-                (COUNT(DISTINCT a.id)::float / COUNT(DISTINCT c.repcard_customer_id)::float) * 100
+              WHEN COALESCE(doors_subquery.doors_knocked, 0) > 0 THEN
+                (COUNT(DISTINCT a.id)::float / doors_subquery.doors_knocked::float) * 100
               ELSE 0
             END as conversion_rate
           FROM users u
+          -- Appointments set by this user in date range
           LEFT JOIN repcard_appointments a ON a.setter_user_id = u.repcard_user_id::TEXT
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
-          LEFT JOIN repcard_customers c ON c.repcard_customer_id = a.repcard_customer_id
-            AND c.created_at >= ${startDate}::timestamptz
-            AND c.created_at <= ${endDate}::timestamptz
+          -- Doors knocked: subquery to count all customers created by this setter in date range
+          LEFT JOIN LATERAL (
+            SELECT
+              COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
+              COUNT(DISTINCT DATE(c.created_at))::int * 4 as estimated_hours_on_doors
+            FROM repcard_customers c
+            WHERE c.setter_user_id = u.repcard_user_id::TEXT
+              AND c.created_at >= ${startDate}::timestamptz
+              AND c.created_at <= ${endDate}::timestamptz
+          ) doors_subquery ON true
           WHERE u.repcard_user_id IS NOT NULL
-          GROUP BY u.repcard_user_id, u.name, u.role
-          HAVING COUNT(DISTINCT a.id) > 0 OR COUNT(DISTINCT c.repcard_customer_id) > 0
+          GROUP BY u.repcard_user_id, u.name, u.role, doors_subquery.doors_knocked, doors_subquery.estimated_hours_on_doors
+          HAVING COUNT(DISTINCT a.id) > 0 OR doors_subquery.doors_knocked > 0
           ORDER BY appointments_set DESC
           LIMIT 10
         `
@@ -396,20 +410,29 @@ export async function GET(request: NextRequest) {
             COUNT(DISTINCT a.id) FILTER (WHERE a.has_power_bill = TRUE)::int as with_power_bill_count,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE AND a.has_power_bill = TRUE)::int as both_count,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = FALSE AND a.has_power_bill = FALSE)::int as neither_count,
-            COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
-            -- Estimate hours on doors: count unique days with door knocks * 4 hours per day (average)
-            COUNT(DISTINCT DATE(c.created_at))::int * 4 as estimated_hours_on_doors,
+            -- Doors knocked: all customers created by this setter (regardless of appointments)
+            COALESCE(doors_subquery.doors_knocked, 0)::int as doors_knocked,
+            -- Hours on doors: count unique days with door knocks * 4 hours per day (average)
+            COALESCE(doors_subquery.estimated_hours_on_doors, 0)::int as estimated_hours_on_doors,
             CASE
-              WHEN COUNT(DISTINCT c.repcard_customer_id) > 0 THEN
-                (COUNT(DISTINCT a.id)::float / COUNT(DISTINCT c.repcard_customer_id)::float) * 100
+              WHEN COALESCE(doors_subquery.doors_knocked, 0) > 0 THEN
+                (COUNT(DISTINCT a.id)::float / doors_subquery.doors_knocked::float) * 100
               ELSE 0
             END as conversion_rate
           FROM users u
+          -- Appointments set by this user
           LEFT JOIN repcard_appointments a ON a.setter_user_id = u.repcard_user_id::TEXT
-          LEFT JOIN repcard_customers c ON c.repcard_customer_id = a.repcard_customer_id
+          -- Doors knocked: subquery to count all customers created by this setter
+          LEFT JOIN LATERAL (
+            SELECT
+              COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
+              COUNT(DISTINCT DATE(c.created_at))::int * 4 as estimated_hours_on_doors
+            FROM repcard_customers c
+            WHERE c.setter_user_id = u.repcard_user_id::TEXT
+          ) doors_subquery ON true
           WHERE u.repcard_user_id IS NOT NULL
-          GROUP BY u.repcard_user_id, u.name, u.role
-          HAVING COUNT(DISTINCT a.id) > 0 OR COUNT(DISTINCT c.repcard_customer_id) > 0
+          GROUP BY u.repcard_user_id, u.name, u.role, doors_subquery.doors_knocked, doors_subquery.estimated_hours_on_doors
+          HAVING COUNT(DISTINCT a.id) > 0 OR doors_subquery.doors_knocked > 0
           ORDER BY appointments_set DESC
           LIMIT 50
         `;
