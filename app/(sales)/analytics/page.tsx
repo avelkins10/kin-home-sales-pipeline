@@ -24,7 +24,7 @@ import { CanvassingOverviewCard } from '@/components/analytics/CanvassingOvervie
 import { DoorsKnockedTrendsCard } from '@/components/analytics/DoorsKnockedTrendsCard';
 import { AppointmentRatesCard } from '@/components/analytics/AppointmentRatesCard';
 import { LeadQualityAnalysisCard } from '@/components/analytics/LeadQualityAnalysisCard';
-import { RepCardUnifiedDashboard } from '@/components/analytics/RepCardUnifiedDashboard';
+import { RepCardOptimizedDashboard } from '@/components/analytics/RepCardOptimizedDashboard';
 // import { CancellationAnalysisCard } from '@/components/analytics/CancellationAnalysisCard';
 // import { HoldAnalysisCard } from '@/components/analytics/HoldAnalysisCard';
 import { PeriodComparisonCard } from '@/components/analytics/PeriodComparisonCard';
@@ -638,7 +638,7 @@ export default function AnalyticsPage() {
             </>
           }
           repcardContent={
-            <RepCardUnifiedDashboard
+            <RepCardOptimizedDashboard
               startDate={getDateRangeFromTimeRange(timeRange, customDateRange)?.startDate}
               endDate={getDateRangeFromTimeRange(timeRange, customDateRange)?.endDate}
             />

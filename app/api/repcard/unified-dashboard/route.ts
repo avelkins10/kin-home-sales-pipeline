@@ -122,9 +122,11 @@ export async function GET(request: NextRequest) {
     // Calculate percentages for all 4 metrics
     const qualityMetrics = {
       totalAppointments: totalAppts,
-      // Individual metrics (percentages)
+      // Individual metrics (percentages and counts)
       appointmentSpeed: totalAppts > 0 ? ((within48h / totalAppts) * 100) : 0,
+      within48h: within48h, // Add count for display
       powerBillRate: totalAppts > 0 ? ((withPowerBill / totalAppts) * 100) : 0,
+      withPowerBill: withPowerBill, // Add count for display
       // Combined metrics (counts and percentages)
       withBoth: {
         count: both,
@@ -135,6 +137,7 @@ export async function GET(request: NextRequest) {
         percentage: totalAppts > 0 ? ((neither / totalAppts) * 100) : 0
       },
       rescheduleRate: totalAppts > 0 ? ((reschedules / totalAppts) * 100) : 0,
+      reschedules: reschedules, // Add count for display
     };
 
     // Debug logging
@@ -320,7 +323,7 @@ export async function GET(request: NextRequest) {
           GROUP BY u.repcard_user_id, u.name, u.role
           HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
           ORDER BY doors_knocked DESC
-          LIMIT 10
+          LIMIT 50
         `;
 
     const topDoors = getRows(topDoorsResult).map((row: any) => ({
@@ -385,7 +388,7 @@ export async function GET(request: NextRequest) {
           GROUP BY u.repcard_user_id, u.name, u.role
           HAVING COUNT(DISTINCT a.id) > 0
           ORDER BY appointments_set DESC
-          LIMIT 10
+          LIMIT 50
         `;
 
     const topAppointmentSetters = getRows(topAppointmentSettersResult).map((row: any) => ({
@@ -445,7 +448,7 @@ export async function GET(request: NextRequest) {
           GROUP BY u.repcard_user_id, u.name, u.role
           HAVING COUNT(DISTINCT a.repcard_appointment_id) > 0
           ORDER BY sales_closed DESC
-          LIMIT 10
+          LIMIT 50
         `;
 
     const topClosers = getRows(topClosersResult).map((row: any) => ({
@@ -460,19 +463,33 @@ export async function GET(request: NextRequest) {
     // ========================================
     // 4. CANVASSING ACTIVITY
     // ========================================
-    const canvassingResult = await sql`
-      SELECT
-        DATE(c.created_at) as date,
-        COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
-        COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_set
-      FROM repcard_customers c
-      LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id
-        AND DATE(a.scheduled_at) = DATE(c.created_at)
-      WHERE c.created_at >= NOW() - INTERVAL '30 days'
-      GROUP BY DATE(c.created_at)
-      ORDER BY date DESC
-      LIMIT 30
-    `;
+    const canvassingResult = startDate && endDate
+      ? await sql`
+          SELECT
+            DATE(c.created_at) as date,
+            COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
+            COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_set
+          FROM repcard_customers c
+          LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id
+            AND DATE(a.scheduled_at) = DATE(c.created_at)
+          WHERE c.created_at >= ${startDate}::timestamptz
+            AND c.created_at <= ${endDate}::timestamptz
+          GROUP BY DATE(c.created_at)
+          ORDER BY date DESC
+        `
+      : await sql`
+          SELECT
+            DATE(c.created_at) as date,
+            COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
+            COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_set
+          FROM repcard_customers c
+          LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id
+            AND DATE(a.scheduled_at) = DATE(c.created_at)
+          WHERE c.created_at >= NOW() - INTERVAL '30 days'
+          GROUP BY DATE(c.created_at)
+          ORDER BY date DESC
+          LIMIT 30
+        `;
 
     const canvassingTrends = getRows(canvassingResult).map((row: any) => ({
       date: row.date,
