@@ -338,17 +338,39 @@ export default function RepCardManagementTab() {
               {backfillMutation.data && (
                 <Card className="bg-green-50 border-green-200">
                   <CardContent className="pt-6">
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <div className="font-semibold text-green-800">Backfill Complete!</div>
                       <div className="text-sm text-green-700 space-y-1">
-                        <div>Updated {backfillMutation.data.results.within48HoursUpdated} appointments for 48-hour calculation</div>
-                        <div>Updated {backfillMutation.data.results.powerBillUpdated} appointments for power bill status</div>
+                        <div className="font-medium">Updates Applied:</div>
+                        <div>• Updated {backfillMutation.data.results.within48HoursUpdated} appointments for 48-hour calculation</div>
+                        <div>• Updated {backfillMutation.data.results.powerBillUpdated} appointments for power bill status</div>
+                        {backfillMutation.data.results.totalAppointmentsInDatabase !== undefined && (
+                          <div className="mt-2 text-xs text-green-600">
+                            Total appointments in database: {backfillMutation.data.results.totalAppointmentsInDatabase}
+                          </div>
+                        )}
                         {backfillMutation.data.results.verification && (
-                          <div className="mt-2 pt-2 border-t border-green-200">
-                            <div className="font-medium">Verification:</div>
+                          <div className="mt-3 pt-3 border-t border-green-200">
+                            <div className="font-medium">Recent Stats (Last 30 Days):</div>
                             <div>Total: {backfillMutation.data.results.verification.totalAppointments}</div>
                             <div>Within 48h: {backfillMutation.data.results.verification.within48h} ({backfillMutation.data.results.verification.within48hPercentage}%)</div>
                             <div>With Power Bill: {backfillMutation.data.results.verification.withPowerBill} ({backfillMutation.data.results.verification.powerBillPercentage}%)</div>
+                            {backfillMutation.data.results.verification.nullWithin48h > 0 && (
+                              <div className="text-yellow-700 mt-1">
+                                ⚠️ {backfillMutation.data.results.verification.nullWithin48h} appointments still have NULL for 48h
+                              </div>
+                            )}
+                            {backfillMutation.data.results.verification.nullPowerBill > 0 && (
+                              <div className="text-yellow-700 mt-1">
+                                ⚠️ {backfillMutation.data.results.verification.nullPowerBill} appointments still have NULL for power bill
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {backfillMutation.data.results.verificationAllTime && (
+                          <div className="mt-2 pt-2 border-t border-green-200">
+                            <div className="font-medium text-xs">All-Time Stats:</div>
+                            <div className="text-xs">Total: {backfillMutation.data.results.verificationAllTime.totalAppointments} | 48h: {backfillMutation.data.results.verificationAllTime.within48hPercentage}% | PB: {backfillMutation.data.results.verificationAllTime.powerBillPercentage}%</div>
                           </div>
                         )}
                       </div>

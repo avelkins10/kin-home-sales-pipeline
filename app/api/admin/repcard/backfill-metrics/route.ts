@@ -26,8 +26,15 @@ export async function POST(request: NextRequest) {
 
     console.log('[RepCard Backfill] Starting metrics backfill...');
 
-    // Step 1: Backfill is_within_48_hours
-    console.log('[RepCard Backfill] Step 1: Backfilling is_within_48_hours...');
+    // Step 0: Get total appointment count for diagnostics
+    const totalCountResult = await sql`
+      SELECT COUNT(*)::int as total FROM repcard_appointments
+    `;
+    const totalAppointments = Array.from(totalCountResult)[0]?.total || 0;
+    console.log(`[RepCard Backfill] Total appointments in database: ${totalAppointments}`);
+
+    // Step 1: Backfill is_within_48_hours - UPDATE ALL appointments (force update)
+    console.log('[RepCard Backfill] Step 1: Backfilling is_within_48_hours for all appointments...');
     const within48Result = await sql`
       UPDATE repcard_appointments a
       SET is_within_48_hours = (
@@ -41,24 +48,25 @@ export async function POST(request: NextRequest) {
       )
       FROM repcard_customers c
       WHERE a.repcard_customer_id = c.repcard_customer_id
-        AND (
-          a.is_within_48_hours IS NULL 
-          OR a.is_within_48_hours != (
-            CASE
-              WHEN a.scheduled_at IS NOT NULL AND c.created_at IS NOT NULL
-                AND (a.scheduled_at - c.created_at) <= INTERVAL '48 hours' 
-                AND (a.scheduled_at - c.created_at) >= INTERVAL '0 hours' 
-              THEN TRUE
-              ELSE FALSE
-            END
-          )
-        )
     `;
     const within48Updated = Array.isArray(within48Result) ? 0 : (within48Result as any).rowCount || 0;
     console.log(`[RepCard Backfill] Updated ${within48Updated} appointments for is_within_48_hours`);
 
-    // Step 2: Backfill has_power_bill
-    console.log('[RepCard Backfill] Step 2: Backfilling has_power_bill...');
+    // Also update appointments without matching customers (set to FALSE)
+    const within48NoCustomerResult = await sql`
+      UPDATE repcard_appointments a
+      SET is_within_48_hours = FALSE
+      WHERE NOT EXISTS (
+        SELECT 1 FROM repcard_customers c 
+        WHERE c.repcard_customer_id = a.repcard_customer_id
+      )
+      AND a.is_within_48_hours IS NULL
+    `;
+    const within48NoCustomerUpdated = Array.isArray(within48NoCustomerResult) ? 0 : (within48NoCustomerResult as any).rowCount || 0;
+    console.log(`[RepCard Backfill] Updated ${within48NoCustomerUpdated} appointments without customers for is_within_48_hours`);
+
+    // Step 2: Backfill has_power_bill - UPDATE ALL appointments (force update)
+    console.log('[RepCard Backfill] Step 2: Backfilling has_power_bill for all appointments...');
     const powerBillResult = await sql`
       UPDATE repcard_appointments a
       SET has_power_bill = (
@@ -87,40 +95,27 @@ export async function POST(request: NextRequest) {
           ELSE FALSE
         END
       )
-      WHERE has_power_bill IS NULL 
-        OR has_power_bill != (
-          CASE
-            WHEN EXISTS (
-              SELECT 1 FROM repcard_customer_attachments ca
-              WHERE ca.repcard_customer_id::text = a.repcard_customer_id::text
-                AND (
-                  ca.attachment_type ILIKE '%power%' 
-                  OR ca.attachment_type ILIKE '%bill%' 
-                  OR ca.file_name ILIKE '%power%' 
-                  OR ca.file_name ILIKE '%bill%'
-                  OR ca.attachment_type IS NULL
-                )
-            ) OR EXISTS (
-              SELECT 1 FROM repcard_appointment_attachments aa
-              WHERE aa.repcard_appointment_id::text = a.repcard_appointment_id::text
-                AND (
-                  aa.attachment_type ILIKE '%power%' 
-                  OR aa.attachment_type ILIKE '%bill%' 
-                  OR aa.file_name ILIKE '%power%' 
-                  OR aa.file_name ILIKE '%bill%'
-                  OR aa.attachment_type IS NULL
-                )
-            ) THEN TRUE
-            ELSE FALSE
-          END
-        )
     `;
     const powerBillUpdated = Array.isArray(powerBillResult) ? 0 : (powerBillResult as any).rowCount || 0;
     console.log(`[RepCard Backfill] Updated ${powerBillUpdated} appointments for has_power_bill`);
 
-    // Step 3: Verify results
+    // Step 3: Verify results - Check ALL appointments and last 30 days
     console.log('[RepCard Backfill] Step 3: Verifying results...');
-    const verifyResult = await sql`
+    
+    // All-time stats
+    const verifyAllResult = await sql`
+      SELECT 
+        COUNT(*)::int as total,
+        COUNT(*) FILTER (WHERE is_within_48_hours = TRUE)::int as within_48h,
+        COUNT(*) FILTER (WHERE has_power_bill = TRUE)::int as with_pb,
+        COUNT(*) FILTER (WHERE is_within_48_hours IS NULL)::int as null_48h,
+        COUNT(*) FILTER (WHERE has_power_bill IS NULL)::int as null_pb
+      FROM repcard_appointments
+    `;
+    const verifyAll = Array.from(verifyAllResult)[0] as any;
+
+    // Last 30 days stats
+    const verifyRecentResult = await sql`
       SELECT 
         COUNT(*)::int as total,
         COUNT(*) FILTER (WHERE is_within_48_hours = TRUE)::int as within_48h,
@@ -130,7 +125,10 @@ export async function POST(request: NextRequest) {
       FROM repcard_appointments
       WHERE scheduled_at >= NOW() - INTERVAL '30 days'
     `;
-    const verify = Array.from(verifyResult)[0] as any;
+    const verifyRecent = Array.from(verifyRecentResult)[0] as any;
+    
+    // Use recent for display, but include all-time in response
+    const verify = verifyRecent;
     
     const duration = Date.now() - start;
     logApiResponse('POST', path, duration, { status: 200, requestId });
@@ -138,9 +136,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       results: {
-        within48HoursUpdated: within48Updated,
+        totalAppointmentsInDatabase: totalAppointments,
+        within48HoursUpdated: within48Updated + within48NoCustomerUpdated,
         powerBillUpdated: powerBillUpdated,
         verification: {
+          // Recent (last 30 days) - shown in UI
           totalAppointments: verify?.total || 0,
           within48h: verify?.within_48h || 0,
           withPowerBill: verify?.with_pb || 0,
@@ -148,6 +148,16 @@ export async function POST(request: NextRequest) {
           nullPowerBill: verify?.null_pb || 0,
           within48hPercentage: verify?.total > 0 ? ((verify?.within_48h / verify?.total) * 100).toFixed(1) : '0.0',
           powerBillPercentage: verify?.total > 0 ? ((verify?.with_pb / verify?.total) * 100).toFixed(1) : '0.0',
+        },
+        verificationAllTime: {
+          // All-time stats - for reference
+          totalAppointments: verifyAll?.total || 0,
+          within48h: verifyAll?.within_48h || 0,
+          withPowerBill: verifyAll?.with_pb || 0,
+          nullWithin48h: verifyAll?.null_48h || 0,
+          nullPowerBill: verifyAll?.null_pb || 0,
+          within48hPercentage: verifyAll?.total > 0 ? ((verifyAll?.within_48h / verifyAll?.total) * 100).toFixed(1) : '0.0',
+          powerBillPercentage: verifyAll?.total > 0 ? ((verifyAll?.with_pb / verifyAll?.total) * 100).toFixed(1) : '0.0',
         }
       },
       message: 'Metrics backfill completed successfully',
