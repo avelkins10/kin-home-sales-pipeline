@@ -743,6 +743,7 @@ function SettersView({ data, isLoading, dateRange }: { data: any[]; isLoading: b
   const [selectedSetter, setSelectedSetter] = useState<any>(null);
   const [attachments, setAttachments] = useState<any[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
+  const [selectedMetric, setSelectedMetric] = useState<'appointments' | 'doors' | 'quality' | 'hours'>('appointments');
 
   if (isLoading) {
     return <Skeleton className="h-96" />;
