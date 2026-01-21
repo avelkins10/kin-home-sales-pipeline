@@ -226,6 +226,8 @@ export async function GET(request: NextRequest) {
             END as close_rate
           FROM repcard_offices o
           LEFT JOIN repcard_customers c ON c.office_id = o.repcard_office_id::TEXT
+            AND c.created_at >= ${startDate}::timestamptz
+            AND c.created_at <= ${endDate}::timestamptz
           LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
@@ -233,7 +235,7 @@ export async function GET(request: NextRequest) {
           GROUP BY o.repcard_office_id, o.name
           HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
           ORDER BY doors_knocked DESC
-          LIMIT 10
+          LIMIT 50
         `
       : await sql`
           SELECT
