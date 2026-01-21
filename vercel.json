@@ -37,6 +37,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/repcard-backfill-metrics",
+      "schedule": "*/10 * * * *"
+    },
+    {
       "path": "/api/cron/sync-arrivy",
       "schedule": "0 * * * *"
     }

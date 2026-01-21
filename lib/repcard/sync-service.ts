@@ -705,6 +705,7 @@ export async function syncAppointments(options: {
                 completed_at = EXCLUDED.completed_at,
                 duration = EXCLUDED.duration,
                 notes = EXCLUDED.notes,
+                -- Always recalculate quality metrics to ensure they're correct
                 is_within_48_hours = EXCLUDED.is_within_48_hours,
                 has_power_bill = EXCLUDED.has_power_bill,
                 is_reschedule = EXCLUDED.is_reschedule,
