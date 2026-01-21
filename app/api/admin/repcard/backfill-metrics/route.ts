@@ -41,36 +41,34 @@ export async function POST(request: NextRequest) {
     console.log(`[RepCard Backfill] Total appointments in database: ${totalAppointments}`);
 
     // Step 1: Backfill is_within_48_hours - UPDATE ALL appointments (force update)
-    console.log('[RepCard Backfill] Step 1: Backfilling is_within_48_hours for all appointments...');
+    // CRITICAL FIX: Use LEFT JOIN and handle all cases to ensure NO appointments remain NULL
+    console.log('[RepCard Backfill] Step 1: Backfilling is_within_48_hours for ALL appointments...');
     const within48Result = await sql`
       UPDATE repcard_appointments a
       SET is_within_48_hours = (
         CASE
-          WHEN a.scheduled_at IS NOT NULL AND c.created_at IS NOT NULL
-            AND (a.scheduled_at - c.created_at) <= INTERVAL '48 hours' 
-            AND (a.scheduled_at - c.created_at) >= INTERVAL '0 hours' 
+          -- If appointment has scheduled_at AND customer exists with created_at, check if within 48h
+          WHEN a.scheduled_at IS NOT NULL 
+            AND EXISTS (
+              SELECT 1 FROM repcard_customers c 
+              WHERE c.repcard_customer_id::text = a.repcard_customer_id::text
+                AND c.created_at IS NOT NULL
+            )
+            AND (
+              SELECT (a.scheduled_at - c.created_at) <= INTERVAL '48 hours' 
+                AND (a.scheduled_at - c.created_at) >= INTERVAL '0 hours'
+              FROM repcard_customers c 
+              WHERE c.repcard_customer_id::text = a.repcard_customer_id::text
+              LIMIT 1
+            ) = TRUE
           THEN TRUE
+          -- All other cases: FALSE (no scheduled_at, no customer, customer has no created_at, or > 48h)
           ELSE FALSE
         END
       )
-      FROM repcard_customers c
-      WHERE a.repcard_customer_id = c.repcard_customer_id
     `;
     const within48Updated = Array.isArray(within48Result) ? 0 : (within48Result as any).rowCount || 0;
     console.log(`[RepCard Backfill] Updated ${within48Updated} appointments for is_within_48_hours`);
-
-    // Also update appointments without matching customers (set to FALSE)
-    // IMPORTANT: This must update ALL appointments without customers, not just NULL ones
-    const within48NoCustomerResult = await sql`
-      UPDATE repcard_appointments a
-      SET is_within_48_hours = FALSE
-      WHERE NOT EXISTS (
-        SELECT 1 FROM repcard_customers c 
-        WHERE c.repcard_customer_id = a.repcard_customer_id
-      )
-    `;
-    const within48NoCustomerUpdated = Array.isArray(within48NoCustomerResult) ? 0 : (within48NoCustomerResult as any).rowCount || 0;
-    console.log(`[RepCard Backfill] Updated ${within48NoCustomerUpdated} appointments without customers for is_within_48_hours`);
 
     // Step 2: Backfill has_power_bill - UPDATE ALL appointments (force update)
     // SIMPLIFIED: Any attachment to customer or appointment = power bill
