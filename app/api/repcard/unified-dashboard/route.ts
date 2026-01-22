@@ -51,11 +51,28 @@ export async function GET(request: NextRequest) {
 
     // Parse query parameters
     const { searchParams } = new URL(request.url);
-    const startDate = searchParams.get('startDate');
-    const endDate = searchParams.get('endDate');
+    const startDateParam = searchParams.get('startDate');
+    const endDateParam = searchParams.get('endDate');
 
-    // Build cache key
-    const cacheKey = `unified-dashboard:${startDate || 'all'}:${endDate || 'all'}`;
+    // Convert date strings to proper timestamps in Eastern Time (per project rules)
+    // When a date like "2026-01-22" is provided, interpret it as the start/end of that day in Eastern Time
+    let startDate: string | null = null;
+    let endDate: string | null = null;
+    
+    if (startDateParam) {
+      // Parse as Eastern Time start of day (00:00:00 ET)
+      const date = new Date(startDateParam + 'T00:00:00-05:00'); // EST/EDT offset
+      startDate = date.toISOString();
+    }
+    
+    if (endDateParam) {
+      // Parse as Eastern Time end of day (23:59:59.999 ET)
+      const date = new Date(endDateParam + 'T23:59:59.999-05:00'); // EST/EDT offset
+      endDate = date.toISOString();
+    }
+
+    // Build cache key (use original params for cache key to match frontend)
+    const cacheKey = `unified-dashboard:${startDateParam || 'all'}:${endDateParam || 'all'}`;
     
     // Check cache
     cleanCache();
