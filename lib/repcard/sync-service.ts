@@ -277,6 +277,8 @@ export async function syncCustomers(options: {
                 state = EXCLUDED.state,
                 zip = EXCLUDED.zip,
                 status = EXCLUDED.status,
+                -- CRITICAL: Update created_at if it's NULL (backfill missing data)
+                created_at = COALESCE(repcard_customers.created_at, EXCLUDED.created_at),
                 updated_at = EXCLUDED.updated_at,
                 raw_data = EXCLUDED.raw_data,
                 synced_at = NOW()

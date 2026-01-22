@@ -47,6 +47,8 @@ export default function RepCardManagementTab() {
   const [loadingDiagnostic, setLoadingDiagnostic] = useState(false);
   const [debugData, setDebugData] = useState<any>(null);
   const [loadingDebug, setLoadingDebug] = useState(false);
+  const [customerSyncData, setCustomerSyncData] = useState<any>(null);
+  const [loadingCustomerSync, setLoadingCustomerSync] = useState(false);
 
   // Fetch sync status
   const { data: syncStatus, isLoading: loadingSync } = useQuery({
@@ -178,6 +180,25 @@ export default function RepCardManagementTab() {
       toast.error('Debug failed', { description: error.message });
     } finally {
       setLoadingDebug(false);
+    }
+  };
+
+  const handleCheckCustomerSync = async () => {
+    setLoadingCustomerSync(true);
+    try {
+      const res = await fetch('/api/admin/repcard/check-customer-sync');
+      if (!res.ok) {
+        throw new Error('Failed to fetch customer sync data');
+      }
+      const data = await res.json();
+      setCustomerSyncData(data);
+      toast.success('Customer sync check complete', {
+        description: data.diagnosis?.recommendation || 'Check complete',
+      });
+    } catch (error: any) {
+      toast.error('Customer sync check failed', { description: error.message });
+    } finally {
+      setLoadingCustomerSync(false);
     }
   };
 
@@ -628,6 +649,25 @@ export default function RepCardManagementTab() {
               {/* Diagnostic Buttons */}
               <div className="mt-6 pt-6 border-t space-y-3">
                 <Button
+                  onClick={handleCheckCustomerSync}
+                  disabled={loadingCustomerSync}
+                  variant="outline"
+                  className="w-full"
+                >
+                  {loadingCustomerSync ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Checking...
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="w-4 h-4 mr-2" />
+                      Check: Why Customers Missing created_at
+                    </>
+                  )}
+                </Button>
+
+                <Button
                   onClick={handleDebug}
                   disabled={loadingDebug}
                   variant="outline"
@@ -664,6 +704,58 @@ export default function RepCardManagementTab() {
                     </>
                   )}
                 </Button>
+
+                {customerSyncData && (
+                  <Card className="mt-4 bg-orange-50 border-orange-200">
+                    <CardContent className="pt-6">
+                      <div className="space-y-4">
+                        <div className="font-semibold text-orange-900">Customer Sync Check (Last 30 Days)</div>
+                        
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <div className="font-medium text-orange-800">Total Appointments:</div>
+                            <div className="text-orange-700">{customerSyncData.summary?.totalRecentAppointments || 0}</div>
+                          </div>
+                          <div>
+                            <div className="font-medium text-orange-800">Without Customer:</div>
+                            <div className="text-orange-700">{customerSyncData.summary?.appointmentsWithoutCustomer || 0}</div>
+                          </div>
+                          <div>
+                            <div className="font-medium text-orange-800">Customers Missing created_at:</div>
+                            <div className="text-orange-700">{customerSyncData.summary?.customersWithoutCreatedAt || 0}</div>
+                          </div>
+                          <div>
+                            <div className="font-medium text-orange-800">With Valid Customer:</div>
+                            <div className="text-orange-700">{customerSyncData.summary?.appointmentsWithValidCustomer || 0}</div>
+                          </div>
+                        </div>
+
+                        {customerSyncData.diagnosis && (
+                          <div className={`p-3 rounded border ${customerSyncData.diagnosis.issue.includes('don\'t have') ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+                            <div className="font-medium text-sm mb-1">Diagnosis:</div>
+                            <div className="text-sm">{customerSyncData.diagnosis.issue}</div>
+                            <div className="text-sm font-medium mt-2">Recommendation:</div>
+                            <div className="text-sm">{customerSyncData.diagnosis.recommendation}</div>
+                          </div>
+                        )}
+
+                        {customerSyncData.sampleMissingCustomers && customerSyncData.sampleMissingCustomers.length > 0 && (
+                          <div className="mt-4">
+                            <div className="font-medium text-orange-800 mb-2">Sample Appointments with Missing Customers:</div>
+                            <div className="space-y-2 max-h-40 overflow-y-auto text-xs">
+                              {customerSyncData.sampleMissingCustomers.slice(0, 10).map((apt: any, idx: number) => (
+                                <div key={idx} className="bg-white p-2 rounded border">
+                                  <div>Appt #{apt.repcardAppointmentId} → Customer #{apt.repcardCustomerId}</div>
+                                  <div className="text-red-600">Issue: {apt.issueType}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
                 {debugData && (
                   <Card className="mt-4 bg-purple-50 border-purple-200">
