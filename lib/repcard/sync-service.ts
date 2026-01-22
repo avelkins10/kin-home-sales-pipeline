@@ -159,15 +159,29 @@ export async function syncCustomers(options: {
         // Validate response structure
         if (!response || !response.result) {
           console.error(`[RepCard Sync] Invalid response structure on page ${page}:`, response);
+          console.error(`[RepCard Sync] Full response:`, JSON.stringify(response, null, 2).substring(0, 1000));
           throw new Error(`Invalid response structure: ${JSON.stringify(response)}`);
         }
 
         const customers = Array.isArray(response.result.data) ? response.result.data : [];
         if (customers.length === 0 && page === 1) {
-          console.log(`[RepCard Sync] No customers found - API may have returned different structure`);
-          console.log(`[RepCard Sync] Response structure:`, JSON.stringify(response.result, null, 2).substring(0, 500));
+          console.log(`[RepCard Sync] ⚠️ No customers found on page 1`);
+          console.log(`[RepCard Sync] Response structure:`, JSON.stringify(response.result, null, 2).substring(0, 1000));
+          console.log(`[RepCard Sync] Total in response:`, response.result.total);
+          console.log(`[RepCard Sync] Current page:`, response.result.currentPage);
+          console.log(`[RepCard Sync] Last page:`, response.result.lastPage);
+          console.log(`[RepCard Sync] Date filters:`, { startDate, endDate: options.endDate });
+          
+          // If total is 0, the API really has no customers (or date filter is too restrictive)
+          if (response.result.total === 0) {
+            console.log(`[RepCard Sync] ⚠️ API returned 0 total customers. This might indicate:`);
+            console.log(`[RepCard Sync]   1. Date filter is excluding all customers`);
+            console.log(`[RepCard Sync]   2. API key doesn't have access`);
+            console.log(`[RepCard Sync]   3. No customers exist in RepCard`);
+            // Don't throw - continue to see if we can get any data
+          }
         }
-        console.log(`[RepCard Sync] Page ${page}: Got ${customers.length} customers`);
+        console.log(`[RepCard Sync] Page ${page}: Got ${customers.length} customers (total: ${response.result.total || 'unknown'})`);
 
         // Batch enrich users - collect all unique setter_user_ids first
         const setterUserIds = new Set<number>();
