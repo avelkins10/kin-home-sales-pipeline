@@ -484,18 +484,79 @@ export default function RepCardManagementTab() {
 
         {/* Metrics Tab */}
         <TabsContent value="metrics" className="space-y-4">
+          {/* Step 1: Migration */}
           <Card>
             <CardHeader>
-              <CardTitle>Metrics Backfill</CardTitle>
+              <CardTitle>Step 1: Run Migration 032 (One-time Setup)</CardTitle>
               <CardDescription>
-                Recalculate is_within_48_hours and has_power_bill for all appointments
+                Creates audit trail table and enhanced triggers for event-driven metrics
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  This migration creates the <code className="bg-muted px-1 py-0.5 rounded text-xs">repcard_metric_audit</code> table and enhanced triggers that automatically calculate metrics when data changes. Only needs to be run once.
+                </AlertDescription>
+              </Alert>
+
+              <Button 
+                onClick={handleMigration} 
+                disabled={migrationMutation.isPending}
+                className="w-full md:w-auto"
+              >
+                {migrationMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Running Migration...
+                  </>
+                ) : (
+                  <>
+                    <Database className="w-4 h-4 mr-2" />
+                    Run Migration 032
+                  </>
+                )}
+              </Button>
+
+              {migrationMutation.data && (
+                <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="font-semibold text-green-800 mb-2">Migration Complete!</div>
+                  <div className="text-sm text-green-700 space-y-1">
+                    <div>✅ Created repcard_metric_audit table</div>
+                    <div>✅ Created {migrationMutation.data.verification.triggerFunctionsFound} trigger functions</div>
+                    {migrationMutation.data.verification.functions && (
+                      <div className="text-xs mt-2 text-green-600">
+                        Functions: {migrationMutation.data.verification.functions.join(', ')}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {migrationMutation.error && (
+                <Alert variant="destructive" className="mt-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Error: {migrationMutation.error.message}
+                  </AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Step 2: Backfill */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Step 2: Run Metrics Backfill</CardTitle>
+              <CardDescription>
+                Trigger recalculation of is_within_48_hours and has_power_bill for all appointments using event-driven triggers
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  This will update all appointments to calculate:
+                  This will update all appointments to trigger recalculation using the new trigger logic:
                   <ul className="list-disc list-inside mt-2 space-y-1">
                     <li><strong>is_within_48_hours:</strong> Whether appointment was scheduled within 48 hours of customer creation</li>
                     <li><strong>has_power_bill:</strong> Whether customer/appointment has any attachment (simplified: any attachment = power bill)</li>
@@ -505,7 +566,7 @@ export default function RepCardManagementTab() {
 
               <Button 
                 onClick={handleBackfill} 
-                disabled={backfilling}
+                disabled={backfilling || !migrationMutation.data}
                 className="w-full md:w-auto"
               >
                 {backfilling ? (
