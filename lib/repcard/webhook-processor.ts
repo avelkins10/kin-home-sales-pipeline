@@ -100,7 +100,7 @@ export async function processAppointmentWebhook(
           
           if (customer) {
             // Insert customer into database
-            const setterUserId = (customer as any).userId || customer.assignedUserId || (customer as any).setterUserId || setterUserId || null;
+            const customerSetterUserId = (customer as any).userId || customer.assignedUserId || (customer as any).setterUserId || setterUserId || null;
             
             const insertResult = await sql`
               INSERT INTO repcard_customers (
@@ -121,7 +121,7 @@ export async function processAppointmentWebhook(
               )
               VALUES (
                 ${customer.id.toString()}::text,
-                ${setterUserId},
+                ${customerSetterUserId},
                 ${null}, -- office_id
                 ${`${customer.firstName || ''} ${customer.lastName || ''}`.trim() || null},
                 ${customer.email || null},
@@ -137,7 +137,7 @@ export async function processAppointmentWebhook(
               )
               ON CONFLICT (repcard_customer_id)
               DO UPDATE SET
-                setter_user_id = EXCLUDED.setter_user_id,
+                setter_user_id = COALESCE(EXCLUDED.setter_user_id, repcard_customers.setter_user_id),
                 name = EXCLUDED.name,
                 email = EXCLUDED.email,
                 phone = EXCLUDED.phone,
