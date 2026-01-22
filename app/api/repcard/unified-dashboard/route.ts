@@ -254,8 +254,8 @@ export async function GET(request: NextRequest) {
             o.repcard_office_id,
             o.name as office_name,
             COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
-            COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_set,
-            COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' THEN a.repcard_appointment_id END)::int as sales_closed,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.is_reschedule = FALSE OR a.is_reschedule IS NULL)::int as appointments_set,
+            COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' AND (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) THEN a.repcard_appointment_id END)::int as sales_closed,
             COUNT(DISTINCT u.repcard_user_id)::int as active_reps,
             CASE
               WHEN COUNT(DISTINCT c.repcard_customer_id) > 0 THEN
@@ -286,8 +286,8 @@ export async function GET(request: NextRequest) {
             o.repcard_office_id,
             o.name as office_name,
             COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
-            COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_set,
-            COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' THEN a.repcard_appointment_id END)::int as sales_closed,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.is_reschedule = FALSE OR a.is_reschedule IS NULL)::int as appointments_set,
+            COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' AND (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) THEN a.repcard_appointment_id END)::int as sales_closed,
             COUNT(DISTINCT u.repcard_user_id)::int as active_reps,
             CASE
               WHEN COUNT(DISTINCT c.repcard_customer_id) > 0 THEN
@@ -392,13 +392,13 @@ export async function GET(request: NextRequest) {
             u.repcard_user_id,
             u.name,
             u.role,
-            -- Appointments set in date range
-            COUNT(DISTINCT a.id)::int as appointments_set,
+            -- Appointments set in date range (only first appointments, not reschedules)
+            COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = FALSE OR a.is_reschedule IS NULL)::int as appointments_set,
             -- Quality metrics for appointments in date range
-            COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE)::int as within_48h_count,
-            COUNT(DISTINCT a.id) FILTER (WHERE a.has_power_bill = TRUE)::int as with_power_bill_count,
-            COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE AND a.has_power_bill = TRUE)::int as both_count,
-            COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = FALSE AND a.has_power_bill = FALSE)::int as neither_count,
+            COUNT(DISTINCT a.id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.is_within_48_hours = TRUE)::int as within_48h_count,
+            COUNT(DISTINCT a.id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.has_power_bill = TRUE)::int as with_power_bill_count,
+            COUNT(DISTINCT a.id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.is_within_48_hours = TRUE AND a.has_power_bill = TRUE)::int as both_count,
+            COUNT(DISTINCT a.id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.is_within_48_hours = FALSE AND a.has_power_bill = FALSE)::int as neither_count,
             -- Doors knocked: all customers created by this setter in date range (regardless of appointments)
             COALESCE(doors_subquery.doors_knocked, 0)::int as doors_knocked,
             -- Hours on doors: count unique days with door knocks * 4 hours per day (average)
@@ -434,8 +434,8 @@ export async function GET(request: NextRequest) {
             u.repcard_user_id,
             u.name,
             u.role,
-            COUNT(DISTINCT a.id)::int as appointments_set,
-            COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE)::int as within_48h_count,
+            COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = FALSE OR a.is_reschedule IS NULL)::int as appointments_set,
+            COUNT(DISTINCT a.id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.is_within_48_hours = TRUE)::int as within_48h_count,
             COUNT(DISTINCT a.id) FILTER (WHERE a.has_power_bill = TRUE)::int as with_power_bill_count,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE AND a.has_power_bill = TRUE)::int as both_count,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = FALSE AND a.has_power_bill = FALSE)::int as neither_count,
@@ -562,7 +562,7 @@ export async function GET(request: NextRequest) {
           SELECT
             DATE(c.created_at) as date,
             COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
-            COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_set
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.is_reschedule = FALSE OR a.is_reschedule IS NULL)::int as appointments_set
           FROM repcard_customers c
           LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id
             AND DATE(a.scheduled_at) = DATE(c.created_at)
@@ -575,7 +575,7 @@ export async function GET(request: NextRequest) {
           SELECT
             DATE(c.created_at) as date,
             COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
-            COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_set
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.is_reschedule = FALSE OR a.is_reschedule IS NULL)::int as appointments_set
           FROM repcard_customers c
           LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id
             AND DATE(a.scheduled_at) = DATE(c.created_at)
