@@ -182,7 +182,7 @@ export async function GET(request: NextRequest) {
       reschedules: `${reschedules} (${qualityMetrics.rescheduleRate.toFixed(1)}%)`,
       null48h,
       nullPB,
-      dateRange: { startDate, endDate },
+      dateRange: { startDate: startDateParam, endDate: endDateParam },
       rawData: {
         total_appointments: qualityData?.total_appointments,
         within_48h: qualityData?.within_48h,
@@ -645,7 +645,7 @@ export async function GET(request: NextRequest) {
       canvassing: canvassingActivity,
       metadata: {
         fetchedAt: new Date().toISOString(),
-        dateRange: { startDate, endDate },
+        dateRange: { startDate: startDateParam, endDate: endDateParam },
         cached: false,
         lastSyncTime: lastSyncTime ? lastSyncTime.toISOString() : null,
       },
