@@ -49,6 +49,8 @@ export default function RepCardManagementTab() {
   const [loadingDebug, setLoadingDebug] = useState(false);
   const [customerSyncData, setCustomerSyncData] = useState<any>(null);
   const [loadingCustomerSync, setLoadingCustomerSync] = useState(false);
+  const [fixData, setFixData] = useState<any>(null);
+  const [fixingCustomers, setFixingCustomers] = useState(false);
 
   // Fetch sync status
   const { data: syncStatus, isLoading: loadingSync } = useQuery({
@@ -199,6 +201,35 @@ export default function RepCardManagementTab() {
       toast.error('Customer sync check failed', { description: error.message });
     } finally {
       setLoadingCustomerSync(false);
+    }
+  };
+
+  const handleFixMissingCustomers = async () => {
+    setFixingCustomers(true);
+    setFixData(null);
+    try {
+      const res = await fetch('/api/admin/repcard/fix-missing-customers', {
+        method: 'POST',
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Failed to fix missing customers');
+      }
+      const data = await res.json();
+      setFixData(data);
+      toast.success('Fix completed!', {
+        description: `Linked ${data.results.step2_linkAppointments?.appointmentsLinked || 0} appointments to customers`,
+      });
+      // Refresh customer sync check to show updated stats
+      if (customerSyncData) {
+        handleCheckCustomerSync();
+      }
+    } catch (error: any) {
+      toast.error('Failed to fix missing customers', {
+        description: error.message,
+      });
+    } finally {
+      setFixingCustomers(false);
     }
   };
 
@@ -646,6 +677,32 @@ export default function RepCardManagementTab() {
                 )}
               </Button>
 
+              {/* Fix Missing Customers - Prominent Button */}
+              <div className="mt-4">
+                <Button
+                  onClick={handleFixMissingCustomers}
+                  disabled={fixingCustomers}
+                  variant="default"
+                  size="lg"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {fixingCustomers ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Fixing Missing Customers...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Fix Missing Customers (Sync + Link + Recalculate)
+                    </>
+                  )}
+                </Button>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Syncs missing customers from RepCard, links appointments to customers, and recalculates metrics automatically.
+                </p>
+              </div>
+
               {/* Diagnostic Buttons */}
               <div className="mt-6 pt-6 border-t space-y-3">
                 <Button
@@ -704,6 +761,79 @@ export default function RepCardManagementTab() {
                     </>
                   )}
                 </Button>
+
+                {fixData && (
+                  <Card className="mt-4 bg-green-50 border-green-200">
+                    <CardContent className="pt-6">
+                      <div className="space-y-4">
+                        <div className="font-semibold text-green-900">Fix Results</div>
+                        
+                        {fixData.results.step1_customerSync && (
+                          <div className="text-sm">
+                            <div className="font-medium text-green-800">Step 1: Customer Sync</div>
+                            {fixData.results.step1_customerSync.skipped ? (
+                              <div className="text-green-700">Skipped</div>
+                            ) : fixData.results.step1_customerSync.success ? (
+                              <div className="text-green-700">
+                                ✅ Fetched: {fixData.results.step1_customerSync.recordsFetched || 0}, 
+                                Inserted: {fixData.results.step1_customerSync.recordsInserted || 0}, 
+                                Updated: {fixData.results.step1_customerSync.recordsUpdated || 0}
+                              </div>
+                            ) : (
+                              <div className="text-red-600">❌ Failed: {fixData.results.step1_customerSync.error}</div>
+                            )}
+                          </div>
+                        )}
+
+                        {fixData.results.step2_linkAppointments && (
+                          <div className="text-sm">
+                            <div className="font-medium text-green-800">Step 2: Link Appointments</div>
+                            {fixData.results.step2_linkAppointments.skipped ? (
+                              <div className="text-green-700">Skipped</div>
+                            ) : fixData.results.step2_linkAppointments.success ? (
+                              <div className="text-green-700">
+                                ✅ Linked {fixData.results.step2_linkAppointments.appointmentsLinked || 0} appointments to customers
+                              </div>
+                            ) : (
+                              <div className="text-red-600">❌ Failed: {fixData.results.step2_linkAppointments.error}</div>
+                            )}
+                          </div>
+                        )}
+
+                        {fixData.results.step3_metricsBackfill && (
+                          <div className="text-sm">
+                            <div className="font-medium text-green-800">Step 3: Metrics Recalculation</div>
+                            {fixData.results.step3_metricsBackfill.skipped ? (
+                              <div className="text-green-700">Skipped</div>
+                            ) : fixData.results.step3_metricsBackfill.success ? (
+                              <div className="text-green-700">
+                                ✅ Triggered recalculation for {fixData.results.step3_metricsBackfill.appointmentsUpdated || 0} appointments
+                              </div>
+                            ) : (
+                              <div className="text-red-600">❌ Failed: {fixData.results.step3_metricsBackfill.error}</div>
+                            )}
+                          </div>
+                        )}
+
+                        {fixData.finalStats && (
+                          <div className="mt-4 pt-4 border-t border-green-200">
+                            <div className="font-medium text-green-800 mb-2">Final Stats (Last 30 Days):</div>
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <div className="text-green-700">Total Appointments: {fixData.finalStats.totalRecentAppointments || 0}</div>
+                                <div className="text-green-700">Without Customer: {fixData.finalStats.appointmentsWithoutCustomer || 0}</div>
+                              </div>
+                              <div>
+                                <div className="text-green-700">Missing created_at: {fixData.finalStats.customersWithoutCreatedAt || 0}</div>
+                                <div className="text-green-700">With Valid Customer: {fixData.finalStats.appointmentsWithValidCustomer || 0}</div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
                 {customerSyncData && (
                   <Card className="mt-4 bg-orange-50 border-orange-200">

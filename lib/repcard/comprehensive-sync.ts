@@ -2138,6 +2138,32 @@ export async function runComprehensiveSync(options: {
       await linkRepCardUsersToUsers();
     }
 
+    // Step 15: Auto-link appointments to customers (ensures customer_id is always set)
+    // This handles cases where appointments were synced before their customers
+    if (!options.skipAppointments && !options.skipCustomers) {
+      console.log('[RepCard Comprehensive Sync] Step 15/15: Auto-linking appointments to customers...');
+      try {
+        const { sql } = await import('@/lib/db/client');
+        const linkResult = await sql`
+          UPDATE repcard_appointments a
+          SET 
+            customer_id = c.id,
+            updated_at = NOW()
+          FROM repcard_customers c
+          WHERE a.repcard_customer_id::text = c.repcard_customer_id::text
+            AND a.customer_id IS NULL
+            AND c.id IS NOT NULL
+        `;
+        const appointmentsLinked = Array.isArray(linkResult) ? 0 : (linkResult as any).rowCount || 0;
+        if (appointmentsLinked > 0) {
+          console.log(`[RepCard Comprehensive Sync] ✅ Auto-linked ${appointmentsLinked} appointments to customers`);
+        }
+      } catch (linkError) {
+        console.error('[RepCard Comprehensive Sync] ⚠️ Failed to auto-link appointments (non-fatal):', linkError);
+        // Don't fail the whole sync if linking fails
+      }
+    }
+
     results.totalDuration = Date.now() - overallStartTime;
     results.completedAt = new Date().toISOString();
 

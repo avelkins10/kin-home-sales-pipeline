@@ -34,9 +34,32 @@ export async function POST(request: NextRequest) {
       return Array.from(result);
     };
 
+    // AUTOMATIC FIX: First ensure all appointments are linked to customers
+    // This handles cases where appointments were synced before customers
+    console.log('[RepCard Auto-Backfill] Step 1: Auto-linking appointments to customers...');
+    try {
+      const linkResult = await sql`
+        UPDATE repcard_appointments a
+        SET 
+          customer_id = c.id,
+          updated_at = NOW()
+        FROM repcard_customers c
+        WHERE a.repcard_customer_id::text = c.repcard_customer_id::text
+          AND a.customer_id IS NULL
+          AND c.id IS NOT NULL
+      `;
+      const appointmentsLinked = Array.isArray(linkResult) ? 0 : (linkResult as any).rowCount || 0;
+      if (appointmentsLinked > 0) {
+        console.log(`[RepCard Auto-Backfill] ✅ Linked ${appointmentsLinked} appointments to customers`);
+      }
+    } catch (linkError) {
+      console.error('[RepCard Auto-Backfill] ⚠️ Failed to link appointments (non-fatal):', linkError);
+      // Continue even if linking fails
+    }
+
     // EVENT-DRIVEN AUTO-BACKFILL: Simply update appointments to trigger recalculation
     // Triggers will automatically recalculate metrics using the same logic
-    console.log('[RepCard Auto-Backfill] Triggering metric recalculation for ALL appointments...');
+    console.log('[RepCard Auto-Backfill] Step 2: Triggering metric recalculation for ALL appointments...');
     console.log('[RepCard Auto-Backfill] Using event-driven architecture - triggers calculate metrics automatically');
     
     // Update all appointments to trigger recalculation
@@ -47,7 +70,7 @@ export async function POST(request: NextRequest) {
       WHERE id IS NOT NULL
     `;
     const appointmentsUpdated = Array.isArray(backfillResult) ? 0 : (backfillResult as any).rowCount || 0;
-    console.log(`[RepCard Auto-Backfill] Triggered recalculation for ${appointmentsUpdated} appointments`);
+    console.log(`[RepCard Auto-Backfill] ✅ Triggered recalculation for ${appointmentsUpdated} appointments`);
     
     const within48hUpdated = appointmentsUpdated; // All appointments recalculated
     const powerBillUpdated = appointmentsUpdated; // All appointments recalculated

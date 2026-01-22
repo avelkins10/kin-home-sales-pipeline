@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runComprehensiveSync } from '@/lib/repcard/comprehensive-sync';
+import { sql } from '@/lib/db/client';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -48,6 +49,29 @@ export async function GET(request: NextRequest) {
       skipCustomerAttachments: !isFirstSync, // Include attachments on first sync
       skipAppointmentAttachments: !isFirstSync
     });
+
+    // AUTOMATIC FIX: Link appointments to customers after sync
+    // This ensures appointments always have customer_id set, even if they were synced before customers
+    console.log('[RepCard Cron] Auto-linking appointments to customers...');
+    try {
+      const linkResult = await sql`
+        UPDATE repcard_appointments a
+        SET 
+          customer_id = c.id,
+          updated_at = NOW()
+        FROM repcard_customers c
+        WHERE a.repcard_customer_id::text = c.repcard_customer_id::text
+          AND a.customer_id IS NULL
+          AND c.id IS NOT NULL
+      `;
+      const appointmentsLinked = Array.isArray(linkResult) ? 0 : (linkResult as any).rowCount || 0;
+      if (appointmentsLinked > 0) {
+        console.log(`[RepCard Cron] ✅ Auto-linked ${appointmentsLinked} appointments to customers`);
+      }
+    } catch (linkError) {
+      console.error('[RepCard Cron] ⚠️ Failed to auto-link appointments (non-fatal):', linkError);
+      // Don't fail the whole sync if linking fails
+    }
 
     const duration = Date.now() - startTime;
     const hasErrors = !!(
