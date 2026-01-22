@@ -565,7 +565,7 @@ export async function syncAppointments(options: {
             if (!officeId && appointment.userId) {
               const setterOfficeResult = await sql`
                 SELECT office_id FROM repcard_users 
-                WHERE repcard_user_id = ${appointment.userId} 
+                WHERE repcard_user_id = ${appointment.userId?.toString()}::text 
                 LIMIT 1
               `;
               const setterOfficeRows = setterOfficeResult.rows || setterOfficeResult;
@@ -578,7 +578,7 @@ export async function syncAppointments(options: {
             if (!officeId && appointment.closerId) {
               const closerOfficeResult = await sql`
                 SELECT office_id FROM repcard_users 
-                WHERE repcard_user_id = ${appointment.closerId} 
+                WHERE repcard_user_id = ${appointment.closerId?.toString()}::text 
                 LIMIT 1
               `;
               const closerOfficeRows = closerOfficeResult.rows || closerOfficeResult;
@@ -697,8 +697,8 @@ export async function syncAppointments(options: {
                 ${appointment.id.toString()}::text,
                 ${customerId},
                 ${appointment.contact.id.toString()}::text,
-                ${appointment.userId || null},
-                ${appointment.closerId || null},
+                ${appointment.userId ? appointment.userId.toString() : null}::text,
+                ${appointment.closerId ? appointment.closerId.toString() : null}::text,
                 ${officeId},
                 ${disposition},
                 ${statusCategory},
