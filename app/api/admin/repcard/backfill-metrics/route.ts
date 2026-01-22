@@ -45,6 +45,36 @@ export async function POST(request: NextRequest) {
     console.log('[RepCard Backfill] Step 1: Triggering metric recalculation for ALL appointments...');
     console.log('[RepCard Backfill] Using event-driven architecture - triggers will calculate metrics automatically');
     
+    // Check if triggers exist (migration may not have been run)
+    let triggersExist = false;
+    try {
+      const triggerCheck = await sql`
+        SELECT routine_name 
+        FROM information_schema.routines 
+        WHERE routine_schema = 'public' 
+          AND routine_name = 'update_appointment_metrics'
+        LIMIT 1
+      `;
+      const triggerRows = Array.isArray(triggerCheck) ? triggerCheck : (triggerCheck?.rows || []);
+      triggersExist = triggerRows.length > 0;
+      console.log(`[RepCard Backfill] Triggers exist: ${triggersExist}`);
+    } catch (checkError) {
+      console.log('[RepCard Backfill] Could not check for triggers:', checkError);
+    }
+    
+    if (!triggersExist) {
+      console.warn('[RepCard Backfill] WARNING: Migration 032 may not have been run. Triggers not found.');
+      console.warn('[RepCard Backfill] Please run Migration 032 first before running backfill.');
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Migration not run',
+          message: 'Migration 032 must be run first to create the triggers. Please run "Run Migration 032" before running backfill.',
+        },
+        { status: 400 }
+      );
+    }
+    
     // Update all appointments to trigger recalculation
     // The trigger will recalculate is_within_48_hours and has_power_bill automatically
     const backfillResult = await sql`
