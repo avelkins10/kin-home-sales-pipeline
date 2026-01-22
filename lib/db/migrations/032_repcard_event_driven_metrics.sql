@@ -59,7 +59,7 @@ BEGIN
       reason := format('scheduled_at - customer.created_at = %.1f hours (within 48h)', hours_diff);
     ELSE
       result := FALSE;
-      reason := format('scheduled_at - customer.created_at = %.1f hours (exceeds 48h)', hours_diff);
+      reason := format('scheduled_at - customer.created_at = %s hours (exceeds 48h)', ROUND(hours_diff, 1)::text);
     END IF;
     
     raw_data_json := jsonb_build_object(
