@@ -208,17 +208,46 @@ export default function RepCardManagementTab() {
     setFixingCustomers(true);
     setFixData(null);
     try {
-      const res = await fetch('/api/admin/repcard/fix-missing-customers', {
+      // First try targeted sync (faster - only syncs missing customer IDs from appointments)
+      let res = await fetch('/api/admin/repcard/sync-missing-customers', {
         method: 'POST',
       });
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || 'Failed to fix missing customers');
+      
+      let data;
+      if (res.ok) {
+        data = await res.json();
+        // If targeted sync worked but didn't sync all, fall back to comprehensive
+        if (data.results?.failed > 0 || data.finalStats?.appointmentsWithoutCustomer > 0) {
+          console.log('[Fix Missing Customers] Targeted sync incomplete, running comprehensive sync...');
+          const comprehensiveRes = await fetch('/api/admin/repcard/fix-missing-customers', {
+            method: 'POST',
+          });
+          if (comprehensiveRes.ok) {
+            const comprehensiveData = await comprehensiveRes.json();
+            // Merge results
+            data = {
+              ...comprehensiveData,
+              targetedSync: data,
+            };
+          }
+        }
+      } else {
+        // Fallback to comprehensive fix if targeted sync fails
+        res = await fetch('/api/admin/repcard/fix-missing-customers', {
+          method: 'POST',
+        });
+        if (!res.ok) {
+          const error = await res.json();
+          throw new Error(error.message || 'Failed to fix missing customers');
+        }
+        data = await res.json();
       }
-      const data = await res.json();
+      
       setFixData(data);
+      const synced = data.results?.synced || data.results?.step1_customerSync?.recordsInserted || 0;
+      const linked = data.results?.appointmentsLinked || data.results?.step2_linkAppointments?.appointmentsLinked || 0;
       toast.success('Fix completed!', {
-        description: `Linked ${data.results.step2_linkAppointments?.appointmentsLinked || 0} appointments to customers`,
+        description: `Synced ${synced} customers, linked ${linked} appointments`,
       });
       // Refresh customer sync check to show updated stats
       if (customerSyncData) {
