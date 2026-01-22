@@ -71,8 +71,8 @@ export function RepCardOptimizedDashboard({
       if (!response.ok) throw new Error('Failed to fetch dashboard data');
       return response.json();
     },
-    refetchInterval: 30000, // Refresh every 30 seconds
-    staleTime: 60000, // Consider stale after 1 minute
+    refetchInterval: 10000, // Refresh every 10 seconds for real-time updates
+    staleTime: 5000, // Consider stale after 5 seconds (for webhook responsiveness)
   });
 
   // Calculate date range display

@@ -7,7 +7,7 @@ export const runtime = 'nodejs';
 
 // Cache implementation
 const unifiedDashboardCache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL = 300000; // 5 minutes in milliseconds (aligned with 5-minute sync interval)
+const CACHE_TTL = 30000; // 30 seconds for real-time updates (reduced from 5 minutes for webhook responsiveness)
 const MAX_CACHE_ENTRIES = 50;
 
 // Clean up expired cache entries
