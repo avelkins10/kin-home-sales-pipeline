@@ -9,7 +9,7 @@ BEGIN;
 -- ========================================
 CREATE TABLE IF NOT EXISTS repcard_metric_audit (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  appointment_id BIGINT REFERENCES repcard_appointments(id) ON DELETE CASCADE,
+  appointment_id TEXT REFERENCES repcard_appointments(id) ON DELETE CASCADE,
   metric_name TEXT NOT NULL CHECK (metric_name IN ('is_within_48_hours', 'has_power_bill')),
   metric_value BOOLEAN NOT NULL,
   calculation_reason TEXT NOT NULL, -- Human-readable explanation
@@ -33,7 +33,7 @@ COMMENT ON COLUMN repcard_metric_audit.raw_data IS 'JSONB storing all calculatio
 
 -- Function to calculate is_within_48_hours with audit trail
 CREATE OR REPLACE FUNCTION calculate_is_within_48_hours(
-  appointment_id_val BIGINT,
+  appointment_id_val TEXT,
   scheduled_at_val TIMESTAMPTZ,
   customer_id_val TEXT
 ) RETURNS BOOLEAN AS $$
@@ -104,7 +104,7 @@ $$ LANGUAGE plpgsql;
 
 -- Function to calculate has_power_bill with audit trail
 CREATE OR REPLACE FUNCTION calculate_has_power_bill(
-  appointment_id_val BIGINT,
+  appointment_id_val TEXT,
   appointment_repcard_id_val TEXT,
   customer_id_val TEXT
 ) RETURNS BOOLEAN AS $$
@@ -170,9 +170,9 @@ BEGIN
   -- CRITICAL: Always set is_within_48_hours (never NULL)
   IF NEW.repcard_customer_id IS NOT NULL AND NEW.scheduled_at IS NOT NULL THEN
     NEW.is_within_48_hours := calculate_is_within_48_hours(
-      NEW.id,
+      NEW.id::text,
       NEW.scheduled_at,
-      NEW.repcard_customer_id
+      NEW.repcard_customer_id::text
     );
   ELSE
     NEW.is_within_48_hours := FALSE;
@@ -204,7 +204,7 @@ BEGIN
   -- CRITICAL: Always set has_power_bill (never NULL)
   IF NEW.repcard_customer_id IS NOT NULL OR NEW.repcard_appointment_id IS NOT NULL THEN
     NEW.has_power_bill := calculate_has_power_bill(
-      NEW.id,
+      NEW.id::text,
       COALESCE(NEW.repcard_appointment_id::text, ''),
       COALESCE(NEW.repcard_customer_id::text, '')
     );
@@ -302,7 +302,7 @@ BEGIN
     
     -- Find all appointments for this customer
     FOR affected_appointments IN
-      SELECT id, repcard_appointment_id, repcard_customer_id
+      SELECT id::text as id, repcard_appointment_id, repcard_customer_id
       FROM repcard_appointments
       WHERE repcard_customer_id::text = customer_id_val
     LOOP
@@ -316,7 +316,7 @@ BEGIN
     
     -- Find the appointment
     FOR affected_appointments IN
-      SELECT id, repcard_appointment_id, repcard_customer_id
+      SELECT id::text as id, repcard_appointment_id, repcard_customer_id
       FROM repcard_appointments
       WHERE repcard_appointment_id::text = appointment_id_val
     LOOP

@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
         ) as appointment_attachment_count
       FROM repcard_appointments a
       LEFT JOIN repcard_customers c ON c.repcard_customer_id::text = a.repcard_customer_id::text
-      WHERE a.id = ${parseInt(appointmentId)}::bigint
+      WHERE a.id = ${appointmentId}::text
          OR a.repcard_appointment_id = ${appointmentId}::text
       LIMIT 1
     `;
@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
         calculated_at,
         calculated_by
       FROM repcard_metric_audit
-      WHERE appointment_id = ${appointment.id}::bigint
+      WHERE appointment_id = ${appointment.id}::text
         AND metric_name = ${metric}
       ORDER BY calculated_at DESC
       LIMIT 10
