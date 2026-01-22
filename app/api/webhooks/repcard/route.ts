@@ -246,7 +246,11 @@ async function processAppointmentWebhook(payload: any, requestId: string): Promi
       triggerEvent: payload.trigger_event || payload.event_type || payload.type,
       hasContact: !!payload.contact,
       hasUser: !!payload.user,
-      hasCloser: !!payload.closer
+      hasCloser: !!payload.closer,
+      // Log appointment outcome/disposition if present
+      appointmentStatus: payload.appointment_status_title || payload.status?.title,
+      scheduledTime: payload.appt_start_time || payload.appt_start_time_local,
+      customerCreatedAt: payload.contact?.createdAt
     });
 
     // Trigger incremental sync - this will fetch latest appointments from RepCard API
@@ -278,7 +282,7 @@ async function processAppointmentWebhook(payload: any, requestId: string): Promi
 
     return {
       processed: true,
-      message: `Appointment ${appointmentId} synced successfully`
+      message: `Appointment ${appointmentId} synced successfully${appointmentId ? ` (ID: ${appointmentId})` : ''}`
     };
 
   } catch (error) {
