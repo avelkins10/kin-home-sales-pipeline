@@ -236,7 +236,7 @@ export async function processAppointmentWebhook(
           updated_at = NOW()
         FROM repcard_customers c
         WHERE a.repcard_customer_id::text = c.repcard_customer_id::text
-          AND a.repcard_appointment_id = ${appointmentId}
+          AND a.repcard_appointment_id = ${appointmentId.toString()}::text
           AND a.customer_id IS NULL
           AND c.id IS NOT NULL
       `;

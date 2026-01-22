@@ -674,9 +674,9 @@ export async function syncAppointments(options: {
                 raw_data
               )
               VALUES (
-                ${appointment.id},
+                ${appointment.id.toString()}::text,
                 ${customerId},
-                ${appointment.contact.id},
+                ${appointment.contact.id.toString()}::text,
                 ${appointment.userId || null},
                 ${appointment.closerId || null},
                 ${officeId},
@@ -868,7 +868,7 @@ export async function syncStatusLogs(options: {
             // Get customer_id from our database
             const customerResult = await sql`
               SELECT id FROM repcard_customers
-              WHERE repcard_customer_id = ${log.customerId}
+              WHERE repcard_customer_id = ${log.customerId.toString()}::text
               LIMIT 1
             `;
 

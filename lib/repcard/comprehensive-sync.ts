@@ -969,7 +969,7 @@ export async function syncCustomerNotes(options: {
 
             // Find customer_id from repcard_customer_id
             const customerResult = await sql`
-              SELECT id FROM repcard_customers WHERE repcard_customer_id = ${note.customerId} LIMIT 1
+              SELECT id FROM repcard_customers WHERE repcard_customer_id = ${note.customerId.toString()}::text LIMIT 1
             `;
             const customerId = customerResult.rows?.[0]?.id || customerResult[0]?.id || null;
 
