@@ -43,6 +43,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 export default function RepCardManagementTab() {
   const queryClient = useQueryClient();
   const [backfilling, setBackfilling] = useState(false);
+  const [diagnosticData, setDiagnosticData] = useState<any>(null);
+  const [loadingDiagnostic, setLoadingDiagnostic] = useState(false);
 
   // Fetch sync status
   const { data: syncStatus, isLoading: loadingSync } = useQuery({
@@ -136,6 +138,25 @@ export default function RepCardManagementTab() {
     if (confirm('This will trigger recalculation of is_within_48_hours and has_power_bill for all appointments using triggers. Continue?')) {
       setBackfilling(true);
       backfillMutation.mutate();
+    }
+  };
+
+  const handleDiagnostic = async () => {
+    setLoadingDiagnostic(true);
+    try {
+      const res = await fetch('/api/admin/repcard/check-recent-metrics');
+      if (!res.ok) {
+        throw new Error('Failed to fetch diagnostic data');
+      }
+      const data = await res.json();
+      setDiagnosticData(data);
+      toast.success('Diagnostic data loaded', {
+        description: `Checked ${data.summary?.totalSamples || 0} recent appointments`,
+      });
+    } catch (error: any) {
+      toast.error('Diagnostic failed', { description: error.message });
+    } finally {
+      setLoadingDiagnostic(false);
     }
   };
 
@@ -582,6 +603,78 @@ export default function RepCardManagementTab() {
                   </>
                 )}
               </Button>
+
+              {/* Diagnostic Button */}
+              <div className="mt-6 pt-6 border-t">
+                <Button
+                  onClick={handleDiagnostic}
+                  disabled={loadingDiagnostic}
+                  variant="outline"
+                  className="w-full"
+                >
+                  {loadingDiagnostic ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Loading Diagnostic...
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="w-4 h-4 mr-2" />
+                      Check Why Recent Metrics Show 0%
+                    </>
+                  )}
+                </Button>
+
+                {diagnosticData && (
+                  <Card className="mt-4 bg-blue-50 border-blue-200">
+                    <CardContent className="pt-6">
+                      <div className="space-y-4">
+                        <div className="font-semibold text-blue-900">Diagnostic Results (Last 30 Days)</div>
+                        
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <div className="font-medium text-blue-800">Sample Size:</div>
+                            <div className="text-blue-700">{diagnosticData.summary?.totalSamples || 0} appointments</div>
+                          </div>
+                          <div>
+                            <div className="font-medium text-blue-800">With Required Data:</div>
+                            <div className="text-blue-700">{diagnosticData.summary?.withRequiredData || 0}</div>
+                          </div>
+                          <div>
+                            <div className="font-medium text-blue-800">Should Be 48h:</div>
+                            <div className="text-blue-700">{diagnosticData.summary?.shouldBe48h || 0} (actually: {diagnosticData.summary?.actually48h || 0})</div>
+                          </div>
+                          <div>
+                            <div className="font-medium text-blue-800">Should Have PB:</div>
+                            <div className="text-blue-700">{diagnosticData.summary?.shouldHavePB || 0} (actually: {diagnosticData.summary?.actuallyHasPB || 0})</div>
+                          </div>
+                        </div>
+
+                        {diagnosticData.sampleAppointments && diagnosticData.sampleAppointments.length > 0 && (
+                          <div className="mt-4">
+                            <div className="font-medium text-blue-800 mb-2">Sample Appointments:</div>
+                            <div className="space-y-2 max-h-60 overflow-y-auto">
+                              {diagnosticData.sampleAppointments.slice(0, 5).map((apt: any, idx: number) => (
+                                <div key={idx} className="text-xs bg-white p-2 rounded border">
+                                  <div className="font-medium">Appt #{apt.id?.slice(0, 8)}</div>
+                                  <div>48h: {apt.stored48h ? '✅' : '❌'} (should: {apt.shouldBe48h ? '✅' : '❌'})</div>
+                                  <div>PB: {apt.storedPB ? '✅' : '❌'} (should: {apt.shouldHavePB ? '✅' : '❌'})</div>
+                                  {apt.hoursDiff !== null && (
+                                    <div className="text-gray-600">Hours diff: {apt.hoursDiff?.toFixed(1)}</div>
+                                  )}
+                                  {!apt.hasRequiredData && (
+                                    <div className="text-red-600">⚠️ Missing required data</div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
 
               {backfillMutation.data && (
                 <Card className="bg-green-50 border-green-200">
