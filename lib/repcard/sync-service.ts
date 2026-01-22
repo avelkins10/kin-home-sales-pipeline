@@ -713,9 +713,6 @@ export async function syncAppointments(options: {
                 original_appointment_id = EXCLUDED.original_appointment_id,
                 updated_at = EXCLUDED.updated_at,
                 raw_data = EXCLUDED.raw_data
-                updated_at = EXCLUDED.updated_at,
-                raw_data = EXCLUDED.raw_data,
-                synced_at = NOW()
               RETURNING (xmax = 0) AS inserted
             `;
 
