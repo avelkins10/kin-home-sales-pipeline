@@ -562,7 +562,7 @@ export async function GET(request: NextRequest) {
           SELECT
             DATE(c.created_at) as date,
             COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
-            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.is_reschedule = FALSE OR a.is_reschedule IS NULL)::int as appointments_set
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND DATE(a.scheduled_at) = DATE(c.created_at))::int as appointments_set
           FROM repcard_customers c
           LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id
             AND DATE(a.scheduled_at) = DATE(c.created_at)
@@ -575,7 +575,7 @@ export async function GET(request: NextRequest) {
           SELECT
             DATE(c.created_at) as date,
             COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
-            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.is_reschedule = FALSE OR a.is_reschedule IS NULL)::int as appointments_set
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND DATE(a.scheduled_at) = DATE(c.created_at))::int as appointments_set
           FROM repcard_customers c
           LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id
             AND DATE(a.scheduled_at) = DATE(c.created_at)
