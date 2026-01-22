@@ -40,52 +40,37 @@ export async function POST(request: NextRequest) {
     const totalAppointments = getRows(totalCountResult)[0]?.total || 0;
     console.log(`[RepCard Backfill] Total appointments in database: ${totalAppointments}`);
 
-    // Step 1: Backfill is_within_48_hours - UPDATE ALL appointments (force update)
-    // CRITICAL FIX: Use UPDATE with FROM clause to ensure ALL appointments are updated
-    console.log('[RepCard Backfill] Step 1: Backfilling is_within_48_hours for ALL appointments...');
-    const within48Result = await sql`
-      UPDATE repcard_appointments a
-      SET is_within_48_hours = COALESCE(
-        (
-          SELECT 
-            CASE
-              WHEN a.scheduled_at IS NOT NULL 
-                AND c.created_at IS NOT NULL
-                AND (a.scheduled_at - c.created_at) <= INTERVAL '48 hours' 
-                AND (a.scheduled_at - c.created_at) >= INTERVAL '0 hours'
-              THEN TRUE
-              ELSE FALSE
-            END
-          FROM repcard_customers c
-          WHERE c.repcard_customer_id::text = a.repcard_customer_id::text
-          LIMIT 1
-        ),
-        FALSE
-      )
+    // EVENT-DRIVEN BACKFILL: Simply update appointments to trigger recalculation
+    // Triggers will automatically recalculate metrics and log to audit table
+    console.log('[RepCard Backfill] Step 1: Triggering metric recalculation for ALL appointments...');
+    console.log('[RepCard Backfill] Using event-driven architecture - triggers will calculate metrics automatically');
+    
+    // Update all appointments to trigger recalculation
+    // The trigger will recalculate is_within_48_hours and has_power_bill automatically
+    const backfillResult = await sql`
+      UPDATE repcard_appointments
+      SET updated_at = NOW()
+      WHERE id IS NOT NULL
     `;
-    const within48Updated = Array.isArray(within48Result) ? 0 : (within48Result as any).rowCount || 0;
-    console.log(`[RepCard Backfill] Updated ${within48Updated} appointments for is_within_48_hours`);
-
-    // Step 2: Backfill has_power_bill - UPDATE ALL appointments (force update)
-    // SIMPLIFIED: Any attachment to customer or appointment = power bill
-    console.log('[RepCard Backfill] Step 2: Backfilling has_power_bill for all appointments (any attachment = PB)...');
-    const powerBillResult = await sql`
-      UPDATE repcard_appointments a
-      SET has_power_bill = (
-        CASE
-          WHEN EXISTS (
-            SELECT 1 FROM repcard_customer_attachments ca
-            WHERE ca.repcard_customer_id::text = a.repcard_customer_id::text
-          ) OR EXISTS (
-            SELECT 1 FROM repcard_appointment_attachments aa
-            WHERE aa.repcard_appointment_id::text = a.repcard_appointment_id::text
-          ) THEN TRUE
-          ELSE FALSE
-        END
-      )
+    const appointmentsUpdated = Array.isArray(backfillResult) ? 0 : (backfillResult as any).rowCount || 0;
+    console.log(`[RepCard Backfill] Triggered recalculation for ${appointmentsUpdated} appointments`);
+    
+    // Get counts from audit table to show what was calculated
+    const auditSummary = await sql`
+      SELECT 
+        metric_name,
+        COUNT(*)::int as total_calculations,
+        COUNT(*) FILTER (WHERE metric_value = TRUE)::int as true_count,
+        COUNT(*) FILTER (WHERE metric_value = FALSE)::int as false_count
+      FROM repcard_metric_audit
+      WHERE calculated_at >= NOW() - INTERVAL '1 minute'
+      GROUP BY metric_name
     `;
-    const powerBillUpdated = Array.isArray(powerBillResult) ? 0 : (powerBillResult as any).rowCount || 0;
-    console.log(`[RepCard Backfill] Updated ${powerBillUpdated} appointments for has_power_bill`);
+    const auditRows = Array.isArray(auditSummary) ? auditSummary : (auditSummary?.rows || []);
+    console.log('[RepCard Backfill] Recent calculations:', auditRows);
+    
+    const within48Updated = appointmentsUpdated; // All appointments recalculated
+    const powerBillUpdated = appointmentsUpdated; // All appointments recalculated
 
     // Step 3: Verify results - Check ALL appointments and last 30 days
     console.log('[RepCard Backfill] Step 3: Verifying results...');

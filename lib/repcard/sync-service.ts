@@ -705,12 +705,14 @@ export async function syncAppointments(options: {
                 completed_at = EXCLUDED.completed_at,
                 duration = EXCLUDED.duration,
                 notes = EXCLUDED.notes,
-                -- Always recalculate quality metrics to ensure they're correct
-                is_within_48_hours = EXCLUDED.is_within_48_hours,
-                has_power_bill = EXCLUDED.has_power_bill,
+                -- EVENT-DRIVEN: Metrics are recalculated by triggers when scheduled_at or repcard_customer_id changes
+                -- Don't set is_within_48_hours or has_power_bill here - triggers handle it automatically
+                -- Updating scheduled_at or repcard_customer_id will trigger recalculation
                 is_reschedule = EXCLUDED.is_reschedule,
                 reschedule_count = EXCLUDED.reschedule_count,
                 original_appointment_id = EXCLUDED.original_appointment_id,
+                updated_at = EXCLUDED.updated_at,
+                raw_data = EXCLUDED.raw_data
                 updated_at = EXCLUDED.updated_at,
                 raw_data = EXCLUDED.raw_data,
                 synced_at = NOW()
