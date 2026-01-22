@@ -30,7 +30,11 @@ export async function GET(request: NextRequest) {
         c.created_at as customer_created_at,
         CASE
           WHEN a.scheduled_at IS NOT NULL AND c.created_at IS NOT NULL THEN
-            EXTRACT(EPOCH FROM (a.scheduled_at - c.created_at)) / 3600
+            -- Use Eastern Time for calculation to match trigger logic
+            EXTRACT(EPOCH FROM (
+              (a.scheduled_at::timestamptz AT TIME ZONE 'America/New_York') - 
+              (c.created_at::timestamptz AT TIME ZONE 'America/New_York')
+            )) / 3600
           ELSE NULL
         END as hours_diff,
         (
@@ -77,7 +81,7 @@ export async function GET(request: NextRequest) {
         storedPB: s.has_power_bill,
         customerAttCount: s.customer_att_count || 0,
         appointmentAttCount: s.appointment_att_count || 0,
-        shouldBe48h: s.hours_diff !== null && s.hours_diff >= 0 && s.hours_diff <= 48,
+        shouldBe48h: s.hours_diff !== null && s.hours_diff >= 0 && s.hours_diff <= 48 && s.hours_diff >= 0,
         shouldHavePB: (s.customer_att_count || 0) > 0 || (s.appointment_att_count || 0) > 0,
         hasRequiredData: s.scheduled_at !== null && s.repcard_customer_id !== null && s.customer_created_at !== null,
       })),
