@@ -10,6 +10,7 @@
 import { sql } from '@/lib/db/client';
 import { logError, logInfo } from '@/lib/logging/logger';
 import { syncAppointments, syncCustomers } from './sync-service';
+import { repcardClient } from './client';
 
 /**
  * Process appointment webhook payload directly
@@ -76,6 +77,7 @@ export async function processAppointmentWebhook(
     }
 
     // Get customer_id from our database (if customer exists)
+    // If customer doesn't exist, fetch it from RepCard API
     let customerId: string | null = null;
     if (repcardCustomerId) {
       const customerResult = await sql`
@@ -86,6 +88,88 @@ export async function processAppointmentWebhook(
       const customerRows = customerResult.rows || customerResult;
       if (customerRows.length > 0) {
         customerId = customerRows[0].id;
+      } else {
+        // Customer doesn't exist - fetch from RepCard API
+        logInfo('[RepCard Webhook Processor] Customer not found, fetching from API', {
+          requestId,
+          repcardCustomerId
+        });
+        try {
+          const customerResponse = await repcardClient.getCustomerById(parseInt(repcardCustomerId.toString(), 10));
+          const customer = customerResponse.result;
+          
+          if (customer) {
+            // Insert customer into database
+            const setterUserId = (customer as any).userId || customer.assignedUserId || (customer as any).setterUserId || setterUserId || null;
+            
+            const insertResult = await sql`
+              INSERT INTO repcard_customers (
+                repcard_customer_id,
+                setter_user_id,
+                office_id,
+                name,
+                email,
+                phone,
+                address,
+                city,
+                state,
+                zip,
+                status,
+                created_at,
+                updated_at,
+                raw_data
+              )
+              VALUES (
+                ${customer.id.toString()}::text,
+                ${setterUserId},
+                ${null}, -- office_id
+                ${`${customer.firstName || ''} ${customer.lastName || ''}`.trim() || null},
+                ${customer.email || null},
+                ${customer.phone || null},
+                ${customer.address || null},
+                ${customer.city || null},
+                ${customer.state || null},
+                ${customer.zipCode || customer.zip || null},
+                ${customer.statusId?.toString() || null},
+                ${customer.createdAt ? new Date(customer.createdAt).toISOString() : null},
+                ${customer.updatedAt ? new Date(customer.updatedAt).toISOString() : null},
+                ${JSON.stringify(customer)}
+              )
+              ON CONFLICT (repcard_customer_id)
+              DO UPDATE SET
+                setter_user_id = EXCLUDED.setter_user_id,
+                name = EXCLUDED.name,
+                email = EXCLUDED.email,
+                phone = EXCLUDED.phone,
+                address = EXCLUDED.address,
+                city = EXCLUDED.city,
+                state = EXCLUDED.state,
+                zip = EXCLUDED.zip,
+                status = EXCLUDED.status,
+                created_at = COALESCE(repcard_customers.created_at, EXCLUDED.created_at),
+                updated_at = EXCLUDED.updated_at,
+                raw_data = EXCLUDED.raw_data,
+                synced_at = NOW()
+              RETURNING id
+            `;
+            
+            const insertedRows = insertResult.rows || insertResult;
+            if (insertedRows.length > 0) {
+              customerId = insertedRows[0].id;
+              logInfo('[RepCard Webhook Processor] Customer synced from API', {
+                requestId,
+                repcardCustomerId,
+                customerId
+              });
+            }
+          }
+        } catch (customerError) {
+          logError('[RepCard Webhook Processor] Failed to fetch customer from API', customerError as Error, {
+            requestId,
+            repcardCustomerId
+          });
+          // Continue without customer - appointment will still be processed
+        }
       }
     }
 
