@@ -75,6 +75,30 @@ export default function RepCardManagementTab() {
     },
   });
 
+  // Run migration 032 mutation
+  const migrationMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/admin/repcard/run-migration-032', {
+        method: 'POST',
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Failed to run migration');
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast.success('Migration 032 completed successfully!', {
+        description: `Created audit table and enhanced triggers. Found ${data.verification.triggerFunctionsFound} trigger functions.`,
+      });
+      queryClient.invalidateQueries(['repcard-data-overview']);
+      queryClient.invalidateQueries(['repcard-comprehensive-metrics']);
+    },
+    onError: (error: Error) => {
+      toast.error('Migration failed', { description: error.message });
+    },
+  });
+
   // Backfill metrics mutation
   const backfillMutation = useMutation({
     mutationFn: async () => {
@@ -89,7 +113,7 @@ export default function RepCardManagementTab() {
     },
     onSuccess: (data) => {
       toast.success('Metrics backfilled successfully!', {
-        description: `Updated ${data.results.within48HoursUpdated} appointments for 48h, ${data.results.powerBillUpdated} for power bill`,
+        description: `Triggered recalculation for ${data.results.within48HoursUpdated} appointments using event-driven triggers`,
       });
       queryClient.invalidateQueries(['repcard-data-overview']);
       queryClient.invalidateQueries(['repcard-unified-dashboard']);
@@ -101,8 +125,14 @@ export default function RepCardManagementTab() {
     },
   });
 
+  const handleMigration = () => {
+    if (confirm('This will create the audit trail table and enhanced triggers for event-driven metrics. Continue?')) {
+      migrationMutation.mutate();
+    }
+  };
+
   const handleBackfill = () => {
-    if (confirm('This will recalculate is_within_48_hours and has_power_bill for all appointments. Continue?')) {
+    if (confirm('This will trigger recalculation of is_within_48_hours and has_power_bill for all appointments using triggers. Continue?')) {
       setBackfilling(true);
       backfillMutation.mutate();
     }
