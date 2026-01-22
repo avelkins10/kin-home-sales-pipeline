@@ -56,47 +56,63 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Log the full payload for debugging
+    logInfo('[RepCard Webhook] Received payload', {
+      requestId,
+      payloadKeys: Object.keys(payload),
+      payload: JSON.stringify(payload).substring(0, 500) // First 500 chars for debugging
+    });
+
     // Validate payload structure
     // RepCard sends: trigger_event (e.g., "Appointment Set", "New Contact", "Door knocked")
-    const triggerEvent = payload.trigger_event || payload.event_type || payload.type || payload.event;
+    // But it might also be in the URL or headers, so be flexible
+    const triggerEvent = payload.trigger_event || payload.event_type || payload.type || payload.event || payload.triggerEvent;
     
+    // If no trigger event in payload, try to infer from the request or allow processing anyway
+    // RepCard might send the event type differently
     if (!triggerEvent) {
-      logError('[RepCard Webhook] Missing trigger event', new Error('Invalid payload'), { requestId, payload });
-      return NextResponse.json(
-        { error: 'Missing trigger event' },
-        { status: 400 }
-      );
+      logInfo('[RepCard Webhook] No trigger event in payload, attempting to process anyway', {
+        requestId,
+        payload,
+        hasAppointmentId: !!payload.appointment_id,
+        hasContactId: !!payload.contact_id,
+        hasCustomerId: !!payload.customer_id
+      });
+      // Don't fail - try to process based on what data is present
     }
 
     // Map RepCard trigger events to our object types
-    const eventType = triggerEvent;
+    // Be flexible - RepCard might send data in different formats
+    const eventType = triggerEvent || 'unknown';
     let objectType: string | undefined;
     let objectId: string | number | undefined;
 
-    // Determine object type from trigger event
-    if (triggerEvent === 'Appointment Set' || triggerEvent === 'Appointment Update' || triggerEvent === 'Appointment Outcome') {
+    // First, try to determine object type from payload structure (most reliable)
+    if (payload.appointment_id || payload.appointmentId || payload.appointment?.id) {
       objectType = 'appointment';
-      objectId = payload.appointment_id || payload.appointmentId || payload.id || payload.object_id;
-    } else if (triggerEvent === 'New Contact' || triggerEvent === 'Update Contact' || triggerEvent === 'Contact Removed' || triggerEvent === 'Door knocked') {
+      objectId = payload.appointment_id || payload.appointmentId || payload.appointment?.id;
+    } else if (payload.contact_id || payload.customer_id || payload.contactId || payload.customerId || payload.contact?.id) {
       objectType = 'customer';
-      objectId = payload.contact_id || payload.customer_id || payload.contactId || payload.customerId || payload.id || payload.object_id;
-    } else if (triggerEvent === 'New User' || triggerEvent === 'Update User' || triggerEvent === 'Remove User') {
-      objectType = 'user';
-      objectId = payload.user_id || payload.userId || payload.id || payload.object_id;
-    } else if (triggerEvent === 'Status Changed' || triggerEvent === 'Contact Type Changed') {
-      // These could be customer or appointment related - check payload
-      if (payload.contact_id || payload.customer_id) {
-        objectType = 'customer';
-        objectId = payload.contact_id || payload.customer_id;
-      } else if (payload.appointment_id) {
+      objectId = payload.contact_id || payload.customer_id || payload.contactId || payload.customerId || payload.contact?.id;
+    } else if (triggerEvent) {
+      // If we have trigger event, use it to determine type
+      const triggerLower = triggerEvent.toLowerCase();
+      if (triggerLower.includes('appointment')) {
         objectType = 'appointment';
-        objectId = payload.appointment_id;
+        objectId = payload.appointment_id || payload.appointmentId || payload.id || payload.object_id;
+      } else if (triggerLower.includes('contact') || triggerLower.includes('customer') || triggerLower.includes('door')) {
+        objectType = 'customer';
+        objectId = payload.contact_id || payload.customer_id || payload.contactId || payload.customerId || payload.id || payload.object_id;
+      } else if (triggerLower.includes('user')) {
+        objectType = 'user';
+        objectId = payload.user_id || payload.userId || payload.id || payload.object_id;
       } else {
-        objectType = 'customer'; // Default to customer for status changes
-        objectId = payload.id || payload.object_id;
+        // Unknown trigger - try to infer from payload
+        objectType = payload.object_type || payload.resource || payload.entity;
+        objectId = payload.object_id || payload.id || payload.resource_id;
       }
     } else {
-      // Fallback: try to infer from payload
+      // No trigger event and can't infer from structure - try generic approach
       objectType = payload.object_type || payload.resource || payload.entity;
       objectId = payload.object_id || payload.id || payload.resource_id;
     }
@@ -109,35 +125,15 @@ export async function POST(request: NextRequest) {
       timestamp: payload.timestamp || payload.created_at || new Date().toISOString()
     });
 
-    // Process webhook event based on trigger event
+    // Process webhook event based on object type (more reliable than trigger event)
     let result: any = { success: true, processed: false };
 
-    // Map RepCard trigger events to processing functions
-    const triggerEventLower = eventType?.toLowerCase() || '';
-    
-    if (triggerEventLower.includes('appointment set') || 
-        triggerEventLower.includes('appointment update') || 
-        triggerEventLower.includes('appointment outcome') ||
-        objectType === 'appointment') {
-      // Appointment-related events
+    // Process based on object type first (most reliable)
+    if (objectType === 'appointment') {
       result = await processAppointmentWebhook(payload, requestId);
-    } else if (triggerEventLower.includes('new contact') || 
-               triggerEventLower.includes('update contact') || 
-               triggerEventLower.includes('contact removed') ||
-               triggerEventLower.includes('door knocked') ||
-               objectType === 'customer' || objectType === 'contact') {
-      // Customer/Contact-related events
+    } else if (objectType === 'customer' || objectType === 'contact') {
       result = await processCustomerWebhook(payload, requestId);
-    } else if (triggerEventLower.includes('status changed') || 
-               triggerEventLower.includes('contact type changed')) {
-      // Status changes - could be customer or appointment
-      // Check payload to determine
-      if (payload.appointment_id || payload.appointmentId) {
-        result = await processAppointmentWebhook(payload, requestId);
-      } else {
-        result = await processCustomerWebhook(payload, requestId);
-      }
-    } else if (triggerEventLower.includes('user')) {
+    } else if (objectType === 'user') {
       // User events - sync users (optional, less critical)
       logInfo('[RepCard Webhook] User event received, skipping (users sync via cron)', {
         requestId,
@@ -146,20 +142,25 @@ export async function POST(request: NextRequest) {
       });
       result = { processed: false, message: 'User events handled by cron sync' };
     } else {
-      // Unknown event - try to infer from payload
-      logInfo('[RepCard Webhook] Unknown trigger event, attempting to infer from payload', {
+      // Unknown object type - try to infer from payload structure
+      logInfo('[RepCard Webhook] Unknown object type, attempting to infer from payload', {
         requestId,
         eventType,
+        objectType,
         payload
       });
       
-      if (payload.appointment_id || payload.appointmentId || payload.contact?.id) {
+      if (payload.appointment_id || payload.appointmentId || payload.appointment?.id) {
         result = await processAppointmentWebhook(payload, requestId);
-      } else if (payload.contact_id || payload.customer_id || payload.customerId) {
+      } else if (payload.contact_id || payload.customer_id || payload.contactId || payload.customerId || payload.contact?.id) {
         result = await processCustomerWebhook(payload, requestId);
       } else {
-        logInfo('[RepCard Webhook] Could not determine object type, skipping', { requestId, payload });
-        result = { processed: false, message: 'Unknown trigger event, skipped' };
+        // Can't determine - but don't fail, just log and return success
+        logInfo('[RepCard Webhook] Could not determine object type, accepting webhook anyway', { 
+          requestId, 
+          payload: JSON.stringify(payload).substring(0, 500)
+        });
+        result = { processed: false, message: 'Unknown object type, but webhook accepted' };
       }
     }
 
