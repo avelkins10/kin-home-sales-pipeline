@@ -21,17 +21,27 @@ export async function POST(request: NextRequest) {
     // Read raw body for signature verification (if RepCard supports it)
     const rawBody = await request.text();
 
-    // TODO: Add signature verification if RepCard provides webhook secrets
-    // For now, we'll rely on IP whitelisting or API key in headers
+    // Authentication: RepCard may send API key in headers, or we can rely on webhook URL being secret
+    // For now, make it optional (similar to Arrivy webhook) until we confirm how RepCard authenticates
     const apiKey = request.headers.get('x-api-key') || request.headers.get('authorization');
     const expectedApiKey = process.env.REPCARD_API_KEY;
     
-    if (expectedApiKey && apiKey !== expectedApiKey && !apiKey?.includes(expectedApiKey)) {
-      logError('[RepCard Webhook] Invalid API key', new Error('Unauthorized'), { requestId });
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    // Optional authentication - only verify if both API key and expected key are present
+    // This allows webhook to work even if RepCard doesn't send API key in headers
+    if (expectedApiKey && apiKey) {
+      // Both are present - verify they match
+      const apiKeyValue = apiKey.startsWith('Bearer ') ? apiKey.substring(7) : apiKey;
+      if (apiKeyValue !== expectedApiKey && !apiKeyValue.includes(expectedApiKey)) {
+        logError('[RepCard Webhook] Invalid API key', new Error('Unauthorized'), { requestId });
+        return NextResponse.json(
+          { error: 'Unauthorized' },
+          { status: 401 }
+        );
+      }
+      logInfo('[RepCard Webhook] API key verified', { requestId });
+    } else {
+      // No API key provided - log but allow (webhook URL acts as secret)
+      logInfo('[RepCard Webhook] No API key in headers, proceeding (webhook URL is secret)', { requestId });
     }
 
     // Parse webhook payload
