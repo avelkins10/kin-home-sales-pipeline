@@ -55,19 +55,29 @@ export async function POST(request: NextRequest) {
     const appointmentsUpdated = Array.isArray(backfillResult) ? 0 : (backfillResult as any).rowCount || 0;
     console.log(`[RepCard Backfill] Triggered recalculation for ${appointmentsUpdated} appointments`);
     
-    // Get counts from audit table to show what was calculated
-    const auditSummary = await sql`
-      SELECT 
-        metric_name,
-        COUNT(*)::int as total_calculations,
-        COUNT(*) FILTER (WHERE metric_value = TRUE)::int as true_count,
-        COUNT(*) FILTER (WHERE metric_value = FALSE)::int as false_count
-      FROM repcard_metric_audit
-      WHERE calculated_at >= NOW() - INTERVAL '1 minute'
-      GROUP BY metric_name
-    `;
-    const auditRows = Array.isArray(auditSummary) ? auditSummary : (auditSummary?.rows || []);
-    console.log('[RepCard Backfill] Recent calculations:', auditRows);
+    // Get counts from audit table to show what was calculated (if table exists)
+    let auditRows: any[] = [];
+    try {
+      const auditSummary = await sql`
+        SELECT 
+          metric_name,
+          COUNT(*)::int as total_calculations,
+          COUNT(*) FILTER (WHERE metric_value = TRUE)::int as true_count,
+          COUNT(*) FILTER (WHERE metric_value = FALSE)::int as false_count
+        FROM repcard_metric_audit
+        WHERE calculated_at >= NOW() - INTERVAL '1 minute'
+        GROUP BY metric_name
+      `;
+      auditRows = Array.isArray(auditSummary) ? auditSummary : (auditSummary?.rows || []);
+      console.log('[RepCard Backfill] Recent calculations:', auditRows);
+    } catch (auditError: any) {
+      // Audit table might not exist if migration hasn't been run yet
+      if (auditError?.message?.includes('does not exist') || auditError?.code === '42P01') {
+        console.log('[RepCard Backfill] Audit table does not exist yet - migration may not have been run');
+      } else {
+        console.error('[RepCard Backfill] Error querying audit table:', auditError);
+      }
+    }
     
     const within48Updated = appointmentsUpdated; // All appointments recalculated
     const powerBillUpdated = appointmentsUpdated; // All appointments recalculated
