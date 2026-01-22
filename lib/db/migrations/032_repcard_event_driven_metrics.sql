@@ -51,35 +51,34 @@ BEGIN
   LIMIT 1;
 
   -- Calculate result
-  -- IMPORTANT: Normalize both timestamps to UTC for accurate calculation
-  -- The database columns are TIMESTAMP (no timezone), but we need to ensure
-  -- they're compared in the same timezone context. If they're stored as UTC,
-  -- we treat them as UTC. If they have timezone info (TIMESTAMPTZ), we normalize to UTC.
+  -- IMPORTANT: Convert both timestamps to Eastern Time (America/New_York) for accurate day-boundary calculation
+  -- This ensures that appointments scheduled on the same day in local time are calculated correctly
+  -- Example: Customer created 8pm EST Jan 20, Appointment scheduled 10pm EST Jan 20 = 2 hours (not next day in UTC)
+  -- Default to Eastern Time as it's the most common timezone for the business (per migration 008)
   IF scheduled_at_val IS NOT NULL AND customer_created IS NOT NULL THEN
-    -- Handle both TIMESTAMP and TIMESTAMPTZ:
-    -- If TIMESTAMPTZ: convert to UTC explicitly
-    -- If TIMESTAMP: assume already in UTC (or convert from session timezone to UTC)
-    -- This ensures accurate time difference calculation regardless of timezone
+    -- Convert both timestamps to Eastern Time, then calculate difference
+    -- This preserves the correct day boundaries for business logic
+    -- The timestamps are stored in the database (likely UTC), but we interpret them in Eastern Time
     hours_diff := EXTRACT(EPOCH FROM (
-      (scheduled_at_val::timestamptz AT TIME ZONE 'UTC') - 
-      (customer_created::timestamptz AT TIME ZONE 'UTC')
+      (scheduled_at_val::timestamptz AT TIME ZONE 'America/New_York') - 
+      (customer_created::timestamptz AT TIME ZONE 'America/New_York')
     )) / 3600;
     
     IF hours_diff >= 0 AND hours_diff <= 48 THEN
       result := TRUE;
-      reason := format('scheduled_at - customer.created_at = %s hours (within 48h, UTC normalized)', ROUND(hours_diff, 1)::text);
+      reason := format('scheduled_at - customer.created_at = %s hours (within 48h, Eastern Time)', ROUND(hours_diff, 1)::text);
     ELSE
       result := FALSE;
-      reason := format('scheduled_at - customer.created_at = %s hours (exceeds 48h, UTC normalized)', ROUND(hours_diff, 1)::text);
+      reason := format('scheduled_at - customer.created_at = %s hours (exceeds 48h, Eastern Time)', ROUND(hours_diff, 1)::text);
     END IF;
     
     raw_data_json := jsonb_build_object(
       'scheduled_at', scheduled_at_val,
-      'scheduled_at_utc', scheduled_at_val AT TIME ZONE 'UTC',
+      'scheduled_at_et', scheduled_at_val AT TIME ZONE 'America/New_York',
       'customer_created_at', customer_created,
-      'customer_created_at_utc', customer_created AT TIME ZONE 'UTC',
+      'customer_created_at_et', customer_created AT TIME ZONE 'America/New_York',
       'hours_diff', hours_diff,
-      'timezone_note', 'Both timestamps normalized to UTC for calculation'
+      'timezone_note', 'Both timestamps converted to Eastern Time (America/New_York) for calculation to preserve correct day boundaries'
     );
   ELSIF scheduled_at_val IS NULL THEN
     result := FALSE;
