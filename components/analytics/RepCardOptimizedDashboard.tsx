@@ -675,6 +675,8 @@ function OfficePerformanceTable({ offices }: { offices: any[] }) {
             <TableHead className="text-right">Sales</TableHead>
             <TableHead className="text-right">Conversion</TableHead>
             <TableHead className="text-right">Close Rate</TableHead>
+            <TableHead className="text-right">Setters</TableHead>
+            <TableHead className="text-right">Closers</TableHead>
             <TableHead className="text-right">Reps</TableHead>
           </TableRow>
         </TableHeader>
@@ -694,6 +696,26 @@ function OfficePerformanceTable({ offices }: { offices: any[] }) {
                 <Badge variant={office.closeRate >= 30 ? 'default' : 'secondary'}>
                   {formatPercentage(office.closeRate)}
                 </Badge>
+              </TableCell>
+              <TableCell className="text-right">
+                <div className="flex flex-col items-end gap-1">
+                  <span className="text-sm font-medium">{office.settersCount || 0}</span>
+                  {office.setterWithin48h > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      {formatPercentage((office.setterWithin48h / (office.appointmentsSet || 1)) * 100)} 48h
+                    </span>
+                  )}
+                </div>
+              </TableCell>
+              <TableCell className="text-right">
+                <div className="flex flex-col items-end gap-1">
+                  <span className="text-sm font-medium">{office.closersCount || 0}</span>
+                  {office.closerAppointmentsRun > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      {formatPercentage((office.closerSatClosed / (office.closerAppointmentsRun || 1)) * 100)} close
+                    </span>
+                  )}
+                </div>
               </TableCell>
               <TableCell className="text-right">{office.activeReps}</TableCell>
             </TableRow>
@@ -1054,6 +1076,7 @@ function ClosersView({ data, isLoading, dateRange }: { data: any[]; isLoading: b
                     <TableHead className="text-right">Appointments Run</TableHead>
                     <TableHead className="text-right">Sales Closed</TableHead>
                     <TableHead className="text-right">Close Rate</TableHead>
+                    <TableHead className="text-right">Outcomes</TableHead>
                     <TableHead className="text-right">Performance</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1082,6 +1105,50 @@ function ClosersView({ data, isLoading, dateRange }: { data: any[]; isLoading: b
                           {formatPercentage(closer.closeRate || 0)}
                         </Badge>
                       </TableCell>
+                      {/* Show all outcomes if available */}
+                      {closer.allOutcomes && closer.allOutcomes.length > 0 && (
+                        <TableCell className="text-right">
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-8 text-xs">
+                                {closer.allOutcomes.length} outcomes
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-2xl">
+                              <DialogHeader>
+                                <DialogTitle>All Appointment Outcomes - {closer.name}</DialogTitle>
+                                <DialogDescription>
+                                  Complete breakdown of all appointment dispositions
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="max-h-96 overflow-y-auto">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead>Outcome</TableHead>
+                                      <TableHead className="text-right">Count</TableHead>
+                                      <TableHead className="text-right">Percentage</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {closer.allOutcomes
+                                      .sort((a, b) => b.count - a.count)
+                                      .map((outcome: any, idx: number) => (
+                                        <TableRow key={idx}>
+                                          <TableCell className="font-medium">{outcome.disposition}</TableCell>
+                                          <TableCell className="text-right">{formatLargeNumber(outcome.count)}</TableCell>
+                                          <TableCell className="text-right">
+                                            {formatPercentage((outcome.count / (closer.appointmentsRun || 1)) * 100)}
+                                          </TableCell>
+                                        </TableRow>
+                                      ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        </TableCell>
+                      )}
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
                           <Progress 
