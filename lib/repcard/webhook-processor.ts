@@ -80,7 +80,7 @@ export async function processAppointmentWebhook(
     if (repcardCustomerId) {
       const customerResult = await sql`
         SELECT id FROM repcard_customers
-        WHERE repcard_customer_id = ${repcardCustomerId}
+        WHERE repcard_customer_id = ${repcardCustomerId.toString()}::text
         LIMIT 1
       `;
       const customerRows = customerResult.rows || customerResult;
@@ -95,7 +95,7 @@ export async function processAppointmentWebhook(
     if (repcardCustomerId) {
       const customerOfficeResult = await sql`
         SELECT office_id FROM repcard_customers 
-        WHERE repcard_customer_id = ${repcardCustomerId} 
+        WHERE repcard_customer_id = ${repcardCustomerId.toString()}::text
         LIMIT 1
       `;
       const customerOfficeRows = customerOfficeResult.rows || customerOfficeResult;
@@ -143,8 +143,8 @@ export async function processAppointmentWebhook(
           is_reschedule,
           original_appointment_id
         FROM repcard_appointments
-        WHERE repcard_customer_id = ${repcardCustomerId}
-          AND repcard_appointment_id != ${appointmentId}
+        WHERE repcard_customer_id = ${repcardCustomerId.toString()}::text
+          AND repcard_appointment_id != ${appointmentId.toString()}::text
         ORDER BY COALESCE(scheduled_at, created_at) ASC
       `;
       const existingAppointments = existingAppointmentsResult.rows || existingAppointmentsResult;
@@ -185,9 +185,9 @@ export async function processAppointmentWebhook(
         raw_data
       )
       VALUES (
-        ${appointmentId},
+        ${appointmentId.toString()}::text,
         ${customerId},
-        ${repcardCustomerId || null},
+        ${repcardCustomerId ? repcardCustomerId.toString() : null}::text,
         ${setterUserId || null},
         ${closerUserId || null},
         ${officeId},
@@ -353,7 +353,7 @@ export async function processCustomerWebhook(
         raw_data
       )
       VALUES (
-        ${repcardCustomerId},
+        ${repcardCustomerId.toString()}::text,
         ${setterUserId || null},
         ${null}, -- office_id not available in customer record
         ${name},

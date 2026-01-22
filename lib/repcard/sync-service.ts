@@ -251,7 +251,7 @@ export async function syncCustomers(options: {
                 raw_data
               )
               VALUES (
-                ${customer.id},
+                ${customer.id.toString()}::text,
                 ${setterUserId},
                 ${null}, -- office_id not available in customer record
                 ${`${customer.firstName} ${customer.lastName}`},
@@ -499,7 +499,7 @@ export async function syncAppointments(options: {
             // For now, keep individual query but optimize later if needed
             const customerResult = await sql`
               SELECT id FROM repcard_customers
-              WHERE repcard_customer_id = ${appointment.contact.id}
+              WHERE repcard_customer_id = ${appointment.contact.id}::text
               LIMIT 1
             `;
 
@@ -533,7 +533,7 @@ export async function syncAppointments(options: {
             // Try customer first
             const customerOfficeResult = await sql`
               SELECT office_id FROM repcard_customers 
-              WHERE repcard_customer_id = ${appointment.contact.id} 
+              WHERE repcard_customer_id = ${appointment.contact.id}::text
               LIMIT 1
             `;
             const customerOfficeRows = customerOfficeResult.rows || customerOfficeResult;
@@ -574,7 +574,7 @@ export async function syncAppointments(options: {
               // Use customerId if available, otherwise query by repcard_customer_id
               const customerCreatedResult = customerId 
                 ? await sql`SELECT created_at FROM repcard_customers WHERE id = ${customerId} LIMIT 1`
-                : await sql`SELECT created_at FROM repcard_customers WHERE repcard_customer_id = ${appointment.contact.id} LIMIT 1`;
+                : await sql`SELECT created_at FROM repcard_customers WHERE repcard_customer_id = ${appointment.contact.id}::text LIMIT 1`;
               const customerCreatedRows = customerCreatedResult.rows || customerCreatedResult;
               if (customerCreatedRows.length > 0 && customerCreatedRows[0].created_at) {
                 const customerCreated = new Date(customerCreatedRows[0].created_at);
@@ -625,8 +625,8 @@ export async function syncAppointments(options: {
                   is_reschedule,
                   original_appointment_id
                 FROM repcard_appointments
-                WHERE repcard_customer_id = ${appointment.contact.id}
-                  AND repcard_appointment_id != ${appointment.id}
+                WHERE repcard_customer_id = ${appointment.contact.id}::text
+                  AND repcard_appointment_id != ${appointment.id}::text
                 ORDER BY COALESCE(scheduled_at, created_at) ASC
               `;
               const existingAppointments = existingAppointmentsResult.rows || existingAppointmentsResult;
