@@ -25,7 +25,8 @@ import {
   StickyNote,
   TrendingUp,
   Building,
-  Activity
+  Activity,
+  Info
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
