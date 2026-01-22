@@ -51,21 +51,32 @@ BEGIN
   LIMIT 1;
 
   -- Calculate result
+  -- IMPORTANT: Normalize both timestamps to UTC to ensure accurate calculation
+  -- TIMESTAMPTZ values are stored in UTC but displayed in session timezone
+  -- Converting both to UTC ensures consistent comparison regardless of timezone
   IF scheduled_at_val IS NOT NULL AND customer_created IS NOT NULL THEN
-    hours_diff := EXTRACT(EPOCH FROM (scheduled_at_val - customer_created)) / 3600;
+    -- Convert both to UTC explicitly for accurate time difference calculation
+    -- This handles cases where data might be in different timezones
+    hours_diff := EXTRACT(EPOCH FROM (
+      (scheduled_at_val AT TIME ZONE 'UTC') - 
+      (customer_created AT TIME ZONE 'UTC')
+    )) / 3600;
     
     IF hours_diff >= 0 AND hours_diff <= 48 THEN
       result := TRUE;
-      reason := format('scheduled_at - customer.created_at = %s hours (within 48h)', ROUND(hours_diff, 1)::text);
+      reason := format('scheduled_at - customer.created_at = %s hours (within 48h, UTC normalized)', ROUND(hours_diff, 1)::text);
     ELSE
       result := FALSE;
-      reason := format('scheduled_at - customer.created_at = %s hours (exceeds 48h)', ROUND(hours_diff, 1)::text);
+      reason := format('scheduled_at - customer.created_at = %s hours (exceeds 48h, UTC normalized)', ROUND(hours_diff, 1)::text);
     END IF;
     
     raw_data_json := jsonb_build_object(
       'scheduled_at', scheduled_at_val,
+      'scheduled_at_utc', scheduled_at_val AT TIME ZONE 'UTC',
       'customer_created_at', customer_created,
-      'hours_diff', hours_diff
+      'customer_created_at_utc', customer_created AT TIME ZONE 'UTC',
+      'hours_diff', hours_diff,
+      'timezone_note', 'Both timestamps normalized to UTC for calculation'
     );
   ELSIF scheduled_at_val IS NULL THEN
     result := FALSE;
