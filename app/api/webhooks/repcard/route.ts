@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/lib/db/client';
 import { logApiRequest, logApiResponse, logError, logInfo } from '@/lib/logging/logger';
-import { syncAppointments, syncCustomers } from '@/lib/repcard/sync-service';
+import { processAppointmentWebhook, processCustomerWebhook } from '@/lib/repcard/webhook-processor';
 
 export const runtime = 'nodejs';
 
@@ -144,6 +144,7 @@ export async function POST(request: NextRequest) {
     let result: any = { success: true, processed: false };
 
     // Process based on object type first (most reliable)
+    // WEBHOOK-FIRST: Parse payload directly instead of calling API
     if (objectType === 'appointment') {
       result = await processAppointmentWebhook(payload, requestId);
     } else if (objectType === 'customer' || objectType === 'contact') {
@@ -208,189 +209,8 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/**
- * Process appointment webhook event
- * 
- * RepCard payload format:
- * {
- *   id: 628195,                    // appointment ID
- *   contact: { id: 46662815 },     // customer ID
- *   user: { id: 139887 },           // setter ID
- *   closer: { id: 174886 },         // closer ID
- *   appt_start_time: "2026-01-24 16:00:00",
- *   contact: { createdAt: "2026-01-22 22:57:44+00:00" }
- * }
- * 
- * IMPORTANT: Webhooks must respond quickly (<5 seconds) to avoid timeouts.
- * We process the sync asynchronously after responding.
- */
-async function processAppointmentWebhook(payload: any, requestId: string): Promise<{ processed: boolean; message: string }> {
-  try {
-    // Extract appointment ID from various possible formats
-    const appointmentId = payload.id || payload.appointment_id || payload.appointmentId || payload.object_id;
-    const contactId = payload.contact?.id || payload.contact_id || payload.customer_id;
-    const setterId = payload.user?.id || payload.user_id || payload.setter_id;
-    const closerId = payload.closer?.id || payload.closer_id;
-    
-    logInfo('[RepCard Webhook] Processing appointment webhook', {
-      requestId,
-      appointmentId,
-      contactId,
-      setterId,
-      closerId,
-      triggerEvent: payload.trigger_event || payload.event_type || payload.type,
-      hasContact: !!payload.contact,
-      hasUser: !!payload.user,
-      hasCloser: !!payload.closer,
-      appointmentStatus: payload.appointment_status_title || payload.status?.title,
-      scheduledTime: payload.appt_start_time || payload.appt_start_time_local,
-      customerCreatedAt: payload.contact?.createdAt
-    });
-
-    // CRITICAL: Process sync asynchronously to avoid webhook timeout
-    // Return success immediately, then process in background
-    setImmediate(async () => {
-      try {
-        logInfo('[RepCard Webhook] Starting async sync for appointment', { requestId, appointmentId });
-        
-        // Sync recent appointments (last 24 hours) - much faster than full incremental
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const fromDate = yesterday.toISOString().split('T')[0];
-        
-        const syncResult = await syncAppointments({
-          fromDate,
-          incremental: true
-        });
-
-        // Auto-link appointments to customers
-        const linkResult = await sql`
-          UPDATE repcard_appointments a
-          SET 
-            customer_id = c.id,
-            updated_at = NOW()
-          FROM repcard_customers c
-          WHERE a.repcard_customer_id::text = c.repcard_customer_id::text
-            AND a.customer_id IS NULL
-            AND c.id IS NOT NULL
-        `;
-        const appointmentsLinked = Array.isArray(linkResult) ? 0 : (linkResult as any).rowCount || 0;
-
-        logInfo('[RepCard Webhook] Async appointment sync completed', {
-          requestId,
-          appointmentId,
-          recordsFetched: syncResult.recordsFetched,
-          recordsUpdated: syncResult.recordsUpdated,
-          appointmentsLinked
-        });
-      } catch (asyncError) {
-        logError('[RepCard Webhook] Async sync failed', asyncError as Error, { requestId, appointmentId });
-        // Don't throw - webhook already responded successfully
-      }
-    });
-
-    // Return immediately - sync happens in background
-    return {
-      processed: true,
-      message: `Appointment ${appointmentId || 'webhook'} queued for sync`
-    };
-
-  } catch (error) {
-    logError('[RepCard Webhook] Failed to process appointment', error as Error, { requestId });
-    // Still return success to prevent webhook retries
-    return {
-      processed: false,
-      message: `Error processing appointment: ${error instanceof Error ? error.message : 'Unknown error'}`
-    };
-  }
-}
-
-/**
- * Process customer webhook event
- * 
- * RepCard payload format for customers:
- * {
- *   id: 46662815,                  // customer/contact ID
- *   user: { id: 139887 },           // setter who created
- *   createdAt: "2026-01-22 22:57:44+00:00"
- * }
- * 
- * IMPORTANT: Webhooks must respond quickly (<5 seconds) to avoid timeouts.
- * We process the sync asynchronously after responding.
- */
-async function processCustomerWebhook(payload: any, requestId: string): Promise<{ processed: boolean; message: string }> {
-  try {
-    // Extract customer ID from various possible formats
-    const customerId = payload.id || payload.contact_id || payload.customer_id || payload.contactId || payload.customerId || payload.object_id;
-    const setterId = payload.user?.id || payload.owner?.id || payload.user_id;
-    
-    logInfo('[RepCard Webhook] Processing customer webhook', {
-      requestId,
-      customerId,
-      setterId,
-      triggerEvent: payload.trigger_event || payload.event_type || payload.type,
-      hasUser: !!payload.user,
-      hasOwner: !!payload.owner
-    });
-
-    // CRITICAL: Process sync asynchronously to avoid webhook timeout
-    // Return success immediately, then process in background
-    setImmediate(async () => {
-      try {
-        logInfo('[RepCard Webhook] Starting async sync for customer', { requestId, customerId });
-        
-        // Sync recent customers (last 24 hours) - much faster than full incremental
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const startDate = yesterday.toISOString().split('T')[0];
-        
-        const syncResult = await syncCustomers({
-          startDate,
-          incremental: true
-        });
-
-        // After customer sync, link any appointments that were waiting for this customer
-        const linkResult = await sql`
-          UPDATE repcard_appointments a
-          SET 
-            customer_id = c.id,
-            updated_at = NOW()
-          FROM repcard_customers c
-          WHERE a.repcard_customer_id::text = c.repcard_customer_id::text
-            AND a.customer_id IS NULL
-            AND c.id IS NOT NULL
-            ${customerId ? sql`AND c.repcard_customer_id::text = ${customerId.toString()}::text` : sql``}
-        `;
-        const appointmentsLinked = Array.isArray(linkResult) ? 0 : (linkResult as any).rowCount || 0;
-
-        logInfo('[RepCard Webhook] Async customer sync completed', {
-          requestId,
-          customerId,
-          recordsFetched: syncResult.recordsFetched,
-          recordsUpdated: syncResult.recordsUpdated,
-          appointmentsLinked
-        });
-      } catch (asyncError) {
-        logError('[RepCard Webhook] Async customer sync failed', asyncError as Error, { requestId, customerId });
-        // Don't throw - webhook already responded successfully
-      }
-    });
-
-    // Return immediately - sync happens in background
-    return {
-      processed: true,
-      message: `Customer ${customerId || 'webhook'} queued for sync`
-    };
-
-  } catch (error) {
-    logError('[RepCard Webhook] Failed to process customer', error as Error, { requestId });
-    // Still return success to prevent webhook retries
-    return {
-      processed: false,
-      message: `Error processing customer: ${error instanceof Error ? error.message : 'Unknown error'}`
-    };
-  }
-}
+// NOTE: processAppointmentWebhook and processCustomerWebhook are now in lib/repcard/webhook-processor.ts
+// They parse webhook payloads directly instead of calling the API
 
 /**
  * GET endpoint for health check
