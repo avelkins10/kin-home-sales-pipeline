@@ -137,7 +137,8 @@ export async function syncCustomers(options: {
     // Fetch all customers with pagination
     let page = 1;
     let hasMore = true;
-    const MAX_PAGES = 10; // Reduced limit: ~1000 customers per sync to avoid timeout
+    // Increased limit for full sync to get all customers (not just recent ones)
+    const MAX_PAGES = options.incremental ? 10 : 100; // Full sync: up to 10,000 customers
     const MAX_DURATION_MS = 240000; // 4 minutes (leave 1 min buffer before 5 min timeout)
     const syncStartTime = Date.now();
 
