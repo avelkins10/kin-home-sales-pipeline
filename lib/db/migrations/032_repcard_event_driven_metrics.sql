@@ -56,7 +56,7 @@ BEGIN
     
     IF hours_diff >= 0 AND hours_diff <= 48 THEN
       result := TRUE;
-      reason := format('scheduled_at - customer.created_at = %.1f hours (within 48h)', hours_diff);
+      reason := format('scheduled_at - customer.created_at = %s hours (within 48h)', ROUND(hours_diff, 1)::text);
     ELSE
       result := FALSE;
       reason := format('scheduled_at - customer.created_at = %s hours (exceeds 48h)', ROUND(hours_diff, 1)::text);
