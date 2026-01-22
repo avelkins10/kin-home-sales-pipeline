@@ -887,9 +887,9 @@ export async function syncStatusLogs(options: {
                 raw_data
               )
               VALUES (
-                ${log._id},
+                ${log._id.toString()}::text,
                 ${customerId},
-                ${log.customerId},
+                ${log.customerId.toString()}::text,
                 ${log.statusFrom?.statusName || null},
                 ${log.statusTo.statusName},
                 ${log.createdAt},
