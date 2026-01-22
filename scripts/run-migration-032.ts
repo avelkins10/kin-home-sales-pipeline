@@ -23,7 +23,7 @@ async function runMigration() {
   console.log();
 
   const migrationFile = '032_repcard_event_driven_metrics.sql';
-  const migrationPath = resolve(process.cwd(), 'migrations', migrationFile);
+  const migrationPath = resolve(process.cwd(), 'lib/db/migrations', migrationFile);
 
   try {
     console.log(`📄 Running: ${migrationFile}`);
