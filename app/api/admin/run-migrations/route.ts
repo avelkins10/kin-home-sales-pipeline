@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/lib/db/client';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth/config';
 
 /**
  * Run Pending Migrations API
@@ -18,8 +20,14 @@ const PENDING_MIGRATIONS = [
 
 export async function POST(request: NextRequest) {
   try {
-    // TODO: Add admin authentication check here
-    // For now, we'll allow it but should be protected in production
+    // Authentication - only super_admin can run migrations
+    const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== 'super_admin') {
+      return NextResponse.json(
+        { error: 'Unauthorized - Super Admin access required' },
+        { status: 403 }
+      );
+    }
 
     const results = {
       success: [] as string[],
