@@ -51,15 +51,18 @@ BEGIN
   LIMIT 1;
 
   -- Calculate result
-  -- IMPORTANT: Normalize both timestamps to UTC to ensure accurate calculation
-  -- TIMESTAMPTZ values are stored in UTC but displayed in session timezone
-  -- Converting both to UTC ensures consistent comparison regardless of timezone
+  -- IMPORTANT: Normalize both timestamps to UTC for accurate calculation
+  -- The database columns are TIMESTAMP (no timezone), but we need to ensure
+  -- they're compared in the same timezone context. If they're stored as UTC,
+  -- we treat them as UTC. If they have timezone info (TIMESTAMPTZ), we normalize to UTC.
   IF scheduled_at_val IS NOT NULL AND customer_created IS NOT NULL THEN
-    -- Convert both to UTC explicitly for accurate time difference calculation
-    -- This handles cases where data might be in different timezones
+    -- Handle both TIMESTAMP and TIMESTAMPTZ:
+    -- If TIMESTAMPTZ: convert to UTC explicitly
+    -- If TIMESTAMP: assume already in UTC (or convert from session timezone to UTC)
+    -- This ensures accurate time difference calculation regardless of timezone
     hours_diff := EXTRACT(EPOCH FROM (
-      (scheduled_at_val AT TIME ZONE 'UTC') - 
-      (customer_created AT TIME ZONE 'UTC')
+      (scheduled_at_val::timestamptz AT TIME ZONE 'UTC') - 
+      (customer_created::timestamptz AT TIME ZONE 'UTC')
     )) / 3600;
     
     IF hours_diff >= 0 AND hours_diff <= 48 THEN
