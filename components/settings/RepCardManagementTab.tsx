@@ -45,6 +45,8 @@ export default function RepCardManagementTab() {
   const [backfilling, setBackfilling] = useState(false);
   const [diagnosticData, setDiagnosticData] = useState<any>(null);
   const [loadingDiagnostic, setLoadingDiagnostic] = useState(false);
+  const [debugData, setDebugData] = useState<any>(null);
+  const [loadingDebug, setLoadingDebug] = useState(false);
 
   // Fetch sync status
   const { data: syncStatus, isLoading: loadingSync } = useQuery({
@@ -157,6 +159,25 @@ export default function RepCardManagementTab() {
       toast.error('Diagnostic failed', { description: error.message });
     } finally {
       setLoadingDiagnostic(false);
+    }
+  };
+
+  const handleDebug = async () => {
+    setLoadingDebug(true);
+    try {
+      const res = await fetch('/api/admin/repcard/debug-recent-appointments');
+      if (!res.ok) {
+        throw new Error('Failed to fetch debug data');
+      }
+      const data = await res.json();
+      setDebugData(data);
+      toast.success('Debug analysis complete', {
+        description: data.diagnosis?.recommendation || 'Analysis complete',
+      });
+    } catch (error: any) {
+      toast.error('Debug failed', { description: error.message });
+    } finally {
+      setLoadingDebug(false);
     }
   };
 
@@ -604,8 +625,27 @@ export default function RepCardManagementTab() {
                 )}
               </Button>
 
-              {/* Diagnostic Button */}
-              <div className="mt-6 pt-6 border-t">
+              {/* Diagnostic Buttons */}
+              <div className="mt-6 pt-6 border-t space-y-3">
+                <Button
+                  onClick={handleDebug}
+                  disabled={loadingDebug}
+                  variant="outline"
+                  className="w-full"
+                >
+                  {loadingDebug ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="w-4 h-4 mr-2" />
+                      Deep Dive: Why Recent Metrics Show 0%
+                    </>
+                  )}
+                </Button>
+
                 <Button
                   onClick={handleDiagnostic}
                   disabled={loadingDiagnostic}
@@ -615,21 +655,113 @@ export default function RepCardManagementTab() {
                   {loadingDiagnostic ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Loading Diagnostic...
+                      Loading...
                     </>
                   ) : (
                     <>
-                      <AlertCircle className="w-4 h-4 mr-2" />
-                      Check Why Recent Metrics Show 0%
+                      <Info className="w-4 h-4 mr-2" />
+                      Quick Check: Sample Appointments
                     </>
                   )}
                 </Button>
+
+                {debugData && (
+                  <Card className="mt-4 bg-purple-50 border-purple-200">
+                    <CardContent className="pt-6">
+                      <div className="space-y-4">
+                        <div className="font-semibold text-purple-900">Deep Dive Analysis (Last 30 Days)</div>
+                        
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <div className="font-medium text-purple-800">Total Appointments:</div>
+                            <div className="text-purple-700">{debugData.summary?.total || 0}</div>
+                          </div>
+                          <div>
+                            <div className="font-medium text-purple-800">Timezone Used:</div>
+                            <div className="text-purple-700">{debugData.timezone}</div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 text-sm border-t border-purple-200 pt-3">
+                          <div>
+                            <div className="font-medium text-purple-800">48-Hour Speed:</div>
+                            <div className="text-purple-700">
+                              Stored: {debugData.summary?.stored?.within48h || 0} TRUE
+                            </div>
+                            <div className="text-purple-700">
+                              Should Be: {debugData.summary?.shouldBe?.within48h || 0} TRUE
+                            </div>
+                            {debugData.summary?.mismatches?.within48h > 0 && (
+                              <div className="text-red-600 font-medium">
+                                ⚠️ {debugData.summary.mismatches.within48h} mismatches!
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <div className="font-medium text-purple-800">Power Bill Rate:</div>
+                            <div className="text-purple-700">
+                              Stored: {debugData.summary?.stored?.hasPowerBill || 0} TRUE
+                            </div>
+                            <div className="text-purple-700">
+                              Should Be: {debugData.summary?.shouldBe?.hasPowerBill || 0} TRUE
+                            </div>
+                            {debugData.summary?.mismatches?.hasPowerBill > 0 && (
+                              <div className="text-red-600 font-medium">
+                                ⚠️ {debugData.summary.mismatches.hasPowerBill} mismatches!
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {debugData.diagnosis && (
+                          <div className={`p-3 rounded border ${debugData.diagnosis.issue.includes('Mismatch') ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+                            <div className="font-medium text-sm mb-1">Diagnosis:</div>
+                            <div className="text-sm">{debugData.diagnosis.issue}</div>
+                            <div className="text-sm font-medium mt-2">Recommendation:</div>
+                            <div className="text-sm">{debugData.diagnosis.recommendation}</div>
+                          </div>
+                        )}
+
+                        {debugData.sampleAppointments && debugData.sampleAppointments.length > 0 && (
+                          <div className="mt-4">
+                            <div className="font-medium text-purple-800 mb-2">Sample Appointments (showing mismatches):</div>
+                            <div className="space-y-2 max-h-60 overflow-y-auto">
+                              {debugData.sampleAppointments
+                                .filter((apt: any) => apt.mismatch48h || apt.mismatchPB)
+                                .slice(0, 10)
+                                .map((apt: any, idx: number) => (
+                                <div key={idx} className="text-xs bg-white p-2 rounded border">
+                                  <div className="font-medium">Appt #{apt.id?.slice(0, 8)}</div>
+                                  {apt.mismatch48h && (
+                                    <div className="text-red-600">
+                                      48h: Stored {apt.stored48h ? 'TRUE' : 'FALSE'}, Should be {apt.shouldBe48h ? 'TRUE' : 'FALSE'}
+                                      {apt.hoursDiffET !== null && ` (${apt.hoursDiffET?.toFixed(1)}h ET)`}
+                                    </div>
+                                  )}
+                                  {apt.mismatchPB && (
+                                    <div className="text-red-600">
+                                      PB: Stored {apt.storedPB ? 'TRUE' : 'FALSE'}, Should be {apt.shouldHavePB ? 'TRUE' : 'FALSE'}
+                                      ({apt.customerAttCount + apt.appointmentAttCount} attachments)
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                              {debugData.sampleAppointments.filter((apt: any) => apt.mismatch48h || apt.mismatchPB).length === 0 && (
+                                <div className="text-sm text-gray-600">No mismatches found in sample</div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
                 {diagnosticData && (
                   <Card className="mt-4 bg-blue-50 border-blue-200">
                     <CardContent className="pt-6">
                       <div className="space-y-4">
-                        <div className="font-semibold text-blue-900">Diagnostic Results (Last 30 Days)</div>
+                        <div className="font-semibold text-blue-900">Quick Check Results</div>
                         
                         <div className="grid grid-cols-2 gap-4 text-sm">
                           <div>
@@ -649,27 +781,6 @@ export default function RepCardManagementTab() {
                             <div className="text-blue-700">{diagnosticData.summary?.shouldHavePB || 0} (actually: {diagnosticData.summary?.actuallyHasPB || 0})</div>
                           </div>
                         </div>
-
-                        {diagnosticData.sampleAppointments && diagnosticData.sampleAppointments.length > 0 && (
-                          <div className="mt-4">
-                            <div className="font-medium text-blue-800 mb-2">Sample Appointments:</div>
-                            <div className="space-y-2 max-h-60 overflow-y-auto">
-                              {diagnosticData.sampleAppointments.slice(0, 5).map((apt: any, idx: number) => (
-                                <div key={idx} className="text-xs bg-white p-2 rounded border">
-                                  <div className="font-medium">Appt #{apt.id?.slice(0, 8)}</div>
-                                  <div>48h: {apt.stored48h ? '✅' : '❌'} (should: {apt.shouldBe48h ? '✅' : '❌'})</div>
-                                  <div>PB: {apt.storedPB ? '✅' : '❌'} (should: {apt.shouldHavePB ? '✅' : '❌'})</div>
-                                  {apt.hoursDiff !== null && (
-                                    <div className="text-gray-600">Hours diff: {apt.hoursDiff?.toFixed(1)}</div>
-                                  )}
-                                  {!apt.hasRequiredData && (
-                                    <div className="text-red-600">⚠️ Missing required data</div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </CardContent>
                   </Card>
