@@ -46,18 +46,32 @@ export async function POST(request: NextRequest) {
     console.log('[RepCard Backfill] Using event-driven architecture - triggers will calculate metrics automatically');
     
     // Check if triggers exist (migration may not have been run)
+    // Check for both the function and the trigger
     let triggersExist = false;
     try {
-      const triggerCheck = await sql`
+      // Check for the trigger function
+      const functionCheck = await sql`
         SELECT routine_name 
         FROM information_schema.routines 
         WHERE routine_schema = 'public' 
           AND routine_name = 'update_appointment_metrics'
         LIMIT 1
       `;
+      const functionRows = Array.isArray(functionCheck) ? functionCheck : (functionCheck?.rows || []);
+      
+      // Also check for the trigger itself
+      const triggerCheck = await sql`
+        SELECT trigger_name 
+        FROM information_schema.triggers 
+        WHERE trigger_schema = 'public' 
+          AND event_object_table = 'repcard_appointments'
+          AND trigger_name = 'trigger_update_appointment_metrics'
+        LIMIT 1
+      `;
       const triggerRows = Array.isArray(triggerCheck) ? triggerCheck : (triggerCheck?.rows || []);
-      triggersExist = triggerRows.length > 0;
-      console.log(`[RepCard Backfill] Triggers exist: ${triggersExist}`);
+      
+      triggersExist = functionRows.length > 0 && triggerRows.length > 0;
+      console.log(`[RepCard Backfill] Function exists: ${functionRows.length > 0}, Trigger exists: ${triggerRows.length > 0}, Triggers exist: ${triggersExist}`);
     } catch (checkError: any) {
       console.error('[RepCard Backfill] Error checking for triggers:', checkError);
       // Don't fail on check error - just log it and continue
