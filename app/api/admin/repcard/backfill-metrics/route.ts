@@ -58,8 +58,10 @@ export async function POST(request: NextRequest) {
       const triggerRows = Array.isArray(triggerCheck) ? triggerCheck : (triggerCheck?.rows || []);
       triggersExist = triggerRows.length > 0;
       console.log(`[RepCard Backfill] Triggers exist: ${triggersExist}`);
-    } catch (checkError) {
-      console.log('[RepCard Backfill] Could not check for triggers:', checkError);
+    } catch (checkError: any) {
+      console.error('[RepCard Backfill] Error checking for triggers:', checkError);
+      // Don't fail on check error - just log it and continue
+      // The UPDATE will fail if triggers don't exist anyway
     }
     
     if (!triggersExist) {
@@ -77,13 +79,23 @@ export async function POST(request: NextRequest) {
     
     // Update all appointments to trigger recalculation
     // The trigger will recalculate is_within_48_hours and has_power_bill automatically
-    const backfillResult = await sql`
-      UPDATE repcard_appointments
-      SET updated_at = NOW()
-      WHERE id IS NOT NULL
-    `;
-    const appointmentsUpdated = Array.isArray(backfillResult) ? 0 : (backfillResult as any).rowCount || 0;
-    console.log(`[RepCard Backfill] Triggered recalculation for ${appointmentsUpdated} appointments`);
+    let appointmentsUpdated = 0;
+    try {
+      const backfillResult = await sql`
+        UPDATE repcard_appointments
+        SET updated_at = NOW()
+        WHERE id IS NOT NULL
+      `;
+      appointmentsUpdated = Array.isArray(backfillResult) ? 0 : (backfillResult as any).rowCount || 0;
+      console.log(`[RepCard Backfill] Triggered recalculation for ${appointmentsUpdated} appointments`);
+    } catch (updateError: any) {
+      console.error('[RepCard Backfill] Error updating appointments:', updateError);
+      // If the error is about missing triggers or functions, provide helpful message
+      if (updateError?.message?.includes('function') || updateError?.message?.includes('trigger')) {
+        throw new Error(`Database trigger error: ${updateError.message}. Please ensure Migration 032 has been run successfully.`);
+      }
+      throw updateError;
+    }
     
     // Get counts from audit table to show what was calculated (if table exists)
     let auditRows: any[] = [];
@@ -181,6 +193,16 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     const duration = Date.now() - start;
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    console.error('[RepCard Backfill] Full error:', {
+      message: errorMessage,
+      stack: errorStack,
+      requestId,
+      error
+    });
+    
     logError('backfill-repcard-metrics', error as Error, { requestId });
     logApiResponse('POST', path, duration, { status: 500, requestId });
     
@@ -188,7 +210,11 @@ export async function POST(request: NextRequest) {
       {
         success: false,
         error: 'Failed to backfill metrics',
-        message: error instanceof Error ? error.message : 'Unknown error',
+        message: errorMessage,
+        ...(process.env.NODE_ENV === 'development' && { 
+          stack: errorStack,
+          details: error instanceof Error ? error.toString() : String(error)
+        }),
       },
       { status: 500 }
     );
