@@ -93,8 +93,12 @@ export async function POST(request: NextRequest) {
     
     // Update all appointments to trigger recalculation
     // The trigger will recalculate is_within_48_hours and has_power_bill automatically
+    // IMPORTANT: This will check for attachments that exist NOW, so run this after attachments are synced
     let appointmentsUpdated = 0;
     try {
+      console.log('[RepCard Backfill] Updating all appointments to trigger metric recalculation...');
+      console.log('[RepCard Backfill] This will check for attachments that currently exist in the database');
+      
       const backfillResult = await sql`
         UPDATE repcard_appointments
         SET updated_at = NOW()
@@ -102,6 +106,7 @@ export async function POST(request: NextRequest) {
       `;
       appointmentsUpdated = Array.isArray(backfillResult) ? 0 : (backfillResult as any).rowCount || 0;
       console.log(`[RepCard Backfill] Triggered recalculation for ${appointmentsUpdated} appointments`);
+      console.log('[RepCard Backfill] Note: If attachments were synced after the last backfill, this will now detect them');
     } catch (updateError: any) {
       console.error('[RepCard Backfill] Error updating appointments:', updateError);
       // If the error is about missing triggers or functions, provide helpful message
