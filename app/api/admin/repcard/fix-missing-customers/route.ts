@@ -22,8 +22,10 @@ export async function POST(request: NextRequest) {
     const skipCustomerSync = searchParams.get('skipCustomerSync') === 'true';
     const skipLinkAppointments = searchParams.get('skipLinkAppointments') === 'true';
     const skipMetricsBackfill = searchParams.get('skipMetricsBackfill') === 'true';
-    const startDate = searchParams.get('startDate') || undefined;
-    const endDate = searchParams.get('endDate') || undefined;
+    // Don't use date filters - sync ALL customers to get missing ones
+    // Recent appointments reference customer IDs that might be from any time period
+    const startDate = undefined; // Sync all customers, not just recent ones
+    const endDate = undefined;
 
     const results: any = {
       step1_customerSync: null,

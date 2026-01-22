@@ -120,6 +120,7 @@ export async function syncCustomers(options: {
     console.log(`[RepCard Sync] Starting ${syncType} sync for customers...`);
 
     // For incremental sync, get the last sync timestamp
+    // IMPORTANT: If incremental=false (full sync), don't use date filters to get ALL customers
     let startDate = options.startDate;
     if (options.incremental && !startDate) {
       const lastSync = await getLastSyncTimestamp('customers');
@@ -127,6 +128,10 @@ export async function syncCustomers(options: {
         startDate = lastSync.toISOString().split('T')[0];
         console.log(`[RepCard Sync] Incremental sync from ${startDate}`);
       }
+    } else if (!options.incremental) {
+      // Full sync - don't filter by date to get all customers
+      startDate = undefined;
+      console.log(`[RepCard Sync] Full sync - fetching all customers (no date filter)`);
     }
 
     // Fetch all customers with pagination
