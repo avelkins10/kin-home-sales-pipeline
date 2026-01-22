@@ -88,12 +88,21 @@ export async function POST(request: NextRequest) {
     let objectId: string | number | undefined;
 
     // First, try to determine object type from payload structure (most reliable)
-    if (payload.appointment_id || payload.appointmentId || payload.appointment?.id) {
+    // RepCard webhook format: { id: 628195, contact: { id: 46662815 }, user: { id: 139887 }, closer: { id: 174886 } }
+    if (payload.id && (payload.contact || payload.closer || payload.user || payload.appt_start_time)) {
+      // Has appointment-like structure (id + contact/closer/user/time)
+      objectType = 'appointment';
+      objectId = payload.id;
+    } else if (payload.appointment_id || payload.appointmentId || payload.appointment?.id) {
       objectType = 'appointment';
       objectId = payload.appointment_id || payload.appointmentId || payload.appointment?.id;
     } else if (payload.contact_id || payload.customer_id || payload.contactId || payload.customerId || payload.contact?.id) {
       objectType = 'customer';
       objectId = payload.contact_id || payload.customer_id || payload.contactId || payload.customerId || payload.contact?.id;
+    } else if (payload.id && !payload.contact && !payload.closer) {
+      // Just an ID without appointment structure - likely a customer
+      objectType = 'customer';
+      objectId = payload.id;
     } else if (triggerEvent) {
       // If we have trigger event, use it to determine type
       const triggerLower = triggerEvent.toLowerCase();
@@ -122,7 +131,13 @@ export async function POST(request: NextRequest) {
       eventType,
       objectType,
       objectId,
-      timestamp: payload.timestamp || payload.created_at || new Date().toISOString()
+      timestamp: payload.timestamp || payload.created_at || payload.updated_at || new Date().toISOString(),
+      // Log key fields from actual RepCard payload format
+      appointmentId: payload.id,
+      contactId: payload.contact?.id,
+      setterId: payload.user?.id,
+      closerId: payload.closer?.id,
+      scheduledTime: payload.appt_start_time || payload.appt_start_time_local
     });
 
     // Process webhook event based on object type (more reliable than trigger event)
@@ -195,23 +210,47 @@ export async function POST(request: NextRequest) {
 
 /**
  * Process appointment webhook event
+ * 
+ * RepCard payload format:
+ * {
+ *   id: 628195,                    // appointment ID
+ *   contact: { id: 46662815 },     // customer ID
+ *   user: { id: 139887 },           // setter ID
+ *   closer: { id: 174886 },         // closer ID
+ *   appt_start_time: "2026-01-24 16:00:00",
+ *   contact: { createdAt: "2026-01-22 22:57:44+00:00" }
+ * }
  */
 async function processAppointmentWebhook(payload: any, requestId: string): Promise<{ processed: boolean; message: string }> {
   try {
-    const appointmentId = payload.appointment_id || payload.id || payload.object_id;
+    // Extract appointment ID from various possible formats
+    const appointmentId = payload.id || payload.appointment_id || payload.appointmentId || payload.object_id;
+    const contactId = payload.contact?.id || payload.contact_id || payload.customer_id;
+    const setterId = payload.user?.id || payload.user_id || payload.setter_id;
+    const closerId = payload.closer?.id || payload.closer_id;
     
     if (!appointmentId) {
-      return { processed: false, message: 'Missing appointment ID' };
+      logInfo('[RepCard Webhook] No appointment ID in payload, attempting full sync', {
+        requestId,
+        payloadKeys: Object.keys(payload)
+      });
+      // Still try to sync - might be able to infer from other data
     }
 
     logInfo('[RepCard Webhook] Processing appointment webhook', {
       requestId,
       appointmentId,
-      triggerEvent: payload.trigger_event || payload.event_type || payload.type
+      contactId,
+      setterId,
+      closerId,
+      triggerEvent: payload.trigger_event || payload.event_type || payload.type,
+      hasContact: !!payload.contact,
+      hasUser: !!payload.user,
+      hasCloser: !!payload.closer
     });
 
-    // Trigger incremental sync for this specific appointment
-    // This will fetch the latest data from RepCard API
+    // Trigger incremental sync - this will fetch latest appointments from RepCard API
+    // The sync service will handle the actual data format from RepCard API
     const syncResult = await syncAppointments({
       incremental: true
     });
@@ -250,19 +289,35 @@ async function processAppointmentWebhook(payload: any, requestId: string): Promi
 
 /**
  * Process customer webhook event
+ * 
+ * RepCard payload format for customers:
+ * {
+ *   id: 46662815,                  // customer/contact ID
+ *   user: { id: 139887 },           // setter who created
+ *   createdAt: "2026-01-22 22:57:44+00:00"
+ * }
  */
 async function processCustomerWebhook(payload: any, requestId: string): Promise<{ processed: boolean; message: string }> {
   try {
-    const customerId = payload.customer_id || payload.contact_id || payload.id || payload.object_id;
+    // Extract customer ID from various possible formats
+    const customerId = payload.id || payload.contact_id || payload.customer_id || payload.contactId || payload.customerId || payload.object_id;
+    const setterId = payload.user?.id || payload.owner?.id || payload.user_id;
     
     if (!customerId) {
-      return { processed: false, message: 'Missing customer ID' };
+      logInfo('[RepCard Webhook] No customer ID in payload, attempting full sync', {
+        requestId,
+        payloadKeys: Object.keys(payload)
+      });
+      // Still try to sync - might be able to infer from other data
     }
 
     logInfo('[RepCard Webhook] Processing customer webhook', {
       requestId,
       customerId,
-      triggerEvent: payload.trigger_event || payload.event_type || payload.type
+      setterId,
+      triggerEvent: payload.trigger_event || payload.event_type || payload.type,
+      hasUser: !!payload.user,
+      hasOwner: !!payload.owner
     });
 
     // Trigger incremental sync for customers
