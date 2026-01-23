@@ -802,6 +802,8 @@ export async function GET(request: NextRequest) {
         topAppointmentSetters,
         topClosers,
       },
+      officeSettersBreakdown,
+      officeClosersBreakdown,
       canvassing: canvassingActivity,
       metadata: {
         fetchedAt: new Date().toISOString(),
