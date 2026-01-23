@@ -45,17 +45,34 @@ export async function GET(
 
     const { appointmentId } = params;
 
+    // Try to parse as integer for repcard_appointment_id, otherwise treat as UUID
+    const appointmentIdInt = parseInt(appointmentId, 10);
+    const isNumeric = !isNaN(appointmentIdInt);
+
     // First, get the current appointment to find the customer
-    const currentAppointmentResult = await sql`
-      SELECT 
-        a.repcard_customer_id,
-        a.repcard_appointment_id,
-        a.scheduled_at
-      FROM repcard_appointments a
-      WHERE a.id = ${appointmentId}::text
-         OR a.repcard_appointment_id = ${appointmentId}::text
-      LIMIT 1
-    `;
+    // Support both UUID (a.id) and repcard_appointment_id (integer)
+    const currentAppointmentResult = isNumeric
+      ? await sql`
+          SELECT 
+            a.repcard_customer_id,
+            a.repcard_appointment_id,
+            a.scheduled_at,
+            a.id
+          FROM repcard_appointments a
+          WHERE a.id = ${appointmentId}::text
+             OR a.repcard_appointment_id = ${appointmentIdInt}::int
+          LIMIT 1
+        `
+      : await sql`
+          SELECT 
+            a.repcard_customer_id,
+            a.repcard_appointment_id,
+            a.scheduled_at,
+            a.id
+          FROM repcard_appointments a
+          WHERE a.id = ${appointmentId}::text
+          LIMIT 1
+        `;
 
     const currentAppointment = Array.from(currentAppointmentResult)[0];
 
@@ -97,8 +114,8 @@ export async function GET(
       WHERE a.repcard_customer_id = ${currentAppointment.repcard_customer_id}
         AND a.scheduled_at IS NOT NULL
         AND (
-          a.id != ${appointmentId}::text 
-          AND a.repcard_appointment_id::text != ${appointmentId}::text
+          a.id != ${currentAppointment.id}::text 
+          AND a.repcard_appointment_id != ${currentAppointment.repcard_appointment_id}::int
         )
         AND (
           -- Only show appointments scheduled before the current one, or if current has no scheduled_at, show all
