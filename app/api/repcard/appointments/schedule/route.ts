@@ -114,6 +114,17 @@ export async function GET(request: NextRequest) {
     if (!effectiveOfficeIds && ['office_leader', 'area_director', 'divisional', 'regional'].includes(userRole)) {
       effectiveOfficeIds = await getAssignedOffices(userId);
     }
+    
+    // Log office IDs for debugging
+    logInfo('repcard-appointments-schedule-office-ids', {
+      requestId,
+      userRole,
+      officeIdsParam,
+      officeIds: officeIds?.length || 0,
+      effectiveOfficeIds: effectiveOfficeIds?.length || 0,
+      willUseLeaderPath: !!(effectiveOfficeIds && effectiveOfficeIds.length > 0),
+      willUseSuperAdminPath: (userRole === 'super_admin' || userRole === 'regional') && !(effectiveOfficeIds && effectiveOfficeIds.length > 0)
+    });
 
     // Build WHERE conditions - only include when they exist
     // Check which filters are active to conditionally build queries
