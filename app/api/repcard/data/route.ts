@@ -161,21 +161,24 @@ export async function GET(request: NextRequest) {
         const userIdNum = actualRepcardUserId ? (typeof actualRepcardUserId === 'string' ? parseInt(actualRepcardUserId) : actualRepcardUserId) : null;
         const parsedCustomerId = customerId ? parseInt(customerId) : null;
         
-        // Build WHERE conditions as array to avoid null parameter binding issues
-        // Use empty sql template tag for missing conditions (doesn't create parameters)
-        const emptySql = sql``;
-        const additionalWhere: any[] = [];
+        // Build WHERE conditions as array and combine into single fragment
+        const additionalWhereParts: any[] = [];
         if (userIdNum) {
-          additionalWhere.push(sql`AND uploaded_by_user_id = ${userIdNum}`);
+          additionalWhereParts.push(sql`AND uploaded_by_user_id = ${userIdNum}`);
         }
         if (parsedCustomerId) {
-          additionalWhere.push(sql`AND repcard_customer_id = ${parsedCustomerId}`);
+          additionalWhereParts.push(sql`AND repcard_customer_id = ${parsedCustomerId}`);
         }
         if (startDate) {
-          additionalWhere.push(sql`AND created_at >= ${startDate}::timestamp`);
+          additionalWhereParts.push(sql`AND created_at >= ${startDate}::timestamp`);
         }
         if (endDate) {
-          additionalWhere.push(sql`AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')`);
+          additionalWhereParts.push(sql`AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')`);
+        }
+        // Combine all fragments into a single fragment
+        let additionalWhere = sql``;
+        for (const fragment of additionalWhereParts) {
+          additionalWhere = sql`${additionalWhere} ${fragment}`;
         }
         
         const customerAttachmentsResult = await sql`
@@ -193,10 +196,7 @@ export async function GET(request: NextRequest) {
             updated_at
           FROM repcard_customer_attachments
           WHERE 1=1
-          ${additionalWhere[0] || emptySql}
-          ${additionalWhere[1] || emptySql}
-          ${additionalWhere[2] || emptySql}
-          ${additionalWhere[3] || emptySql}
+          ${additionalWhere}
           ORDER BY created_at DESC
           LIMIT ${limit}
           OFFSET ${offset}
@@ -220,10 +220,7 @@ export async function GET(request: NextRequest) {
             updated_at
           FROM repcard_appointment_attachments
           WHERE 1=1
-          ${additionalWhere[0] || emptySql}
-          ${additionalWhere[1] || emptySql}
-          ${additionalWhere[2] || emptySql}
-          ${additionalWhere[3] || emptySql}
+          ${additionalWhere}
           ORDER BY created_at DESC
           LIMIT ${limit}
           OFFSET ${offset}
@@ -242,21 +239,24 @@ export async function GET(request: NextRequest) {
         const parsedRepcardUserId = actualRepcardUserId ? parseInt(actualRepcardUserId) : null;
         const parsedOfficeId = officeId ? parseInt(officeId) : null;
         
-        // Build WHERE conditions as array to avoid null parameter binding issues
-        // Use empty sql template tag for missing conditions (doesn't create parameters)
-        const emptySql = sql``;
-        const additionalWhere: any[] = [];
+        // Build WHERE conditions as array and combine into single fragment
+        const additionalWhereParts: any[] = [];
         if (parsedRepcardUserId) {
-          additionalWhere.push(sql`AND repcard_user_id = ${parsedRepcardUserId}`);
+          additionalWhereParts.push(sql`AND repcard_user_id = ${parsedRepcardUserId}`);
         }
         if (parsedOfficeId) {
-          additionalWhere.push(sql`AND office_id = ${parsedOfficeId}`);
+          additionalWhereParts.push(sql`AND office_id = ${parsedOfficeId}`);
         }
         if (startDate) {
-          additionalWhere.push(sql`AND created_at >= ${startDate}::timestamp`);
+          additionalWhereParts.push(sql`AND created_at >= ${startDate}::timestamp`);
         }
         if (endDate) {
-          additionalWhere.push(sql`AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')`);
+          additionalWhereParts.push(sql`AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')`);
+        }
+        // Combine all fragments into a single fragment
+        let additionalWhere = sql``;
+        for (const fragment of additionalWhereParts) {
+          additionalWhere = sql`${additionalWhere} ${fragment}`;
         }
         
         const result = await sql`
@@ -284,10 +284,7 @@ export async function GET(request: NextRequest) {
             synced_at
           FROM repcard_users
           WHERE 1=1
-          ${additionalWhere[0] || emptySql}
-          ${additionalWhere[1] || emptySql}
-          ${additionalWhere[2] || emptySql}
-          ${additionalWhere[3] || emptySql}
+          ${additionalWhere}
           ORDER BY last_name, first_name
           LIMIT ${limit}
           OFFSET ${offset}
@@ -298,10 +295,7 @@ export async function GET(request: NextRequest) {
         const countResult = await sql`
           SELECT COUNT(*) as count FROM repcard_users
           WHERE 1=1
-          ${additionalWhere[0] || emptySql}
-          ${additionalWhere[1] || emptySql}
-          ${additionalWhere[2] || emptySql}
-          ${additionalWhere[3] || emptySql}
+          ${additionalWhere}
         `;
         total = parseInt(Array.from(countResult)[0]?.count || '0');
         break;
@@ -311,12 +305,15 @@ export async function GET(request: NextRequest) {
         // Build query using parameterized sql template tags
         const parsedOfficeId = officeId ? parseInt(officeId) : null;
         
-        // Build WHERE conditions as array to avoid null parameter binding issues
-        // Use empty sql template tag for missing conditions (doesn't create parameters)
-        const emptySql = sql``;
-        const additionalWhere: any[] = [];
+        // Build WHERE conditions as array and combine into single fragment
+        const additionalWhereParts: any[] = [];
         if (parsedOfficeId) {
-          additionalWhere.push(sql`AND repcard_office_id = ${parsedOfficeId}`);
+          additionalWhereParts.push(sql`AND repcard_office_id = ${parsedOfficeId}`);
+        }
+        // Combine all fragments into a single fragment
+        let additionalWhere = sql``;
+        for (const fragment of additionalWhereParts) {
+          additionalWhere = sql`${additionalWhere} ${fragment}`;
         }
         
         const result = await sql`
@@ -334,7 +331,7 @@ export async function GET(request: NextRequest) {
             synced_at
           FROM repcard_offices
           WHERE 1=1
-          ${additionalWhere[0] || emptySql}
+          ${additionalWhere}
           ORDER BY name
           LIMIT ${limit}
           OFFSET ${offset}
@@ -345,7 +342,7 @@ export async function GET(request: NextRequest) {
         const countResult = await sql`
           SELECT COUNT(*) as count FROM repcard_offices
           WHERE 1=1
-          ${additionalWhere[0] || emptySql}
+          ${additionalWhere}
         `;
         total = parseInt(Array.from(countResult)[0]?.count || '0');
         break;
@@ -356,21 +353,24 @@ export async function GET(request: NextRequest) {
         const userIdNum = actualRepcardUserId ? (typeof actualRepcardUserId === 'string' ? parseInt(actualRepcardUserId) : actualRepcardUserId) : null;
         const parsedCustomerId = customerId ? parseInt(customerId) : null;
         
-        // Build WHERE conditions as array to avoid null parameter binding issues
-        // Use empty sql template tag for missing conditions (doesn't create parameters)
-        const emptySql = sql``;
-        const additionalWhere: any[] = [];
+        // Build WHERE conditions as array and combine into single fragment
+        const additionalWhereParts: any[] = [];
         if (userIdNum) {
-          additionalWhere.push(sql`AND changed_by_user_id = ${userIdNum}`);
+          additionalWhereParts.push(sql`AND changed_by_user_id = ${userIdNum}`);
         }
         if (parsedCustomerId) {
-          additionalWhere.push(sql`AND repcard_customer_id = ${parsedCustomerId}`);
+          additionalWhereParts.push(sql`AND repcard_customer_id = ${parsedCustomerId}`);
         }
         if (startDate) {
-          additionalWhere.push(sql`AND changed_at >= ${startDate}::timestamp`);
+          additionalWhereParts.push(sql`AND changed_at >= ${startDate}::timestamp`);
         }
         if (endDate) {
-          additionalWhere.push(sql`AND changed_at <= (${endDate}::timestamp + INTERVAL '1 day')`);
+          additionalWhereParts.push(sql`AND changed_at <= (${endDate}::timestamp + INTERVAL '1 day')`);
+        }
+        // Combine all fragments into a single fragment
+        let additionalWhere = sql``;
+        for (const fragment of additionalWhereParts) {
+          additionalWhere = sql`${additionalWhere} ${fragment}`;
         }
         
         const result = await sql`
@@ -386,10 +386,7 @@ export async function GET(request: NextRequest) {
             synced_at
           FROM repcard_status_logs
           WHERE 1=1
-          ${additionalWhere[0] || emptySql}
-          ${additionalWhere[1] || emptySql}
-          ${additionalWhere[2] || emptySql}
-          ${additionalWhere[3] || emptySql}
+          ${additionalWhere}
           ORDER BY changed_at DESC
           LIMIT ${limit}
           OFFSET ${offset}
@@ -400,10 +397,7 @@ export async function GET(request: NextRequest) {
         const countResult = await sql`
           SELECT COUNT(*) as count FROM repcard_status_logs
           WHERE 1=1
-          ${additionalWhere[0] || emptySql}
-          ${additionalWhere[1] || emptySql}
-          ${additionalWhere[2] || emptySql}
-          ${additionalWhere[3] || emptySql}
+          ${additionalWhere}
         `;
         total = parseInt(Array.from(countResult)[0]?.count || '0');
         break;

@@ -95,28 +95,32 @@ export async function GET(request: NextRequest) {
     }
 
     // Build query based on role and filters - use separate queries to avoid parameter binding issues
-    // Build WHERE conditions as array to avoid null parameter binding issues
-    // Use empty sql template tag for missing conditions (doesn't create parameters)
-    const emptySql = sql``;
-    const additionalWhere: any[] = [];
+    // Build WHERE conditions as array and combine into single fragment to avoid parameter binding issues
+    const additionalWhereParts: any[] = [];
     if (teamIds && teamIds.length > 0) {
-      additionalWhere.push(sql`AND (setter.team_id = ANY(${teamIds}::int[]) OR closer.team_id = ANY(${teamIds}::int[]))`);
+      additionalWhereParts.push(sql`AND (setter.team_id = ANY(${teamIds}::int[]) OR closer.team_id = ANY(${teamIds}::int[]))`);
     }
     if (calendarId) {
-      additionalWhere.push(sql`AND (a.raw_data->>'calendarId')::int = ${calendarId}`);
+      additionalWhereParts.push(sql`AND (a.raw_data->>'calendarId')::int = ${calendarId}`);
     }
     if (statusFilter) {
-      additionalWhere.push(sql`AND a.status_category = ${statusFilter}`);
+      additionalWhereParts.push(sql`AND a.status_category = ${statusFilter}`);
     }
     if (hasPowerBillFilter === 'true') {
-      additionalWhere.push(sql`AND a.has_power_bill = TRUE`);
+      additionalWhereParts.push(sql`AND a.has_power_bill = TRUE`);
     } else if (hasPowerBillFilter === 'false') {
-      additionalWhere.push(sql`AND (a.has_power_bill = FALSE OR a.has_power_bill IS NULL)`);
+      additionalWhereParts.push(sql`AND (a.has_power_bill = FALSE OR a.has_power_bill IS NULL)`);
     }
     if (isRescheduleFilter === 'true') {
-      additionalWhere.push(sql`AND a.is_reschedule = TRUE`);
+      additionalWhereParts.push(sql`AND a.is_reschedule = TRUE`);
     } else if (isRescheduleFilter === 'false') {
-      additionalWhere.push(sql`AND (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)`);
+      additionalWhereParts.push(sql`AND (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)`);
+    }
+    // Combine all fragments into a single fragment to avoid creating parameters for missing conditions
+    // Build the combined fragment by including each part only if it exists
+    let additionalWhere = sql``;
+    for (const fragment of additionalWhereParts) {
+      additionalWhere = sql`${additionalWhere} ${fragment}`;
     }
 
     let result;
@@ -177,11 +181,7 @@ export async function GET(request: NextRequest) {
           (a.scheduled_at IS NULL AND a.created_at::date >= ${startDate}::date AND a.created_at::date <= ${endDate}::date)
         )
         AND a.closer_user_id = ${repcardUserId}
-        ${additionalWhere[0] || emptySql}
-        ${additionalWhere[1] || emptySql}
-        ${additionalWhere[2] || emptySql}
-        ${additionalWhere[3] || emptySql}
-        ${additionalWhere[4] || emptySql}
+        ${additionalWhere}
         ORDER BY COALESCE(a.scheduled_at, a.created_at) ASC
       `;
     } else if (effectiveOfficeIds && effectiveOfficeIds.length > 0) {
@@ -240,11 +240,7 @@ export async function GET(request: NextRequest) {
           (a.scheduled_at IS NULL AND a.created_at::date >= ${startDate}::date AND a.created_at::date <= ${endDate}::date)
         )
         AND a.office_id = ANY(${effectiveOfficeIds}::int[])
-        ${additionalWhere[0] || emptySql}
-        ${additionalWhere[1] || emptySql}
-        ${additionalWhere[2] || emptySql}
-        ${additionalWhere[3] || emptySql}
-        ${additionalWhere[4] || emptySql}
+        ${additionalWhere}
         ORDER BY COALESCE(a.scheduled_at, a.created_at) ASC
       `;
     } else if (userRole === 'super_admin' || userRole === 'regional') {
@@ -302,11 +298,7 @@ export async function GET(request: NextRequest) {
           OR
           (a.scheduled_at IS NULL AND a.created_at::date >= ${startDate}::date AND a.created_at::date <= ${endDate}::date)
         )
-        ${additionalWhere[0] || emptySql}
-        ${additionalWhere[1] || emptySql}
-        ${additionalWhere[2] || emptySql}
-        ${additionalWhere[3] || emptySql}
-        ${additionalWhere[4] || emptySql}
+        ${additionalWhere}
         ORDER BY COALESCE(a.scheduled_at, a.created_at) ASC
       `;
     } else {
