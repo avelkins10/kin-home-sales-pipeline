@@ -36,6 +36,7 @@ export function AppointmentSchedule({
   const [viewMode, setViewMode] = useState<ViewMode>(isMobile ? 'list' : 'week');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentData | null>(null);
+  const [calendarDate, setCalendarDate] = useState<Date>(new Date());
 
   // Default filters
   const today = new Date();
@@ -260,11 +261,13 @@ export function AppointmentSchedule({
           ))}
         </div>
       ) : (
-        <Card className="p-4">
-          <p className="text-muted-foreground text-center py-8">
-            Calendar view (day/week/month) coming soon. Please use List view for now.
-          </p>
-        </Card>
+        <AppointmentCalendarView
+          appointments={appointments}
+          viewMode={viewMode}
+          currentDate={calendarDate}
+          onDateChange={setCalendarDate}
+          onAppointmentClick={setSelectedAppointment}
+        />
       )}
 
       {/* Appointment Detail Modal */}
