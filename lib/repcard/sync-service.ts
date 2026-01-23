@@ -329,6 +329,101 @@ export async function syncCustomers(options: {
             }
             recordsFetched++;
 
+            // Extract door knocks from customer data and sync them
+            // Customer payload has doorKnocks and verifiedDoorKnocks arrays
+            const doorKnocks = (customer as any).doorKnocks || [];
+            const verifiedDoorKnocks = (customer as any).verifiedDoorKnocks || [];
+            
+            // Process verified door knocks (preferred) or regular door knocks
+            const knocksToProcess = verifiedDoorKnocks.length > 0 ? verifiedDoorKnocks : doorKnocks;
+            
+            for (const doorKnock of knocksToProcess) {
+              try {
+                // Extract door knock data
+                const doorKnockedAt = doorKnock.door_knocked_at || doorKnock.doorKnockedAt || customer.createdAt;
+                const status = doorKnock.status || null;
+                const contactDistance = doorKnock.contact_distance || doorKnock.contactDistance || null;
+                const verified = verifiedDoorKnocks.length > 0 && verifiedDoorKnocks.includes(doorKnock);
+                
+                // Get office_id from setter
+                let officeId: number | null = null;
+                if (setterUserId) {
+                  const setterOfficeResult = await sql`
+                    SELECT office_id FROM repcard_users 
+                    WHERE repcard_user_id = ${setterUserId.toString()}::text 
+                    LIMIT 1
+                  `;
+                  const setterOfficeRows = setterOfficeResult.rows || setterOfficeResult;
+                  if (setterOfficeRows.length > 0) {
+                    officeId = setterOfficeRows[0].office_id;
+                  }
+                }
+                
+                // Get customer_id from database
+                const customerIdResult = await sql`
+                  SELECT id FROM repcard_customers
+                  WHERE repcard_customer_id = ${customer.id.toString()}::text
+                  LIMIT 1
+                `;
+                const customerIdRows = customerIdResult.rows || customerIdResult;
+                const customerId = customerIdRows.length > 0 ? customerIdRows[0].id : null;
+                
+                // Generate unique door knock ID
+                const doorKnockId = `${setterUserId}_${customer.id}_${new Date(doorKnockedAt).getTime()}`;
+                
+                // Insert door knock
+                await sql`
+                  INSERT INTO repcard_door_knocks (
+                    repcard_door_knock_id,
+                    setter_user_id,
+                    repcard_customer_id,
+                    customer_id,
+                    office_id,
+                    door_knocked_at,
+                    status,
+                    contact_distance,
+                    latitude,
+                    longitude,
+                    verified,
+                    created_at,
+                    updated_at,
+                    raw_data
+                  )
+                  VALUES (
+                    ${doorKnockId},
+                    ${setterUserId ? setterUserId.toString() : null}::text,
+                    ${customer.id.toString()}::text,
+                    ${customerId},
+                    ${officeId},
+                    ${new Date(doorKnockedAt).toISOString()},
+                    ${status},
+                    ${contactDistance ? parseFloat(contactDistance.toString()) : null},
+                    ${(customer as any).latitude ? parseFloat((customer as any).latitude.toString()) : null},
+                    ${(customer as any).longitude ? parseFloat((customer as any).longitude.toString()) : null},
+                    ${verified},
+                    ${new Date(doorKnockedAt).toISOString()},
+                    ${new Date().toISOString()},
+                    ${JSON.stringify(doorKnock)}
+                  )
+                  ON CONFLICT (repcard_door_knock_id)
+                  DO UPDATE SET
+                    repcard_customer_id = EXCLUDED.repcard_customer_id,
+                    customer_id = EXCLUDED.customer_id,
+                    office_id = COALESCE(EXCLUDED.office_id, repcard_door_knocks.office_id),
+                    door_knocked_at = EXCLUDED.door_knocked_at,
+                    status = EXCLUDED.status,
+                    contact_distance = EXCLUDED.contact_distance,
+                    verified = EXCLUDED.verified,
+                    updated_at = EXCLUDED.updated_at,
+                    raw_data = EXCLUDED.raw_data,
+                    synced_at = NOW()
+                `;
+              } catch (doorKnockError) {
+                // Log but don't fail customer sync if door knock fails
+                console.warn(`[RepCard Sync] Failed to sync door knock for customer ${customer.id}:`, doorKnockError);
+              }
+            }
+
           } catch (error) {
             console.error(`[RepCard Sync] Failed to process customer ${customer.id}:`, error);
             recordsFailed++;
