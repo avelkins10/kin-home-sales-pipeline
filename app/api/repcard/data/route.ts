@@ -140,32 +140,8 @@ export async function GET(request: NextRequest) {
       }
 
       case 'appointments': {
-        // Build query using sql template literals with conditional fragments
-        // This avoids parameter binding issues while maintaining type safety
-        let whereConditions: any[] = [];
-        
-        if (actualRepcardUserId) {
-          whereConditions.push(sql`(a.setter_user_id::text = ${actualRepcardUserId}::text OR a.closer_user_id::text = ${actualRepcardUserId}::text)`);
-        }
-        if (customerId) {
-          whereConditions.push(sql`a.repcard_customer_id::text = ${customerId}::text`);
-        }
-        if (startDate) {
-          whereConditions.push(sql`a.scheduled_at >= ${startDate}::timestamp`);
-        }
-        if (endDate) {
-          whereConditions.push(sql`a.scheduled_at <= (${endDate}::timestamp + INTERVAL '1 day')`);
-        }
-        
-        // Build WHERE clause by combining conditions
-        let whereClause = sql``;
-        if (whereConditions.length > 0) {
-          whereClause = whereConditions.reduce((acc, condition) => {
-            return sql`${acc} AND ${condition}`;
-          });
-        }
-        
-        // Base query
+        // Build query with conditional WHERE clauses directly in the query
+        // This avoids nested sql fragment issues
         let query = sql`
           SELECT 
             a.id,
@@ -192,10 +168,21 @@ export async function GET(request: NextRequest) {
             c.address as customer_address
           FROM repcard_appointments a
           LEFT JOIN repcard_customers c ON c.repcard_customer_id::text = a.repcard_customer_id::text
+          WHERE 1=1
         `;
         
-        if (whereConditions.length > 0) {
-          query = sql`${query} WHERE ${whereClause}`;
+        // Add conditions one by one to avoid nested fragment issues
+        if (actualRepcardUserId) {
+          query = sql`${query} AND (a.setter_user_id::text = ${actualRepcardUserId}::text OR a.closer_user_id::text = ${actualRepcardUserId}::text)`;
+        }
+        if (customerId) {
+          query = sql`${query} AND a.repcard_customer_id::text = ${customerId}::text`;
+        }
+        if (startDate) {
+          query = sql`${query} AND a.scheduled_at >= ${startDate}::timestamp`;
+        }
+        if (endDate) {
+          query = sql`${query} AND a.scheduled_at <= (${endDate}::timestamp + INTERVAL '1 day')`;
         }
         
         // Count query
