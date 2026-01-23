@@ -404,16 +404,23 @@ export function AppointmentCalendarView({
                               <div className="text-[10px] opacity-80 mt-0.5">
                                 {format(aptDate, 'h:mm a')}
                               </div>
-                              {(apt.has_power_bill || apt.is_reschedule) && (
-                                <div className="flex items-center gap-1 mt-1">
-                                  {apt.has_power_bill && (
-                                    <Paperclip className="h-2.5 w-2.5 opacity-70" />
-                                  )}
-                                  {apt.is_reschedule && (
-                                    <RotateCcw className="h-2.5 w-2.5 opacity-70" />
-                                  )}
-                                </div>
-                              )}
+                              <div className="flex items-center gap-0.5 flex-wrap mt-1">
+                                {apt.is_confirmed && (
+                                  <CheckCircle2 className="h-2.5 w-2.5 text-green-600" title="Confirmed" />
+                                )}
+                                {apt.has_power_bill && (
+                                  <Paperclip className="h-2.5 w-2.5 opacity-70" title="Has Power Bill" />
+                                )}
+                                {apt.is_reschedule && (
+                                  <RotateCcw className="h-2.5 w-2.5 opacity-70" title="Rescheduled" />
+                                )}
+                                {apt.notes && (
+                                  <FileText className="h-2.5 w-2.5 opacity-70 text-blue-600" title="Has Appointment Note" />
+                                )}
+                                {apt.customer_note_count > 0 && (
+                                  <FileText className="h-2.5 w-2.5 opacity-70 text-purple-600" title={`${apt.customer_note_count} Customer Note${apt.customer_note_count > 1 ? 's' : ''}`} />
+                                )}
+                              </div>
                             </div>
                           );
                         } catch (error) {
@@ -514,16 +521,23 @@ export function AppointmentCalendarView({
                           <div className="truncate text-[10px] opacity-90 mt-0.5">
                             {apt.customer_name || 'Unknown'}
                           </div>
-                          {(apt.has_power_bill || apt.is_reschedule) && (
-                            <div className="flex items-center gap-1 mt-1">
-                              {apt.has_power_bill && (
-                                <Paperclip className="h-2.5 w-2.5 opacity-70" />
-                              )}
-                              {apt.is_reschedule && (
-                                <RotateCcw className="h-2.5 w-2.5 opacity-70" />
-                              )}
-                            </div>
-                          )}
+                          <div className="flex items-center gap-0.5 flex-wrap mt-1">
+                            {apt.is_confirmed && (
+                              <CheckCircle2 className="h-2.5 w-2.5 text-green-600" title="Confirmed" />
+                            )}
+                            {apt.has_power_bill && (
+                              <Paperclip className="h-2.5 w-2.5 opacity-70" title="Has Power Bill" />
+                            )}
+                            {apt.is_reschedule && (
+                              <RotateCcw className="h-2.5 w-2.5 opacity-70" title="Rescheduled" />
+                            )}
+                            {apt.notes && (
+                              <FileText className="h-2.5 w-2.5 opacity-70 text-blue-600" title="Has Appointment Note" />
+                            )}
+                            {apt.customer_note_count > 0 && (
+                              <FileText className="h-2.5 w-2.5 opacity-70 text-purple-600" title={`${apt.customer_note_count} Customer Note${apt.customer_note_count > 1 ? 's' : ''}`} />
+                            )}
+                          </div>
                         </div>
                       );
                     } catch (error) {
