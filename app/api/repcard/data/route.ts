@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { sql } from '@/lib/db/client';
 import { logApiRequest, logApiResponse, logError, logInfo } from '@/lib/logging/logger';
+import { toEasternStart, toEasternEnd } from '@/lib/utils/timezone';
 
 export const runtime = 'nodejs';
 
@@ -140,60 +141,157 @@ export async function GET(request: NextRequest) {
       }
 
       case 'appointments': {
-        // Build query with conditional WHERE clauses directly in the query
-        // This avoids nested sql fragment issues
-        let query = sql`
-          SELECT 
-            a.id,
-            a.repcard_appointment_id,
-            a.customer_id,
-            a.repcard_customer_id,
-            a.setter_user_id,
-            a.closer_user_id,
-            a.disposition,
-            a.status_category,
-            a.scheduled_at,
-            a.completed_at,
-            a.duration,
-            a.notes,
-            a.is_within_48_hours,
-            a.has_power_bill,
-            a.is_reschedule,
-            a.created_at,
-            a.updated_at,
-            a.synced_at,
-            c.name as customer_name,
-            c.phone as customer_phone,
-            c.email as customer_email,
-            c.address as customer_address
-          FROM repcard_appointments a
-          LEFT JOIN repcard_customers c ON c.repcard_customer_id::text = a.repcard_customer_id::text
-          WHERE 1=1
-        `;
+        // Build query with proper date filtering using timezone-aware comparisons
+        // Use separate queries for different filter combinations to avoid parameter binding issues
+        const hasUserId = !!actualRepcardUserId;
+        const hasCustomerId = !!customerId;
+        const hasStartDate = !!startDate;
+        const hasEndDate = !!endDate;
         
-        // Add conditions one by one to avoid nested fragment issues
-        if (actualRepcardUserId) {
-          query = sql`${query} AND (a.setter_user_id::text = ${actualRepcardUserId}::text OR a.closer_user_id::text = ${actualRepcardUserId}::text)`;
-        }
-        if (customerId) {
-          query = sql`${query} AND a.repcard_customer_id::text = ${customerId}::text`;
-        }
+        // Convert dates to Eastern Time for proper filtering (matching unified-dashboard logic)
+        let startDateEastern: string | null = null;
+        let endDateEastern: string | null = null;
         if (startDate) {
-          query = sql`${query} AND a.scheduled_at >= ${startDate}::timestamp`;
+          startDateEastern = toEasternStart(startDate);
         }
         if (endDate) {
-          query = sql`${query} AND a.scheduled_at <= (${endDate}::timestamp + INTERVAL '1 day')`;
+          endDateEastern = toEasternEnd(endDate);
         }
         
-        // Count query
-        const countResult = await sql`
-          SELECT COUNT(*) as count FROM (${query}) as subquery
-        `;
-        total = parseInt(Array.from(countResult)[0]?.count || '0');
-
-        // Main query with ordering and pagination
-        const result = await sql`${query} ORDER BY a.scheduled_at DESC LIMIT ${limit} OFFSET ${offset}`;
+        // Build query based on filter combinations
+        let result;
+        if (hasUserId && hasCustomerId && hasStartDate && hasEndDate) {
+          result = await sql`
+            SELECT 
+              a.id, a.repcard_appointment_id, a.customer_id, a.repcard_customer_id,
+              a.setter_user_id, a.closer_user_id, a.disposition, a.status_category,
+              a.scheduled_at, a.completed_at, a.duration, a.notes,
+              a.is_within_48_hours, a.has_power_bill, a.is_reschedule,
+              a.created_at, a.updated_at, a.synced_at,
+              c.name as customer_name, c.phone as customer_phone,
+              c.email as customer_email, c.address as customer_address
+            FROM repcard_appointments a
+            LEFT JOIN repcard_customers c ON c.repcard_customer_id::text = a.repcard_customer_id::text
+            WHERE (a.setter_user_id::text = ${actualRepcardUserId}::text OR a.closer_user_id::text = ${actualRepcardUserId}::text)
+              AND a.repcard_customer_id::text = ${customerId}::text
+              AND a.scheduled_at >= ${startDateEastern}::timestamptz
+              AND a.scheduled_at <= ${endDateEastern}::timestamptz
+            ORDER BY a.scheduled_at DESC
+            LIMIT ${limit} OFFSET ${offset}
+          `;
+        } else if (hasUserId && hasStartDate && hasEndDate) {
+          result = await sql`
+            SELECT 
+              a.id, a.repcard_appointment_id, a.customer_id, a.repcard_customer_id,
+              a.setter_user_id, a.closer_user_id, a.disposition, a.status_category,
+              a.scheduled_at, a.completed_at, a.duration, a.notes,
+              a.is_within_48_hours, a.has_power_bill, a.is_reschedule,
+              a.created_at, a.updated_at, a.synced_at,
+              c.name as customer_name, c.phone as customer_phone,
+              c.email as customer_email, c.address as customer_address
+            FROM repcard_appointments a
+            LEFT JOIN repcard_customers c ON c.repcard_customer_id::text = a.repcard_customer_id::text
+            WHERE (a.setter_user_id::text = ${actualRepcardUserId}::text OR a.closer_user_id::text = ${actualRepcardUserId}::text)
+              AND (
+                (a.scheduled_at IS NOT NULL AND a.scheduled_at >= ${startDateEastern}::timestamptz AND a.scheduled_at <= ${endDateEastern}::timestamptz)
+                OR
+                (a.scheduled_at IS NULL AND a.created_at >= ${startDateEastern}::timestamptz AND a.created_at <= ${endDateEastern}::timestamptz)
+              )
+            ORDER BY COALESCE(a.scheduled_at, a.created_at) DESC
+            LIMIT ${limit} OFFSET ${offset}
+          `;
+        } else if (hasUserId) {
+          result = await sql`
+            SELECT 
+              a.id, a.repcard_appointment_id, a.customer_id, a.repcard_customer_id,
+              a.setter_user_id, a.closer_user_id, a.disposition, a.status_category,
+              a.scheduled_at, a.completed_at, a.duration, a.notes,
+              a.is_within_48_hours, a.has_power_bill, a.is_reschedule,
+              a.created_at, a.updated_at, a.synced_at,
+              c.name as customer_name, c.phone as customer_phone,
+              c.email as customer_email, c.address as customer_address
+            FROM repcard_appointments a
+            LEFT JOIN repcard_customers c ON c.repcard_customer_id::text = a.repcard_customer_id::text
+            WHERE (a.setter_user_id::text = ${actualRepcardUserId}::text OR a.closer_user_id::text = ${actualRepcardUserId}::text)
+            ORDER BY COALESCE(a.scheduled_at, a.created_at) DESC
+            LIMIT ${limit} OFFSET ${offset}
+          `;
+        } else if (hasCustomerId && hasStartDate && hasEndDate) {
+          result = await sql`
+            SELECT 
+              a.id, a.repcard_appointment_id, a.customer_id, a.repcard_customer_id,
+              a.setter_user_id, a.closer_user_id, a.disposition, a.status_category,
+              a.scheduled_at, a.completed_at, a.duration, a.notes,
+              a.is_within_48_hours, a.has_power_bill, a.is_reschedule,
+              a.created_at, a.updated_at, a.synced_at,
+              c.name as customer_name, c.phone as customer_phone,
+              c.email as customer_email, c.address as customer_address
+            FROM repcard_appointments a
+            LEFT JOIN repcard_customers c ON c.repcard_customer_id::text = a.repcard_customer_id::text
+            WHERE a.repcard_customer_id::text = ${customerId}::text
+              AND (
+                (a.scheduled_at IS NOT NULL AND a.scheduled_at >= ${startDateEastern}::timestamptz AND a.scheduled_at <= ${endDateEastern}::timestamptz)
+                OR
+                (a.scheduled_at IS NULL AND a.created_at >= ${startDateEastern}::timestamptz AND a.created_at <= ${endDateEastern}::timestamptz)
+              )
+            ORDER BY COALESCE(a.scheduled_at, a.created_at) DESC
+            LIMIT ${limit} OFFSET ${offset}
+          `;
+        } else if (hasStartDate && hasEndDate) {
+          result = await sql`
+            SELECT 
+              a.id, a.repcard_appointment_id, a.customer_id, a.repcard_customer_id,
+              a.setter_user_id, a.closer_user_id, a.disposition, a.status_category,
+              a.scheduled_at, a.completed_at, a.duration, a.notes,
+              a.is_within_48_hours, a.has_power_bill, a.is_reschedule,
+              a.created_at, a.updated_at, a.synced_at,
+              c.name as customer_name, c.phone as customer_phone,
+              c.email as customer_email, c.address as customer_address
+            FROM repcard_appointments a
+            LEFT JOIN repcard_customers c ON c.repcard_customer_id::text = a.repcard_customer_id::text
+            WHERE (
+              (a.scheduled_at IS NOT NULL AND a.scheduled_at >= ${startDateEastern}::timestamptz AND a.scheduled_at <= ${endDateEastern}::timestamptz)
+              OR
+              (a.scheduled_at IS NULL AND a.created_at >= ${startDateEastern}::timestamptz AND a.created_at <= ${endDateEastern}::timestamptz)
+            )
+            ORDER BY COALESCE(a.scheduled_at, a.created_at) DESC
+            LIMIT ${limit} OFFSET ${offset}
+          `;
+        } else {
+          result = await sql`
+            SELECT 
+              a.id, a.repcard_appointment_id, a.customer_id, a.repcard_customer_id,
+              a.setter_user_id, a.closer_user_id, a.disposition, a.status_category,
+              a.scheduled_at, a.completed_at, a.duration, a.notes,
+              a.is_within_48_hours, a.has_power_bill, a.is_reschedule,
+              a.created_at, a.updated_at, a.synced_at,
+              c.name as customer_name, c.phone as customer_phone,
+              c.email as customer_email, c.address as customer_address
+            FROM repcard_appointments a
+            LEFT JOIN repcard_customers c ON c.repcard_customer_id::text = a.repcard_customer_id::text
+            ORDER BY COALESCE(a.scheduled_at, a.created_at) DESC
+            LIMIT ${limit} OFFSET ${offset}
+          `;
+        }
+        
         data = Array.from(result);
+        
+        // Count query (use same filter pattern, handle NULL scheduled_at)
+        let countResult;
+        if (hasUserId && hasCustomerId && hasStartDate && hasEndDate) {
+          countResult = await sql`SELECT COUNT(*) as count FROM repcard_appointments a WHERE (a.setter_user_id::text = ${actualRepcardUserId}::text OR a.closer_user_id::text = ${actualRepcardUserId}::text) AND a.repcard_customer_id::text = ${customerId}::text AND ((a.scheduled_at IS NOT NULL AND a.scheduled_at >= ${startDateEastern}::timestamptz AND a.scheduled_at <= ${endDateEastern}::timestamptz) OR (a.scheduled_at IS NULL AND a.created_at >= ${startDateEastern}::timestamptz AND a.created_at <= ${endDateEastern}::timestamptz))`;
+        } else if (hasUserId && hasStartDate && hasEndDate) {
+          countResult = await sql`SELECT COUNT(*) as count FROM repcard_appointments a WHERE (a.setter_user_id::text = ${actualRepcardUserId}::text OR a.closer_user_id::text = ${actualRepcardUserId}::text) AND ((a.scheduled_at IS NOT NULL AND a.scheduled_at >= ${startDateEastern}::timestamptz AND a.scheduled_at <= ${endDateEastern}::timestamptz) OR (a.scheduled_at IS NULL AND a.created_at >= ${startDateEastern}::timestamptz AND a.created_at <= ${endDateEastern}::timestamptz))`;
+        } else if (hasUserId) {
+          countResult = await sql`SELECT COUNT(*) as count FROM repcard_appointments a WHERE (a.setter_user_id::text = ${actualRepcardUserId}::text OR a.closer_user_id::text = ${actualRepcardUserId}::text)`;
+        } else if (hasCustomerId && hasStartDate && hasEndDate) {
+          countResult = await sql`SELECT COUNT(*) as count FROM repcard_appointments a WHERE a.repcard_customer_id::text = ${customerId}::text AND ((a.scheduled_at IS NOT NULL AND a.scheduled_at >= ${startDateEastern}::timestamptz AND a.scheduled_at <= ${endDateEastern}::timestamptz) OR (a.scheduled_at IS NULL AND a.created_at >= ${startDateEastern}::timestamptz AND a.created_at <= ${endDateEastern}::timestamptz))`;
+        } else if (hasStartDate && hasEndDate) {
+          countResult = await sql`SELECT COUNT(*) as count FROM repcard_appointments a WHERE ((a.scheduled_at IS NOT NULL AND a.scheduled_at >= ${startDateEastern}::timestamptz AND a.scheduled_at <= ${endDateEastern}::timestamptz) OR (a.scheduled_at IS NULL AND a.created_at >= ${startDateEastern}::timestamptz AND a.created_at <= ${endDateEastern}::timestamptz))`;
+        } else {
+          countResult = await sql`SELECT COUNT(*) as count FROM repcard_appointments a`;
+        }
+        total = parseInt(Array.from(countResult)[0]?.count || '0');
         break;
       }
 
@@ -503,38 +601,35 @@ export async function GET(request: NextRequest) {
       }
 
       case 'offices': {
-        // Build query using parameterized sql template tags
+        // Build separate queries for different filter combinations (like audit-logs)
         const parsedOfficeId = officeId ? parseInt(officeId) : null;
+        const hasOfficeId = !!parsedOfficeId;
         
-        // Include conditions directly in queries to avoid nested fragment parameter binding issues
-        const result = await sql`
-          SELECT
-            id,
-            repcard_office_id,
-            company_id,
-            name,
-            address,
-            city,
-            state,
-            zip_code,
-            created_at,
-            updated_at,
-            synced_at
-          FROM repcard_offices
-          WHERE 1=1
-          ${parsedOfficeId ? sql`AND repcard_office_id = ${parsedOfficeId}` : ''}
-          ORDER BY name
-          LIMIT ${limit}
-          OFFSET ${offset}
-        `;
+        // Build separate queries based on filter combinations
+        const result = hasOfficeId
+          ? await sql`
+              SELECT
+                id, repcard_office_id, company_id, name, address, city, state,
+                zip_code, created_at, updated_at, synced_at
+              FROM repcard_offices
+              WHERE repcard_office_id = ${parsedOfficeId}
+              ORDER BY name
+              LIMIT ${limit} OFFSET ${offset}
+            `
+          : await sql`
+              SELECT
+                id, repcard_office_id, company_id, name, address, city, state,
+                zip_code, created_at, updated_at, synced_at
+              FROM repcard_offices
+              ORDER BY name
+              LIMIT ${limit} OFFSET ${offset}
+            `;
         data = Array.from(result);
 
-        // Build count query using parameterized sql template tags
-        const countResult = await sql`
-          SELECT COUNT(*) as count FROM repcard_offices
-          WHERE 1=1
-          ${parsedOfficeId ? sql`AND repcard_office_id = ${parsedOfficeId}` : ''}
-        `;
+        // Build count query using same pattern
+        const countResult = hasOfficeId
+          ? await sql`SELECT COUNT(*) as count FROM repcard_offices WHERE repcard_office_id = ${parsedOfficeId}`
+          : await sql`SELECT COUNT(*) as count FROM repcard_offices`;
         total = parseInt(Array.from(countResult)[0]?.count || '0');
         break;
       }
