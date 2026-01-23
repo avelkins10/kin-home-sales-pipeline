@@ -1,104 +1,102 @@
-# Deployment Instructions - RepCard Complete Integration
+# 🚀 Deployment Instructions - RepCard Enhancements
 
-## ✅ Code Deployed
+## ✅ Code Status
+- **All code committed**: ✅ Yes
+- **All code pushed**: ⚠️ Needs manual push (authentication required)
+- **Migrations ready**: ✅ Yes
+- **API endpoints created**: ✅ Yes
 
-All code changes have been committed and pushed to `main` branch. Vercel will automatically deploy.
+## 📋 Steps to Deploy
 
-## 📋 Post-Deployment Steps
-
-### Step 1: Run Database Migrations
-
-**Option A: Using the deployment script**
+### Step 1: Push Code to GitHub
 ```bash
-./scripts/deploy-repcard-integration.sh
+git push origin main
 ```
 
-**Option B: Manual migration**
+If authentication is required, you may need to:
+- Use SSH: `git remote set-url origin git@github.com:your-org/Rep_Dashboard.git`
+- Or authenticate with GitHub CLI: `gh auth login`
+- Or use a personal access token
+
+### Step 2: Wait for Auto-Deployment
+Once pushed, GitHub Actions will:
+1. Run tests
+2. Build the project
+3. Deploy to Vercel production
+
+Check deployment status at: https://github.com/your-org/Rep_Dashboard/actions
+
+### Step 3: Run Migrations in Production
+
+**Option A: Via Admin API (Recommended)**
+1. Log in as super_admin
+2. Go to: `https://your-production-url.com/api/admin/run-migrations-034-035`
+3. Make a POST request (or use the admin dashboard if available)
+
+**Option B: Via Main Migrations Endpoint**
+1. POST to: `https://your-production-url.com/api/admin/run-migrations`
+2. This will run all pending migrations including 034 and 035
+
+**Option C: Via Script (if you have production DB access)**
 ```bash
-# Connect to production database
-psql $DATABASE_URL
-
-# Run migrations
-\i lib/db/migrations/016_repcard_complete_data.sql
-\i lib/db/migrations/017_repcard_settings.sql
+export DATABASE_URL="your-production-database-url"
+npx tsx scripts/run-migrations-direct.ts
 ```
-
-**Option C: Using Vercel CLI**
-```bash
-vercel env pull .env.production
-psql $DATABASE_URL -f lib/db/migrations/016_repcard_complete_data.sql
-psql $DATABASE_URL -f lib/db/migrations/017_repcard_settings.sql
-```
-
-### Step 2: Run Initial Sync
-
-After migrations are complete, trigger a comprehensive sync:
-
-```bash
-# Using curl
-curl -X POST https://your-domain.com/api/admin/repcard/comprehensive-sync \
-  -H "Cookie: your-session-cookie"
-
-# Or skip rarely-changing data for faster first sync
-curl -X POST "https://your-domain.com/api/admin/repcard/comprehensive-sync?skipCustomerStatuses=true&skipCalendars=true&skipCustomFields=true" \
-  -H "Cookie: your-session-cookie"
-```
-
-### Step 3: Configure Leaderboards
-
-1. Navigate to **Settings → RepCard Config** (super admin only)
-2. Go to **"Leaderboards"** tab
-3. Create default leaderboard:
-   - Name: "Default D2D Leaderboard"
-   - Type: "d2d"
-   - Rank By: "doors_knocked"
-   - Enabled Metrics: Select desired metrics
-   - Set as default: ✅
 
 ### Step 4: Verify Deployment
 
-1. ✅ Check Vercel deployment succeeded
-2. ✅ Verify migrations ran successfully
-3. ✅ Test sync endpoint
-4. ✅ Test settings UI
-5. ✅ Test leaderboard with configId
+1. **Check Code Deployment**:
+   - Visit Vercel dashboard
+   - Verify latest deployment succeeded
+   - Check build logs
 
-## 🔍 Verification Checklist
+2. **Verify Migrations**:
+   ```bash
+   # Via API
+   GET https://your-production-url.com/api/admin/run-migrations-034-035
+   
+   # Or check database directly
+   psql "$DATABASE_URL" -c "SELECT column_name FROM information_schema.columns WHERE table_name='repcard_metric_audit' AND column_name='repcard_appointment_id';"
+   ```
 
-- [ ] Migrations completed without errors
-- [ ] New tables exist: `repcard_customer_notes`, `repcard_customer_statuses`, `repcard_calendars`, `repcard_custom_fields`, `repcard_leaderboard_snapshots`, `repcard_teams`
-- [ ] Settings tables exist: `repcard_leaderboard_config`, `repcard_analytics_config`, `repcard_metric_definitions`
-- [ ] Metric definitions are pre-populated (check count: `SELECT COUNT(*) FROM repcard_metric_definitions`)
-- [ ] Comprehensive sync runs successfully
-- [ ] Settings UI is accessible at `/settings` → RepCard Config tab
-- [ ] Leaderboard API works with and without configId
+3. **Test Features**:
+   - Visit `/analytics` → RepCard tab
+   - Check office breakdown view (should show expandable office cards)
+   - Verify webhook processing (check logs)
+   - Test sync missing customers endpoint
 
-## 🚨 Troubleshooting
+## 🎯 What's Being Deployed
 
-### Migration Errors
-If migrations fail, check:
-- Database connection string is correct
-- Tables don't already exist (safe to re-run migrations)
-- User has CREATE TABLE permissions
+### Code Changes
+- ✅ Attachment sync on webhooks
+- ✅ Webhook field extraction (appointment_link, remind_at, contact_source, etc.)
+- ✅ Office breakdown view with individual rep metrics
+- ✅ Fixed sync missing customers (rate limits, timeouts)
+- ✅ All API endpoints updated
 
-### Sync Errors
-- Check REPCARD_API_KEY is set in environment variables
-- Verify API key has correct permissions
-- Check rate limits (should be fine with incremental sync)
+### Database Migrations
+- ✅ Migration 034: Fix metric audit FK constraint
+- ✅ Migration 035: Add useful webhook fields
 
-### Settings UI Not Showing
-- Verify user role is `super_admin`
-- Check browser console for errors
-- Verify API endpoints are accessible
+### New API Endpoints
+- ✅ `/api/admin/run-migrations-034-035` - Run new migrations
+- ✅ Updated `/api/admin/run-migrations` - Includes 034 and 035
 
-## 📊 Next Steps After Deployment
+## ⚠️ Important Notes
 
-1. **Monitor sync**: Check sync logs in `repcard_sync_log` table
-2. **Create configurations**: Set up default leaderboards and analytics widgets
-3. **Train users**: Show team how to use new settings
-4. **Monitor performance**: Check API response times
+1. **Migrations are idempotent**: Safe to run multiple times
+2. **Rate Limits**: Sync operations now respect RepCard API limits
+3. **Timeouts**: Sync limited to 500 customers per run
+4. **Backward Compatible**: All changes are backward compatible
 
-## 🎉 Success!
+## 📞 Support
 
-Your RepCard integration is now live! All 13 data types are syncing, and you have a fully configurable leaderboard and analytics system.
+If deployment fails:
+1. Check GitHub Actions logs
+2. Check Vercel deployment logs
+3. Verify database connection
+4. Check migration status via API
 
+---
+
+**Ready to deploy!** Just push to main and run migrations in production.
