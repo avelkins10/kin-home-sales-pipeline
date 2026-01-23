@@ -247,7 +247,7 @@ export async function GET(request: NextRequest) {
               CASE WHEN a.raw_data->'customer'->>'firstName' IS NOT NULL AND a.raw_data->'customer'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
               COALESCE(a.raw_data->'customer'->>'lastName', '')
             ), ''),
-            'Unknown Customer'
+            COALESCE(CONCAT('Customer #', a.repcard_customer_id), '(No Customer Info)')
           ) as customer_name,
           COALESCE(c.phone, a.raw_data->'contact'->>'phone', a.raw_data->'customer'->>'phone', a.raw_data->>'phone') as customer_phone,
           COALESCE(c.address, a.raw_data->'contact'->>'address', a.raw_data->'customer'->>'address', a.raw_data->>'address') as customer_address,
@@ -316,7 +316,7 @@ export async function GET(request: NextRequest) {
                 CASE WHEN a.raw_data->'customer'->>'firstName' IS NOT NULL AND a.raw_data->'customer'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
                 COALESCE(a.raw_data->'customer'->>'lastName', '')
               ), ''),
-              'Unknown Customer'
+              COALESCE(CONCAT('Customer #', a.repcard_customer_id), '(No Customer Info)')
             ) as customer_name,
             COALESCE(c.phone, a.raw_data->'contact'->>'phone', a.raw_data->'customer'->>'phone', a.raw_data->>'phone') as customer_phone,
             COALESCE(c.address, a.raw_data->'contact'->>'address', a.raw_data->'customer'->>'address', a.raw_data->>'address') as customer_address,
@@ -391,7 +391,7 @@ export async function GET(request: NextRequest) {
                 CASE WHEN a.raw_data->'customer'->>'firstName' IS NOT NULL AND a.raw_data->'customer'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
                 COALESCE(a.raw_data->'customer'->>'lastName', '')
               ), ''),
-              'Unknown Customer'
+              COALESCE(CONCAT('Customer #', a.repcard_customer_id), '(No Customer Info)')
             ) as customer_name,
             COALESCE(c.phone, a.raw_data->'contact'->>'phone', a.raw_data->'customer'->>'phone', a.raw_data->>'phone') as customer_phone,
             COALESCE(c.address, a.raw_data->'contact'->>'address', a.raw_data->'customer'->>'address', a.raw_data->>'address') as customer_address,
@@ -471,7 +471,7 @@ export async function GET(request: NextRequest) {
               CASE WHEN a.raw_data->'customer'->>'firstName' IS NOT NULL AND a.raw_data->'customer'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
               COALESCE(a.raw_data->'customer'->>'lastName', '')
             ), ''),
-            'Unknown Customer'
+            COALESCE(CONCAT('Customer #', a.repcard_customer_id), '(No Customer Info)')
           ) as customer_name,
           COALESCE(c.phone, a.raw_data->'contact'->>'phone', a.raw_data->'customer'->>'phone', a.raw_data->>'phone') as customer_phone,
           COALESCE(c.address, a.raw_data->'contact'->>'address', a.raw_data->'customer'->>'address', a.raw_data->>'address') as customer_address,
@@ -539,7 +539,7 @@ export async function GET(request: NextRequest) {
                 CASE WHEN a.raw_data->'customer'->>'firstName' IS NOT NULL AND a.raw_data->'customer'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
                 COALESCE(a.raw_data->'customer'->>'lastName', '')
               ), ''),
-              'Unknown Customer'
+              COALESCE(CONCAT('Customer #', a.repcard_customer_id), '(No Customer Info)')
             ) as customer_name,
             COALESCE(c.phone, a.raw_data->'contact'->>'phone', a.raw_data->'customer'->>'phone', a.raw_data->>'phone') as customer_phone,
             COALESCE(c.address, a.raw_data->'contact'->>'address', a.raw_data->'customer'->>'address', a.raw_data->>'address') as customer_address,
@@ -613,7 +613,7 @@ export async function GET(request: NextRequest) {
                 CASE WHEN a.raw_data->'customer'->>'firstName' IS NOT NULL AND a.raw_data->'customer'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
                 COALESCE(a.raw_data->'customer'->>'lastName', '')
               ), ''),
-              'Unknown Customer'
+              COALESCE(CONCAT('Customer #', a.repcard_customer_id), '(No Customer Info)')
             ) as customer_name,
             COALESCE(c.phone, a.raw_data->'contact'->>'phone', a.raw_data->'customer'->>'phone', a.raw_data->>'phone') as customer_phone,
             COALESCE(c.address, a.raw_data->'contact'->>'address', a.raw_data->'customer'->>'address', a.raw_data->>'address') as customer_address,
@@ -710,7 +710,7 @@ export async function GET(request: NextRequest) {
               CASE WHEN a.raw_data->'customer'->>'firstName' IS NOT NULL AND a.raw_data->'customer'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
               COALESCE(a.raw_data->'customer'->>'lastName', '')
             ), ''),
-            'Unknown Customer'
+            COALESCE(CONCAT('Customer #', a.repcard_customer_id), '(No Customer Info)')
           ) as customer_name,
           COALESCE(c.phone, a.raw_data->'contact'->>'phone', a.raw_data->'customer'->>'phone', a.raw_data->>'phone') as customer_phone,
           COALESCE(c.address, a.raw_data->'contact'->>'address', a.raw_data->'customer'->>'address', a.raw_data->>'address') as customer_address,
@@ -769,7 +769,7 @@ export async function GET(request: NextRequest) {
                   CASE WHEN a.raw_data->'customer'->>'firstName' IS NOT NULL AND a.raw_data->'customer'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
                   COALESCE(a.raw_data->'customer'->>'lastName', '')
                 ), ''),
-                'Unknown Customer'
+                COALESCE(CONCAT('Customer #', a.repcard_customer_id), '(No Customer Info)')
               ) as customer_name,
               COALESCE(c.phone, a.raw_data->'contact'->>'phone', a.raw_data->'customer'->>'phone', a.raw_data->>'phone') as customer_phone,
               COALESCE(c.address, a.raw_data->'contact'->>'address', a.raw_data->'customer'->>'address', a.raw_data->>'address') as customer_address,
@@ -885,7 +885,7 @@ export async function GET(request: NextRequest) {
                 CASE WHEN a.raw_data->'customer'->>'firstName' IS NOT NULL AND a.raw_data->'customer'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
                 COALESCE(a.raw_data->'customer'->>'lastName', '')
               ), ''),
-              'Unknown Customer'
+              COALESCE(CONCAT('Customer #', a.repcard_customer_id), '(No Customer Info)')
             ) as customer_name,
             COALESCE(c.phone, a.raw_data->'contact'->>'phone', a.raw_data->'customer'->>'phone', a.raw_data->>'phone') as customer_phone,
             COALESCE(c.address, a.raw_data->'contact'->>'address', a.raw_data->'customer'->>'address', a.raw_data->>'address') as customer_address,
@@ -966,7 +966,7 @@ export async function GET(request: NextRequest) {
               CASE WHEN a.raw_data->'customer'->>'firstName' IS NOT NULL AND a.raw_data->'customer'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
               COALESCE(a.raw_data->'customer'->>'lastName', '')
             ), ''),
-            'Unknown Customer'
+            COALESCE(CONCAT('Customer #', a.repcard_customer_id), '(No Customer Info)')
           ) as customer_name,
           COALESCE(c.phone, a.raw_data->'contact'->>'phone', a.raw_data->'customer'->>'phone', a.raw_data->>'phone') as customer_phone,
           COALESCE(c.address, a.raw_data->'contact'->>'address', a.raw_data->'customer'->>'address', a.raw_data->>'address') as customer_address,
