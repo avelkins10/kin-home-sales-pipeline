@@ -481,11 +481,11 @@ export async function GET(request: NextRequest) {
             COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as name,
             COALESCE(u.role, ru.role) as role,
             COALESCE(ru.team, 'No Team') as team,
-            COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
+            COUNT(DISTINCT dk.id)::int as doors_knocked,
             COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_set,
             CASE
-              WHEN COUNT(DISTINCT c.repcard_customer_id) > 0 THEN
-                (COUNT(DISTINCT a.repcard_appointment_id)::float / COUNT(DISTINCT c.repcard_customer_id)::float) * 100
+              WHEN COUNT(DISTINCT dk.id) > 0 THEN
+                (COUNT(DISTINCT a.repcard_appointment_id)::float / COUNT(DISTINCT dk.id)::float) * 100
               ELSE 0
             END as conversion_rate
           FROM repcard_users ru
@@ -508,11 +508,11 @@ export async function GET(request: NextRequest) {
             COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as name,
             COALESCE(u.role, ru.role) as role,
             COALESCE(ru.team, 'No Team') as team,
-            COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
+            COUNT(DISTINCT dk.id)::int as doors_knocked,
             COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_set,
             CASE
-              WHEN COUNT(DISTINCT c.repcard_customer_id) > 0 THEN
-                (COUNT(DISTINCT a.repcard_appointment_id)::float / COUNT(DISTINCT c.repcard_customer_id)::float) * 100
+              WHEN COUNT(DISTINCT dk.id) > 0 THEN
+                (COUNT(DISTINCT a.repcard_appointment_id)::float / COUNT(DISTINCT dk.id)::float) * 100
               ELSE 0
             END as conversion_rate
           FROM repcard_users ru
@@ -829,7 +829,7 @@ export async function GET(request: NextRequest) {
             u.repcard_user_id,
             u.name as rep_name,
             u.role,
-            COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
+            COUNT(DISTINCT dk.id)::int as doors_knocked,
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.is_reschedule = FALSE OR a.is_reschedule IS NULL)::int as appointments_set,
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.is_within_48_hours = TRUE)::int as within_48h,
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.has_power_bill = TRUE)::int as with_power_bill,
@@ -837,28 +837,28 @@ export async function GET(request: NextRequest) {
               SELECT SUM(EXTRACT(EPOCH FROM (day_max - day_min)) / 3600)::int
               FROM (
                 SELECT 
-                  DATE(c2.created_at AT TIME ZONE 'America/New_York') as day,
-                  MIN(c2.created_at) as day_min,
-                  MAX(c2.created_at) as day_max
-                FROM repcard_customers c2
-                WHERE c2.setter_user_id::int = u.repcard_user_id
-                  AND c2.office_id::int = o.repcard_office_id
-                  AND c2.created_at >= ${startDate}::timestamptz
-                  AND c2.created_at <= ${endDate}::timestamptz
-                GROUP BY DATE(c2.created_at AT TIME ZONE 'America/New_York')
+                  DATE(dk2.door_knocked_at AT TIME ZONE 'America/New_York') as day,
+                  MIN(dk2.door_knocked_at) as day_min,
+                  MAX(dk2.door_knocked_at) as day_max
+                FROM repcard_door_knocks dk2
+                WHERE dk2.setter_user_id::int = u.repcard_user_id
+                  AND dk2.office_id::int = o.repcard_office_id
+                  AND dk2.door_knocked_at >= ${startDate}::timestamptz
+                  AND dk2.door_knocked_at <= ${endDate}::timestamptz
+                GROUP BY DATE(dk2.door_knocked_at AT TIME ZONE 'America/New_York')
               ) daily_ranges
             ), 0)::int as hours_on_doors
           FROM repcard_offices o
-          INNER JOIN repcard_customers c ON c.office_id::int = o.repcard_office_id
-            AND c.created_at >= ${startDate}::timestamptz
-            AND c.created_at <= ${endDate}::timestamptz
-          INNER JOIN users u ON u.repcard_user_id = c.setter_user_id::int
+          INNER JOIN repcard_door_knocks dk ON dk.office_id::int = o.repcard_office_id
+            AND dk.door_knocked_at >= ${startDate}::timestamptz
+            AND dk.door_knocked_at <= ${endDate}::timestamptz
+          INNER JOIN users u ON u.repcard_user_id::text = dk.setter_user_id::text
             AND u.role = 'setter'
-          LEFT JOIN repcard_appointments a ON a.repcard_customer_id::text = c.repcard_customer_id::text
+          LEFT JOIN repcard_appointments a ON a.setter_user_id::int = u.repcard_user_id
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
           GROUP BY o.repcard_office_id, o.name, u.repcard_user_id, u.name, u.role
-          HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
+          HAVING COUNT(DISTINCT dk.id) > 0
           ORDER BY o.repcard_office_id, doors_knocked DESC
         `
       : await sql`
@@ -868,7 +868,7 @@ export async function GET(request: NextRequest) {
             u.repcard_user_id,
             u.name as rep_name,
             u.role,
-            COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
+            COUNT(DISTINCT dk.id)::int as doors_knocked,
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.is_reschedule = FALSE OR a.is_reschedule IS NULL)::int as appointments_set,
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.is_within_48_hours = TRUE)::int as within_48h,
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.has_power_bill = TRUE)::int as with_power_bill,
@@ -876,22 +876,22 @@ export async function GET(request: NextRequest) {
               SELECT SUM(EXTRACT(EPOCH FROM (day_max - day_min)) / 3600)::int
               FROM (
                 SELECT 
-                  DATE(c2.created_at AT TIME ZONE 'America/New_York') as day,
-                  MIN(c2.created_at) as day_min,
-                  MAX(c2.created_at) as day_max
-                FROM repcard_customers c2
-                WHERE c2.setter_user_id::int = u.repcard_user_id
-                  AND c2.office_id::int = o.repcard_office_id
-                GROUP BY DATE(c2.created_at AT TIME ZONE 'America/New_York')
+                  DATE(dk2.door_knocked_at AT TIME ZONE 'America/New_York') as day,
+                  MIN(dk2.door_knocked_at) as day_min,
+                  MAX(dk2.door_knocked_at) as day_max
+                FROM repcard_door_knocks dk2
+                WHERE dk2.setter_user_id::int = u.repcard_user_id
+                  AND dk2.office_id::int = o.repcard_office_id
+                GROUP BY DATE(dk2.door_knocked_at AT TIME ZONE 'America/New_York')
               ) daily_ranges
             ), 0)::int as hours_on_doors
           FROM repcard_offices o
-          INNER JOIN repcard_customers c ON c.office_id::int = o.repcard_office_id
-          INNER JOIN users u ON u.repcard_user_id = c.setter_user_id::int
+          INNER JOIN repcard_door_knocks dk ON dk.office_id::int = o.repcard_office_id
+          INNER JOIN users u ON u.repcard_user_id::text = dk.setter_user_id::text
             AND u.role = 'setter'
-          LEFT JOIN repcard_appointments a ON a.repcard_customer_id::text = c.repcard_customer_id::text
+          LEFT JOIN repcard_appointments a ON a.setter_user_id::int = u.repcard_user_id
           GROUP BY o.repcard_office_id, o.name, u.repcard_user_id, u.name, u.role
-          HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
+          HAVING COUNT(DISTINCT dk.id) > 0
           ORDER BY o.repcard_office_id, doors_knocked DESC
         `;
     } catch (error) {
