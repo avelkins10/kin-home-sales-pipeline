@@ -569,6 +569,18 @@ export async function GET(request: NextRequest) {
     }
     const appointments = Array.from(result);
 
+    // Log query results for debugging
+    logInfo('repcard-appointments-schedule-result', {
+      requestId,
+      userRole,
+      appointmentsCount: appointments.length,
+      startDate,
+      endDate,
+      hasAnyFilter,
+      repcardUserId,
+      effectiveOfficeIds: effectiveOfficeIds?.length || 0
+    });
+
     // Log diagnostic info for empty results
     if (appointments.length === 0) {
       // Check if there are ANY appointments in the database for this date range
