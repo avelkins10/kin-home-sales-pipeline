@@ -9,6 +9,7 @@ import { sql } from '@/lib/db/client';
 import { repcardClient } from './client';
 import type { RepCardCustomer, RepCardAppointment, RepCardCustomerStatusLog } from './types';
 import { enrichUserFromRepCard } from '@/lib/users/enrich-user';
+import { parseRepCardDateTime } from '@/lib/utils/repcard-date-parser';
 
 export interface SyncResult {
   entityType: 'customers' | 'appointments' | 'status_logs';
