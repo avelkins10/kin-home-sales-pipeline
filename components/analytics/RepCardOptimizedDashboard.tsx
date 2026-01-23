@@ -28,8 +28,7 @@ import {
   BarChart3,
   ChevronRight,
   Paperclip,
-  ExternalLink,
-  Award
+  ExternalLink
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatPercentage, formatLargeNumber } from '@/lib/utils/formatters';
