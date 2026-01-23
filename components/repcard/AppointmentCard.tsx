@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { formatInEasternTime } from '@/lib/utils/timezone';
 
 export interface AppointmentData {
   id: string;
@@ -132,7 +133,7 @@ export function AppointmentCard({ appointment, onClick, compact = false }: Appoi
               <>
                 <Clock className="h-4 w-4 text-blue-600 shrink-0" />
                 <span className="font-semibold text-gray-900">
-                  {format(scheduledDate, 'EEE, MMM d')} at {format(scheduledDate, 'h:mm a')}
+                  {formatInEasternTime(scheduledDate, 'datetime')}
                 </span>
               </>
             ) : (

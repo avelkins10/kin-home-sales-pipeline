@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, Clock, Paperclip, RotateCcw, CheckCircle2, F
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, addDays, addWeeks, addMonths, subDays, subWeeks, subMonths, isToday, isSameMonth, getHours, getMinutes, setHours, startOfDay, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { AppointmentData } from './AppointmentCard';
+import { formatInEasternTime } from '@/lib/utils/timezone';
 
 type ViewMode = 'day' | 'week' | 'month';
 
@@ -275,7 +276,7 @@ export function AppointmentCalendarView({
                                 {apt.customer_name || 'Unknown Customer'}
                               </div>
                               <div className="text-xs opacity-80 mt-0.5">
-                                {format(aptDate, 'h:mm a')}
+                                {formatInEasternTime(aptDate, 'time')}
                               </div>
                               {(() => {
                                 const badge = getStatusBadge(apt.status_category, apt.disposition);
@@ -428,7 +429,7 @@ export function AppointmentCalendarView({
                               onClick={() => onAppointmentClick(apt)}
                             >
                               <div className="text-[10px] opacity-80">
-                                {format(aptDate, 'h:mm a')}
+                                {formatInEasternTime(aptDate, 'time')}
                               </div>
                               {(() => {
                                 const badge = getStatusBadge(apt.status_category, apt.disposition);
@@ -534,10 +535,10 @@ export function AppointmentCalendarView({
                 <div className="flex-1 space-y-1 overflow-y-auto min-h-0">
                   {scheduledAppointments.slice(0, 3).map(apt => {
                     try {
-                      const scheduledTime = apt.scheduled_at 
+                      const scheduledTime = apt.scheduled_at
                         ? (() => {
                             const date = new Date(apt.scheduled_at);
-                            return isValid(date) ? format(date, 'h:mm a') : 'Invalid time';
+                            return isValid(date) ? formatInEasternTime(date, 'time') : 'Invalid time';
                           })()
                         : 'Unscheduled';
                       

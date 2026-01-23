@@ -107,3 +107,103 @@ export function syncUserTimezone(timezone: string): void {
   // This function exists for backward compatibility
   return;
 }
+
+/**
+ * Format a date/time in Eastern Time for display
+ * This shows the time as it was originally set by the setter, not converted to viewer's timezone
+ *
+ * @param date - Date object or ISO string
+ * @param formatStr - Format string: 'date', 'time', 'datetime', 'full'
+ * @returns Formatted string in Eastern Time with ET suffix
+ */
+export function formatInEasternTime(
+  date: Date | string | null | undefined,
+  formatStr: 'date' | 'time' | 'datetime' | 'full' = 'datetime'
+): string {
+  if (!date) return 'Not set';
+
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+
+  if (isNaN(dateObj.getTime())) return 'Invalid date';
+
+  const options: Intl.DateTimeFormatOptions = {
+    timeZone: 'America/New_York',
+  };
+
+  switch (formatStr) {
+    case 'date':
+      options.weekday = 'short';
+      options.month = 'short';
+      options.day = 'numeric';
+      options.year = 'numeric';
+      break;
+    case 'time':
+      options.hour = 'numeric';
+      options.minute = '2-digit';
+      options.hour12 = true;
+      break;
+    case 'datetime':
+      options.weekday = 'short';
+      options.month = 'short';
+      options.day = 'numeric';
+      options.hour = 'numeric';
+      options.minute = '2-digit';
+      options.hour12 = true;
+      break;
+    case 'full':
+      options.weekday = 'short';
+      options.month = 'short';
+      options.day = 'numeric';
+      options.year = 'numeric';
+      options.hour = 'numeric';
+      options.minute = '2-digit';
+      options.hour12 = true;
+      break;
+  }
+
+  const formatted = new Intl.DateTimeFormat('en-US', options).format(dateObj);
+
+  // Add timezone indicator for time formats
+  if (formatStr === 'time' || formatStr === 'datetime' || formatStr === 'full') {
+    return `${formatted} ET`;
+  }
+
+  return formatted;
+}
+
+/**
+ * Calculate time difference between two dates (for schedule out time)
+ * Returns the raw difference in hours without any timezone conversion
+ * This is used to calculate how long between when appointment was created and when it's scheduled
+ */
+export function getTimeDifferenceHours(
+  endDate: Date | string | null,
+  startDate: Date | string | null
+): number | null {
+  if (!endDate || !startDate) return null;
+
+  const end = typeof endDate === 'string' ? new Date(endDate) : endDate;
+  const start = typeof startDate === 'string' ? new Date(startDate) : startDate;
+
+  if (isNaN(end.getTime()) || isNaN(start.getTime())) return null;
+
+  const diffMs = end.getTime() - start.getTime();
+  const diffHours = diffMs / (1000 * 60 * 60);
+
+  return diffHours;
+}
+
+/**
+ * Format schedule out time in a human-readable way
+ */
+export function formatScheduleOutTime(hours: number | null): string {
+  if (hours === null || hours < 0) return 'N/A';
+
+  const days = hours / 24;
+
+  if (days >= 1) {
+    return `${days.toFixed(1)} days`;
+  } else {
+    return `${hours.toFixed(1)} hours`;
+  }
+}
