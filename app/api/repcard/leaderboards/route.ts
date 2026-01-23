@@ -115,8 +115,8 @@ export async function GET(request: NextRequest) {
             SELECT *
             FROM repcard_appointments
             WHERE scheduled_at IS NOT NULL
-              AND (scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDateParam}::date
-              AND (scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDateParam}::date
+              AND (scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDateParam}
+              AND (scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDateParam}
           ),
           door_knock_stats AS (
             SELECT 
@@ -357,8 +357,8 @@ export async function GET(request: NextRequest) {
             SELECT *
             FROM repcard_appointments
             WHERE scheduled_at IS NOT NULL
-              AND (scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDateParam}::date
-              AND (scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDateParam}::date
+              AND (scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDateParam}
+              AND (scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDateParam}
           ),
           office_setters AS (
             SELECT
