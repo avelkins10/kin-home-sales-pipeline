@@ -468,6 +468,40 @@ export async function GET(request: NextRequest) {
     }
     const appointments = Array.from(result);
 
+    // Log diagnostic info for empty results
+    if (appointments.length === 0) {
+      // Check if there are ANY appointments in the database for this date range
+      const diagnosticCheck = await sql`
+        SELECT 
+          COUNT(*) FILTER (WHERE scheduled_at IS NOT NULL AND (scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date AND (scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date) as with_scheduled,
+          COUNT(*) FILTER (WHERE scheduled_at IS NULL AND (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date AND (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date) as with_created,
+          COUNT(*) as total_in_range
+        FROM repcard_appointments
+      `;
+      const diagnostic = Array.from(diagnosticCheck)[0];
+      
+      logInfo('repcard-appointments-schedule-empty', {
+        requestId,
+        userRole,
+        repcardUserId,
+        startDate,
+        endDate,
+        diagnostic: {
+          withScheduled: diagnostic?.with_scheduled || 0,
+          withCreated: diagnostic?.with_created || 0,
+          totalInRange: diagnostic?.total_in_range || 0
+        },
+        filters: {
+          teamIds: teamIds?.length || 0,
+          calendarId,
+          statusFilter,
+          hasPowerBillFilter,
+          isRescheduleFilter,
+          effectiveOfficeIds: effectiveOfficeIds?.length || 0
+        }
+      });
+    }
+
     const duration = Date.now() - start;
     logApiResponse('GET', path, duration, { status: 200, cached: false, requestId });
 
