@@ -593,3 +593,154 @@ export async function processCustomerWebhook(
     }
   }
 }
+
+/**
+ * Process door knock webhook payload directly
+ * 
+ * RepCard webhook payload format for door knocks:
+ * {
+ *   trigger_event: "Door knocked",
+ *   user: { id: 139887 },
+ *   contact: { id: 46662815 },
+ *   door_knocked_at: "2026-01-22 22:57:44+00:00",
+ *   status: "Not Interested",
+ *   contact_distance: 18.13,
+ *   verified: true
+ * }
+ */
+export async function processDoorKnockWebhook(
+  payload: any,
+  requestId: string
+): Promise<{ processed: boolean; message: string; usedApi?: boolean }> {
+  try {
+    // Extract IDs from various possible formats
+    const setterUserId = payload.user?.id || payload.user_id || payload.setter_id || payload.setterId;
+    const repcardCustomerId = payload.contact?.id || payload.contact_id || payload.customer_id || payload.contactId || payload.customerId;
+    const doorKnockedAt = payload.door_knocked_at || payload.doorKnockedAt || payload.door_knocked_at || payload.timestamp || payload.created_at || new Date().toISOString();
+    const status = payload.status || payload.door_knock_status || null;
+    const contactDistance = payload.contact_distance || payload.contactDistance || null;
+    const verified = payload.verified || payload.is_verified || false;
+    const latitude = payload.latitude || payload.contact?.latitude || null;
+    const longitude = payload.longitude || payload.contact?.longitude || null;
+
+    if (!setterUserId) {
+      logError('[RepCard Webhook Processor] Missing setter user ID in door knock payload', new Error('Invalid payload'), { requestId, payload });
+      return { processed: false, message: 'Missing setter user ID' };
+    }
+
+    logInfo('[RepCard Webhook Processor] Processing door knock from payload', {
+      requestId,
+      setterUserId,
+      repcardCustomerId,
+      doorKnockedAt
+    });
+
+    // Get office_id from setter
+    let officeId: number | null = null;
+    if (setterUserId) {
+      const setterOfficeResult = await sql`
+        SELECT office_id FROM repcard_users 
+        WHERE repcard_user_id = ${setterUserId.toString()}::text 
+        LIMIT 1
+      `;
+      const setterOfficeRows = setterOfficeResult.rows || setterOfficeResult;
+      if (setterOfficeRows.length > 0) {
+        officeId = setterOfficeRows[0].office_id;
+      }
+    }
+
+    // Get customer_id from repcard_customer_id if available
+    let customerId: string | null = null;
+    if (repcardCustomerId) {
+      const customerResult = await sql`
+        SELECT id FROM repcard_customers
+        WHERE repcard_customer_id = ${repcardCustomerId.toString()}::text
+        LIMIT 1
+      `;
+      const customerRows = customerResult.rows || customerResult;
+      if (customerRows.length > 0) {
+        customerId = customerRows[0].id;
+      }
+    }
+
+    // Generate unique door knock ID (use timestamp + setter + customer if available)
+    const doorKnockId = `${setterUserId}_${repcardCustomerId || 'unknown'}_${new Date(doorKnockedAt).getTime()}`;
+
+    // Insert door knock event
+    const result = await sql`
+      INSERT INTO repcard_door_knocks (
+        repcard_door_knock_id,
+        setter_user_id,
+        repcard_customer_id,
+        customer_id,
+        office_id,
+        door_knocked_at,
+        status,
+        contact_distance,
+        latitude,
+        longitude,
+        verified,
+        created_at,
+        updated_at,
+        raw_data
+      )
+      VALUES (
+        ${doorKnockId},
+        ${setterUserId.toString()}::text,
+        ${repcardCustomerId ? repcardCustomerId.toString() : null}::text,
+        ${customerId},
+        ${officeId},
+        ${new Date(doorKnockedAt).toISOString()},
+        ${status},
+        ${contactDistance ? parseFloat(contactDistance.toString()) : null},
+        ${latitude ? parseFloat(latitude.toString()) : null},
+        ${longitude ? parseFloat(longitude.toString()) : null},
+        ${verified},
+        ${new Date(doorKnockedAt).toISOString()},
+        ${new Date().toISOString()},
+        ${JSON.stringify(payload)}
+      )
+      ON CONFLICT (repcard_door_knock_id)
+      DO UPDATE SET
+        repcard_customer_id = EXCLUDED.repcard_customer_id,
+        customer_id = EXCLUDED.customer_id,
+        office_id = COALESCE(EXCLUDED.office_id, repcard_door_knocks.office_id),
+        door_knocked_at = EXCLUDED.door_knocked_at,
+        status = EXCLUDED.status,
+        contact_distance = EXCLUDED.contact_distance,
+        latitude = EXCLUDED.latitude,
+        longitude = EXCLUDED.longitude,
+        verified = EXCLUDED.verified,
+        updated_at = EXCLUDED.updated_at,
+        raw_data = EXCLUDED.raw_data,
+        synced_at = NOW()
+      RETURNING (xmax = 0) AS inserted
+    `;
+
+    const row = result.rows?.[0] || result[0];
+    const wasInserted = row?.inserted;
+
+    logInfo('[RepCard Webhook Processor] Door knock processed', {
+      requestId,
+      doorKnockId,
+      setterUserId,
+      wasInserted: !!wasInserted
+    });
+
+    return {
+      processed: true,
+      message: `Door knock ${doorKnockId} ${wasInserted ? 'inserted' : 'updated'} from webhook payload`,
+      usedApi: false
+    };
+
+  } catch (error) {
+    logError('[RepCard Webhook Processor] Failed to process door knock from payload', error as Error, { requestId });
+    
+    // Don't fail the webhook - log and return success
+    return {
+      processed: false,
+      message: `Door knock processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      usedApi: false
+    };
+  }
+}
