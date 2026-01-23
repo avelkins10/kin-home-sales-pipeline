@@ -129,14 +129,15 @@ export async function GET(request: NextRequest) {
       additionalWhereParts.push(sql`AND (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)`);
     }
     // Build WHERE clause by conditionally including each fragment
-    // Build as a single sql template to avoid parameter binding issues
-    const additionalWhere = 
-      additionalWhereParts.length === 0 ? sql`` :
-      additionalWhereParts.length === 1 ? additionalWhereParts[0] :
-      additionalWhereParts.length === 2 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]}` :
-      additionalWhereParts.length === 3 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]}` :
-      additionalWhereParts.length === 4 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]} ${additionalWhereParts[3]}` :
-      sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]} ${additionalWhereParts[3]} ${additionalWhereParts[4]}`;
+    // Only create fragment if we have conditions to avoid creating empty parameter placeholders
+    const hasAdditionalWhere = additionalWhereParts.length > 0;
+    const additionalWhere = hasAdditionalWhere
+      ? (additionalWhereParts.length === 1 ? additionalWhereParts[0] :
+         additionalWhereParts.length === 2 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]}` :
+         additionalWhereParts.length === 3 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]}` :
+         additionalWhereParts.length === 4 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]} ${additionalWhereParts[3]}` :
+         sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]} ${additionalWhereParts[3]} ${additionalWhereParts[4]}`)
+      : null;
 
     // Log query parameters for debugging
     // Try to inspect the sql fragment structure
@@ -281,7 +282,7 @@ export async function GET(request: NextRequest) {
           (a.scheduled_at IS NULL AND a.created_at::date >= ${startDate}::date AND a.created_at::date <= ${endDate}::date)
         )
         AND a.office_id = ANY(${effectiveOfficeIds}::int[])
-        ${additionalWhere}
+        ${hasAdditionalWhere ? additionalWhere : ''}
         ORDER BY COALESCE(a.scheduled_at, a.created_at) ASC
       `;
     } else if (userRole === 'super_admin' || userRole === 'regional') {
@@ -339,7 +340,7 @@ export async function GET(request: NextRequest) {
           OR
           (a.scheduled_at IS NULL AND a.created_at::date >= ${startDate}::date AND a.created_at::date <= ${endDate}::date)
         )
-        ${additionalWhere}
+        ${hasAdditionalWhere ? additionalWhere : ''}
         ORDER BY COALESCE(a.scheduled_at, a.created_at) ASC
       `;
     } else {

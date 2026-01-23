@@ -203,13 +203,14 @@ export async function GET(request: NextRequest) {
         if (endDate) {
           additionalWhereParts.push(sql`AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')`);
         }
-        // Build WHERE clause by explicitly including fragments based on what exists
-        const additionalWhere = 
-          additionalWhereParts.length === 0 ? sql`` :
-          additionalWhereParts.length === 1 ? additionalWhereParts[0] :
-          additionalWhereParts.length === 2 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]}` :
-          additionalWhereParts.length === 3 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]}` :
-          sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]} ${additionalWhereParts[3]}`;
+        // Build WHERE clause - only create fragment if we have conditions
+        const hasAdditionalWhere = additionalWhereParts.length > 0;
+        const additionalWhere = hasAdditionalWhere
+          ? (additionalWhereParts.length === 1 ? additionalWhereParts[0] :
+             additionalWhereParts.length === 2 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]}` :
+             additionalWhereParts.length === 3 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]}` :
+             sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]} ${additionalWhereParts[3]}`)
+          : null;
         
         const customerAttachmentsResult = await sql`
           SELECT
@@ -226,7 +227,7 @@ export async function GET(request: NextRequest) {
             updated_at
           FROM repcard_customer_attachments
           WHERE 1=1
-          ${additionalWhere}
+          ${hasAdditionalWhere ? additionalWhere : ''}
           ORDER BY created_at DESC
           LIMIT ${limit}
           OFFSET ${offset}
@@ -250,7 +251,7 @@ export async function GET(request: NextRequest) {
             updated_at
           FROM repcard_appointment_attachments
           WHERE 1=1
-          ${additionalWhere}
+          ${hasAdditionalWhere ? additionalWhere : ''}
           ORDER BY created_at DESC
           LIMIT ${limit}
           OFFSET ${offset}
@@ -283,13 +284,14 @@ export async function GET(request: NextRequest) {
         if (endDate) {
           additionalWhereParts.push(sql`AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')`);
         }
-        // Build WHERE clause by explicitly including fragments based on what exists
-        const additionalWhere = 
-          additionalWhereParts.length === 0 ? sql`` :
-          additionalWhereParts.length === 1 ? additionalWhereParts[0] :
-          additionalWhereParts.length === 2 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]}` :
-          additionalWhereParts.length === 3 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]}` :
-          sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]} ${additionalWhereParts[3]}`;
+        // Build WHERE clause - only create fragment if we have conditions
+        const hasAdditionalWhere = additionalWhereParts.length > 0;
+        const additionalWhere = hasAdditionalWhere
+          ? (additionalWhereParts.length === 1 ? additionalWhereParts[0] :
+             additionalWhereParts.length === 2 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]}` :
+             additionalWhereParts.length === 3 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]}` :
+             sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]} ${additionalWhereParts[3]}`)
+          : null;
         
         const result = await sql`
           SELECT
@@ -327,7 +329,7 @@ export async function GET(request: NextRequest) {
         const countResult = await sql`
           SELECT COUNT(*) as count FROM repcard_users
           WHERE 1=1
-          ${additionalWhere}
+          ${hasAdditionalWhere ? additionalWhere : ''}
         `;
         total = parseInt(Array.from(countResult)[0]?.count || '0');
         break;
@@ -342,13 +344,14 @@ export async function GET(request: NextRequest) {
         if (parsedOfficeId) {
           additionalWhereParts.push(sql`AND repcard_office_id = ${parsedOfficeId}`);
         }
-        // Build WHERE clause by explicitly including fragments based on what exists
-        const additionalWhere = 
-          additionalWhereParts.length === 0 ? sql`` :
-          additionalWhereParts.length === 1 ? additionalWhereParts[0] :
-          additionalWhereParts.length === 2 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]}` :
-          additionalWhereParts.length === 3 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]}` :
-          sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]} ${additionalWhereParts[3]}`;
+        // Build WHERE clause - only create fragment if we have conditions
+        const hasAdditionalWhere = additionalWhereParts.length > 0;
+        const additionalWhere = hasAdditionalWhere
+          ? (additionalWhereParts.length === 1 ? additionalWhereParts[0] :
+             additionalWhereParts.length === 2 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]}` :
+             additionalWhereParts.length === 3 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]}` :
+             sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]} ${additionalWhereParts[3]}`)
+          : null;
         
         const result = await sql`
           SELECT
@@ -376,7 +379,7 @@ export async function GET(request: NextRequest) {
         const countResult = await sql`
           SELECT COUNT(*) as count FROM repcard_offices
           WHERE 1=1
-          ${additionalWhere}
+          ${hasAdditionalWhere ? additionalWhere : ''}
         `;
         total = parseInt(Array.from(countResult)[0]?.count || '0');
         break;
@@ -401,13 +404,14 @@ export async function GET(request: NextRequest) {
         if (endDate) {
           additionalWhereParts.push(sql`AND changed_at <= (${endDate}::timestamp + INTERVAL '1 day')`);
         }
-        // Build WHERE clause by explicitly including fragments based on what exists
-        const additionalWhere = 
-          additionalWhereParts.length === 0 ? sql`` :
-          additionalWhereParts.length === 1 ? additionalWhereParts[0] :
-          additionalWhereParts.length === 2 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]}` :
-          additionalWhereParts.length === 3 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]}` :
-          sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]} ${additionalWhereParts[3]}`;
+        // Build WHERE clause - only create fragment if we have conditions
+        const hasAdditionalWhere = additionalWhereParts.length > 0;
+        const additionalWhere = hasAdditionalWhere
+          ? (additionalWhereParts.length === 1 ? additionalWhereParts[0] :
+             additionalWhereParts.length === 2 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]}` :
+             additionalWhereParts.length === 3 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]}` :
+             sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]} ${additionalWhereParts[3]}`)
+          : null;
         
         const result = await sql`
           SELECT
@@ -433,7 +437,7 @@ export async function GET(request: NextRequest) {
         const countResult = await sql`
           SELECT COUNT(*) as count FROM repcard_status_logs
           WHERE 1=1
-          ${additionalWhere}
+          ${hasAdditionalWhere ? additionalWhere : ''}
         `;
         total = parseInt(Array.from(countResult)[0]?.count || '0');
         break;
