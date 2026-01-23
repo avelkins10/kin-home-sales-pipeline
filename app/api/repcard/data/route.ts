@@ -175,11 +175,13 @@ export async function GET(request: NextRequest) {
         if (endDate) {
           additionalWhereParts.push(sql`AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')`);
         }
-        // Combine all fragments into a single fragment
-        let additionalWhere = sql``;
-        for (const fragment of additionalWhereParts) {
-          additionalWhere = sql`${additionalWhere} ${fragment}`;
-        }
+        // Build WHERE clause by explicitly including fragments based on what exists
+        const additionalWhere = 
+          additionalWhereParts.length === 0 ? sql`` :
+          additionalWhereParts.length === 1 ? additionalWhereParts[0] :
+          additionalWhereParts.length === 2 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]}` :
+          additionalWhereParts.length === 3 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]}` :
+          sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]} ${additionalWhereParts[3]}`;
         
         const customerAttachmentsResult = await sql`
           SELECT
@@ -253,11 +255,13 @@ export async function GET(request: NextRequest) {
         if (endDate) {
           additionalWhereParts.push(sql`AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')`);
         }
-        // Combine all fragments into a single fragment
-        let additionalWhere = sql``;
-        for (const fragment of additionalWhereParts) {
-          additionalWhere = sql`${additionalWhere} ${fragment}`;
-        }
+        // Build WHERE clause by explicitly including fragments based on what exists
+        const additionalWhere = 
+          additionalWhereParts.length === 0 ? sql`` :
+          additionalWhereParts.length === 1 ? additionalWhereParts[0] :
+          additionalWhereParts.length === 2 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]}` :
+          additionalWhereParts.length === 3 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]}` :
+          sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]} ${additionalWhereParts[3]}`;
         
         const result = await sql`
           SELECT
@@ -310,11 +314,13 @@ export async function GET(request: NextRequest) {
         if (parsedOfficeId) {
           additionalWhereParts.push(sql`AND repcard_office_id = ${parsedOfficeId}`);
         }
-        // Combine all fragments into a single fragment
-        let additionalWhere = sql``;
-        for (const fragment of additionalWhereParts) {
-          additionalWhere = sql`${additionalWhere} ${fragment}`;
-        }
+        // Build WHERE clause by explicitly including fragments based on what exists
+        const additionalWhere = 
+          additionalWhereParts.length === 0 ? sql`` :
+          additionalWhereParts.length === 1 ? additionalWhereParts[0] :
+          additionalWhereParts.length === 2 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]}` :
+          additionalWhereParts.length === 3 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]}` :
+          sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]} ${additionalWhereParts[3]}`;
         
         const result = await sql`
           SELECT
@@ -367,11 +373,13 @@ export async function GET(request: NextRequest) {
         if (endDate) {
           additionalWhereParts.push(sql`AND changed_at <= (${endDate}::timestamp + INTERVAL '1 day')`);
         }
-        // Combine all fragments into a single fragment
-        let additionalWhere = sql``;
-        for (const fragment of additionalWhereParts) {
-          additionalWhere = sql`${additionalWhere} ${fragment}`;
-        }
+        // Build WHERE clause by explicitly including fragments based on what exists
+        const additionalWhere = 
+          additionalWhereParts.length === 0 ? sql`` :
+          additionalWhereParts.length === 1 ? additionalWhereParts[0] :
+          additionalWhereParts.length === 2 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]}` :
+          additionalWhereParts.length === 3 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]}` :
+          sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]} ${additionalWhereParts[3]}`;
         
         const result = await sql`
           SELECT

@@ -116,12 +116,15 @@ export async function GET(request: NextRequest) {
     } else if (isRescheduleFilter === 'false') {
       additionalWhereParts.push(sql`AND (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)`);
     }
-    // Combine all fragments into a single fragment to avoid creating parameters for missing conditions
-    // Build the combined fragment by including each part only if it exists
-    let additionalWhere = sql``;
-    for (const fragment of additionalWhereParts) {
-      additionalWhere = sql`${additionalWhere} ${fragment}`;
-    }
+    // Build WHERE clause by explicitly including fragments based on what exists
+    // This avoids nested sql fragments that cause parameter binding issues
+    const additionalWhere = 
+      additionalWhereParts.length === 0 ? sql`` :
+      additionalWhereParts.length === 1 ? additionalWhereParts[0] :
+      additionalWhereParts.length === 2 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]}` :
+      additionalWhereParts.length === 3 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]}` :
+      additionalWhereParts.length === 4 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]} ${additionalWhereParts[3]}` :
+      sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]} ${additionalWhereParts[3]} ${additionalWhereParts[4]}`;
 
     let result;
     
