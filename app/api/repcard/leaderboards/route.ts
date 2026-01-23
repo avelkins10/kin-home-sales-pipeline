@@ -194,7 +194,7 @@ export async function GET(request: NextRequest) {
           GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, 'No Team'), COALESCE(dks.doors_knocked, 0)::int, COALESCE(dks.estimated_hours_on_doors, 0)::int
           HAVING COUNT(DISTINCT a.id) > 0 OR COALESCE(dks.doors_knocked, 0) > 0
           ORDER BY appointments_set DESC
-        `
+        `;
       } else if (hasDateFilter && !hasOfficeFilter) {
         settersResult = await sql`
           SELECT
