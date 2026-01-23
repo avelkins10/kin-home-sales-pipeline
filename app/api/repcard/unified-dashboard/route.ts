@@ -104,7 +104,9 @@ export async function GET(request: NextRequest) {
     // 3. Appointments with BOTH (power bill AND 48h) - HIGH QUALITY
     // 4. Appointments with NEITHER (no power bill AND not 48h) - LOW QUALITY
     // ========================================
-    const qualityResult = startDate && endDate
+    let qualityResult;
+    try {
+      qualityResult = startDate && endDate
       ? await sql`
           SELECT
             COUNT(DISTINCT a.id)::int as total_appointments,
@@ -131,6 +133,10 @@ export async function GET(request: NextRequest) {
             COUNT(DISTINCT a.id) FILTER (WHERE a.has_power_bill IS NULL)::int as null_pb
           FROM repcard_appointments a
         `;
+    } catch (error) {
+      console.error('[RepCard Unified Dashboard] Error in qualityResult query:', error);
+      throw new Error(`Quality metrics query failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
 
     const qualityData = getRows(qualityResult)[0] as any;
     const totalAppts = qualityData?.total_appointments || 0;
@@ -236,6 +242,10 @@ export async function GET(request: NextRequest) {
           ORDER BY reschedule_rate DESC
           LIMIT 5
         `;
+    } catch (error) {
+      console.error('[RepCard Unified Dashboard] Error in topReschedulersResult query:', error);
+      throw new Error(`Top reschedulers query failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
 
     const topReschedulers = getRows(topReschedulersResult).map((row: any) => ({
       userId: row.repcard_user_id,
@@ -248,7 +258,9 @@ export async function GET(request: NextRequest) {
     // ========================================
     // 2. OFFICE PERFORMANCE
     // ========================================
-    const officeResult = startDate && endDate
+    let officeResult;
+    try {
+      officeResult = startDate && endDate
       ? await sql`
           SELECT
             o.repcard_office_id,
@@ -309,9 +321,15 @@ export async function GET(request: NextRequest) {
           ORDER BY doors_knocked DESC
           LIMIT 10
         `;
+    } catch (error) {
+      console.error('[RepCard Unified Dashboard] Error in officeResult query:', error);
+      throw new Error(`Office performance query failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
 
     // Get office-level setters and closers breakdown
-    const officeSettersResult = startDate && endDate
+    let officeSettersResult;
+    try {
+      officeSettersResult = startDate && endDate
       ? await sql`
           SELECT
             o.repcard_office_id,
@@ -344,8 +362,14 @@ export async function GET(request: NextRequest) {
           LEFT JOIN users u ON u.repcard_user_id = c.setter_user_id::int
           GROUP BY o.repcard_office_id
         `;
+    } catch (error) {
+      console.error('[RepCard Unified Dashboard] Error in officeSettersResult query:', error);
+      throw new Error(`Office setters query failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
     
-    const officeClosersResult = startDate && endDate
+    let officeClosersResult;
+    try {
+      officeClosersResult = startDate && endDate
       ? await sql`
           SELECT
             o.repcard_office_id,
@@ -419,7 +443,9 @@ export async function GET(request: NextRequest) {
     // ========================================
 
     // Top doors knocked
-    const topDoorsResult = startDate && endDate
+    let topDoorsResult;
+    try {
+      topDoorsResult = startDate && endDate
       ? await sql`
           SELECT
             u.repcard_user_id,
@@ -479,7 +505,9 @@ export async function GET(request: NextRequest) {
     // FIXED: Count doors separately (all customers created by setter in date range)
     // FIXED: Count appointments separately (all appointments set by setter in date range)
     // FIXED: Join customers to appointments for quality metrics, but don't restrict doors by appointment date
-    const topAppointmentSettersResult = startDate && endDate
+    let topAppointmentSettersResult;
+    try {
+      topAppointmentSettersResult = startDate && endDate
       ? await sql`
           SELECT
             u.repcard_user_id,
@@ -584,6 +612,11 @@ export async function GET(request: NextRequest) {
           ORDER BY appointments_set DESC
           LIMIT 50
         `;
+    } catch (error) {
+      console.error('[RepCard Unified Dashboard] Error in topAppointmentSettersResult query:', error);
+      console.error('[RepCard Unified Dashboard] Error details:', error instanceof Error ? error.stack : error);
+      throw new Error(`Top appointment setters query failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
 
     const topAppointmentSetters = getRows(topAppointmentSettersResult).map((row: any) => ({
       userId: row.repcard_user_id,
@@ -657,9 +690,15 @@ export async function GET(request: NextRequest) {
           ORDER BY appointments_run DESC
           LIMIT 50
         `;
+    } catch (error) {
+      console.error('[RepCard Unified Dashboard] Error in topClosersResult query:', error);
+      throw new Error(`Top closers query failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
 
     // Get all unique dispositions for closers (to track all outcomes, not just the 7 categories)
-    const allOutcomesResult = startDate && endDate
+    let allOutcomesResult;
+    try {
+      allOutcomesResult = startDate && endDate
       ? await sql`
           SELECT
             u.repcard_user_id,
@@ -718,7 +757,9 @@ export async function GET(request: NextRequest) {
     // 3.5. OFFICE SETTERS AND CLOSERS BREAKDOWN
     // Detailed breakdown of setters and closers by office for expandable view
     // ========================================
-    const officeSettersBreakdownResult = startDate && endDate
+    let officeSettersBreakdownResult;
+    try {
+      officeSettersBreakdownResult = startDate && endDate
       ? await sql`
           SELECT
             o.repcard_office_id,
@@ -847,6 +888,10 @@ export async function GET(request: NextRequest) {
           HAVING COUNT(DISTINCT a.repcard_appointment_id) > 0
           ORDER BY o.repcard_office_id, appointments_run DESC
         `;
+    } catch (error) {
+      console.error('[RepCard Unified Dashboard] Error in officeClosersBreakdownResult query:', error);
+      throw new Error(`Office closers breakdown query failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
     
     const officeSettersBreakdown = getRows(officeSettersBreakdownResult).map((row: any) => ({
       officeId: row.repcard_office_id,
@@ -878,7 +923,9 @@ export async function GET(request: NextRequest) {
     // ========================================
     // 4. CANVASSING ACTIVITY
     // ========================================
-    const canvassingResult = startDate && endDate
+    let canvassingResult;
+    try {
+      canvassingResult = startDate && endDate
       ? await sql`
           SELECT
             DATE(c.created_at) as date,
@@ -905,6 +952,10 @@ export async function GET(request: NextRequest) {
           ORDER BY date DESC
           LIMIT 30
         `;
+    } catch (error) {
+      console.error('[RepCard Unified Dashboard] Error in canvassingResult query:', error);
+      throw new Error(`Canvassing query failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
 
     const canvassingTrends = getRows(canvassingResult).map((row: any) => ({
       date: row.date,
