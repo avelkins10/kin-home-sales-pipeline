@@ -1,11 +1,17 @@
+#!/usr/bin/env tsx
 /**
  * Run Door Knocks Migration (036)
  * Creates repcard_door_knocks table for tracking door knock events
  */
 
+import { config } from 'dotenv';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { sql } from '@/lib/db/client';
+
+// Load environment variables
+config({ path: resolve(process.cwd(), '.env.local') });
+config({ path: resolve(process.cwd(), '.env') });
 
 // Ensure DATABASE_URL is mapped to POSTGRES_URL
 if (process.env.DATABASE_URL && !process.env.POSTGRES_URL) {
