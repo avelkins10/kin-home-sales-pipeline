@@ -245,7 +245,8 @@ export async function syncCustomers(options: {
         for (const customer of customers) {
           try {
             // Extract setter_user_id from customer data (RepCard user ID)
-            const setterUserId = (customer as any).userId || customer.assignedUserId || (customer as any).setterUserId || (customer as any).setter_user_id;
+            // API provides: userId (setter who created the customer) and ownerId (same as userId)
+            const setterUserId = (customer as any).userId || (customer as any).ownerId || customer.assignedUserId || (customer as any).setterUserId || (customer as any).setter_user_id;
 
             // Track latest updated_at for incremental sync
             const updatedAt = new Date(customer.updatedAt);
@@ -601,9 +602,15 @@ export async function syncAppointments(options: {
                 const customerCreated = new Date(customerCreatedRows[0].created_at);
                 // FIXED: Use startAt (scheduled_at) instead of createdAt
                 // This measures if appointment is scheduled within 48h of customer creation (door knock)
-                const appointmentScheduled = new Date(appointment.startAt);
-                const diffHours = (appointmentScheduled.getTime() - customerCreated.getTime()) / (1000 * 60 * 60);
-                isWithin48Hours = diffHours >= 0 && diffHours <= 48;
+                // Parse startAt with timezone if available
+                const appointmentScheduledStr = appointment.startAt && (appointment as any).startAtTimezone
+                  ? parseRepCardDateTime(appointment.startAt, (appointment as any).startAtTimezone)
+                  : appointment.startAt;
+                const appointmentScheduled = appointmentScheduledStr ? new Date(appointmentScheduledStr) : null;
+                if (appointmentScheduled) {
+                  const diffHours = (appointmentScheduled.getTime() - customerCreated.getTime()) / (1000 * 60 * 60);
+                  isWithin48Hours = diffHours >= 0 && diffHours <= 48;
+                }
               }
             }
 
