@@ -21,7 +21,7 @@ export function getTodayLocal(): string {
  * Check if DST is in effect for a given date in America/New_York
  * DST: Second Sunday in March to First Sunday in November
  */
-function isDSTInEffect(year: number, month: number, day: number): boolean {
+export function isDSTInEffect(year: number, month: number, day: number): boolean {
   // DST starts: Second Sunday in March
   // DST ends: First Sunday in November
   
@@ -46,7 +46,7 @@ function isDSTInEffect(year: number, month: number, day: number): boolean {
 /**
  * Get the day of month for the Nth Sunday in a given month/year
  */
-function getNthSunday(year: number, month: number, n: number): number {
+export function getNthSunday(year: number, month: number, n: number): number {
   // Find the first day of the month
   const firstDay = new Date(year, month - 1, 1);
   const firstDayOfWeek = firstDay.getDay(); // 0 = Sunday, 1 = Monday, etc.

@@ -702,7 +702,9 @@ export async function syncAppointments(options: {
                 ${officeId},
                 ${disposition},
                 ${statusCategory},
-                ${appointment.startAt || null},
+                ${appointment.startAt && appointment.startAtTimezone 
+                  ? parseRepCardDateTime(appointment.startAt, appointment.startAtTimezone) 
+                  : appointment.startAt || null},
                 ${appointment.endAt || null},
                 ${appointment.durationTime || null},
                 ${appointment.notes || null},
