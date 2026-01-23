@@ -56,8 +56,53 @@ export async function processAppointmentWebhook(
     });
 
     // Parse scheduled time from various formats
-    const scheduledAt = payload.appt_start_time || payload.appt_start_time_with_offset || payload.appt_start_time_local || payload.start_at || null;
-    const completedAt = payload.appt_end_time || payload.appt_end_time_with_offset || payload.appt_end_time_local || payload.end_at || null;
+    // Check for timezone information in payload
+    const timezone = payload.timezone || payload.time_zone || payload.appt_timezone || payload.startAtTimezone || payload.start_at_timezone || 'America/New_York';
+    const scheduledAtRaw = payload.appt_start_time || payload.appt_start_time_with_offset || payload.appt_start_time_local || payload.start_at || payload.startAt || null;
+    const completedAtRaw = payload.appt_end_time || payload.appt_end_time_with_offset || payload.appt_end_time_local || payload.end_at || payload.endAt || null;
+    
+    // Parse with timezone if available, otherwise assume Eastern Time
+    let scheduledAt: string | null = null;
+    let completedAt: string | null = null;
+    
+    if (scheduledAtRaw) {
+      try {
+        // If it's already an ISO string with timezone, use it directly
+        if (typeof scheduledAtRaw === 'string' && (scheduledAtRaw.includes('T') || scheduledAtRaw.includes('Z') || scheduledAtRaw.includes('+'))) {
+          scheduledAt = new Date(scheduledAtRaw).toISOString();
+        } else {
+          // Parse with timezone using parseRepCardDateTime
+          const { parseRepCardDateTime } = await import('@/lib/utils/repcard-date-parser');
+          scheduledAt = parseRepCardDateTime(scheduledAtRaw, timezone);
+        }
+      } catch (error) {
+        logError('[RepCard Webhook Processor] Error parsing scheduled time', error as Error, { requestId, scheduledAtRaw, timezone });
+        // Fallback: try to parse as-is
+        try {
+          scheduledAt = new Date(scheduledAtRaw).toISOString();
+        } catch {
+          scheduledAt = null;
+        }
+      }
+    }
+    
+    if (completedAtRaw) {
+      try {
+        if (typeof completedAtRaw === 'string' && (completedAtRaw.includes('T') || completedAtRaw.includes('Z') || completedAtRaw.includes('+'))) {
+          completedAt = new Date(completedAtRaw).toISOString();
+        } else {
+          const { parseRepCardDateTime } = await import('@/lib/utils/repcard-date-parser');
+          completedAt = parseRepCardDateTime(completedAtRaw, timezone);
+        }
+      } catch (error) {
+        logError('[RepCard Webhook Processor] Error parsing completed time', error as Error, { requestId, completedAtRaw, timezone });
+        try {
+          completedAt = new Date(completedAtRaw).toISOString();
+        } catch {
+          completedAt = null;
+        }
+      }
+    }
     const duration = payload.duration || payload.durationTime || null;
     const notes = payload.notes || payload.appointment_notes || null;
 
