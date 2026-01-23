@@ -201,7 +201,9 @@ export async function GET(request: NextRequest) {
     });
 
     // Top reschedulers
-    const topReschedulersResult = startDate && endDate
+    let topReschedulersResult;
+    try {
+      topReschedulersResult = startDate && endDate
       ? await sql`
           SELECT
             u.repcard_user_id,
@@ -400,6 +402,10 @@ export async function GET(request: NextRequest) {
           LEFT JOIN users u ON u.repcard_user_id = a.closer_user_id::int
           GROUP BY o.repcard_office_id
         `;
+    } catch (error) {
+      console.error('[RepCard Unified Dashboard] Error in officeClosersResult query:', error);
+      throw new Error(`Office closers query failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
     
     const officeSetters = new Map<string, any>();
     getRows(officeSettersResult).forEach((row: any) => {
@@ -490,6 +496,10 @@ export async function GET(request: NextRequest) {
           ORDER BY doors_knocked DESC
           LIMIT 50
         `;
+    } catch (error) {
+      console.error('[RepCard Unified Dashboard] Error in topDoorsResult query:', error);
+      throw new Error(`Top doors query failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
 
     const topDoors = getRows(topDoorsResult).map((row: any) => ({
       userId: row.repcard_user_id,
@@ -832,6 +842,10 @@ export async function GET(request: NextRequest) {
           HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
           ORDER BY o.repcard_office_id, doors_knocked DESC
         `;
+    } catch (error) {
+      console.error('[RepCard Unified Dashboard] Error in officeSettersBreakdownResult query:', error);
+      throw new Error(`Office setters breakdown query failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
     
     let officeClosersBreakdownResult;
     try {
