@@ -15,15 +15,103 @@ import { Calendar, Filter, X, Building2, Users, CalendarDays } from 'lucide-reac
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 
+export type DateRangeOption = 'today' | 'tomorrow' | 'this_week' | 'next_7_days' | 'next_14_days' | 'this_month' | 'custom';
+
 export interface AppointmentFilters {
-  startDate: string;
-  endDate: string;
+  dateRange: DateRangeOption;
+  customStartDate?: string;
+  customEndDate?: string;
   officeIds?: number[];
   teamIds?: number[];
   calendarId?: number;
   status?: string;
   hasPowerBill?: boolean;
   isReschedule?: boolean;
+}
+
+// Helper to convert date range to actual dates
+export function getDateRangeFromOption(option: DateRangeOption, customStart?: string, customEnd?: string): { startDate: string; endDate: string; viewMode: 'day' | 'week' | 'month'; currentDate: Date } {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  let startDate: Date;
+  let endDate: Date;
+  let viewMode: 'day' | 'week' | 'month' = 'week';
+  let currentDate = new Date(today);
+
+  switch (option) {
+    case 'today':
+      startDate = new Date(today);
+      endDate = new Date(today);
+      viewMode = 'day';
+      currentDate = new Date(today);
+      break;
+    case 'tomorrow':
+      startDate = new Date(today);
+      startDate.setDate(startDate.getDate() + 1);
+      endDate = new Date(startDate);
+      viewMode = 'day';
+      currentDate = new Date(startDate);
+      break;
+    case 'this_week':
+      // Sunday to Saturday of current week
+      const dayOfWeek = today.getDay();
+      startDate = new Date(today);
+      startDate.setDate(startDate.getDate() - dayOfWeek);
+      endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + 6);
+      viewMode = 'week';
+      currentDate = new Date(today);
+      break;
+    case 'next_7_days':
+      startDate = new Date(today);
+      endDate = new Date(today);
+      endDate.setDate(endDate.getDate() + 6);
+      viewMode = 'week';
+      currentDate = new Date(today);
+      break;
+    case 'next_14_days':
+      startDate = new Date(today);
+      endDate = new Date(today);
+      endDate.setDate(endDate.getDate() + 13);
+      viewMode = 'week';
+      currentDate = new Date(today);
+      break;
+    case 'this_month':
+      startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+      endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      viewMode = 'month';
+      currentDate = new Date(today);
+      break;
+    case 'custom':
+      if (customStart && customEnd) {
+        startDate = new Date(customStart);
+        endDate = new Date(customEnd);
+        const daysDiff = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+        if (daysDiff === 0) {
+          viewMode = 'day';
+        } else if (daysDiff <= 7) {
+          viewMode = 'week';
+        } else {
+          viewMode = 'month';
+        }
+        currentDate = new Date(startDate);
+      } else {
+        startDate = new Date(today);
+        endDate = new Date(today);
+        endDate.setDate(endDate.getDate() + 6);
+        viewMode = 'week';
+        currentDate = new Date(today);
+      }
+      break;
+  }
+
+  return {
+    startDate: startDate.toISOString().split('T')[0],
+    endDate: endDate.toISOString().split('T')[0],
+    viewMode,
+    currentDate
+  };
 }
 
 interface AppointmentFiltersProps {
@@ -47,12 +135,11 @@ export function AppointmentFilters({
   showAdvanced = false,
   onToggleAdvanced
 }: AppointmentFiltersProps) {
-  const [localStartDate, setLocalStartDate] = useState(filters.startDate);
-  const [localEndDate, setLocalEndDate] = useState(filters.endDate);
+  const [showCustomDates, setShowCustomDates] = useState(filters.dateRange === 'custom');
 
   const isLeader = ['office_leader', 'area_director', 'divisional', 'regional', 'super_admin'].includes(userRole);
 
-  // Count active filters
+  // Count active filters (excluding date range as it's always set)
   const activeFiltersCount = [
     filters.officeIds?.length,
     filters.teamIds?.length,
@@ -62,44 +149,30 @@ export function AppointmentFilters({
     filters.isReschedule !== undefined,
   ].filter(Boolean).length;
 
-  const handleDateChange = (field: 'startDate' | 'endDate', value: string) => {
-    if (field === 'startDate') {
-      setLocalStartDate(value);
-      onFiltersChange({ ...filters, startDate: value });
-    } else {
-      setLocalEndDate(value);
-      onFiltersChange({ ...filters, endDate: value });
-    }
+  const handleDateRangeChange = (value: DateRangeOption) => {
+    setShowCustomDates(value === 'custom');
+    onFiltersChange({
+      ...filters,
+      dateRange: value,
+      customStartDate: value === 'custom' ? filters.customStartDate : undefined,
+      customEndDate: value === 'custom' ? filters.customEndDate : undefined
+    });
   };
 
-  const handleQuickDate = (days: number) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const endDate = new Date(today);
-    endDate.setDate(endDate.getDate() + days);
-
-    const startDateStr = today.toISOString().split('T')[0];
-    const endDateStr = endDate.toISOString().split('T')[0];
-
-    setLocalStartDate(startDateStr);
-    setLocalEndDate(endDateStr);
-    onFiltersChange({ ...filters, startDate: startDateStr, endDate: endDateStr });
+  const handleCustomDateChange = (field: 'start' | 'end', value: string) => {
+    onFiltersChange({
+      ...filters,
+      dateRange: 'custom',
+      customStartDate: field === 'start' ? value : filters.customStartDate,
+      customEndDate: field === 'end' ? value : filters.customEndDate
+    });
   };
 
   const clearFilters = () => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const defaultEnd = new Date(today);
-    defaultEnd.setDate(defaultEnd.getDate() + 7);
-
-    const defaultStart = today.toISOString().split('T')[0];
-    const defaultEndStr = defaultEnd.toISOString().split('T')[0];
-
-    setLocalStartDate(defaultStart);
-    setLocalEndDate(defaultEndStr);
     onFiltersChange({
-      startDate: defaultStart,
-      endDate: defaultEndStr,
+      dateRange: 'next_7_days',
+      customStartDate: undefined,
+      customEndDate: undefined,
       officeIds: undefined,
       teamIds: undefined,
       calendarId: undefined,
@@ -107,6 +180,7 @@ export function AppointmentFilters({
       hasPowerBill: undefined,
       isReschedule: undefined
     });
+    setShowCustomDates(false);
   };
 
   return (
@@ -144,42 +218,52 @@ export function AppointmentFilters({
         </div>
       </div>
 
-      {/* Date Range */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Single Date Range Selector */}
+      <div className="space-y-3">
         <div>
-          <Label className="text-sm font-medium">Start Date</Label>
-          <Input
-            type="date"
-            value={localStartDate}
-            onChange={(e) => handleDateChange('startDate', e.target.value)}
-            className="mt-1.5"
-          />
-        </div>
-        <div>
-          <Label className="text-sm font-medium">End Date</Label>
-          <Input
-            type="date"
-            value={localEndDate}
-            onChange={(e) => handleDateChange('endDate', e.target.value)}
-            className="mt-1.5"
-          />
-        </div>
-        <div>
-          <Label className="text-sm font-medium">Quick Select</Label>
-          <Select onValueChange={(value) => handleQuickDate(parseInt(value))}>
+          <Label className="text-sm font-medium flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            Date Range
+          </Label>
+          <Select value={filters.dateRange} onValueChange={(value) => handleDateRangeChange(value as DateRangeOption)}>
             <SelectTrigger className="mt-1.5">
-              <Calendar className="mr-2 h-4 w-4" />
-              <SelectValue placeholder="Choose range" />
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="0">Today</SelectItem>
-              <SelectItem value="1">Tomorrow</SelectItem>
-              <SelectItem value="7">Next 7 Days</SelectItem>
-              <SelectItem value="14">Next 14 Days</SelectItem>
-              <SelectItem value="30">Next 30 Days</SelectItem>
+              <SelectItem value="today">Today</SelectItem>
+              <SelectItem value="tomorrow">Tomorrow</SelectItem>
+              <SelectItem value="this_week">This Week</SelectItem>
+              <SelectItem value="next_7_days">Next 7 Days</SelectItem>
+              <SelectItem value="next_14_days">Next 14 Days</SelectItem>
+              <SelectItem value="this_month">This Month</SelectItem>
+              <SelectItem value="custom">Custom Range...</SelectItem>
             </SelectContent>
           </Select>
         </div>
+
+        {/* Custom Date Inputs (show when Custom selected) */}
+        {showCustomDates && (
+          <div className="grid grid-cols-2 gap-3 pl-6 border-l-2 border-blue-200">
+            <div>
+              <Label className="text-xs font-medium text-gray-600">From</Label>
+              <Input
+                type="date"
+                value={filters.customStartDate || ''}
+                onChange={(e) => handleCustomDateChange('start', e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-gray-600">To</Label>
+              <Input
+                type="date"
+                value={filters.customEndDate || ''}
+                onChange={(e) => handleCustomDateChange('end', e.target.value)}
+                className="mt-1"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Primary Filters - Office, Team, Calendar */}

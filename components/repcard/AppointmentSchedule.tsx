@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { useMediaQuery } from '@/lib/hooks/useMediaQuery';
 import { cn } from '@/lib/utils';
-import { AppointmentFilters } from './AppointmentFilters';
+import { AppointmentFilters, getDateRangeFromOption } from './AppointmentFilters';
 import { AppointmentCard, AppointmentData } from './AppointmentCard';
 import { AppointmentDetailModal } from './AppointmentDetailModal';
 import { AppointmentCalendarView } from './AppointmentCalendarView';
@@ -29,34 +29,42 @@ interface AppointmentScheduleProps {
   initialFilters?: Partial<AppointmentFilters>;
 }
 
-export function AppointmentSchedule({ 
-  userId, 
+export function AppointmentSchedule({
+  userId,
   userRole,
-  initialFilters 
+  initialFilters
 }: AppointmentScheduleProps) {
   const isMobile = useMediaQuery('(max-width: 768px)');
-  const [viewMode, setViewMode] = useState<ViewMode>(isMobile ? 'list' : 'week');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentData | null>(null);
-  const [calendarDate, setCalendarDate] = useState<Date>(new Date());
 
   // Default filters
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const defaultEndDate = new Date(today);
-  defaultEndDate.setDate(defaultEndDate.getDate() + 7);
-
   const [filters, setFilters] = useState<AppointmentFilters>({
-    startDate: initialFilters?.startDate || today.toISOString().split('T')[0],
-    endDate: initialFilters?.endDate || defaultEndDate.toISOString().split('T')[0],
+    dateRange: initialFilters?.dateRange || 'next_7_days',
+    customStartDate: initialFilters?.customStartDate,
+    customEndDate: initialFilters?.customEndDate,
     ...initialFilters
   });
+
+  // Calculate actual dates and view mode from date range
+  const { startDate, endDate, viewMode, currentDate } = useMemo(() => {
+    return getDateRangeFromOption(filters.dateRange, filters.customStartDate, filters.customEndDate);
+  }, [filters.dateRange, filters.customStartDate, filters.customEndDate]);
+
+  // Use list view on mobile, otherwise use the calculated view mode
+  const actualViewMode = isMobile ? 'list' : viewMode;
+  const [calendarDate, setCalendarDate] = useState<Date>(currentDate);
+
+  // Update calendar date when date range changes
+  useEffect(() => {
+    setCalendarDate(currentDate);
+  }, [currentDate]);
 
   // Build query params
   const queryParams = useMemo(() => {
     const params = new URLSearchParams({
-      startDate: filters.startDate,
-      endDate: filters.endDate
+      startDate,
+      endDate
     });
 
     if (filters.officeIds && filters.officeIds.length > 0) {
@@ -79,7 +87,7 @@ export function AppointmentSchedule({
     }
 
     return params.toString();
-  }, [filters]);
+  }, [startDate, endDate, filters.officeIds, filters.teamIds, filters.calendarId, filters.status, filters.hasPowerBill, filters.isReschedule]);
 
   // Fetch appointments
   const { data, isLoading, error, refetch } = useQuery<{
@@ -207,46 +215,30 @@ export function AppointmentSchedule({
         onToggleAdvanced={() => setShowAdvanced(!showAdvanced)}
       />
 
-      {/* View Controls */}
+      {/* View Info & Controls */}
       <Card className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">View:</span>
-            <div className="flex gap-1">
-              <Button
-                variant={viewMode === 'list' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('list')}
-              >
-                <List className="h-4 w-4 mr-1" />
-                List
-              </Button>
-              <Button
-                variant={viewMode === 'day' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('day')}
-              >
-                Day
-              </Button>
-              <Button
-                variant={viewMode === 'week' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('week')}
-              >
-                Week
-              </Button>
-              <Button
-                variant={viewMode === 'month' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('month')}
-              >
-                <CalendarIcon className="h-4 w-4 mr-1" />
-                Month
-              </Button>
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <CalendarIcon className="h-5 w-5 text-blue-600" />
+              <div>
+                <div className="text-sm font-semibold text-gray-900">
+                  {filters.dateRange === 'today' && 'Today'}
+                  {filters.dateRange === 'tomorrow' && 'Tomorrow'}
+                  {filters.dateRange === 'this_week' && 'This Week'}
+                  {filters.dateRange === 'next_7_days' && 'Next 7 Days'}
+                  {filters.dateRange === 'next_14_days' && 'Next 14 Days'}
+                  {filters.dateRange === 'this_month' && 'This Month'}
+                  {filters.dateRange === 'custom' && `${startDate} to ${endDate}`}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {actualViewMode === 'list' ? 'List View' : `${viewMode.charAt(0).toUpperCase() + viewMode.slice(1)} View`}
+                </div>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant="outline">
+            <Badge variant="outline" className="text-sm">
               {appointments.length} appointment{appointments.length !== 1 ? 's' : ''}
             </Badge>
             <Button
@@ -275,7 +267,7 @@ export function AppointmentSchedule({
           <CalendarIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <p className="text-muted-foreground">No appointments found for the selected date range and filters.</p>
         </Card>
-      ) : viewMode === 'list' ? (
+      ) : actualViewMode === 'list' ? (
         <div className="space-y-4">
           {appointments.map(appointment => (
             <AppointmentCard
@@ -288,7 +280,7 @@ export function AppointmentSchedule({
       ) : (
         <AppointmentCalendarView
           appointments={appointments}
-          viewMode={viewMode}
+          viewMode={actualViewMode}
           currentDate={calendarDate}
           onDateChange={setCalendarDate}
           onAppointmentClick={setSelectedAppointment}

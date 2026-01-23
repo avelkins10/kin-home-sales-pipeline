@@ -216,48 +216,6 @@ export function AppointmentCalendarView({
 
     return (
       <div className="flex flex-col h-[calc(100vh-300px)] min-h-[600px]">
-        {/* Unscheduled appointments section */}
-        {unscheduledAppointments.length > 0 && (
-          <Card className="mb-4 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Clock className="h-4 w-4 text-muted-foreground" />
-              <h3 className="font-semibold text-sm">Unscheduled Appointments ({unscheduledAppointments.length})</h3>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-              {unscheduledAppointments.map(apt => (
-                <div
-                  key={apt.id}
-                  className={cn(
-                    "p-2 rounded-md border cursor-pointer hover:shadow-sm transition-shadow text-xs",
-                    getStatusColor(apt.status_category)
-                  )}
-                  onClick={() => onAppointmentClick(apt)}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-xs truncate">{apt.customer_name || 'Unknown Customer'}</div>
-                      <div className="text-[10px] font-semibold mt-0.5 truncate">
-                        {apt.closer_name || <span className="text-amber-600">UNASSIGNED</span>}
-                      </div>
-                    </div>
-                    {(() => {
-                      const badge = getStatusBadge(apt.status_category, apt.disposition);
-                      return badge && (
-                        <div className={cn(
-                          "inline-block px-1 py-0.5 rounded text-[8px] font-bold border shrink-0",
-                          badge.badgeClass
-                        )}>
-                          {badge.badgeText.split(' ')[0]}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
-
         <div className="flex-1 overflow-y-auto border rounded-lg bg-background">
           <div className="grid grid-cols-[80px_1fr] gap-0">
             {/* Time column */}
