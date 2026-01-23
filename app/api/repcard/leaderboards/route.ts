@@ -111,7 +111,14 @@ export async function GET(request: NextRequest) {
     try {
       settersResult = hasDateFilter
         ? await sql`
-          WITH door_knock_stats AS (
+          WITH filtered_appointments AS (
+            SELECT *
+            FROM repcard_appointments
+            WHERE scheduled_at IS NOT NULL
+              AND (scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDateParam}::date
+              AND (scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDateParam}::date
+          ),
+          door_knock_stats AS (
             SELECT 
               dk.setter_user_id,
               COUNT(DISTINCT dk.id)::int as doors_knocked,
@@ -180,10 +187,7 @@ export async function GET(request: NextRequest) {
             END as conversion_rate
           FROM repcard_users ru
           LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
-          LEFT JOIN repcard_appointments a ON a.setter_user_id::int = ru.repcard_user_id
-            AND a.scheduled_at IS NOT NULL
-            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDateParam}::date
-            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDateParam}::date
+          LEFT JOIN filtered_appointments a ON a.setter_user_id::int = ru.repcard_user_id
           LEFT JOIN door_knock_stats dks ON dks.setter_user_id = ru.repcard_user_id
           WHERE ru.status = 1 AND (ru.role = 'setter' OR ru.role IS NULL)
           ${hasOfficeFilter ? sql`AND EXISTS (
@@ -260,6 +264,13 @@ export async function GET(request: NextRequest) {
     try {
       closersResult = hasDateFilter
         ? await sql`
+          WITH filtered_appointments AS (
+            SELECT *
+            FROM repcard_appointments
+            WHERE scheduled_at IS NOT NULL
+              AND (scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDateParam}::date
+              AND (scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDateParam}::date
+          )
           SELECT
             ru.repcard_user_id,
             COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as name,
@@ -288,10 +299,7 @@ export async function GET(request: NextRequest) {
             END as close_rate
           FROM repcard_users ru
           LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
-          LEFT JOIN repcard_appointments a ON a.closer_user_id::int = ru.repcard_user_id
-            AND a.scheduled_at IS NOT NULL
-            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDateParam}::date
-            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDateParam}::date
+          LEFT JOIN filtered_appointments a ON a.closer_user_id::int = ru.repcard_user_id
           WHERE ru.status = 1 AND (ru.role = 'closer' OR ru.role IS NULL)
           ${hasOfficeFilter ? sql`AND EXISTS (
             SELECT 1 FROM offices o
@@ -345,7 +353,14 @@ export async function GET(request: NextRequest) {
     try {
       officesResult = hasDateFilter
         ? await sql`
-          WITH office_setters AS (
+          WITH filtered_appointments AS (
+            SELECT *
+            FROM repcard_appointments
+            WHERE scheduled_at IS NOT NULL
+              AND (scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDateParam}::date
+              AND (scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDateParam}::date
+          ),
+          office_setters AS (
             SELECT
               o.repcard_office_id,
               COUNT(DISTINCT ru.repcard_user_id) FILTER (WHERE ru.role = 'setter' OR ru.role IS NULL)::int as setters_count,
@@ -353,17 +368,13 @@ export async function GET(request: NextRequest) {
               COUNT(DISTINCT a.id) FILTER (
                 WHERE a.setter_user_id IS NOT NULL
                 AND (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)
-                AND a.scheduled_at IS NOT NULL
-                AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDateParam}::date
-                AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDateParam}::date
               )::int as appointments_set
             FROM repcard_offices o
             LEFT JOIN repcard_users ru ON ru.office_id = o.repcard_office_id
             LEFT JOIN repcard_door_knocks dk ON dk.setter_user_id = ru.repcard_user_id
               AND dk.door_knocked_at >= ${startDate}::timestamptz
               AND dk.door_knocked_at <= ${endDate}::timestamptz
-            LEFT JOIN repcard_appointments a ON a.setter_user_id::int = ru.repcard_user_id
-              AND a.scheduled_at IS NOT NULL
+            LEFT JOIN filtered_appointments a ON a.setter_user_id::int = ru.repcard_user_id
             ${hasOfficeFilter ? sql`WHERE o.repcard_office_id = ANY(${officeIds}::int[])` : sql``}
             GROUP BY o.repcard_office_id
           ),
@@ -371,22 +382,11 @@ export async function GET(request: NextRequest) {
             SELECT
               o.repcard_office_id,
               COUNT(DISTINCT ru.repcard_user_id) FILTER (WHERE ru.role = 'closer' OR ru.role IS NULL)::int as closers_count,
-              COUNT(DISTINCT a.id) FILTER (
-                WHERE a.closer_user_id IS NOT NULL
-                AND a.scheduled_at IS NOT NULL
-                AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDateParam}::date
-                AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDateParam}::date
-              )::int as appointments_run,
-              COUNT(DISTINCT a.id) FILTER (
-                WHERE a.status_category IN ('sat_closed', 'completed')
-                AND a.scheduled_at IS NOT NULL
-                AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDateParam}::date
-                AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDateParam}::date
-              )::int as sales_closed
+              COUNT(DISTINCT a.id) FILTER (WHERE a.closer_user_id IS NOT NULL)::int as appointments_run,
+              COUNT(DISTINCT a.id) FILTER (WHERE a.status_category IN ('sat_closed', 'completed'))::int as sales_closed
             FROM repcard_offices o
             LEFT JOIN repcard_users ru ON ru.office_id = o.repcard_office_id
-            LEFT JOIN repcard_appointments a ON a.closer_user_id::int = ru.repcard_user_id
-              AND a.scheduled_at IS NOT NULL
+            LEFT JOIN filtered_appointments a ON a.closer_user_id::int = ru.repcard_user_id
             ${hasOfficeFilter ? sql`WHERE o.repcard_office_id = ANY(${officeIds}::int[])` : sql``}
             GROUP BY o.repcard_office_id
           )
