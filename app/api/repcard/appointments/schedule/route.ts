@@ -430,22 +430,28 @@ export async function GET(request: NextRequest) {
       name: error.name
     } : { error: String(error) };
     
+    // Safely access variables that might not be assigned yet
+    const queryParams: any = {};
+    try {
+      queryParams.userRole = userRole;
+      queryParams.repcardUserId = repcardUserId;
+      queryParams.teamIds = teamIds?.length || 0;
+      queryParams.calendarId = calendarId;
+      queryParams.statusFilter = statusFilter;
+      queryParams.hasPowerBillFilter = hasPowerBillFilter;
+      queryParams.isRescheduleFilter = isRescheduleFilter;
+      queryParams.effectiveOfficeIds = effectiveOfficeIds?.length || 0;
+      queryParams.startDate = startDate;
+      queryParams.endDate = endDate;
+    } catch (e) {
+      // If accessing variables fails, just log that
+      queryParams.error = 'Could not access query parameters';
+    }
+    
     logError('repcard-appointments-schedule', error as Error, { 
       requestId,
       errorDetails,
-      // Log the query parameters that caused the error
-      queryParams: {
-        userRole,
-        repcardUserId,
-        teamIds: teamIds?.length || 0,
-        calendarId,
-        statusFilter,
-        hasPowerBillFilter,
-        isRescheduleFilter,
-        effectiveOfficeIds: effectiveOfficeIds?.length || 0,
-        startDate,
-        endDate
-      }
+      queryParams
     });
     logApiResponse('GET', path, duration, { status: 500, cached: false, requestId });
     return NextResponse.json(

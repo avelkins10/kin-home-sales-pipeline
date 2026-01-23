@@ -476,21 +476,27 @@ export async function GET(request: NextRequest) {
       name: error.name
     } : { error: String(error) };
     
+    // Safely access variables that might not be assigned yet
+    const queryParams: any = {};
+    try {
+      queryParams.type = type;
+      queryParams.userId = userId;
+      queryParams.repcardUserId = actualRepcardUserId;
+      queryParams.officeId = officeId;
+      queryParams.customerId = customerId;
+      queryParams.startDate = startDate;
+      queryParams.endDate = endDate;
+      queryParams.limit = limit;
+      queryParams.page = page;
+    } catch (e) {
+      // If accessing variables fails, just log that
+      queryParams.error = 'Could not access query parameters';
+    }
+    
     logError('repcard-data', error as Error, { 
       requestId,
       errorDetails,
-      // Log the query parameters that caused the error
-      queryParams: {
-        type,
-        userId,
-        repcardUserId: actualRepcardUserId,
-        officeId,
-        customerId,
-        startDate,
-        endDate,
-        limit,
-        page
-      }
+      queryParams
     });
     logApiResponse('GET', path, duration, { status: 500, cached: false, requestId });
     return NextResponse.json(
