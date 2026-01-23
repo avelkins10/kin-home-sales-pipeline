@@ -130,21 +130,59 @@ export function AppointmentCalendarView({
     onDateChange(new Date());
   };
 
-  // Get status color
+  // Get status color - make outcomes more visually distinct
   const getStatusColor = (status: string | null) => {
     if (!status) return 'bg-gray-100 text-gray-800 border-gray-300';
     switch (status.toLowerCase()) {
       case 'scheduled':
+        return 'bg-blue-50 text-blue-900 border-blue-300';
       case 'completed':
-        return 'bg-green-50 text-green-800 border-green-300';
+        return 'bg-green-50 text-green-900 border-green-400';
       case 'rescheduled':
-        return 'bg-yellow-50 text-yellow-800 border-yellow-300';
+        return 'bg-amber-50 text-amber-900 border-amber-300';
       case 'cancelled':
+        return 'bg-red-50 text-red-900 border-red-400';
       case 'no_show':
-        return 'bg-red-50 text-red-800 border-red-300';
+        return 'bg-red-100 text-red-950 border-red-500';
       default:
         return 'bg-gray-50 text-gray-800 border-gray-300';
     }
+  };
+
+  // Get status badge for prominent display
+  const getStatusBadge = (status: string | null, disposition: string | null) => {
+    if (!status) return null;
+
+    const statusDisplay = status.replace(/_/g, ' ').toUpperCase();
+    let badgeClass = '';
+    let badgeText = statusDisplay;
+
+    switch (status.toLowerCase()) {
+      case 'completed':
+        badgeClass = 'bg-green-600 text-white border-green-700';
+        badgeText = disposition || statusDisplay;
+        break;
+      case 'cancelled':
+        badgeClass = 'bg-red-600 text-white border-red-700';
+        badgeText = disposition || statusDisplay;
+        break;
+      case 'no_show':
+        badgeClass = 'bg-red-700 text-white border-red-800';
+        badgeText = 'NO SHOW';
+        break;
+      case 'rescheduled':
+        badgeClass = 'bg-amber-600 text-white border-amber-700';
+        badgeText = 'RESCHEDULED';
+        break;
+      case 'scheduled':
+        badgeClass = 'bg-blue-600 text-white border-blue-700';
+        badgeText = 'SCHEDULED';
+        break;
+      default:
+        badgeClass = 'bg-gray-600 text-white border-gray-700';
+    }
+
+    return { badgeClass, badgeText };
   };
 
   // Render day view
@@ -197,6 +235,17 @@ export function AppointmentCalendarView({
                 >
                   <div className="font-semibold truncate">{apt.customer_name || 'Unknown Customer'}</div>
                   <div className="text-[10px] opacity-80 mt-0.5">Created: {format(new Date(apt.created_at), 'MMM d')}</div>
+                  {(() => {
+                    const badge = getStatusBadge(apt.status_category, apt.disposition);
+                    return badge && (
+                      <div className={cn(
+                        "inline-block px-1.5 py-0.5 rounded text-[9px] font-bold mt-1 border",
+                        badge.badgeClass
+                      )}>
+                        {badge.badgeText}
+                      </div>
+                    );
+                  })()}
                 </div>
               ))}
             </div>
@@ -266,13 +315,18 @@ export function AppointmentCalendarView({
                                   {format(aptDate, 'h:mm a')}
                                   {duration && duration !== 60 && ` • ${duration}min`}
                                 </div>
-                                {apt.status_category && (
-                                  <div className="text-[10px] font-medium mt-0.5 capitalize">
-                                    {apt.status_category}
-                                    {apt.disposition && ` • ${apt.disposition}`}
-                                  </div>
-                                )}
-                                <div className="text-[10px] opacity-70 mt-0.5 truncate">
+                                {(() => {
+                                  const badge = getStatusBadge(apt.status_category, apt.disposition);
+                                  return badge && (
+                                    <div className={cn(
+                                      "inline-block px-2 py-0.5 rounded-md text-[10px] font-bold mt-1 border",
+                                      badge.badgeClass
+                                    )}>
+                                      {badge.badgeText}
+                                    </div>
+                                  );
+                                })()}
+                                <div className="text-[10px] opacity-70 mt-1 truncate">
                                   Closer: {apt.closer_name || 'Unassigned'}
                                   {apt.setter_name && ` • Setter: ${apt.setter_name}`}
                                 </div>
@@ -430,11 +484,17 @@ export function AppointmentCalendarView({
                               <div className="text-[10px] opacity-80 mt-0.5">
                                 {format(aptDate, 'h:mm a')}
                               </div>
-                              {apt.status_category && (
-                                <div className="text-[9px] font-medium mt-0.5 capitalize truncate">
-                                  {apt.status_category}
-                                </div>
-                              )}
+                              {(() => {
+                                const badge = getStatusBadge(apt.status_category, apt.disposition);
+                                return badge && (
+                                  <div className={cn(
+                                    "inline-block px-1.5 py-0.5 rounded text-[8px] font-bold mt-0.5 border",
+                                    badge.badgeClass
+                                  )}>
+                                    {badge.badgeText.split(' ')[0]}
+                                  </div>
+                                );
+                              })()}
                               <div className="text-[9px] opacity-70 mt-0.5 truncate">
                                 {apt.closer_name === 'Unassigned' ? 'Unassigned' : apt.closer_name?.split(' ')[0] || 'Unassigned'}
                               </div>
@@ -555,6 +615,17 @@ export function AppointmentCalendarView({
                           <div className="truncate text-[10px] opacity-90 mt-0.5">
                             {apt.customer_name || 'Unknown'}
                           </div>
+                          {(() => {
+                            const badge = getStatusBadge(apt.status_category, apt.disposition);
+                            return badge && (
+                              <div className={cn(
+                                "inline-block px-1 py-0.5 rounded text-[8px] font-bold mt-1 border",
+                                badge.badgeClass
+                              )}>
+                                {badge.badgeText.split(' ').slice(0, 2).join(' ')}
+                              </div>
+                            );
+                          })()}
                           <div className="flex items-center gap-0.5 flex-wrap mt-1">
                             {apt.is_confirmed && (
                               <CheckCircle2 className="h-2.5 w-2.5 text-green-600" title="Confirmed" />
