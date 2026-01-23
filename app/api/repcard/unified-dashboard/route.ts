@@ -429,11 +429,10 @@ export async function GET(request: NextRequest) {
           SELECT
             o.repcard_office_id,
             COUNT(DISTINCT dk.id)::int as doors_knocked,
-            -- Match RepCard dashboard: exclude reschedules AND cancelled/no-show appointments
+            -- Gross appointments set (for gamification) - exclude ONLY reschedules
+            -- Disposition doesn't matter - we want to gamify TODAY's door efforts
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (
               WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)
-              AND a.status_category NOT IN ('cancelled', 'no_show')
-              AND (a.disposition IS NULL OR a.disposition NOT ILIKE '%cancel%' AND a.disposition NOT ILIKE '%no.show%' AND a.disposition NOT ILIKE '%no_show%')
             )::int as appointments_set,
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.is_within_48_hours = TRUE)::int as within_48h,
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.has_power_bill = TRUE)::int as with_power_bill,
@@ -452,11 +451,10 @@ export async function GET(request: NextRequest) {
           SELECT
             o.repcard_office_id,
             COUNT(DISTINCT dk.id)::int as doors_knocked,
-            -- Match RepCard dashboard: exclude reschedules AND cancelled/no-show appointments
+            -- Gross appointments set (for gamification) - exclude ONLY reschedules
+            -- Disposition doesn't matter - we want to gamify TODAY's door efforts
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (
               WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)
-              AND a.status_category NOT IN ('cancelled', 'no_show')
-              AND (a.disposition IS NULL OR a.disposition NOT ILIKE '%cancel%' AND a.disposition NOT ILIKE '%no.show%' AND a.disposition NOT ILIKE '%no_show%')
             )::int as appointments_set,
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.is_within_48_hours = TRUE)::int as within_48h,
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.has_power_bill = TRUE)::int as with_power_bill,
@@ -569,11 +567,10 @@ export async function GET(request: NextRequest) {
           appointment_counts AS (
             SELECT 
               setter_user_id::int as setter_user_id,
-              -- Match RepCard dashboard: exclude reschedules AND cancelled/no-show appointments
+              -- Gross appointments set (for gamification) - exclude ONLY reschedules
+              -- Disposition doesn't matter - we want to gamify TODAY's door efforts
               COUNT(DISTINCT repcard_appointment_id) FILTER (
                 WHERE (is_reschedule = FALSE OR is_reschedule IS NULL)
-                AND status_category NOT IN ('cancelled', 'no_show')
-                AND (disposition IS NULL OR disposition NOT ILIKE '%cancel%' AND disposition NOT ILIKE '%no.show%' AND disposition NOT ILIKE '%no_show%')
               )::int as appointments_set
             FROM repcard_appointments
             WHERE scheduled_at >= ${startDate}::timestamptz
@@ -612,11 +609,10 @@ export async function GET(request: NextRequest) {
           appointment_counts AS (
             SELECT 
               setter_user_id::int as setter_user_id,
-              -- Match RepCard dashboard: exclude reschedules AND cancelled/no-show appointments
+              -- Gross appointments set (for gamification) - exclude ONLY reschedules
+              -- Disposition doesn't matter - we want to gamify TODAY's door efforts
               COUNT(DISTINCT repcard_appointment_id) FILTER (
                 WHERE (is_reschedule = FALSE OR is_reschedule IS NULL)
-                AND status_category NOT IN ('cancelled', 'no_show')
-                AND (disposition IS NULL OR disposition NOT ILIKE '%cancel%' AND disposition NOT ILIKE '%no.show%' AND disposition NOT ILIKE '%no_show%')
               )::int as appointments_set
             FROM repcard_appointments
             GROUP BY setter_user_id::int
@@ -696,12 +692,11 @@ export async function GET(request: NextRequest) {
             COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as name,
             COALESCE(u.role, ru.role) as role,
             COALESCE(ru.team, 'No Team') as team,
-            -- Appointments set in date range (only first appointments, not reschedules, not cancelled/no-show)
-            -- Match RepCard dashboard: exclude reschedules AND cancelled/no-show appointments
+            -- Gross appointments set today (for gamification) - exclude ONLY reschedules
+            -- Disposition doesn't matter - we want to gamify TODAY's door efforts
+            -- Quality metrics (48h, power bill) are shown separately on the same row
             COUNT(DISTINCT a.id) FILTER (
               WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)
-              AND a.status_category NOT IN ('cancelled', 'no_show')
-              AND (a.disposition IS NULL OR a.disposition NOT ILIKE '%cancel%' AND a.disposition NOT ILIKE '%no.show%' AND a.disposition NOT ILIKE '%no_show%')
             )::int as appointments_set,
             -- Quality metrics for appointments in date range (exclude cancelled/no-show to match RepCard)
             COUNT(DISTINCT a.id) FILTER (
@@ -778,33 +773,26 @@ export async function GET(request: NextRequest) {
             COALESCE(u.role, ru.role) as role,
             COALESCE(ru.team, 'No Team') as team,
             -- Match RepCard dashboard: exclude reschedules AND cancelled/no-show appointments
+            -- Gross appointments set (for gamification) - exclude ONLY reschedules
+            -- Disposition doesn't matter - we want to gamify TODAY's door efforts
             COUNT(DISTINCT a.id) FILTER (
               WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)
-              AND a.status_category NOT IN ('cancelled', 'no_show')
-              AND (a.disposition IS NULL OR a.disposition NOT ILIKE '%cancel%' AND a.disposition NOT ILIKE '%no.show%' AND a.disposition NOT ILIKE '%no_show%')
             )::int as appointments_set,
+            -- Quality metrics shown separately (can exclude cancelled/no-show for quality)
             COUNT(DISTINCT a.id) FILTER (
               WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)
-              AND a.status_category NOT IN ('cancelled', 'no_show')
-              AND (a.disposition IS NULL OR a.disposition NOT ILIKE '%cancel%' AND a.disposition NOT ILIKE '%no.show%' AND a.disposition NOT ILIKE '%no_show%')
               AND a.is_within_48_hours = TRUE
             )::int as within_48h_count,
             COUNT(DISTINCT a.id) FILTER (
               WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)
-              AND a.status_category NOT IN ('cancelled', 'no_show')
-              AND (a.disposition IS NULL OR a.disposition NOT ILIKE '%cancel%' AND a.disposition NOT ILIKE '%no.show%' AND a.disposition NOT ILIKE '%no_show%')
               AND a.has_power_bill = TRUE
             )::int as with_power_bill_count,
             COUNT(DISTINCT a.id) FILTER (
               WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)
-              AND a.status_category NOT IN ('cancelled', 'no_show')
-              AND (a.disposition IS NULL OR a.disposition NOT ILIKE '%cancel%' AND a.disposition NOT ILIKE '%no.show%' AND a.disposition NOT ILIKE '%no_show%')
               AND a.is_within_48_hours = TRUE AND a.has_power_bill = TRUE
             )::int as both_count,
             COUNT(DISTINCT a.id) FILTER (
               WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)
-              AND a.status_category NOT IN ('cancelled', 'no_show')
-              AND (a.disposition IS NULL OR a.disposition NOT ILIKE '%cancel%' AND a.disposition NOT ILIKE '%no.show%' AND a.disposition NOT ILIKE '%no_show%')
               AND a.is_within_48_hours = FALSE AND a.has_power_bill = FALSE
             )::int as neither_count,
             -- Doors knocked from pre-calculated CTE
@@ -1027,11 +1015,10 @@ export async function GET(request: NextRequest) {
             u.name as rep_name,
             u.role,
             COUNT(DISTINCT dk.id)::int as doors_knocked,
-            -- Match RepCard dashboard: exclude reschedules AND cancelled/no-show appointments
+            -- Gross appointments set (for gamification) - exclude ONLY reschedules
+            -- Disposition doesn't matter - we want to gamify TODAY's door efforts
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (
               WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)
-              AND a.status_category NOT IN ('cancelled', 'no_show')
-              AND (a.disposition IS NULL OR a.disposition NOT ILIKE '%cancel%' AND a.disposition NOT ILIKE '%no.show%' AND a.disposition NOT ILIKE '%no_show%')
             )::int as appointments_set,
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.is_within_48_hours = TRUE)::int as within_48h,
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.has_power_bill = TRUE)::int as with_power_bill,
@@ -1071,11 +1058,10 @@ export async function GET(request: NextRequest) {
             u.name as rep_name,
             u.role,
             COUNT(DISTINCT dk.id)::int as doors_knocked,
-            -- Match RepCard dashboard: exclude reschedules AND cancelled/no-show appointments
+            -- Gross appointments set (for gamification) - exclude ONLY reschedules
+            -- Disposition doesn't matter - we want to gamify TODAY's door efforts
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (
               WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)
-              AND a.status_category NOT IN ('cancelled', 'no_show')
-              AND (a.disposition IS NULL OR a.disposition NOT ILIKE '%cancel%' AND a.disposition NOT ILIKE '%no.show%' AND a.disposition NOT ILIKE '%no_show%')
             )::int as appointments_set,
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.is_within_48_hours = TRUE)::int as within_48h,
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.has_power_bill = TRUE)::int as with_power_bill,
