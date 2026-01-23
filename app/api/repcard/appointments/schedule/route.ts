@@ -128,10 +128,26 @@ export async function GET(request: NextRequest) {
     } else if (isRescheduleFilter === 'false') {
       additionalWhereParts.push(sql`AND (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)`);
     }
-    // Helper to create conditional WHERE fragments without creating parameters when false
-    // Returns empty sql fragment that doesn't create parameters
-    const emptySqlFragment = sql``;
-    const conditionalWhere = (condition: boolean, fragment: any) => condition ? fragment : emptySqlFragment;
+    // Count how many filters are active for debugging
+    const activeFilters = [
+      !!(teamIds && teamIds.length > 0),
+      !!calendarId,
+      !!statusFilter,
+      hasPowerBillFilter === 'true' || hasPowerBillFilter === 'false',
+      isRescheduleFilter === 'true' || isRescheduleFilter === 'false'
+    ].filter(Boolean).length;
+    
+    logInfo('repcard-appointments-schedule-filters', {
+      requestId,
+      activeFiltersCount: activeFilters,
+      filters: {
+        hasTeamIds: !!(teamIds && teamIds.length > 0),
+        hasCalendarId: !!calendarId,
+        hasStatusFilter: !!statusFilter,
+        hasPowerBillFilter: hasPowerBillFilter !== null,
+        hasRescheduleFilter: isRescheduleFilter !== null
+      }
+    });
 
     // Log query parameters for debugging
     logInfo('repcard-appointments-schedule', {
@@ -207,13 +223,11 @@ export async function GET(request: NextRequest) {
           (a.scheduled_at IS NULL AND a.created_at::date >= ${startDate}::date AND a.created_at::date <= ${endDate}::date)
         )
         AND a.closer_user_id = ${repcardUserId}
-        ${conditionalWhere(!!(teamIds && teamIds.length > 0), sql`AND (setter.team_id = ANY(${teamIds}::int[]) OR closer.team_id = ANY(${teamIds}::int[]))`)}
-        ${conditionalWhere(!!calendarId, sql`AND (a.raw_data->>'calendarId')::int = ${calendarId}`)}
-        ${conditionalWhere(!!statusFilter, sql`AND a.status_category = ${statusFilter}`)}
-        ${conditionalWhere(hasPowerBillFilter === 'true', sql`AND a.has_power_bill = TRUE`)}
-        ${conditionalWhere(hasPowerBillFilter === 'false', sql`AND (a.has_power_bill = FALSE OR a.has_power_bill IS NULL)`)}
-        ${conditionalWhere(isRescheduleFilter === 'true', sql`AND a.is_reschedule = TRUE`)}
-        ${conditionalWhere(isRescheduleFilter === 'false', sql`AND (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)`)}
+        ${teamFilter || ''}
+        ${calendarFilter || ''}
+        ${statusFilterCondition || ''}
+        ${powerBillFilter || ''}
+        ${rescheduleFilter || ''}
         ORDER BY COALESCE(a.scheduled_at, a.created_at) ASC
       `;
     } else if (effectiveOfficeIds && effectiveOfficeIds.length > 0) {
@@ -336,13 +350,11 @@ export async function GET(request: NextRequest) {
           OR
           (a.scheduled_at IS NULL AND a.created_at::date >= ${startDate}::date AND a.created_at::date <= ${endDate}::date)
         )
-        ${conditionalWhere(!!(teamIds && teamIds.length > 0), sql`AND (setter.team_id = ANY(${teamIds}::int[]) OR closer.team_id = ANY(${teamIds}::int[]))`)}
-        ${conditionalWhere(!!calendarId, sql`AND (a.raw_data->>'calendarId')::int = ${calendarId}`)}
-        ${conditionalWhere(!!statusFilter, sql`AND a.status_category = ${statusFilter}`)}
-        ${conditionalWhere(hasPowerBillFilter === 'true', sql`AND a.has_power_bill = TRUE`)}
-        ${conditionalWhere(hasPowerBillFilter === 'false', sql`AND (a.has_power_bill = FALSE OR a.has_power_bill IS NULL)`)}
-        ${conditionalWhere(isRescheduleFilter === 'true', sql`AND a.is_reschedule = TRUE`)}
-        ${conditionalWhere(isRescheduleFilter === 'false', sql`AND (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)`)}
+        ${teamFilter || ''}
+        ${calendarFilter || ''}
+        ${statusFilterCondition || ''}
+        ${powerBillFilter || ''}
+        ${rescheduleFilter || ''}
         ORDER BY COALESCE(a.scheduled_at, a.created_at) ASC
       `;
     } else {
