@@ -50,6 +50,7 @@ export async function GET(request: NextRequest) {
     const startDateParam = searchParams.get('startDate');
     const endDateParam = searchParams.get('endDate');
     const officeIdsParam = searchParams.get('officeIds');
+    const teamIdsParam = searchParams.get('teamIds');
 
     // Convert date strings to proper timestamps in Eastern Time
     let startDate: string | null = null;
@@ -79,8 +80,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Parse office IDs
+    const officeIds = officeIdsParam ? officeIdsParam.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id)) : null;
+    
+    // Parse team IDs (team names as strings, since teams are identified by name)
+    // Always use an array to avoid parameter binding issues
+    const teamNames = teamIdsParam ? teamIdsParam.split(',').map(name => name.trim()).filter(name => name.length > 0) : [];
+
     // Build cache key
-    const cacheKey = `leaderboards:${startDateParam || 'all'}:${endDateParam || 'all'}:${officeIdsParam || 'all'}`;
+    const cacheKey = `leaderboards:${startDateParam || 'all'}:${endDateParam || 'all'}:${officeIdsParam || 'all'}:${teamIdsParam || 'all'}`;
     cleanCache();
     
     const cached = leaderboardCache.get(cacheKey);
@@ -89,12 +97,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(cached.data);
     }
 
-    // Parse office IDs
-    const officeIds = officeIdsParam ? officeIdsParam.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id)) : null;
-
     // Build queries
     const hasDateFilter = !!(startDateParam && endDateParam);
     const hasOfficeFilter = !!(officeIds && officeIds.length > 0);
+    const hasTeamFilter = teamNames.length > 0;
     
     // Validate date parameters if date filter is requested
     if (hasDateFilter && (!startDateParam || !endDateParam)) {
@@ -191,6 +197,7 @@ export async function GET(request: NextRequest) {
             WHERE o.name = COALESCE(u.sales_office[1], ru.office_name)
             AND o.quickbase_office_id = ANY(${officeIds}::int[])
           )
+          ${hasTeamFilter ? sql`AND COALESCE(ru.team, 'No Team') = ANY(${teamNames}::text[])` : sql``}
           GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, 'No Team'), COALESCE(dks.doors_knocked, 0)::int, COALESCE(dks.estimated_hours_on_doors, 0)::int
           HAVING COUNT(DISTINCT a.id) > 0 OR COALESCE(dks.doors_knocked, 0) > 0
           ORDER BY appointments_set DESC
@@ -242,6 +249,7 @@ export async function GET(request: NextRequest) {
             AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDateParam}::date
           LEFT JOIN repcard_door_knocks dk ON dk.setter_user_id = ru.repcard_user_id
           WHERE ru.status = 1 AND (ru.role = 'setter' OR ru.role IS NULL)
+          ${hasTeamFilter ? sql`AND COALESCE(ru.team, 'No Team') = ANY(${teamNames}::text[])` : sql``}
           GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || \' \' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, \'No Team\')
           HAVING COUNT(DISTINCT a.id) > 0 OR COUNT(DISTINCT dk.id) > 0
           ORDER BY appointments_set DESC
@@ -400,6 +408,7 @@ export async function GET(request: NextRequest) {
             WHERE o.name = COALESCE(u.sales_office[1], ru.office_name)
             AND o.quickbase_office_id = ANY(${officeIds}::int[])
           )
+          ${hasTeamFilter ? sql`AND COALESCE(ru.team, 'No Team') = ANY(${teamNames}::text[])` : sql``}
           GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || \' \' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, \'No Team\')
           HAVING COUNT(DISTINCT a.id) > 0
           ORDER BY sat_closed DESC
@@ -427,6 +436,7 @@ export async function GET(request: NextRequest) {
           LEFT JOIN repcard_appointments a ON a.closer_user_id::int = ru.repcard_user_id
             AND a.scheduled_at IS NOT NULL
           WHERE ru.status = 1 AND (ru.role = 'closer' OR ru.role IS NULL)
+          ${hasTeamFilter ? sql`AND COALESCE(ru.team, 'No Team') = ANY(${teamNames}::text[])` : sql``}
           GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || \' \' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, \'No Team\')
           HAVING COUNT(DISTINCT a.id) > 0
           ORDER BY sat_closed DESC
@@ -459,6 +469,7 @@ export async function GET(request: NextRequest) {
             WHERE o.name = COALESCE(u.sales_office[1], ru.office_name)
             AND o.quickbase_office_id = ANY(${officeIds}::int[])
           )
+          ${hasTeamFilter ? sql`AND COALESCE(ru.team, 'No Team') = ANY(${teamNames}::text[])` : sql``}
           GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || \' \' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, \'No Team\')
           HAVING COUNT(DISTINCT a.id) > 0
           ORDER BY sat_closed DESC
@@ -486,6 +497,7 @@ export async function GET(request: NextRequest) {
           LEFT JOIN repcard_appointments a ON a.closer_user_id::int = ru.repcard_user_id
             AND a.scheduled_at IS NOT NULL
           WHERE ru.status = 1 AND (ru.role = \'closer\' OR ru.role IS NULL)
+          ${hasTeamFilter ? sql`AND COALESCE(ru.team, 'No Team') = ANY(${teamNames}::text[])` : sql``}
           GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || \' \' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, \'No Team\')
           HAVING COUNT(DISTINCT a.id) > 0
           ORDER BY sat_closed DESC
@@ -825,6 +837,7 @@ export async function GET(request: NextRequest) {
         startDate: startDateParam,
         endDate: endDateParam,
         officeIds: officeIds || [],
+        teamNames: teamNames || [],
         generatedAt: new Date().toISOString(),
         lastSyncTime: lastSyncTime ? lastSyncTime.toISOString() : null,
       },

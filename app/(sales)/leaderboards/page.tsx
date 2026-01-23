@@ -29,6 +29,7 @@ export default function LeaderboardsPage() {
   const [timeRange, setTimeRange] = useState<TimeRange>('today');
   const [customDateRange, setCustomDateRange] = useState<CustomDateRange | undefined>();
   const [selectedOfficeIds, setSelectedOfficeIds] = useState<number[]>([]);
+  const [selectedTeamNames, setSelectedTeamNames] = useState<string[]>([]);
 
   // Redirect if not authenticated
   if (status === 'unauthenticated') {
@@ -75,13 +76,16 @@ export default function LeaderboardsPage() {
 
   // Fetch leaderboards data
   const { data, isLoading, error, refetch, isRefetching } = useQuery({
-    queryKey: ['repcard-leaderboards', dateRange.startDate, dateRange.endDate, selectedOfficeIds],
+    queryKey: ['repcard-leaderboards', dateRange.startDate, dateRange.endDate, selectedOfficeIds, selectedTeamNames],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.set('startDate', dateRange.startDate);
       params.set('endDate', dateRange.endDate);
       if (selectedOfficeIds.length > 0) {
         params.set('officeIds', selectedOfficeIds.join(','));
+      }
+      if (selectedTeamNames.length > 0) {
+        params.set('teamIds', selectedTeamNames.join(','));
       }
 
       const response = await fetch(`/api/repcard/leaderboards?${params.toString()}`);
@@ -94,6 +98,26 @@ export default function LeaderboardsPage() {
     refetchInterval: 30000, // Refresh every 30 seconds
     staleTime: 5000,
   });
+
+  // Extract unique teams from leaderboard data
+  const availableTeams = useMemo(() => {
+    const teamsSet = new Set<string>();
+    if (data?.setters) {
+      data.setters.forEach((setter: any) => {
+        if (setter.team && setter.team !== 'No Team') {
+          teamsSet.add(setter.team);
+        }
+      });
+    }
+    if (data?.closers) {
+      data.closers.forEach((closer: any) => {
+        if (closer.team && closer.team !== 'No Team') {
+          teamsSet.add(closer.team);
+        }
+      });
+    }
+    return Array.from(teamsSet).sort();
+  }, [data]);
 
   // Get sync status
   const syncStatus = useMemo(() => {
@@ -178,6 +202,9 @@ export default function LeaderboardsPage() {
           onCustomDateRangeChange={setCustomDateRange}
           selectedOfficeIds={selectedOfficeIds}
           onOfficeIdsChange={setSelectedOfficeIds}
+          selectedTeamNames={selectedTeamNames}
+          onTeamNamesChange={setSelectedTeamNames}
+          availableTeams={availableTeams}
         />
 
         {/* Date Range Display */}

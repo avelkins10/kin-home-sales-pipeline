@@ -1,10 +1,19 @@
 'use client';
 
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { DateRangePicker, type DateRange } from '@/components/ui/date-range-picker';
 import { OfficeMultiSelect } from '@/components/settings/OfficeMultiSelect';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Badge } from '@/components/ui/badge';
+import { Check, ChevronDown, Users, X } from 'lucide-react';
+import { cn } from '@/lib/utils/cn';
 
 type TimeRange = 'today' | 'week' | 'month' | 'ytd' | 'custom';
 
@@ -20,6 +29,9 @@ interface LeaderboardFiltersProps {
   onCustomDateRangeChange: (range: CustomDateRange | undefined) => void;
   selectedOfficeIds: number[];
   onOfficeIdsChange: (ids: number[]) => void;
+  selectedTeamNames: string[];
+  onTeamNamesChange: (names: string[]) => void;
+  availableTeams: string[];
 }
 
 export function LeaderboardFilters({
@@ -29,7 +41,12 @@ export function LeaderboardFilters({
   onCustomDateRangeChange,
   selectedOfficeIds,
   onOfficeIdsChange,
+  selectedTeamNames,
+  onTeamNamesChange,
+  availableTeams,
 }: LeaderboardFiltersProps) {
+  const [teamPopoverOpen, setTeamPopoverOpen] = useState(false);
+
   // Fetch available offices
   const { data: officesData } = useQuery({
     queryKey: ['leaderboard-offices'],
@@ -48,6 +65,18 @@ export function LeaderboardFilters({
     name: metric.officeName,
     projectCount: metric.totalProjects
   })) || [];
+
+  const handleTeamToggle = (teamName: string) => {
+    if (selectedTeamNames.includes(teamName)) {
+      onTeamNamesChange(selectedTeamNames.filter(name => name !== teamName));
+    } else {
+      onTeamNamesChange([...selectedTeamNames, teamName]);
+    }
+  };
+
+  const handleClearTeams = () => {
+    onTeamNamesChange([]);
+  };
 
   return (
     <div className="flex flex-wrap items-center gap-4">
@@ -111,6 +140,72 @@ export function LeaderboardFilters({
         onChange={onOfficeIdsChange}
         placeholder="Select offices"
       />
+
+      {/* Team Multi-Select Filter */}
+      {availableTeams.length > 0 && (
+        <Popover open={teamPopoverOpen} onOpenChange={setTeamPopoverOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 min-w-[180px] justify-between"
+            >
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                <span>
+                  {selectedTeamNames.length === 0
+                    ? 'Select teams'
+                    : selectedTeamNames.length === 1
+                    ? selectedTeamNames[0]
+                    : `${selectedTeamNames.length} teams`}
+                </span>
+              </div>
+              <ChevronDown className="w-4 h-4 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[250px] p-0" align="start">
+            <div className="p-2">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">Teams</span>
+                {selectedTeamNames.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                    onClick={handleClearTeams}
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
+              <div className="max-h-[300px] overflow-y-auto">
+                {availableTeams.map((team) => {
+                  const isSelected = selectedTeamNames.includes(team);
+                  return (
+                    <div
+                      key={team}
+                      className="flex items-center gap-2 p-2 rounded-md hover:bg-accent cursor-pointer"
+                      onClick={() => handleTeamToggle(team)}
+                    >
+                      <div
+                        className={cn(
+                          'flex h-4 w-4 items-center justify-center rounded-sm border',
+                          isSelected
+                            ? 'bg-primary border-primary text-primary-foreground'
+                            : 'border-input'
+                        )}
+                      >
+                        {isSelected && <Check className="h-3 w-3" />}
+                      </div>
+                      <span className="text-sm flex-1">{team}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
+      )}
     </div>
   );
 }
