@@ -268,7 +268,11 @@ export function AppointmentCalendarView({
                           </div>
                         </div>
                       );
-                    })}
+                      } catch (error) {
+                        console.warn('[AppointmentCalendarView] Error rendering appointment in day view:', apt.id, error);
+                        return null;
+                      }
+                    }).filter(Boolean)}
                   </div>
                 );
               })}
