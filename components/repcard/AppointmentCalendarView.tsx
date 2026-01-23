@@ -30,15 +30,31 @@ export function AppointmentCalendarView({
   onAppointmentClick
 }: AppointmentCalendarViewProps) {
   // Group appointments by date and time
+  // Convert UTC times to Eastern Time for proper date grouping
   const appointmentsByDate = useMemo(() => {
     const grouped = new Map<string, AppointmentData[]>();
     appointments.forEach(apt => {
       try {
-        const date = apt.scheduled_at 
-          ? new Date(apt.scheduled_at).toISOString().split('T')[0]
-          : apt.created_at 
-            ? new Date(apt.created_at).toISOString().split('T')[0]
-            : null;
+        let date: string | null = null;
+        if (apt.scheduled_at) {
+          // Convert UTC to Eastern Time for date grouping
+          const utcDate = new Date(apt.scheduled_at);
+          // Get date in Eastern Time by formatting with timezone offset
+          // Create a date string in Eastern Time
+          const etDate = new Date(utcDate.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+          // Get the date part (YYYY-MM-DD) in Eastern Time
+          const year = etDate.getFullYear();
+          const month = String(etDate.getMonth() + 1).padStart(2, '0');
+          const day = String(etDate.getDate()).padStart(2, '0');
+          date = `${year}-${month}-${day}`;
+        } else if (apt.created_at) {
+          const utcDate = new Date(apt.created_at);
+          const etDate = new Date(utcDate.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+          const year = etDate.getFullYear();
+          const month = String(etDate.getMonth() + 1).padStart(2, '0');
+          const day = String(etDate.getDate()).padStart(2, '0');
+          date = `${year}-${month}-${day}`;
+        }
         if (date) {
           if (!grouped.has(date)) {
             grouped.set(date, []);
