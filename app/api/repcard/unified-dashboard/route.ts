@@ -471,14 +471,15 @@ export async function GET(request: NextRequest) {
     // ========================================
 
     // Top doors knocked
+    // FIXED: Start from repcard_users to ensure all RepCard users are included
     let topDoorsResult;
     try {
       topDoorsResult = startDate && endDate
       ? await sql`
           SELECT
-            u.repcard_user_id,
-            u.name,
-            u.role,
+            ru.repcard_user_id,
+            COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as name,
+            COALESCE(u.role, ru.role) as role,
             COALESCE(ru.team, 'No Team') as team,
             COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
             COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_set,
@@ -487,23 +488,25 @@ export async function GET(request: NextRequest) {
                 (COUNT(DISTINCT a.repcard_appointment_id)::float / COUNT(DISTINCT c.repcard_customer_id)::float) * 100
               ELSE 0
             END as conversion_rate
-          FROM users u
-          LEFT JOIN repcard_users ru ON ru.repcard_user_id::text = u.repcard_user_id::text
-          LEFT JOIN repcard_customers c ON c.setter_user_id::int = u.repcard_user_id
+          FROM repcard_users ru
+          LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
+          LEFT JOIN repcard_customers c ON c.setter_user_id::int = ru.repcard_user_id
+            AND c.created_at >= ${startDate}::timestamptz
+            AND c.created_at <= ${endDate}::timestamptz
           LEFT JOIN repcard_appointments a ON a.repcard_customer_id::text = c.repcard_customer_id::text
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
-          WHERE u.repcard_user_id IS NOT NULL
-          GROUP BY u.repcard_user_id, u.name, u.role, COALESCE(ru.team, 'No Team')
+          WHERE ru.status = 1 AND (ru.role = 'setter' OR ru.role IS NULL)
+          GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, 'No Team')
           HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
           ORDER BY doors_knocked DESC
           LIMIT 10
         `
       : await sql`
           SELECT
-            u.repcard_user_id,
-            u.name,
-            u.role,
+            ru.repcard_user_id,
+            COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as name,
+            COALESCE(u.role, ru.role) as role,
             COALESCE(ru.team, 'No Team') as team,
             COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
             COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_set,
@@ -512,12 +515,12 @@ export async function GET(request: NextRequest) {
                 (COUNT(DISTINCT a.repcard_appointment_id)::float / COUNT(DISTINCT c.repcard_customer_id)::float) * 100
               ELSE 0
             END as conversion_rate
-          FROM users u
-          LEFT JOIN repcard_users ru ON ru.repcard_user_id::text = u.repcard_user_id::text
-          LEFT JOIN repcard_customers c ON c.setter_user_id::int = u.repcard_user_id
+          FROM repcard_users ru
+          LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
+          LEFT JOIN repcard_customers c ON c.setter_user_id::int = ru.repcard_user_id
           LEFT JOIN repcard_appointments a ON a.repcard_customer_id::text = c.repcard_customer_id::text
-          WHERE u.repcard_user_id IS NOT NULL
-          GROUP BY u.repcard_user_id, u.name, u.role, COALESCE(ru.team, 'No Team')
+          WHERE ru.status = 1 AND (ru.role = 'setter' OR ru.role IS NULL)
+          GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, 'No Team')
           HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
           ORDER BY doors_knocked DESC
           LIMIT 50
@@ -539,6 +542,7 @@ export async function GET(request: NextRequest) {
 
     // Top appointment setters (with quality metrics + hours on doors)
     // Track: total, within 48h, with PB, both, neither, doors, hours on doors
+    // FIXED: Start from repcard_users to ensure all RepCard users are included (even if not linked to users table)
     // FIXED: Count doors separately (all customers created by setter in date range)
     // FIXED: Count appointments separately (all appointments set by setter in date range)
     // FIXED: Join customers to appointments for quality metrics, but don't restrict doors by appointment date
@@ -547,9 +551,9 @@ export async function GET(request: NextRequest) {
       topAppointmentSettersResult = startDate && endDate
       ? await sql`
           SELECT
-            u.repcard_user_id,
-            u.name,
-            u.role,
+            ru.repcard_user_id,
+            COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as name,
+            COALESCE(u.role, ru.role) as role,
             COALESCE(ru.team, 'No Team') as team,
             -- Appointments set in date range (only first appointments, not reschedules)
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = FALSE OR a.is_reschedule IS NULL)::int as appointments_set,
@@ -560,17 +564,17 @@ export async function GET(request: NextRequest) {
             COUNT(DISTINCT a.id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.is_within_48_hours = FALSE AND a.has_power_bill = FALSE)::int as neither_count,
             -- Doors knocked: all customers created by this setter in date range (regardless of appointments)
             COALESCE(doors_subquery.doors_knocked::int, 0)::int as doors_knocked,
-            -- Hours on doors: count unique days with door knocks * 4 hours per day (average)
+            -- Hours on doors: sum of (last door knocked - first door knocked) for each day
             COALESCE(doors_subquery.estimated_hours_on_doors::int, 0)::int as estimated_hours_on_doors,
             CASE
               WHEN COALESCE(doors_subquery.doors_knocked::int, 0) > 0 THEN
                 (COUNT(DISTINCT a.id)::float / COALESCE(doors_subquery.doors_knocked::int, 0)::float) * 100
               ELSE 0
             END as conversion_rate
-          FROM users u
-          LEFT JOIN repcard_users ru ON ru.repcard_user_id::text = u.repcard_user_id::text
+          FROM repcard_users ru
+          LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
           -- Appointments set by this user in date range
-          LEFT JOIN repcard_appointments a ON a.setter_user_id::int = u.repcard_user_id
+          LEFT JOIN repcard_appointments a ON a.setter_user_id::int = ru.repcard_user_id
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
           -- Doors knocked: subquery to count all customers created by this setter in date range
@@ -586,28 +590,28 @@ export async function GET(request: NextRequest) {
                     MIN(c2.created_at) as day_min,
                     MAX(c2.created_at) as day_max
                   FROM repcard_customers c2
-                  WHERE c2.setter_user_id::int = u.repcard_user_id
+                  WHERE c2.setter_user_id::int = ru.repcard_user_id
                     AND c2.created_at >= ${startDate}::timestamptz
                     AND c2.created_at <= ${endDate}::timestamptz
                   GROUP BY DATE(c2.created_at AT TIME ZONE 'America/New_York')
                 ) daily_ranges
               ), 0)::int as estimated_hours_on_doors
             FROM repcard_customers c
-            WHERE c.setter_user_id::int = u.repcard_user_id
+            WHERE c.setter_user_id::int = ru.repcard_user_id
               AND c.created_at >= ${startDate}::timestamptz
               AND c.created_at <= ${endDate}::timestamptz
           ) doors_subquery ON true
-          WHERE u.repcard_user_id IS NOT NULL
-          GROUP BY u.repcard_user_id, u.name, u.role, COALESCE(ru.team, 'No Team'), COALESCE(doors_subquery.doors_knocked::int, 0)::int, COALESCE(doors_subquery.estimated_hours_on_doors::int, 0)::int
+          WHERE ru.status = 1 AND (ru.role = 'setter' OR ru.role IS NULL)
+          GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, 'No Team'), COALESCE(doors_subquery.doors_knocked::int, 0)::int, COALESCE(doors_subquery.estimated_hours_on_doors::int, 0)::int
           HAVING COUNT(DISTINCT a.id) > 0 OR COALESCE(doors_subquery.doors_knocked::int, 0) > 0
           ORDER BY appointments_set DESC
           LIMIT 10
         `
       : await sql`
           SELECT
-            u.repcard_user_id,
-            u.name,
-            u.role,
+            ru.repcard_user_id,
+            COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as name,
+            COALESCE(u.role, ru.role) as role,
             COALESCE(ru.team, 'No Team') as team,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = FALSE OR a.is_reschedule IS NULL)::int as appointments_set,
             COUNT(DISTINCT a.id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.is_within_48_hours = TRUE)::int as within_48h_count,
@@ -616,17 +620,17 @@ export async function GET(request: NextRequest) {
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = FALSE AND a.has_power_bill = FALSE)::int as neither_count,
             -- Doors knocked: all customers created by this setter (regardless of appointments)
             COALESCE(doors_subquery.doors_knocked::int, 0)::int as doors_knocked,
-            -- Hours on doors: count unique days with door knocks * 4 hours per day (average)
+            -- Hours on doors: sum of (last door knocked - first door knocked) for each day
             COALESCE(doors_subquery.estimated_hours_on_doors::int, 0)::int as estimated_hours_on_doors,
             CASE
               WHEN COALESCE(doors_subquery.doors_knocked::int, 0) > 0 THEN
                 (COUNT(DISTINCT a.id)::float / COALESCE(doors_subquery.doors_knocked::int, 0)::float) * 100
               ELSE 0
             END as conversion_rate
-          FROM users u
-          LEFT JOIN repcard_users ru ON ru.repcard_user_id::text = u.repcard_user_id::text
+          FROM repcard_users ru
+          LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
           -- Appointments set by this user
-          LEFT JOIN repcard_appointments a ON a.setter_user_id::int = u.repcard_user_id
+          LEFT JOIN repcard_appointments a ON a.setter_user_id::int = ru.repcard_user_id
           -- Doors knocked: subquery to count all customers created by this setter
           LEFT JOIN LATERAL (
             SELECT
@@ -640,15 +644,15 @@ export async function GET(request: NextRequest) {
                     MIN(c2.created_at) as day_min,
                     MAX(c2.created_at) as day_max
                   FROM repcard_customers c2
-                  WHERE c2.setter_user_id::int = u.repcard_user_id
+                  WHERE c2.setter_user_id::int = ru.repcard_user_id
                   GROUP BY DATE(c2.created_at AT TIME ZONE 'America/New_York')
                 ) daily_ranges
               ), 0)::int as estimated_hours_on_doors
             FROM repcard_customers c
-            WHERE c.setter_user_id::int = u.repcard_user_id
+            WHERE c.setter_user_id::int = ru.repcard_user_id
           ) doors_subquery ON true
-          WHERE u.repcard_user_id IS NOT NULL
-          GROUP BY u.repcard_user_id, u.name, u.role, COALESCE(ru.team, 'No Team'), COALESCE(doors_subquery.doors_knocked::int, 0)::int, COALESCE(doors_subquery.estimated_hours_on_doors::int, 0)::int
+          WHERE ru.status = 1 AND (ru.role = 'setter' OR ru.role IS NULL)
+          GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, 'No Team'), COALESCE(doors_subquery.doors_knocked::int, 0)::int, COALESCE(doors_subquery.estimated_hours_on_doors::int, 0)::int
           HAVING COUNT(DISTINCT a.id) > 0 OR COALESCE(doors_subquery.doors_knocked::int, 0) > 0
           ORDER BY appointments_set DESC
           LIMIT 50
@@ -664,25 +668,30 @@ export async function GET(request: NextRequest) {
       name: row.name,
       role: row.role,
       team: row.team || 'No Team',
-      appointmentsSet: row.appointments_set,
-      within48hCount: row.within_48h_count,
-      withPowerBillCount: row.with_power_bill_count,
+      appointmentsSet: row.appointments_set || 0,
+      within48hCount: row.within_48h_count || 0,
+      withPowerBillCount: row.with_power_bill_count || 0,
       bothCount: row.both_count || 0, // High quality: both PB and 48h
       neitherCount: row.neither_count || 0, // Low quality: neither PB nor 48h
-      doorsKnocked: row.doors_knocked,
+      doorsKnocked: row.doors_knocked || 0,
       hoursOnDoors: row.estimated_hours_on_doors || 0,
       conversionRate: parseFloat(row.conversion_rate || '0'),
+      // Calculate 48h speed percentage
+      speed48hPercent: row.appointments_set > 0 
+        ? ((row.within_48h_count || 0) / row.appointments_set) * 100 
+        : 0,
     }));
 
     // Top closers - with appointment outcomes breakdown
+    // FIXED: Start from repcard_users to ensure all RepCard users are included
     let topClosersResult;
     try {
       topClosersResult = startDate && endDate
       ? await sql`
           SELECT
-            u.repcard_user_id,
-            u.name,
-            u.role,
+            ru.repcard_user_id,
+            COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as name,
+            COALESCE(u.role, ru.role) as role,
             COALESCE(ru.team, 'No Team') as team,
             COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_run,
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'sat_closed')::int as sat_closed,
@@ -698,22 +707,22 @@ export async function GET(request: NextRequest) {
                  COUNT(DISTINCT a.repcard_appointment_id)::float) * 100
               ELSE 0
             END as close_rate
-          FROM users u
-          LEFT JOIN repcard_users ru ON ru.repcard_user_id::text = u.repcard_user_id::text
-          LEFT JOIN repcard_appointments a ON a.closer_user_id::int = u.repcard_user_id
+          FROM repcard_users ru
+          LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
+          LEFT JOIN repcard_appointments a ON a.closer_user_id::int = ru.repcard_user_id
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
-          WHERE u.repcard_user_id IS NOT NULL
-          GROUP BY u.repcard_user_id, u.name, u.role, COALESCE(ru.team, 'No Team')
+          WHERE ru.status = 1 AND (ru.role = 'closer' OR ru.role IS NULL)
+          GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, 'No Team')
           HAVING COUNT(DISTINCT a.repcard_appointment_id) > 0
           ORDER BY appointments_run DESC
           LIMIT 10
         `
       : await sql`
           SELECT
-            u.repcard_user_id,
-            u.name,
-            u.role,
+            ru.repcard_user_id,
+            COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as name,
+            COALESCE(u.role, ru.role) as role,
             COALESCE(ru.team, 'No Team') as team,
             COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_run,
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'sat_closed')::int as sat_closed,
@@ -729,11 +738,11 @@ export async function GET(request: NextRequest) {
                  COUNT(DISTINCT a.repcard_appointment_id)::float) * 100
               ELSE 0
             END as close_rate
-          FROM users u
-          LEFT JOIN repcard_users ru ON ru.repcard_user_id::text = u.repcard_user_id::text
-          LEFT JOIN repcard_appointments a ON a.closer_user_id::int = u.repcard_user_id
-          WHERE u.repcard_user_id IS NOT NULL
-          GROUP BY u.repcard_user_id, u.name, u.role, COALESCE(ru.team, 'No Team')
+          FROM repcard_users ru
+          LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
+          LEFT JOIN repcard_appointments a ON a.closer_user_id::int = ru.repcard_user_id
+          WHERE ru.status = 1 AND (ru.role = 'closer' OR ru.role IS NULL)
+          GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, 'No Team')
           HAVING COUNT(DISTINCT a.repcard_appointment_id) > 0
           ORDER BY appointments_run DESC
           LIMIT 50
