@@ -666,7 +666,7 @@ export async function GET(request: NextRequest) {
             a.disposition,
             COUNT(DISTINCT a.repcard_appointment_id)::int as count
           FROM users u
-          INNER JOIN repcard_appointments a ON a.closer_user_id = u.repcard_user_id
+          INNER JOIN repcard_appointments a ON a.closer_user_id::int = u.repcard_user_id
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
           WHERE u.repcard_user_id IS NOT NULL
@@ -679,7 +679,7 @@ export async function GET(request: NextRequest) {
             a.disposition,
             COUNT(DISTINCT a.repcard_appointment_id)::int as count
           FROM users u
-          INNER JOIN repcard_appointments a ON a.closer_user_id = u.repcard_user_id
+          INNER JOIN repcard_appointments a ON a.closer_user_id::int = u.repcard_user_id
           WHERE u.repcard_user_id IS NOT NULL
             AND a.disposition IS NOT NULL
           GROUP BY u.repcard_user_id, a.disposition
