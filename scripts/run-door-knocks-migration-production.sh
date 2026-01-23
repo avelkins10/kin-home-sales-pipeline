@@ -76,10 +76,9 @@ echo ""
 echo "🚀 Running door knocks migration with production DATABASE_URL..."
 echo ""
 
-# Run migration with production DATABASE_URL
-export DATABASE_URL
-export POSTGRES_URL="$DATABASE_URL"
-npx tsx scripts/run-door-knocks-migration.ts
+# Run migration using Node.js script that properly handles .env files
+# This ensures connection strings with special characters are handled correctly
+npx tsx scripts/run-door-knocks-migration-production-direct.ts
 
 echo ""
 echo "✅ Migration complete!"
