@@ -562,8 +562,6 @@ export async function GET(request: NextRequest) {
           HAVING COALESCE(os.doors_knocked, 0) > 0 OR COALESCE(os.appointments_set, 0) > 0 OR COALESCE(oc.sales_closed, 0) > 0
           ORDER BY sales_closed DESC, appointments_set DESC
         `
-        `;
-      } else if (hasDateFilter && !hasOfficeFilter) {
         officesResult = await sql`
           WITH office_setters AS (
             SELECT
