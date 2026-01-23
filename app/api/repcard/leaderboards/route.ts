@@ -288,7 +288,7 @@ export async function GET(request: NextRequest) {
             END as close_rate
           FROM repcard_users ru
           LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
-          LEFT JOIN filtered_appointments a ON a.closer_user_id::int = ru.repcard_user_id
+          LEFT JOIN repcard_appointments a ON a.closer_user_id::int = ru.repcard_user_id
           WHERE ru.status = 1 AND (ru.role = 'closer' OR ru.role IS NULL)
           ${hasOfficeFilter ? sql`AND EXISTS (
             SELECT 1 FROM offices o

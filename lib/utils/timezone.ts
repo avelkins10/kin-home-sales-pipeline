@@ -85,14 +85,25 @@ export function toEasternStart(dateString: string): string {
  */
 export function toEasternEnd(dateString: string): string {
   const [year, month, day] = dateString.split('-').map(Number);
-  
+
   // Check if DST is in effect
   const isDST = isDSTInEffect(year, month, day);
   const offset = isDST ? '-04:00' : '-05:00';
-  
+
   // Create date string with explicit Eastern Time offset for end of day
   const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T23:59:59.999${offset}`;
   const date = new Date(dateStr);
-  
+
   return date.toISOString();
+}
+
+/**
+ * Sync user timezone (stub function for compatibility)
+ * NOTE: Timezone conversion is handled server-side in API routes
+ * This function exists to prevent import errors but doesn't need to do anything
+ */
+export function syncUserTimezone(timezone: string): void {
+  // No-op: All timezone conversion is handled server-side
+  // This function exists for backward compatibility
+  return;
 }

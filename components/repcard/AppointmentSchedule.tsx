@@ -18,6 +18,7 @@ import { AppointmentFilters } from './AppointmentFilters';
 import { AppointmentCard, AppointmentData } from './AppointmentCard';
 import { AppointmentDetailModal } from './AppointmentDetailModal';
 import { AppointmentCalendarView } from './AppointmentCalendarView';
+import { AppointmentMetrics } from './AppointmentMetrics';
 import { getBaseUrl } from '@/lib/utils/baseUrl';
 
 type ViewMode = 'list' | 'day' | 'week' | 'month';
@@ -170,7 +171,14 @@ export function AppointmentSchedule({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* Metrics Cards */}
+      <AppointmentMetrics
+        userId={userId}
+        userRole={userRole}
+        queryParams={queryParams}
+      />
+
       {/* Filters */}
       <AppointmentFilters
         filters={filters}
