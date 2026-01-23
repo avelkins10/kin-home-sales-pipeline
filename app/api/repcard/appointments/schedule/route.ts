@@ -138,8 +138,8 @@ export async function GET(request: NextRequest) {
           cal.status as calendar_status,
           COALESCE(closer_team.team_name, setter_team.team_name) as team_name,
           COALESCE(closer_team.repcard_team_id, setter_team.repcard_team_id) as team_id,
-          (SELECT COUNT(*)::int FROM repcard_customer_attachments WHERE repcard_customer_id = a.repcard_customer_id) as customer_attachment_count,
-          (SELECT COUNT(*)::int FROM repcard_appointment_attachments WHERE repcard_appointment_id = a.repcard_appointment_id) as appointment_attachment_count
+          (SELECT COUNT(*)::int FROM repcard_customer_attachments WHERE repcard_customer_id::text = a.repcard_customer_id::text) as customer_attachment_count,
+          (SELECT COUNT(*)::int FROM repcard_appointment_attachments WHERE repcard_appointment_id::text = a.repcard_appointment_id::text) as appointment_attachment_count
         FROM repcard_appointments a
         LEFT JOIN repcard_users setter ON setter.repcard_user_id = a.setter_user_id
         LEFT JOIN repcard_users closer ON closer.repcard_user_id = a.closer_user_id
@@ -201,8 +201,8 @@ export async function GET(request: NextRequest) {
           cal.status as calendar_status,
           COALESCE(closer_team.team_name, setter_team.team_name) as team_name,
           COALESCE(closer_team.repcard_team_id, setter_team.repcard_team_id) as team_id,
-          (SELECT COUNT(*)::int FROM repcard_customer_attachments WHERE repcard_customer_id = a.repcard_customer_id) as customer_attachment_count,
-          (SELECT COUNT(*)::int FROM repcard_appointment_attachments WHERE repcard_appointment_id = a.repcard_appointment_id) as appointment_attachment_count
+          (SELECT COUNT(*)::int FROM repcard_customer_attachments WHERE repcard_customer_id::text = a.repcard_customer_id::text) as customer_attachment_count,
+          (SELECT COUNT(*)::int FROM repcard_appointment_attachments WHERE repcard_appointment_id::text = a.repcard_appointment_id::text) as appointment_attachment_count
         FROM repcard_appointments a
         LEFT JOIN repcard_users setter ON setter.repcard_user_id = a.setter_user_id
         LEFT JOIN repcard_users closer ON closer.repcard_user_id = a.closer_user_id
@@ -264,8 +264,8 @@ export async function GET(request: NextRequest) {
           cal.status as calendar_status,
           COALESCE(closer_team.team_name, setter_team.team_name) as team_name,
           COALESCE(closer_team.repcard_team_id, setter_team.repcard_team_id) as team_id,
-          (SELECT COUNT(*)::int FROM repcard_customer_attachments WHERE repcard_customer_id = a.repcard_customer_id) as customer_attachment_count,
-          (SELECT COUNT(*)::int FROM repcard_appointment_attachments WHERE repcard_appointment_id = a.repcard_appointment_id) as appointment_attachment_count
+          (SELECT COUNT(*)::int FROM repcard_customer_attachments WHERE repcard_customer_id::text = a.repcard_customer_id::text) as customer_attachment_count,
+          (SELECT COUNT(*)::int FROM repcard_appointment_attachments WHERE repcard_appointment_id::text = a.repcard_appointment_id::text) as appointment_attachment_count
         FROM repcard_appointments a
         LEFT JOIN repcard_users setter ON setter.repcard_user_id = a.setter_user_id
         LEFT JOIN repcard_users closer ON closer.repcard_user_id = a.closer_user_id
@@ -326,8 +326,8 @@ export async function GET(request: NextRequest) {
           cal.status as calendar_status,
           COALESCE(closer_team.team_name, setter_team.team_name) as team_name,
           COALESCE(closer_team.repcard_team_id, setter_team.repcard_team_id) as team_id,
-          (SELECT COUNT(*)::int FROM repcard_customer_attachments WHERE repcard_customer_id = a.repcard_customer_id) as customer_attachment_count,
-          (SELECT COUNT(*)::int FROM repcard_appointment_attachments WHERE repcard_appointment_id = a.repcard_appointment_id) as appointment_attachment_count
+          (SELECT COUNT(*)::int FROM repcard_customer_attachments WHERE repcard_customer_id::text = a.repcard_customer_id::text) as customer_attachment_count,
+          (SELECT COUNT(*)::int FROM repcard_appointment_attachments WHERE repcard_appointment_id::text = a.repcard_appointment_id::text) as appointment_attachment_count
         FROM repcard_appointments a
         LEFT JOIN repcard_users setter ON setter.repcard_user_id = a.setter_user_id
         LEFT JOIN repcard_users closer ON closer.repcard_user_id = a.closer_user_id
