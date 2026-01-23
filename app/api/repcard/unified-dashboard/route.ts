@@ -356,8 +356,7 @@ export async function GET(request: NextRequest) {
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'cancelled')::int as cancelled,
             COUNT(DISTINCT u.repcard_user_id) FILTER (WHERE u.role = 'closer')::int as closers_count
           FROM repcard_offices o
-          LEFT JOIN repcard_appointments a ON 
-            (CASE WHEN a.office_id IS NULL THEN NULL ELSE a.office_id::text END)::int = o.repcard_office_id
+          LEFT JOIN repcard_appointments a ON NULLIF(a.office_id::text, '')::int = o.repcard_office_id
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
           LEFT JOIN users u ON u.repcard_user_id = a.closer_user_id
@@ -373,8 +372,7 @@ export async function GET(request: NextRequest) {
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'cancelled')::int as cancelled,
             COUNT(DISTINCT u.repcard_user_id) FILTER (WHERE u.role = 'closer')::int as closers_count
           FROM repcard_offices o
-          LEFT JOIN repcard_appointments a ON 
-            (CASE WHEN a.office_id IS NULL THEN NULL ELSE a.office_id::text END)::int = o.repcard_office_id
+          LEFT JOIN repcard_appointments a ON NULLIF(a.office_id::text, '')::int = o.repcard_office_id
           LEFT JOIN users u ON u.repcard_user_id = a.closer_user_id
           GROUP BY o.repcard_office_id
         `;
