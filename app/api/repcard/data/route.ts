@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { sql } from '@/lib/db/client';
-import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
+import { logApiRequest, logApiResponse, logError, logInfo } from '@/lib/logging/logger';
 
 export const runtime = 'nodejs';
 
@@ -63,6 +63,21 @@ export async function GET(request: NextRequest) {
 
     let data: any[] = [];
     let total = 0;
+
+    // Log query parameters for debugging
+    logInfo('repcard-data', {
+      requestId,
+      type,
+      filters: {
+        userId,
+        repcardUserId: actualRepcardUserId,
+        officeId,
+        customerId,
+        startDate,
+        endDate
+      },
+      pagination: { limit, page, offset }
+    });
 
     switch (type) {
       case 'customers': {
@@ -442,12 +457,34 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     const duration = Date.now() - start;
-    logError('repcard-data', error as Error, { requestId });
+    const errorDetails = error instanceof Error ? {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    } : { error: String(error) };
+    
+    logError('repcard-data', error as Error, { 
+      requestId,
+      errorDetails,
+      // Log the query parameters that caused the error
+      queryParams: {
+        type,
+        userId,
+        repcardUserId: actualRepcardUserId,
+        officeId,
+        customerId,
+        startDate,
+        endDate,
+        limit,
+        page
+      }
+    });
     logApiResponse('GET', path, duration, { status: 500, cached: false, requestId });
     return NextResponse.json(
       {
         error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error'
+        message: error instanceof Error ? error.message : 'Unknown error',
+        requestId
       },
       { status: 500 }
     );

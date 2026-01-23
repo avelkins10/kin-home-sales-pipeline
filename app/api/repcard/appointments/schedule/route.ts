@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { sql } from '@/lib/db/client';
-import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
+import { logApiRequest, logApiResponse, logError, logInfo } from '@/lib/logging/logger';
 import { getAssignedOffices } from '@/lib/quickbase/queries';
 
 export const runtime = 'nodejs';
@@ -125,6 +125,23 @@ export async function GET(request: NextRequest) {
       additionalWhereParts.length === 3 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]}` :
       additionalWhereParts.length === 4 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]} ${additionalWhereParts[3]}` :
       sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]} ${additionalWhereParts[3]} ${additionalWhereParts[4]}`;
+
+    // Log query parameters for debugging
+    logInfo('repcard-appointments-schedule', {
+      requestId,
+      userRole,
+      repcardUserId,
+      filters: {
+        teamIds: teamIds?.length || 0,
+        calendarId,
+        statusFilter,
+        hasPowerBillFilter,
+        isRescheduleFilter
+      },
+      additionalWherePartsCount: additionalWhereParts.length,
+      effectiveOfficeIds: effectiveOfficeIds?.length || 0,
+      dateRange: { startDate, endDate }
+    });
 
     let result;
     
@@ -386,12 +403,35 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     const duration = Date.now() - start;
-    logError('repcard-appointments-schedule', error as Error, { requestId });
+    const errorDetails = error instanceof Error ? {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    } : { error: String(error) };
+    
+    logError('repcard-appointments-schedule', error as Error, { 
+      requestId,
+      errorDetails,
+      // Log the query parameters that caused the error
+      queryParams: {
+        userRole,
+        repcardUserId,
+        teamIds: teamIds?.length || 0,
+        calendarId,
+        statusFilter,
+        hasPowerBillFilter,
+        isRescheduleFilter,
+        effectiveOfficeIds: effectiveOfficeIds?.length || 0,
+        startDate,
+        endDate
+      }
+    });
     logApiResponse('GET', path, duration, { status: 500, cached: false, requestId });
     return NextResponse.json(
       {
         error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error'
+        message: error instanceof Error ? error.message : 'Unknown error',
+        requestId
       },
       { status: 500 }
     );
