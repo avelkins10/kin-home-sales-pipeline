@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/lib/db/client';
 import { logApiRequest, logApiResponse, logError, logInfo } from '@/lib/logging/logger';
-import { processAppointmentWebhook, processCustomerWebhook } from '@/lib/repcard/webhook-processor';
+import { processAppointmentWebhook, processCustomerWebhook, processDoorKnockWebhook } from '@/lib/repcard/webhook-processor';
 
 export const runtime = 'nodejs';
 
@@ -109,7 +109,11 @@ export async function POST(request: NextRequest) {
       if (triggerLower.includes('appointment')) {
         objectType = 'appointment';
         objectId = payload.appointment_id || payload.appointmentId || payload.id || payload.object_id;
-      } else if (triggerLower.includes('contact') || triggerLower.includes('customer') || triggerLower.includes('door')) {
+      } else if (triggerLower.includes('door')) {
+        // Door knock event - handle separately
+        objectType = 'door_knock';
+        objectId = payload.door_knock_id || payload.id || payload.object_id;
+      } else if (triggerLower.includes('contact') || triggerLower.includes('customer')) {
         objectType = 'customer';
         objectId = payload.contact_id || payload.customer_id || payload.contactId || payload.customerId || payload.id || payload.object_id;
       } else if (triggerLower.includes('user')) {
@@ -147,6 +151,8 @@ export async function POST(request: NextRequest) {
     // WEBHOOK-FIRST: Parse payload directly instead of calling API
     if (objectType === 'appointment') {
       result = await processAppointmentWebhook(payload, requestId);
+    } else if (objectType === 'door_knock') {
+      result = await processDoorKnockWebhook(payload, requestId);
     } else if (objectType === 'customer' || objectType === 'contact') {
       result = await processCustomerWebhook(payload, requestId);
     } else if (objectType === 'user') {
@@ -168,6 +174,8 @@ export async function POST(request: NextRequest) {
       
       if (payload.appointment_id || payload.appointmentId || payload.appointment?.id) {
         result = await processAppointmentWebhook(payload, requestId);
+      } else if (payload.door_knocked_at || payload.doorKnockedAt || triggerEvent?.toLowerCase().includes('door')) {
+        result = await processDoorKnockWebhook(payload, requestId);
       } else if (payload.contact_id || payload.customer_id || payload.contactId || payload.customerId || payload.contact?.id) {
         result = await processCustomerWebhook(payload, requestId);
       } else {

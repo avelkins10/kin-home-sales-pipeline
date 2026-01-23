@@ -490,15 +490,15 @@ export async function GET(request: NextRequest) {
             END as conversion_rate
           FROM repcard_users ru
           LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
-          LEFT JOIN repcard_customers c ON c.setter_user_id::int = ru.repcard_user_id
-            AND c.created_at >= ${startDate}::timestamptz
-            AND c.created_at <= ${endDate}::timestamptz
-          LEFT JOIN repcard_appointments a ON a.repcard_customer_id::text = c.repcard_customer_id::text
+          LEFT JOIN repcard_door_knocks dk ON dk.setter_user_id::int = ru.repcard_user_id
+            AND dk.door_knocked_at >= ${startDate}::timestamptz
+            AND dk.door_knocked_at <= ${endDate}::timestamptz
+          LEFT JOIN repcard_appointments a ON a.setter_user_id::int = ru.repcard_user_id
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
           WHERE ru.status = 1 AND (ru.role = 'setter' OR ru.role IS NULL)
           GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, 'No Team')
-          HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
+          HAVING COUNT(DISTINCT dk.id) > 0 OR COUNT(DISTINCT a.repcard_appointment_id) > 0
           ORDER BY doors_knocked DESC
           LIMIT 10
         `
@@ -517,11 +517,11 @@ export async function GET(request: NextRequest) {
             END as conversion_rate
           FROM repcard_users ru
           LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
-          LEFT JOIN repcard_customers c ON c.setter_user_id::int = ru.repcard_user_id
-          LEFT JOIN repcard_appointments a ON a.repcard_customer_id::text = c.repcard_customer_id::text
+          LEFT JOIN repcard_door_knocks dk ON dk.setter_user_id::int = ru.repcard_user_id
+          LEFT JOIN repcard_appointments a ON a.setter_user_id::int = ru.repcard_user_id
           WHERE ru.status = 1 AND (ru.role = 'setter' OR ru.role IS NULL)
           GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, 'No Team')
-          HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
+          HAVING COUNT(DISTINCT dk.id) > 0 OR COUNT(DISTINCT a.repcard_appointment_id) > 0
           ORDER BY doors_knocked DESC
           LIMIT 50
         `;
@@ -577,29 +577,29 @@ export async function GET(request: NextRequest) {
           LEFT JOIN repcard_appointments a ON a.setter_user_id::int = ru.repcard_user_id
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
-          -- Doors knocked: subquery to count all customers created by this setter in date range
+          -- Doors knocked: subquery to count door knocks from door_knocks table
           LEFT JOIN LATERAL (
             SELECT
-              COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
+              COUNT(DISTINCT dk.id)::int as doors_knocked,
               -- Hours on doors: sum of (last door knocked - first door knocked) for each day
               COALESCE((
                 SELECT SUM(EXTRACT(EPOCH FROM (day_max - day_min)) / 3600)::int
                 FROM (
                   SELECT 
-                    DATE(c2.created_at AT TIME ZONE 'America/New_York') as day,
-                    MIN(c2.created_at) as day_min,
-                    MAX(c2.created_at) as day_max
-                  FROM repcard_customers c2
-                  WHERE c2.setter_user_id::int = ru.repcard_user_id
-                    AND c2.created_at >= ${startDate}::timestamptz
-                    AND c2.created_at <= ${endDate}::timestamptz
-                  GROUP BY DATE(c2.created_at AT TIME ZONE 'America/New_York')
+                    DATE(dk2.door_knocked_at AT TIME ZONE 'America/New_York') as day,
+                    MIN(dk2.door_knocked_at) as day_min,
+                    MAX(dk2.door_knocked_at) as day_max
+                  FROM repcard_door_knocks dk2
+                  WHERE dk2.setter_user_id::int = ru.repcard_user_id
+                    AND dk2.door_knocked_at >= ${startDate}::timestamptz
+                    AND dk2.door_knocked_at <= ${endDate}::timestamptz
+                  GROUP BY DATE(dk2.door_knocked_at AT TIME ZONE 'America/New_York')
                 ) daily_ranges
               ), 0)::int as estimated_hours_on_doors
-            FROM repcard_customers c
-            WHERE c.setter_user_id::int = ru.repcard_user_id
-              AND c.created_at >= ${startDate}::timestamptz
-              AND c.created_at <= ${endDate}::timestamptz
+            FROM repcard_door_knocks dk
+            WHERE dk.setter_user_id::int = ru.repcard_user_id
+              AND dk.door_knocked_at >= ${startDate}::timestamptz
+              AND dk.door_knocked_at <= ${endDate}::timestamptz
           ) doors_subquery ON true
           WHERE ru.status = 1 AND (ru.role = 'setter' OR ru.role IS NULL)
           GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, 'No Team'), COALESCE(doors_subquery.doors_knocked::int, 0)::int, COALESCE(doors_subquery.estimated_hours_on_doors::int, 0)::int
@@ -631,25 +631,25 @@ export async function GET(request: NextRequest) {
           LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
           -- Appointments set by this user
           LEFT JOIN repcard_appointments a ON a.setter_user_id::int = ru.repcard_user_id
-          -- Doors knocked: subquery to count all customers created by this setter
+          -- Doors knocked: subquery to count door knocks from door_knocks table
           LEFT JOIN LATERAL (
             SELECT
-              COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
+              COUNT(DISTINCT dk.id)::int as doors_knocked,
               -- Hours on doors: sum of (last door knocked - first door knocked) for each day
               COALESCE((
                 SELECT SUM(EXTRACT(EPOCH FROM (day_max - day_min)) / 3600)::int
                 FROM (
                   SELECT 
-                    DATE(c2.created_at AT TIME ZONE 'America/New_York') as day,
-                    MIN(c2.created_at) as day_min,
-                    MAX(c2.created_at) as day_max
-                  FROM repcard_customers c2
-                  WHERE c2.setter_user_id::int = ru.repcard_user_id
-                  GROUP BY DATE(c2.created_at AT TIME ZONE 'America/New_York')
+                    DATE(dk2.door_knocked_at AT TIME ZONE 'America/New_York') as day,
+                    MIN(dk2.door_knocked_at) as day_min,
+                    MAX(dk2.door_knocked_at) as day_max
+                  FROM repcard_door_knocks dk2
+                  WHERE dk2.setter_user_id::int = ru.repcard_user_id
+                  GROUP BY DATE(dk2.door_knocked_at AT TIME ZONE 'America/New_York')
                 ) daily_ranges
               ), 0)::int as estimated_hours_on_doors
-            FROM repcard_customers c
-            WHERE c.setter_user_id::int = ru.repcard_user_id
+            FROM repcard_door_knocks dk
+            WHERE dk.setter_user_id::int = ru.repcard_user_id
           ) doors_subquery ON true
           WHERE ru.status = 1 AND (ru.role = 'setter' OR ru.role IS NULL)
           GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, 'No Team'), COALESCE(doors_subquery.doors_knocked::int, 0)::int, COALESCE(doors_subquery.estimated_hours_on_doors::int, 0)::int
