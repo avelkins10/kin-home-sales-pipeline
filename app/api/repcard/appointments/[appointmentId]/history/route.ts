@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth/config';
 import { sql } from '@/lib/db/client';
 import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
-import { requireRole } from '@/lib/auth/middleware';
 
 /**
  * GET /api/repcard/appointments/[appointmentId]/history
@@ -21,8 +22,26 @@ export async function GET(
     logApiRequest('GET', path, { endpoint: 'appointment-history', requestId });
 
     // Authentication
-    const auth = await requireRole(['closer', 'setter', 'office_leader', 'regional', 'super_admin']);
-    if (!auth.authorized) return auth.response;
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      const duration = Date.now() - start;
+      logApiResponse('GET', path, duration, { status: 401, cached: false, requestId });
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const userRole = (session.user as any)?.role;
+    const allowedRoles = ['closer', 'setter', 'office_leader', 'regional', 'super_admin'];
+    if (!userRole || !allowedRoles.includes(userRole)) {
+      const duration = Date.now() - start;
+      logApiResponse('GET', path, duration, { status: 403, cached: false, requestId });
+      return NextResponse.json(
+        { error: 'Forbidden' },
+        { status: 403 }
+      );
+    }
 
     const { appointmentId } = params;
 
