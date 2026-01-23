@@ -812,7 +812,7 @@ export async function GET(request: NextRequest) {
               ELSE 0
             END as close_rate
           FROM repcard_offices o
-          INNER JOIN repcard_appointments a ON a.office_id::text::int = o.repcard_office_id
+          INNER JOIN repcard_appointments a ON NULLIF(a.office_id::text, '')::int = o.repcard_office_id
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
           INNER JOIN users u ON u.repcard_user_id = a.closer_user_id
@@ -840,7 +840,7 @@ export async function GET(request: NextRequest) {
               ELSE 0
             END as close_rate
           FROM repcard_offices o
-          INNER JOIN repcard_appointments a ON a.office_id::text::int = o.repcard_office_id
+          INNER JOIN repcard_appointments a ON NULLIF(a.office_id::text, '')::int = o.repcard_office_id
           INNER JOIN users u ON u.repcard_user_id = a.closer_user_id
             AND u.role = 'closer'
           GROUP BY o.repcard_office_id, o.name, u.repcard_user_id, u.name, u.role
