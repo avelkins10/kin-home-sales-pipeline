@@ -162,8 +162,8 @@ export async function GET(request: NextRequest) {
         LEFT JOIN repcard_customers c ON c.repcard_customer_id::int = a.repcard_customer_id::int
         WHERE
           a.scheduled_at IS NOT NULL
-          AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date
-          AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date
+          AND a.scheduled_at >= (${startDate}::date AT TIME ZONE 'America/New_York')
+          AND a.scheduled_at < (${endDate}::date + INTERVAL '1 day') AT TIME ZONE 'America/New_York'
           AND a.closer_user_id = ${repcardUserId}
       `;
     } else if (effectiveOfficeIds && effectiveOfficeIds.length > 0) {
@@ -187,8 +187,8 @@ export async function GET(request: NextRequest) {
         LEFT JOIN repcard_customers c ON c.repcard_customer_id::int = a.repcard_customer_id::int
         WHERE
           a.scheduled_at IS NOT NULL
-          AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date
-          AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date
+          AND a.scheduled_at >= (${startDate}::date AT TIME ZONE 'America/New_York')
+          AND a.scheduled_at < (${endDate}::date + INTERVAL '1 day') AT TIME ZONE 'America/New_York'
           AND a.office_id = ANY(${effectiveOfficeIds}::int[])
       `;
     } else if (userRole === 'super_admin' || userRole === 'regional') {
@@ -208,8 +208,8 @@ export async function GET(request: NextRequest) {
         FROM repcard_appointments a
         WHERE
           a.scheduled_at IS NOT NULL
-          AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date
-          AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date
+          AND a.scheduled_at >= (${startDate}::date AT TIME ZONE 'America/New_York')
+          AND a.scheduled_at < (${endDate}::date + INTERVAL '1 day') AT TIME ZONE 'America/New_York'
       `;
 
       const testRows = testResult.rows || [];
@@ -243,8 +243,8 @@ export async function GET(request: NextRequest) {
         LEFT JOIN repcard_customers c ON c.repcard_customer_id::int = a.repcard_customer_id::int
         WHERE
           a.scheduled_at IS NOT NULL
-          AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date
-          AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date
+          AND a.scheduled_at >= (${startDate}::date AT TIME ZONE 'America/New_York')
+          AND a.scheduled_at < (${endDate}::date + INTERVAL '1 day') AT TIME ZONE 'America/New_York'
       `;
 
       logInfo('repcard-appointments-metrics-query-executed', {
