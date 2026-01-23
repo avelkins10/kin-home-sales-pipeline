@@ -493,11 +493,11 @@ export async function GET(request: NextRequest) {
             COUNT(DISTINCT a.id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.is_within_48_hours = TRUE AND a.has_power_bill = TRUE)::int as both_count,
             COUNT(DISTINCT a.id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.is_within_48_hours = FALSE AND a.has_power_bill = FALSE)::int as neither_count,
             -- Doors knocked: all customers created by this setter in date range (regardless of appointments)
-            COALESCE(doors_subquery.doors_knocked, 0)::int as doors_knocked,
+            COALESCE(doors_subquery.doors_knocked::int, 0)::int as doors_knocked,
             -- Hours on doors: count unique days with door knocks * 4 hours per day (average)
-            COALESCE(doors_subquery.estimated_hours_on_doors, 0)::int as estimated_hours_on_doors,
+            COALESCE(doors_subquery.estimated_hours_on_doors::int, 0)::int as estimated_hours_on_doors,
             CASE
-              WHEN COALESCE(doors_subquery.doors_knocked, 0) > 0 THEN
+              WHEN COALESCE(doors_subquery.doors_knocked::int, 0) > 0 THEN
                 (COUNT(DISTINCT a.id)::float / doors_subquery.doors_knocked::int::float) * 100
               ELSE 0
             END as conversion_rate
@@ -547,11 +547,11 @@ export async function GET(request: NextRequest) {
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE AND a.has_power_bill = TRUE)::int as both_count,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = FALSE AND a.has_power_bill = FALSE)::int as neither_count,
             -- Doors knocked: all customers created by this setter (regardless of appointments)
-            COALESCE(doors_subquery.doors_knocked, 0)::int as doors_knocked,
+            COALESCE(doors_subquery.doors_knocked::int, 0)::int as doors_knocked,
             -- Hours on doors: count unique days with door knocks * 4 hours per day (average)
-            COALESCE(doors_subquery.estimated_hours_on_doors, 0)::int as estimated_hours_on_doors,
+            COALESCE(doors_subquery.estimated_hours_on_doors::int, 0)::int as estimated_hours_on_doors,
             CASE
-              WHEN COALESCE(doors_subquery.doors_knocked, 0) > 0 THEN
+              WHEN COALESCE(doors_subquery.doors_knocked::int, 0) > 0 THEN
                 (COUNT(DISTINCT a.id)::float / doors_subquery.doors_knocked::int::float) * 100
               ELSE 0
             END as conversion_rate
