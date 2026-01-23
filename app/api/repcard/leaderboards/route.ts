@@ -182,8 +182,8 @@ export async function GET(request: NextRequest) {
           LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
           LEFT JOIN repcard_appointments a ON a.setter_user_id::int = ru.repcard_user_id
             AND a.scheduled_at IS NOT NULL
-            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= CAST(${startDateParam} AS DATE)
-            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= CAST(${endDateParam} AS DATE)
+            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDateParam}::date
+            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDateParam}::date
           LEFT JOIN door_knock_stats dks ON dks.setter_user_id = ru.repcard_user_id
           WHERE ru.status = 1 AND (ru.role = 'setter' OR ru.role IS NULL)
           ${hasOfficeFilter ? sql`AND EXISTS (
@@ -290,8 +290,8 @@ export async function GET(request: NextRequest) {
           LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
           LEFT JOIN repcard_appointments a ON a.closer_user_id::int = ru.repcard_user_id
             AND a.scheduled_at IS NOT NULL
-            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= CAST(${startDateParam} AS DATE)
-            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= CAST(${endDateParam} AS DATE)
+            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDateParam}::date
+            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDateParam}::date
           WHERE ru.status = 1 AND (ru.role = 'closer' OR ru.role IS NULL)
           ${hasOfficeFilter ? sql`AND EXISTS (
             SELECT 1 FROM offices o
