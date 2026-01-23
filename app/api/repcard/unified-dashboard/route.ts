@@ -536,7 +536,7 @@ export async function GET(request: NextRequest) {
             COALESCE(doors_subquery.estimated_hours_on_doors::int, 0)::int as estimated_hours_on_doors,
             CASE
               WHEN COALESCE(doors_subquery.doors_knocked::int, 0) > 0 THEN
-                (COUNT(DISTINCT a.id)::float / doors_subquery.doors_knocked::int::float) * 100
+                (COUNT(DISTINCT a.id)::float / COALESCE(doors_subquery.doors_knocked::int, 0)::float) * 100
               ELSE 0
             END as conversion_rate
           FROM users u
@@ -590,7 +590,7 @@ export async function GET(request: NextRequest) {
             COALESCE(doors_subquery.estimated_hours_on_doors::int, 0)::int as estimated_hours_on_doors,
             CASE
               WHEN COALESCE(doors_subquery.doors_knocked::int, 0) > 0 THEN
-                (COUNT(DISTINCT a.id)::float / doors_subquery.doors_knocked::int::float) * 100
+                (COUNT(DISTINCT a.id)::float / COALESCE(doors_subquery.doors_knocked::int, 0)::float) * 100
               ELSE 0
             END as conversion_rate
           FROM users u
