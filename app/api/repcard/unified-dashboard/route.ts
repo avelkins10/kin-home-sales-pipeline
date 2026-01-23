@@ -996,27 +996,27 @@ export async function GET(request: NextRequest) {
       canvassingResult = startDate && endDate
       ? await sql`
           SELECT
-            DATE(c.created_at) as date,
-            COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
-            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND DATE(a.scheduled_at) = DATE(c.created_at))::int as appointments_set
-          FROM repcard_customers c
-          LEFT JOIN repcard_appointments a ON a.repcard_customer_id::text = c.repcard_customer_id::text
-            AND DATE(a.scheduled_at) = DATE(c.created_at)
-          WHERE c.created_at >= ${startDate}::timestamptz
-            AND c.created_at <= ${endDate}::timestamptz
-          GROUP BY DATE(c.created_at)
+            DATE(dk.door_knocked_at AT TIME ZONE 'America/New_York') as date,
+            COUNT(DISTINCT dk.id)::int as doors_knocked,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND DATE(a.scheduled_at AT TIME ZONE 'America/New_York') = DATE(dk.door_knocked_at AT TIME ZONE 'America/New_York'))::int as appointments_set
+          FROM repcard_door_knocks dk
+          LEFT JOIN repcard_appointments a ON a.setter_user_id::int = dk.setter_user_id::int
+            AND DATE(a.scheduled_at AT TIME ZONE 'America/New_York') = DATE(dk.door_knocked_at AT TIME ZONE 'America/New_York')
+          WHERE dk.door_knocked_at >= ${startDate}::timestamptz
+            AND dk.door_knocked_at <= ${endDate}::timestamptz
+          GROUP BY DATE(dk.door_knocked_at AT TIME ZONE 'America/New_York')
           ORDER BY date DESC
         `
       : await sql`
           SELECT
-            DATE(c.created_at) as date,
-            COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
-            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND DATE(a.scheduled_at) = DATE(c.created_at))::int as appointments_set
-          FROM repcard_customers c
-          LEFT JOIN repcard_appointments a ON a.repcard_customer_id::text = c.repcard_customer_id::text
-            AND DATE(a.scheduled_at) = DATE(c.created_at)
-          WHERE c.created_at >= NOW() - INTERVAL '30 days'
-          GROUP BY DATE(c.created_at)
+            DATE(dk.door_knocked_at AT TIME ZONE 'America/New_York') as date,
+            COUNT(DISTINCT dk.id)::int as doors_knocked,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND DATE(a.scheduled_at AT TIME ZONE 'America/New_York') = DATE(dk.door_knocked_at AT TIME ZONE 'America/New_York'))::int as appointments_set
+          FROM repcard_door_knocks dk
+          LEFT JOIN repcard_appointments a ON a.setter_user_id::int = dk.setter_user_id::int
+            AND DATE(a.scheduled_at AT TIME ZONE 'America/New_York') = DATE(dk.door_knocked_at AT TIME ZONE 'America/New_York')
+          WHERE dk.door_knocked_at >= NOW() - INTERVAL '30 days'
+          GROUP BY DATE(dk.door_knocked_at AT TIME ZONE 'America/New_York')
           ORDER BY date DESC
           LIMIT 30
         `;
