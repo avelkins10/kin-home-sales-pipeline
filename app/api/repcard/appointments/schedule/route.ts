@@ -665,13 +665,39 @@ export async function GET(request: NextRequest) {
               closer.first_name || ' ' || closer.last_name as closer_name,
               closer.email as closer_email, closer.team_id as closer_team_id,
               closer.team_name as closer_team_name,
-              c.name as customer_name, c.phone as customer_phone,
-              c.address as customer_address, c.email as customer_email,
+              COALESCE(
+                c.name,
+                NULLIF(a.raw_data->'contact'->>'name', ''),
+                NULLIF(a.raw_data->'customer'->>'name', ''),
+                NULLIF(a.raw_data->>'contactName', ''),
+                NULLIF(a.raw_data->>'customerName', ''),
+                NULLIF(TRIM(
+                  COALESCE(a.raw_data->'contact'->>'firstName', '') || 
+                  CASE WHEN a.raw_data->'contact'->>'firstName' IS NOT NULL AND a.raw_data->'contact'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
+                  COALESCE(a.raw_data->'contact'->>'lastName', '')
+                ), ''),
+                NULLIF(TRIM(
+                  COALESCE(a.raw_data->'customer'->>'firstName', '') || 
+                  CASE WHEN a.raw_data->'customer'->>'firstName' IS NOT NULL AND a.raw_data->'customer'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
+                  COALESCE(a.raw_data->'customer'->>'lastName', '')
+                ), ''),
+                'Unknown Customer'
+              ) as customer_name,
+              COALESCE(c.phone, a.raw_data->'contact'->>'phone', a.raw_data->'customer'->>'phone', a.raw_data->>'phone') as customer_phone,
+              COALESCE(c.address, a.raw_data->'contact'->>'address', a.raw_data->'customer'->>'address', a.raw_data->>'address') as customer_address,
+              COALESCE(c.email, a.raw_data->'contact'->>'email', a.raw_data->'customer'->>'email', a.raw_data->>'email') as customer_email,
               cal.name as calendar_name, cal.status as calendar_status,
               COALESCE(closer_team.team_name, setter_team.team_name) as team_name,
               COALESCE(closer_team.repcard_team_id, setter_team.repcard_team_id) as team_id,
               (SELECT COUNT(*)::int FROM repcard_customer_attachments WHERE repcard_customer_id::text = a.repcard_customer_id::text) as customer_attachment_count,
-              (SELECT COUNT(*)::int FROM repcard_appointment_attachments WHERE repcard_appointment_id::text = a.repcard_appointment_id::text) as appointment_attachment_count
+              (SELECT COUNT(*)::int FROM repcard_appointment_attachments WHERE repcard_appointment_id::text = a.repcard_appointment_id::text) as appointment_attachment_count,
+              (SELECT COUNT(*)::int FROM repcard_customer_notes WHERE repcard_customer_id::text = a.repcard_customer_id::text) as customer_note_count,
+              CASE 
+                WHEN a.status_category = 'scheduled' OR a.status_category = 'completed' THEN TRUE
+                WHEN a.raw_data->>'appointment_status_title' ILIKE '%confirmed%' THEN TRUE
+                WHEN a.raw_data->>'status' ILIKE '%confirmed%' THEN TRUE
+                ELSE FALSE
+              END as is_confirmed
             FROM repcard_appointments a
             LEFT JOIN repcard_users setter ON setter.repcard_user_id::int = a.setter_user_id::int
             LEFT JOIN repcard_users closer ON closer.repcard_user_id::int = a.closer_user_id::int
