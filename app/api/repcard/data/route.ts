@@ -140,31 +140,33 @@ export async function GET(request: NextRequest) {
       }
 
       case 'appointments': {
-        // Build query with all conditions to avoid parameter binding issues
-        const conditions: any[] = [];
-        const values: any[] = [];
+        // Build query using sql template literals with conditional fragments
+        // This avoids parameter binding issues while maintaining type safety
+        let whereConditions: any[] = [];
         
         if (actualRepcardUserId) {
-          conditions.push(`(a.setter_user_id::text = $${values.length + 1}::text OR a.closer_user_id::text = $${values.length + 1}::text)`);
-          values.push(actualRepcardUserId);
+          whereConditions.push(sql`(a.setter_user_id::text = ${actualRepcardUserId}::text OR a.closer_user_id::text = ${actualRepcardUserId}::text)`);
         }
         if (customerId) {
-          conditions.push(`a.repcard_customer_id::text = $${values.length + 1}::text`);
-          values.push(customerId);
+          whereConditions.push(sql`a.repcard_customer_id::text = ${customerId}::text`);
         }
         if (startDate) {
-          conditions.push(`a.scheduled_at >= $${values.length + 1}::timestamp`);
-          values.push(startDate);
+          whereConditions.push(sql`a.scheduled_at >= ${startDate}::timestamp`);
         }
         if (endDate) {
-          conditions.push(`a.scheduled_at <= ($${values.length + 1}::timestamp + INTERVAL '1 day')`);
-          values.push(endDate);
+          whereConditions.push(sql`a.scheduled_at <= (${endDate}::timestamp + INTERVAL '1 day')`);
         }
         
-        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+        // Build WHERE clause by combining conditions
+        let whereClause = sql``;
+        if (whereConditions.length > 0) {
+          whereClause = whereConditions.reduce((acc, condition) => {
+            return sql`${acc} AND ${condition}`;
+          });
+        }
         
-        // Build base query
-        const baseQuery = `
+        // Base query
+        let query = sql`
           SELECT 
             a.id,
             a.repcard_appointment_id,
@@ -190,17 +192,20 @@ export async function GET(request: NextRequest) {
             c.address as customer_address
           FROM repcard_appointments a
           LEFT JOIN repcard_customers c ON c.repcard_customer_id::text = a.repcard_customer_id::text
-          ${whereClause}
         `;
         
+        if (whereConditions.length > 0) {
+          query = sql`${query} WHERE ${whereClause}`;
+        }
+        
         // Count query
-        const countQuery = `SELECT COUNT(*) as count FROM (${baseQuery}) as subquery`;
-        const countResult = await sql.unsafe(countQuery, values);
+        const countResult = await sql`
+          SELECT COUNT(*) as count FROM (${query}) as subquery
+        `;
         total = parseInt(Array.from(countResult)[0]?.count || '0');
 
         // Main query with ordering and pagination
-        const mainQuery = `${baseQuery} ORDER BY a.scheduled_at DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
-        const result = await sql.unsafe(mainQuery, [...values, limit, offset]);
+        const result = await sql`${query} ORDER BY a.scheduled_at DESC LIMIT ${limit} OFFSET ${offset}`;
         data = Array.from(result);
         break;
       }

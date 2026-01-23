@@ -832,10 +832,14 @@ function SettersView({ data, isLoading, dateRange, startDate, endDate }: { data:
       if (response.ok) {
         const result = await response.json();
         // Filter appointments where this setter is the setter (not reschedules)
+        // The API already filters by repcardUserId, but we need to ensure we only get setter appointments
         const appts = (result.data || []).filter((a: any) => {
           const setterId = a.setter_user_id;
-          return (setterId === userId || String(setterId) === String(userId)) && 
-                 (a.is_reschedule === false || a.is_reschedule === null);
+          // Match by string or number comparison
+          const matches = setterId == userId || String(setterId) === String(userId);
+          // Exclude reschedules for setters
+          const isNotReschedule = a.is_reschedule === false || a.is_reschedule === null;
+          return matches && isNotReschedule;
         });
         setAppointments(new Map(appointments.set(userId, appts)));
       }
@@ -1208,9 +1212,11 @@ function ClosersView({ data, isLoading, dateRange, startDate, endDate }: { data:
       if (response.ok) {
         const result = await response.json();
         // Filter appointments where this closer is the closer
+        // The API already filters by repcardUserId, but we need to ensure we only get closer appointments
         const appts = (result.data || []).filter((a: any) => {
           const closerId = a.closer_user_id;
-          return closerId === userId || String(closerId) === String(userId);
+          // Match by string or number comparison
+          return closerId == userId || String(closerId) === String(userId);
         });
         setAppointments(new Map(appointments.set(userId, appts)));
       }
