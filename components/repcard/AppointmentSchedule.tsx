@@ -48,7 +48,17 @@ export function AppointmentSchedule({
 
   // Calculate actual dates and view mode from date range
   const { startDate, endDate, viewMode, currentDate } = useMemo(() => {
-    return getDateRangeFromOption(filters.dateRange, filters.customStartDate, filters.customEndDate);
+    const result = getDateRangeFromOption(filters.dateRange, filters.customStartDate, filters.customEndDate);
+    const nowET = new Date().toLocaleString('en-US', { timeZone: 'America/New_York' });
+    console.log('[AppointmentSchedule] Date range changed:', {
+      dateRange: filters.dateRange,
+      startDate: result.startDate,
+      endDate: result.endDate,
+      viewMode: result.viewMode,
+      currentTimeET: nowET,
+      note: 'All dates calculated in Eastern Time to match RepCard'
+    });
+    return result;
   }, [filters.dateRange, filters.customStartDate, filters.customEndDate]);
 
   // Use list view on mobile, otherwise use the calculated view mode

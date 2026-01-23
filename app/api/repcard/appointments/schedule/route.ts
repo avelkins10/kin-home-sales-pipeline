@@ -173,6 +173,19 @@ export async function GET(request: NextRequest) {
       }
     });
 
+    // TIMEZONE DEBUG: Log what dates we received and how they'll be interpreted
+    logInfo('repcard-appointments-schedule-TIMEZONE-DEBUG', {
+      requestId,
+      receivedDates: { startDate, endDate },
+      serverTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      serverTime: new Date().toISOString(),
+      sqlDateInterpretation: {
+        startDateAsEasternMidnight: `${startDate}::date AT TIME ZONE 'America/New_York' will be interpreted as ${startDate} 00:00:00 ET`,
+        endDateAsEasternMidnight: `${endDate}::date AT TIME ZONE 'America/New_York' will be interpreted as ${endDate} 00:00:00 ET`,
+        endDatePlusOneDay: `${endDate}::date + INTERVAL '1 day' will be ${endDate} + 1 day`
+      }
+    });
+
     let result;
     
     // Log SQL structure for debugging (before query execution)
@@ -1038,6 +1051,32 @@ export async function GET(request: NextRequest) {
       resultHasRows: result && typeof result === 'object' && 'rows' in result,
       resultRowsLength: (result as any)?.rows?.length
     });
+
+    // TIMEZONE DEBUG: Log first and last appointments to compare with RepCard
+    if (appointments.length > 0) {
+      const first = appointments[0];
+      const last = appointments[appointments.length - 1];
+      logInfo('repcard-appointments-schedule-FIRST-AND-LAST', {
+        requestId,
+        count: appointments.length,
+        firstAppointment: {
+          id: first.repcard_appointment_id,
+          closerName: first.closer_name,
+          customerName: first.customer_name,
+          scheduledAt: first.scheduled_at,
+          scheduledAtUTC: first.scheduled_at ? new Date(first.scheduled_at).toISOString() : null,
+          scheduledAtET: first.scheduled_at ? new Date(first.scheduled_at).toLocaleString('en-US', { timeZone: 'America/New_York' }) : null
+        },
+        lastAppointment: {
+          id: last.repcard_appointment_id,
+          closerName: last.closer_name,
+          customerName: last.customer_name,
+          scheduledAt: last.scheduled_at,
+          scheduledAtUTC: last.scheduled_at ? new Date(last.scheduled_at).toISOString() : null,
+          scheduledAtET: last.scheduled_at ? new Date(last.scheduled_at).toLocaleString('en-US', { timeZone: 'America/New_York' }) : null
+        }
+      });
+    }
 
     // Log diagnostic info for empty results
     if (appointments.length === 0) {

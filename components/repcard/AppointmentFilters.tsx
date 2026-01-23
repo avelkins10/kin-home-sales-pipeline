@@ -29,65 +29,99 @@ export interface AppointmentFilters {
   isReschedule?: boolean;
 }
 
-// Helper to convert date range to actual dates
-export function getDateRangeFromOption(option: DateRangeOption, customStart?: string, customEnd?: string): { startDate: string; endDate: string; viewMode: 'day' | 'week' | 'month'; currentDate: Date } {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+// Helper function to get current date in Eastern Time as YYYY-MM-DD
+function getEasternDate(date: Date = new Date()): string {
+  // Format date in Eastern Time
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
 
-  let startDate: Date;
-  let endDate: Date;
+  const parts = formatter.formatToParts(date);
+  const year = parts.find(p => p.type === 'year')!.value;
+  const month = parts.find(p => p.type === 'month')!.value;
+  const day = parts.find(p => p.type === 'day')!.value;
+
+  return `${year}-${month}-${day}`;
+}
+
+// Helper to add/subtract days from a YYYY-MM-DD date string
+function addDays(dateStr: string, days: number): string {
+  const date = new Date(dateStr + 'T00:00:00');
+  date.setDate(date.getDate() + days);
+  return date.toISOString().split('T')[0];
+}
+
+// Helper to convert date range to actual dates
+// IMPORTANT: All dates are calculated in Eastern Time to match RepCard's timezone
+export function getDateRangeFromOption(option: DateRangeOption, customStart?: string, customEnd?: string): { startDate: string; endDate: string; viewMode: 'day' | 'week' | 'month'; currentDate: Date } {
+  // Get current date in Eastern Time as YYYY-MM-DD string
+  const todayET = getEasternDate();
+
+  let startDateStr: string;
+  let endDateStr: string;
   let viewMode: 'day' | 'week' | 'month' = 'week';
-  let currentDate = new Date(today);
+  let currentDate = new Date(todayET + 'T12:00:00'); // Use noon to avoid timezone issues
 
   switch (option) {
     case 'today':
-      startDate = new Date(today);
-      endDate = new Date(today);
+      startDateStr = todayET;
+      endDateStr = todayET;
       viewMode = 'day';
-      currentDate = new Date(today);
+      currentDate = new Date(todayET + 'T12:00:00');
       break;
     case 'tomorrow':
-      startDate = new Date(today);
-      startDate.setDate(startDate.getDate() + 1);
-      endDate = new Date(startDate);
+      const tomorrowET = addDays(todayET, 1);
+      startDateStr = tomorrowET;
+      endDateStr = tomorrowET;
       viewMode = 'day';
-      currentDate = new Date(startDate);
+      currentDate = new Date(tomorrowET + 'T12:00:00');
       break;
-    case 'this_week':
-      // Sunday to Saturday of current week
+    case 'this_week': {
+      // Sunday to Saturday of current week (in ET)
+      const today = new Date(todayET + 'T12:00:00');
       const dayOfWeek = today.getDay();
-      startDate = new Date(today);
-      startDate.setDate(startDate.getDate() - dayOfWeek);
-      endDate = new Date(startDate);
-      endDate.setDate(endDate.getDate() + 6);
+      const sundayDate = new Date(today);
+      sundayDate.setDate(sundayDate.getDate() - dayOfWeek);
+      const saturdayDate = new Date(sundayDate);
+      saturdayDate.setDate(saturdayDate.getDate() + 6);
+      startDateStr = sundayDate.toISOString().split('T')[0];
+      endDateStr = saturdayDate.toISOString().split('T')[0];
       viewMode = 'week';
-      currentDate = new Date(today);
+      currentDate = new Date(todayET + 'T12:00:00');
       break;
+    }
     case 'next_7_days':
-      startDate = new Date(today);
-      endDate = new Date(today);
-      endDate.setDate(endDate.getDate() + 6);
+      startDateStr = todayET;
+      endDateStr = addDays(todayET, 6);
       viewMode = 'week';
-      currentDate = new Date(today);
+      currentDate = new Date(todayET + 'T12:00:00');
       break;
     case 'next_14_days':
-      startDate = new Date(today);
-      endDate = new Date(today);
-      endDate.setDate(endDate.getDate() + 13);
+      startDateStr = todayET;
+      endDateStr = addDays(todayET, 13);
       viewMode = 'week';
-      currentDate = new Date(today);
+      currentDate = new Date(todayET + 'T12:00:00');
       break;
-    case 'this_month':
-      startDate = new Date(today.getFullYear(), today.getMonth(), 1);
-      endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    case 'this_month': {
+      const today = new Date(todayET + 'T12:00:00');
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      startDateStr = firstDay.toISOString().split('T')[0];
+      endDateStr = lastDay.toISOString().split('T')[0];
       viewMode = 'month';
-      currentDate = new Date(today);
+      currentDate = new Date(todayET + 'T12:00:00');
       break;
+    }
     case 'custom':
       if (customStart && customEnd) {
-        startDate = new Date(customStart);
-        endDate = new Date(customEnd);
-        const daysDiff = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+        startDateStr = customStart;
+        endDateStr = customEnd;
+        const start = new Date(customStart + 'T12:00:00');
+        const end = new Date(customEnd + 'T12:00:00');
+        const daysDiff = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
         if (daysDiff === 0) {
           viewMode = 'day';
         } else if (daysDiff <= 7) {
@@ -95,20 +129,24 @@ export function getDateRangeFromOption(option: DateRangeOption, customStart?: st
         } else {
           viewMode = 'month';
         }
-        currentDate = new Date(startDate);
+        currentDate = new Date(customStart + 'T12:00:00');
       } else {
-        startDate = new Date(today);
-        endDate = new Date(today);
-        endDate.setDate(endDate.getDate() + 6);
+        startDateStr = todayET;
+        endDateStr = addDays(todayET, 6);
         viewMode = 'week';
-        currentDate = new Date(today);
+        currentDate = new Date(todayET + 'T12:00:00');
       }
       break;
+    default:
+      startDateStr = todayET;
+      endDateStr = addDays(todayET, 6);
+      viewMode = 'week';
+      currentDate = new Date(todayET + 'T12:00:00');
   }
 
   return {
-    startDate: startDate.toISOString().split('T')[0],
-    endDate: endDate.toISOString().split('T')[0],
+    startDate: startDateStr,
+    endDate: endDateStr,
     viewMode,
     currentDate
   };
