@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Clock, Paperclip, RotateCcw } from 'lucide-react';
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, addDays, addWeeks, addMonths, subDays, subWeeks, subMonths, isToday, isSameMonth, getHours, getMinutes, setHours, startOfDay } from 'date-fns';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, addDays, addWeeks, addMonths, subDays, subWeeks, subMonths, isToday, isSameMonth, getHours, getMinutes, setHours, startOfDay, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { AppointmentData } from './AppointmentCard';
 
@@ -33,13 +33,21 @@ export function AppointmentCalendarView({
   const appointmentsByDate = useMemo(() => {
     const grouped = new Map<string, AppointmentData[]>();
     appointments.forEach(apt => {
-      const date = apt.scheduled_at 
-        ? new Date(apt.scheduled_at).toISOString().split('T')[0]
-        : new Date(apt.created_at).toISOString().split('T')[0];
-      if (!grouped.has(date)) {
-        grouped.set(date, []);
+      try {
+        const date = apt.scheduled_at 
+          ? new Date(apt.scheduled_at).toISOString().split('T')[0]
+          : apt.created_at 
+            ? new Date(apt.created_at).toISOString().split('T')[0]
+            : null;
+        if (date) {
+          if (!grouped.has(date)) {
+            grouped.set(date, []);
+          }
+          grouped.get(date)!.push(apt);
+        }
+      } catch (error) {
+        console.warn('[AppointmentCalendarView] Error processing appointment:', apt.id, error);
       }
-      grouped.get(date)!.push(apt);
     });
     return grouped;
   }, [appointments]);
@@ -55,13 +63,23 @@ export function AppointmentCalendarView({
     const dayAppointments = getAppointmentsForDate(date);
     return dayAppointments.filter(apt => {
       if (!apt.scheduled_at) return false;
-      const aptDate = new Date(apt.scheduled_at);
-      return getHours(aptDate) === hour;
+      try {
+        const aptDate = new Date(apt.scheduled_at);
+        if (isNaN(aptDate.getTime())) return false;
+        return getHours(aptDate) === hour;
+      } catch {
+        return false;
+      }
     }).sort((a, b) => {
       // Sort by time
-      const timeA = a.scheduled_at ? new Date(a.scheduled_at).getTime() : 0;
-      const timeB = b.scheduled_at ? new Date(b.scheduled_at).getTime() : 0;
-      return timeA - timeB;
+      try {
+        const timeA = a.scheduled_at ? new Date(a.scheduled_at).getTime() : 0;
+        const timeB = b.scheduled_at ? new Date(b.scheduled_at).getTime() : 0;
+        if (isNaN(timeA) || isNaN(timeB)) return 0;
+        return timeA - timeB;
+      } catch {
+        return 0;
+      }
     });
   };
 
@@ -195,11 +213,14 @@ export function AppointmentCalendarView({
                     className="h-16 border-b relative hover:bg-muted/20 transition-colors"
                   >
                     {hourAppointments.map((apt, idx) => {
-                      const aptDate = new Date(apt.scheduled_at!);
-                      const minutes = getMinutes(aptDate);
-                      const topOffset = (minutes / 60) * 64; // 64px per hour
-                      const duration = apt.duration || 60; // Default 60 minutes
-                      const height = Math.max((duration / 60) * 64, 48); // Minimum 48px
+                      if (!apt.scheduled_at) return null;
+                      try {
+                        const aptDate = new Date(apt.scheduled_at);
+                        if (isNaN(aptDate.getTime())) return null;
+                        const minutes = getMinutes(aptDate);
+                        const topOffset = (minutes / 60) * 64; // 64px per hour
+                        const duration = apt.duration || 60; // Default 60 minutes
+                        const height = Math.max((duration / 60) * 64, 48); // Minimum 48px
                       
                       return (
                         <div
@@ -337,49 +358,56 @@ export function AppointmentCalendarView({
                       )}
                     >
                       {dayAppointments.map((apt, idx) => {
-                        const aptDate = new Date(apt.scheduled_at!);
-                        const minutes = getMinutes(aptDate);
-                        const topOffset = (minutes / 60) * 64;
-                        const duration = apt.duration || 60;
-                        const height = Math.max((duration / 60) * 64, 40);
+                        if (!apt.scheduled_at) return null;
+                        try {
+                          const aptDate = new Date(apt.scheduled_at);
+                          if (isNaN(aptDate.getTime()) || !isValid(aptDate)) return null;
+                          const minutes = getMinutes(aptDate);
+                          const topOffset = (minutes / 60) * 64;
+                          const duration = apt.duration || 60;
+                          const height = Math.max((duration / 60) * 64, 40);
                         
-                        return (
-                          <div
-                            key={apt.id}
-                            className={cn(
-                              "absolute left-0.5 right-0.5 rounded-md p-1.5 border cursor-pointer hover:shadow-lg transition-all text-xs min-h-[40px] touch-manipulation",
-                              getStatusColor(apt.status_category),
-                              "active:scale-[0.98]",
-                              dayAppointments.length > 1 && idx > 0 && "ml-0.5"
-                            )}
-                            style={{ 
-                              top: `${topOffset}px`, 
-                              height: `${height}px`,
-                              zIndex: idx + 1,
-                              maxWidth: dayAppointments.length > 1 ? `calc(${100 / dayAppointments.length}% - 4px)` : 'calc(100% - 4px)',
-                              left: dayAppointments.length > 1 ? `${(idx * 100) / dayAppointments.length}%` : '2px'
-                            }}
-                            onClick={() => onAppointmentClick(apt)}
-                          >
-                            <div className="font-semibold truncate leading-tight">
-                              {apt.customer_name || 'Unknown'}
-                            </div>
-                            <div className="text-[10px] opacity-80 mt-0.5">
-                              {format(aptDate, 'h:mm a')}
-                            </div>
-                            {(apt.has_power_bill || apt.is_reschedule) && (
-                              <div className="flex items-center gap-1 mt-1">
-                                {apt.has_power_bill && (
-                                  <Paperclip className="h-2.5 w-2.5 opacity-70" />
-                                )}
-                                {apt.is_reschedule && (
-                                  <RotateCcw className="h-2.5 w-2.5 opacity-70" />
-                                )}
+                          return (
+                            <div
+                              key={apt.id}
+                              className={cn(
+                                "absolute left-0.5 right-0.5 rounded-md p-1.5 border cursor-pointer hover:shadow-lg transition-all text-xs min-h-[40px] touch-manipulation",
+                                getStatusColor(apt.status_category),
+                                "active:scale-[0.98]",
+                                dayAppointments.length > 1 && idx > 0 && "ml-0.5"
+                              )}
+                              style={{ 
+                                top: `${topOffset}px`, 
+                                height: `${height}px`,
+                                zIndex: idx + 1,
+                                maxWidth: dayAppointments.length > 1 ? `calc(${100 / dayAppointments.length}% - 4px)` : 'calc(100% - 4px)',
+                                left: dayAppointments.length > 1 ? `${(idx * 100) / dayAppointments.length}%` : '2px'
+                              }}
+                              onClick={() => onAppointmentClick(apt)}
+                            >
+                              <div className="font-semibold truncate leading-tight">
+                                {apt.customer_name || 'Unknown'}
                               </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                              <div className="text-[10px] opacity-80 mt-0.5">
+                                {format(aptDate, 'h:mm a')}
+                              </div>
+                              {(apt.has_power_bill || apt.is_reschedule) && (
+                                <div className="flex items-center gap-1 mt-1">
+                                  {apt.has_power_bill && (
+                                    <Paperclip className="h-2.5 w-2.5 opacity-70" />
+                                  )}
+                                  {apt.is_reschedule && (
+                                    <RotateCcw className="h-2.5 w-2.5 opacity-70" />
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        } catch (error) {
+                          console.warn('[AppointmentCalendarView] Error rendering appointment in week view:', apt.id, error);
+                          return null;
+                        }
+                      }).filter(Boolean)}
                     </div>
                   );
                 })}
@@ -447,37 +475,49 @@ export function AppointmentCalendarView({
                   )}
                 </div>
                 <div className="flex-1 space-y-1 overflow-y-auto min-h-0">
-                  {scheduledAppointments.slice(0, 3).map(apt => (
-                    <div
-                      key={apt.id}
-                      className={cn(
-                        "text-xs p-1.5 rounded border cursor-pointer hover:shadow-md transition-all touch-manipulation min-h-[44px]",
-                        getStatusColor(apt.status_category),
-                        "active:scale-[0.98]"
-                      )}
-                      onClick={() => onAppointmentClick(apt)}
-                      title={`${apt.customer_name || 'Unknown Customer'} - ${apt.scheduled_at ? format(new Date(apt.scheduled_at), 'h:mm a') : 'Unscheduled'}`}
-                    >
-                      <div className="font-semibold truncate text-[11px]">
-                        {apt.scheduled_at 
-                          ? format(new Date(apt.scheduled_at), 'h:mm a')
-                          : 'Unscheduled'}
-                      </div>
-                      <div className="truncate text-[10px] opacity-90 mt-0.5">
-                        {apt.customer_name || 'Unknown'}
-                      </div>
-                      {(apt.has_power_bill || apt.is_reschedule) && (
-                        <div className="flex items-center gap-1 mt-1">
-                          {apt.has_power_bill && (
-                            <Paperclip className="h-2.5 w-2.5 opacity-70" />
+                  {scheduledAppointments.slice(0, 3).map(apt => {
+                    try {
+                      const scheduledTime = apt.scheduled_at 
+                        ? (() => {
+                            const date = new Date(apt.scheduled_at);
+                            return isValid(date) ? format(date, 'h:mm a') : 'Invalid time';
+                          })()
+                        : 'Unscheduled';
+                      
+                      return (
+                        <div
+                          key={apt.id}
+                          className={cn(
+                            "text-xs p-1.5 rounded border cursor-pointer hover:shadow-md transition-all touch-manipulation min-h-[44px]",
+                            getStatusColor(apt.status_category),
+                            "active:scale-[0.98]"
                           )}
-                          {apt.is_reschedule && (
-                            <RotateCcw className="h-2.5 w-2.5 opacity-70" />
+                          onClick={() => onAppointmentClick(apt)}
+                          title={`${apt.customer_name || 'Unknown Customer'} - ${scheduledTime}`}
+                        >
+                          <div className="font-semibold truncate text-[11px]">
+                            {scheduledTime}
+                          </div>
+                          <div className="truncate text-[10px] opacity-90 mt-0.5">
+                            {apt.customer_name || 'Unknown'}
+                          </div>
+                          {(apt.has_power_bill || apt.is_reschedule) && (
+                            <div className="flex items-center gap-1 mt-1">
+                              {apt.has_power_bill && (
+                                <Paperclip className="h-2.5 w-2.5 opacity-70" />
+                              )}
+                              {apt.is_reschedule && (
+                                <RotateCcw className="h-2.5 w-2.5 opacity-70" />
+                              )}
+                            </div>
                           )}
                         </div>
-                      )}
-                    </div>
-                  ))}
+                      );
+                    } catch (error) {
+                      console.warn('[AppointmentCalendarView] Error rendering appointment in month view:', apt.id, error);
+                      return null;
+                    }
+                  }).filter(Boolean)}
                   {(scheduledAppointments.length > 3 || unscheduledCount > 0) && (
                     <div className="text-xs text-muted-foreground text-center py-1 font-medium">
                       {scheduledAppointments.length > 3 && `+${scheduledAppointments.length - 3} more`}

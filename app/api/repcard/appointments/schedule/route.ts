@@ -263,9 +263,9 @@ export async function GET(request: NextRequest) {
           LEFT JOIN repcard_teams setter_team ON setter_team.repcard_team_id = setter.team_id
           LEFT JOIN repcard_teams closer_team ON closer_team.repcard_team_id = closer.team_id
           WHERE (
-            (a.scheduled_at IS NOT NULL AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date)
-            OR
-            (a.scheduled_at IS NULL AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date)
+            a.scheduled_at IS NOT NULL 
+            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date 
+            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date
           )
           AND a.closer_user_id = ${repcardUserId}
           ORDER BY COALESCE(a.scheduled_at, a.created_at) ASC
@@ -309,9 +309,9 @@ export async function GET(request: NextRequest) {
           LEFT JOIN repcard_teams setter_team ON setter_team.repcard_team_id = setter.team_id
           LEFT JOIN repcard_teams closer_team ON closer_team.repcard_team_id = closer.team_id
           WHERE (
-            (a.scheduled_at IS NOT NULL AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date)
-            OR
-            (a.scheduled_at IS NULL AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date)
+            a.scheduled_at IS NOT NULL 
+            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date 
+            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date
           )
           AND a.closer_user_id = ${repcardUserId}
           ORDER BY COALESCE(a.scheduled_at, a.created_at) ASC
@@ -386,9 +386,9 @@ export async function GET(request: NextRequest) {
           LEFT JOIN repcard_teams setter_team ON setter_team.repcard_team_id = setter.team_id
           LEFT JOIN repcard_teams closer_team ON closer_team.repcard_team_id = closer.team_id
           WHERE (
-            (a.scheduled_at IS NOT NULL AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date)
-            OR
-            (a.scheduled_at IS NULL AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date)
+            a.scheduled_at IS NOT NULL 
+            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date 
+            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date
           )
           AND a.office_id = ANY(${effectiveOfficeIds}::int[])
           ORDER BY COALESCE(a.scheduled_at, a.created_at) ASC
@@ -431,9 +431,9 @@ export async function GET(request: NextRequest) {
           LEFT JOIN repcard_teams setter_team ON setter_team.repcard_team_id = setter.team_id
           LEFT JOIN repcard_teams closer_team ON closer_team.repcard_team_id = closer.team_id
           WHERE (
-            (a.scheduled_at IS NOT NULL AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date)
-            OR
-            (a.scheduled_at IS NULL AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date)
+            a.scheduled_at IS NOT NULL 
+            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date 
+            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date
           )
           AND a.office_id = ANY(${effectiveOfficeIds}::int[])
           ORDER BY COALESCE(a.scheduled_at, a.created_at) ASC
@@ -606,9 +606,9 @@ export async function GET(request: NextRequest) {
           LEFT JOIN repcard_teams setter_team ON setter_team.repcard_team_id = setter.team_id
           LEFT JOIN repcard_teams closer_team ON closer_team.repcard_team_id = closer.team_id
           WHERE (
-            (a.scheduled_at IS NOT NULL AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date)
-            OR
-            (a.scheduled_at IS NULL AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date)
+            a.scheduled_at IS NOT NULL 
+            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date 
+            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date
           )
           ORDER BY COALESCE(a.scheduled_at, a.created_at) ASC
         `;
