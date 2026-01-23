@@ -83,7 +83,13 @@ export function AppointmentCalendarView({
       try {
         const aptDate = new Date(apt.scheduled_at);
         if (isNaN(aptDate.getTime())) return false;
-        return getHours(aptDate) === hour;
+
+        // CRITICAL: Get hour in Eastern Time, not browser's local timezone
+        // Convert UTC timestamp to Eastern Time before extracting hour
+        const etDate = new Date(aptDate.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+        const etHour = etDate.getHours();
+
+        return etHour === hour;
       } catch {
         return false;
       }
@@ -194,7 +200,11 @@ export function AppointmentCalendarView({
     
     dayAppointments.forEach(apt => {
       if (apt.scheduled_at) {
-        const hour = getHours(new Date(apt.scheduled_at));
+        // CRITICAL: Get hour in Eastern Time
+        const utcDate = new Date(apt.scheduled_at);
+        const etDate = new Date(utcDate.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+        const hour = etDate.getHours();
+
         if (hour >= 6 && hour <= 22) { // Only show appointments in visible hours
           if (!appointmentsByHour.has(hour)) {
             appointmentsByHour.set(hour, []);
@@ -247,7 +257,11 @@ export function AppointmentCalendarView({
                       try {
                         const aptDate = new Date(apt.scheduled_at);
                         if (isNaN(aptDate.getTime())) return null;
-                        const minutes = getMinutes(aptDate);
+
+                        // CRITICAL: Get minutes in Eastern Time for correct positioning
+                        const etDate = new Date(aptDate.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+                        const minutes = etDate.getMinutes();
+
                         const topOffset = (minutes / 60) * 64; // 64px per hour
                         const duration = apt.duration || 60; // Default 60 minutes
                         const height = Math.max((duration / 60) * 64, 48); // Minimum 48px
@@ -405,7 +419,11 @@ export function AppointmentCalendarView({
                         try {
                           const aptDate = new Date(apt.scheduled_at);
                           if (isNaN(aptDate.getTime()) || !isValid(aptDate)) return null;
-                          const minutes = getMinutes(aptDate);
+
+                          // CRITICAL: Get minutes in Eastern Time for correct positioning
+                          const etDate = new Date(aptDate.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+                          const minutes = etDate.getMinutes();
+
                           const topOffset = (minutes / 60) * 64;
                           const duration = apt.duration || 60;
                           const height = Math.max((duration / 60) * 64, 40);
