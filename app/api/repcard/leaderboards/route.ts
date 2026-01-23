@@ -347,6 +347,7 @@ export async function GET(request: NextRequest) {
           HAVING COUNT(DISTINCT a.id) > 0 OR COUNT(DISTINCT dk.id) > 0
           ORDER BY appointments_set DESC
         `;
+      }
     } catch (error) {
       logError('repcard-leaderboards', error as Error, { requestId, context: 'setters query' });
       throw error;
@@ -487,6 +488,7 @@ export async function GET(request: NextRequest) {
           HAVING COUNT(DISTINCT a.id) > 0
           ORDER BY sat_closed DESC
         `;
+      }
     } catch (error) {
       logError('repcard-leaderboards', error as Error, { requestId, context: 'closers query' });
       throw error;
