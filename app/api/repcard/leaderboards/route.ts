@@ -181,9 +181,9 @@ export async function GET(request: NextRequest) {
           FROM repcard_users ru
           LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
           LEFT JOIN repcard_appointments a ON a.setter_user_id::int = ru.repcard_user_id
-            AND a.scheduled_at IS NOT NULL
-            AND a.scheduled_at::date >= ${startDateParam}::date 
-            AND a.scheduled_at::date <= ${endDateParam}::date
+            AND a.created_at IS NOT NULL
+            AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDateParam}::date 
+            AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDateParam}::date
           LEFT JOIN door_knock_stats dks ON dks.setter_user_id = ru.repcard_user_id
           WHERE ru.status = 1 AND (ru.role = 'setter' OR ru.role IS NULL)
           AND EXISTS (
@@ -237,7 +237,9 @@ export async function GET(request: NextRequest) {
           FROM repcard_users ru
           LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
           LEFT JOIN repcard_appointments a ON a.setter_user_id::int = ru.repcard_user_id
-            AND a.scheduled_at IS NOT NULL
+            AND a.created_at IS NOT NULL
+            AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDateParam}::date 
+            AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDateParam}::date
           LEFT JOIN repcard_door_knocks dk ON dk.setter_user_id = ru.repcard_user_id
           WHERE ru.status = 1 AND (ru.role = 'setter' OR ru.role IS NULL)
           GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || \' \' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, \'No Team\')
@@ -286,7 +288,7 @@ export async function GET(request: NextRequest) {
           FROM repcard_users ru
           LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
           LEFT JOIN repcard_appointments a ON a.setter_user_id::int = ru.repcard_user_id
-            AND a.scheduled_at IS NOT NULL
+            AND a.created_at IS NOT NULL
           LEFT JOIN repcard_door_knocks dk ON dk.setter_user_id = ru.repcard_user_id
           WHERE ru.status = 1 AND (ru.role = \'setter\' OR ru.role IS NULL)
           AND EXISTS (
@@ -340,7 +342,7 @@ export async function GET(request: NextRequest) {
           FROM repcard_users ru
           LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
           LEFT JOIN repcard_appointments a ON a.setter_user_id::int = ru.repcard_user_id
-            AND a.scheduled_at IS NOT NULL
+            AND a.created_at IS NOT NULL
           LEFT JOIN repcard_door_knocks dk ON dk.setter_user_id = ru.repcard_user_id
           WHERE ru.status = 1 AND (ru.role = \'setter\' OR ru.role IS NULL)
           GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || \' \' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, \'No Team\')
@@ -516,9 +518,9 @@ export async function GET(request: NextRequest) {
               AND dk.door_knocked_at >= ${startDate}::timestamptz
               AND dk.door_knocked_at <= ${endDate}::timestamptz
             LEFT JOIN repcard_appointments a ON a.setter_user_id::int = ru.repcard_user_id
-              AND a.scheduled_at IS NOT NULL
-              AND a.scheduled_at::date >= ${startDateParam}::date 
-              AND a.scheduled_at::date <= ${endDateParam}::date
+              AND a.created_at IS NOT NULL
+              AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDateParam}::date 
+              AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDateParam}::date
             WHERE o.repcard_office_id = ANY(${officeIds}::int[])
             GROUP BY o.repcard_office_id
           ),
@@ -581,9 +583,9 @@ export async function GET(request: NextRequest) {
               AND dk.door_knocked_at >= ${startDate}::timestamptz
               AND dk.door_knocked_at <= ${endDate}::timestamptz
             LEFT JOIN repcard_appointments a ON a.setter_user_id::int = ru.repcard_user_id
-              AND a.scheduled_at IS NOT NULL
-              AND a.scheduled_at::date >= ${startDateParam}::date 
-              AND a.scheduled_at::date <= ${endDateParam}::date
+              AND a.created_at IS NOT NULL
+              AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDateParam}::date 
+              AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDateParam}::date
             GROUP BY o.repcard_office_id
           ),
           office_closers AS (
