@@ -11,8 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Calendar, Filter, X } from 'lucide-react';
+import { Calendar, Filter, X, Building2, Users, CalendarDays } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 
 export interface AppointmentFilters {
   startDate: string;
@@ -51,6 +52,16 @@ export function AppointmentFilters({
 
   const isLeader = ['office_leader', 'area_director', 'divisional', 'regional', 'super_admin'].includes(userRole);
 
+  // Count active filters
+  const activeFiltersCount = [
+    filters.officeIds?.length,
+    filters.teamIds?.length,
+    filters.calendarId,
+    filters.status,
+    filters.hasPowerBill !== undefined,
+    filters.isReschedule !== undefined,
+  ].filter(Boolean).length;
+
   const handleDateChange = (field: 'startDate' | 'endDate', value: string) => {
     if (field === 'startDate') {
       setLocalStartDate(value);
@@ -66,10 +77,10 @@ export function AppointmentFilters({
     today.setHours(0, 0, 0, 0);
     const endDate = new Date(today);
     endDate.setDate(endDate.getDate() + days);
-    
+
     const startDateStr = today.toISOString().split('T')[0];
     const endDateStr = endDate.toISOString().split('T')[0];
-    
+
     setLocalStartDate(startDateStr);
     setLocalEndDate(endDateStr);
     onFiltersChange({ ...filters, startDate: startDateStr, endDate: endDateStr });
@@ -80,10 +91,10 @@ export function AppointmentFilters({
     today.setHours(0, 0, 0, 0);
     const defaultEnd = new Date(today);
     defaultEnd.setDate(defaultEnd.getDate() + 7);
-    
+
     const defaultStart = today.toISOString().split('T')[0];
     const defaultEndStr = defaultEnd.toISOString().split('T')[0];
-    
+
     setLocalStartDate(defaultStart);
     setLocalEndDate(defaultEndStr);
     onFiltersChange({
@@ -102,8 +113,13 @@ export function AppointmentFilters({
     <Card className="p-4 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4" />
-          <h3 className="font-semibold">Filters</h3>
+          <Filter className="h-5 w-5 text-blue-600" />
+          <h3 className="font-semibold text-lg">Filters</h3>
+          {activeFiltersCount > 0 && (
+            <Badge variant="secondary" className="ml-1">
+              {activeFiltersCount} active
+            </Badge>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {onToggleAdvanced && (
@@ -112,46 +128,48 @@ export function AppointmentFilters({
               size="sm"
               onClick={onToggleAdvanced}
             >
-              {showAdvanced ? 'Hide' : 'Show'} Advanced
+              {showAdvanced ? 'Less' : 'More'} Options
             </Button>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearFilters}
-          >
-            <X className="h-4 w-4 mr-1" />
-            Clear
-          </Button>
+          {activeFiltersCount > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={clearFilters}
+            >
+              <X className="h-4 w-4 mr-1" />
+              Clear All
+            </Button>
+          )}
         </div>
       </div>
 
       {/* Date Range */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
-          <Label>Start Date</Label>
+          <Label className="text-sm font-medium">Start Date</Label>
           <Input
             type="date"
             value={localStartDate}
             onChange={(e) => handleDateChange('startDate', e.target.value)}
-            className="mt-1"
+            className="mt-1.5"
           />
         </div>
         <div>
-          <Label>End Date</Label>
+          <Label className="text-sm font-medium">End Date</Label>
           <Input
             type="date"
             value={localEndDate}
             onChange={(e) => handleDateChange('endDate', e.target.value)}
-            className="mt-1"
+            className="mt-1.5"
           />
         </div>
         <div>
-          <Label>Quick Select</Label>
+          <Label className="text-sm font-medium">Quick Select</Label>
           <Select onValueChange={(value) => handleQuickDate(parseInt(value))}>
-            <SelectTrigger className="mt-1">
+            <SelectTrigger className="mt-1.5">
               <Calendar className="mr-2 h-4 w-4" />
-              <SelectValue placeholder="Quick date" />
+              <SelectValue placeholder="Choose range" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="0">Today</SelectItem>
@@ -164,107 +182,119 @@ export function AppointmentFilters({
         </div>
       </div>
 
+      {/* Primary Filters - Office, Team, Calendar */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+        {/* Office Filter (for leaders) */}
+        {isLeader && availableOffices.length > 0 && (
+          <div>
+            <Label className="text-sm font-medium flex items-center gap-1.5">
+              <Building2 className="h-3.5 w-3.5" />
+              Office
+            </Label>
+            <Select
+              value={filters.officeIds?.join(',') || 'all'}
+              onValueChange={(value) => {
+                if (value === 'all') {
+                  onFiltersChange({ ...filters, officeIds: undefined });
+                } else {
+                  onFiltersChange({ ...filters, officeIds: value.split(',').map(id => parseInt(id)) });
+                }
+              }}
+            >
+              <SelectTrigger className="mt-1.5">
+                <SelectValue placeholder="All Offices" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Offices</SelectItem>
+                {availableOffices.map(office => (
+                  <SelectItem key={office.id} value={office.id.toString()}>
+                    {office.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {/* Team Filter */}
+        {isLeader && availableTeams.length > 0 && (
+          <div>
+            <Label className="text-sm font-medium flex items-center gap-1.5">
+              <Users className="h-3.5 w-3.5" />
+              Team
+            </Label>
+            <Select
+              value={filters.teamIds?.join(',') || 'all'}
+              onValueChange={(value) => {
+                if (value === 'all') {
+                  onFiltersChange({ ...filters, teamIds: undefined });
+                } else {
+                  onFiltersChange({ ...filters, teamIds: value.split(',').map(id => parseInt(id)) });
+                }
+              }}
+            >
+              <SelectTrigger className="mt-1.5">
+                <SelectValue placeholder="All Teams" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Teams</SelectItem>
+                {availableTeams.map(team => (
+                  <SelectItem key={team.id} value={team.id.toString()}>
+                    {team.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {/* Calendar Filter */}
+        {availableCalendars.length > 0 && (
+          <div>
+            <Label className="text-sm font-medium flex items-center gap-1.5">
+              <CalendarDays className="h-3.5 w-3.5" />
+              Calendar
+            </Label>
+            <Select
+              value={filters.calendarId?.toString() || 'all'}
+              onValueChange={(value) => {
+                if (value === 'all') {
+                  onFiltersChange({ ...filters, calendarId: undefined });
+                } else {
+                  onFiltersChange({ ...filters, calendarId: parseInt(value) });
+                }
+              }}
+            >
+              <SelectTrigger className="mt-1.5">
+                <SelectValue placeholder="All Calendars" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Calendars</SelectItem>
+                {availableCalendars.map(calendar => (
+                  <SelectItem key={calendar.id} value={calendar.id.toString()}>
+                    {calendar.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+      </div>
+
       {/* Advanced Filters */}
       {showAdvanced && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4 border-t">
-          {/* Office Filter (for leaders) */}
-          {isLeader && availableOffices.length > 0 && (
-            <div>
-              <Label>Office</Label>
-              <Select
-                value={filters.officeIds?.join(',') || 'all'}
-                onValueChange={(value) => {
-                  if (value === 'all') {
-                    onFiltersChange({ ...filters, officeIds: undefined });
-                  } else {
-                    onFiltersChange({ ...filters, officeIds: value.split(',').map(id => parseInt(id)) });
-                  }
-                }}
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Offices</SelectItem>
-                  {availableOffices.map(office => (
-                    <SelectItem key={office.id} value={office.id.toString()}>
-                      {office.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* Team Filter */}
-          {isLeader && availableTeams.length > 0 && (
-            <div>
-              <Label>Team</Label>
-              <Select
-                value={filters.teamIds?.join(',') || 'all'}
-                onValueChange={(value) => {
-                  if (value === 'all') {
-                    onFiltersChange({ ...filters, teamIds: undefined });
-                  } else {
-                    onFiltersChange({ ...filters, teamIds: value.split(',').map(id => parseInt(id)) });
-                  }
-                }}
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Teams</SelectItem>
-                  {availableTeams.map(team => (
-                    <SelectItem key={team.id} value={team.id.toString()}>
-                      {team.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* Calendar Filter */}
-          {availableCalendars.length > 0 && (
-            <div>
-              <Label>Calendar</Label>
-              <Select
-                value={filters.calendarId?.toString() || 'all'}
-                onValueChange={(value) => {
-                  if (value === 'all') {
-                    onFiltersChange({ ...filters, calendarId: undefined });
-                  } else {
-                    onFiltersChange({ ...filters, calendarId: parseInt(value) });
-                  }
-                }}
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Calendars</SelectItem>
-                  {availableCalendars.map(calendar => (
-                    <SelectItem key={calendar.id} value={calendar.id.toString()}>
-                      {calendar.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t">
           {/* Status Filter */}
           <div>
-            <Label>Status</Label>
+            <Label className="text-sm font-medium">Status</Label>
             <Select
               value={filters.status || 'all'}
               onValueChange={(value) => {
                 onFiltersChange({ ...filters, status: value === 'all' ? undefined : value });
               }}
             >
-              <SelectTrigger className="mt-1">
-                <SelectValue />
+              <SelectTrigger className="mt-1.5">
+                <SelectValue placeholder="All Statuses" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
@@ -279,7 +309,7 @@ export function AppointmentFilters({
 
           {/* Power Bill Filter */}
           <div>
-            <Label>Power Bill</Label>
+            <Label className="text-sm font-medium">Power Bill</Label>
             <Select
               value={filters.hasPowerBill === undefined ? 'all' : filters.hasPowerBill ? 'yes' : 'no'}
               onValueChange={(value) => {
@@ -289,8 +319,8 @@ export function AppointmentFilters({
                 });
               }}
             >
-              <SelectTrigger className="mt-1">
-                <SelectValue />
+              <SelectTrigger className="mt-1.5">
+                <SelectValue placeholder="All" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
@@ -302,7 +332,7 @@ export function AppointmentFilters({
 
           {/* Reschedule Filter */}
           <div>
-            <Label>Reschedule</Label>
+            <Label className="text-sm font-medium">Reschedule Status</Label>
             <Select
               value={filters.isReschedule === undefined ? 'all' : filters.isReschedule ? 'yes' : 'no'}
               onValueChange={(value) => {
@@ -312,8 +342,8 @@ export function AppointmentFilters({
                 });
               }}
             >
-              <SelectTrigger className="mt-1">
-                <SelectValue />
+              <SelectTrigger className="mt-1.5">
+                <SelectValue placeholder="All" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>

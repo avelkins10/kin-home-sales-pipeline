@@ -108,11 +108,11 @@ export function AppointmentSchedule({
       const [officesRes, teamsRes, calendarsRes] = await Promise.all([
         fetch(`${getBaseUrl()}/api/repcard/data?type=offices`).catch(() => null),
         fetch(`${getBaseUrl()}/api/repcard/data?type=users&limit=1000`).catch(() => null),
-        fetch(`${getBaseUrl()}/api/repcard/data?type=users&limit=1000`).catch(() => null)
+        fetch(`${getBaseUrl()}/api/repcard/data?type=calendars`).catch(() => null)
       ]);
 
       const offices = officesRes?.ok ? (await officesRes.json()).data : [];
-      
+
       // Extract unique teams from users
       const users = teamsRes?.ok ? (await teamsRes.json()).data : [];
       const teamsMap = new Map();
@@ -129,8 +129,8 @@ export function AppointmentSchedule({
       });
       const teams = Array.from(teamsMap.values());
 
-      // Fetch calendars (would need a separate endpoint or extract from appointments)
-      const calendars: any[] = [];
+      // Get calendars
+      const calendars = calendarsRes?.ok ? (await calendarsRes.json()).data : [];
 
       return { offices, teams, calendars };
     },
