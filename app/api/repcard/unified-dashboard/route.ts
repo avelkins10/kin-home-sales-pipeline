@@ -735,6 +735,10 @@ export async function GET(request: NextRequest) {
             AND a.disposition IS NOT NULL
           GROUP BY u.repcard_user_id, a.disposition
         `;
+    } catch (error) {
+      console.error('[RepCard Unified Dashboard] Error in allOutcomesResult query:', error);
+      throw new Error(`All outcomes query failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
     
     const allOutcomes = getRows(allOutcomesResult);
     const outcomesByUser = new Map<string, Array<{ disposition: string; count: number }>>();
