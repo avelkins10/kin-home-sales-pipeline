@@ -541,6 +541,10 @@ export async function GET(request: NextRequest) {
             startDate,
             endDate,
             resultRowCount: resultRowsBeforeConversion.length,
+            resultType: typeof result,
+            resultIsArray: Array.isArray(result),
+            resultHasRows: 'rows' in result,
+            resultRowsLength: (result as any).rows?.length,
             hasAnyFilter,
             sampleAppointment: resultRowsBeforeConversion[0] ? {
               id: resultRowsBeforeConversion[0].id,
@@ -683,7 +687,25 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    const appointments = Array.from(result);
+    // Convert result to array - handle both Vercel Postgres result format and arrays
+    let appointments: any[];
+    if (Array.isArray(result)) {
+      appointments = result;
+    } else if (result && typeof result === 'object' && 'rows' in result) {
+      // Vercel Postgres returns { rows: [...] }
+      appointments = (result as any).rows || [];
+    } else if (result && typeof result === 'object' && Symbol.iterator in result) {
+      // Iterable result (like sql template tag result)
+      appointments = Array.from(result);
+    } else {
+      logError('repcard-appointments-schedule-invalid-result', new Error('Result is not in expected format'), {
+        requestId,
+        userRole,
+        resultType: typeof result,
+        resultKeys: result && typeof result === 'object' ? Object.keys(result) : []
+      });
+      appointments = [];
+    }
 
     // Log query results for debugging
     logInfo('repcard-appointments-schedule-result', {
@@ -696,7 +718,9 @@ export async function GET(request: NextRequest) {
       repcardUserId,
       effectiveOfficeIds: effectiveOfficeIds?.length || 0,
       resultType: typeof result,
-      resultIsArray: Array.isArray(result)
+      resultIsArray: Array.isArray(result),
+      resultHasRows: result && typeof result === 'object' && 'rows' in result,
+      resultRowsLength: (result as any)?.rows?.length
     });
 
     // Log diagnostic info for empty results
