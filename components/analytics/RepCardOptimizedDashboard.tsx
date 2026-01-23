@@ -27,6 +27,8 @@ import {
   CheckCircle2,
   BarChart3,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Paperclip,
   ExternalLink
 } from 'lucide-react';
@@ -485,6 +487,8 @@ export function RepCardOptimizedDashboard({
             data={leaderboards.topAppointmentSetters || []}
             isLoading={isLoading}
             dateRange={dateRangeDisplay}
+            startDate={startDate}
+            endDate={endDate}
           />
         </TabsContent>
 
@@ -494,6 +498,8 @@ export function RepCardOptimizedDashboard({
             data={leaderboards.topClosers || []}
             isLoading={isLoading}
             dateRange={dateRangeDisplay}
+            startDate={startDate}
+            endDate={endDate}
           />
         </TabsContent>
 
@@ -765,11 +771,14 @@ function StatCard({
   );
 }
 
-function SettersView({ data, isLoading, dateRange }: { data: any[]; isLoading: boolean; dateRange: string }) {
+function SettersView({ data, isLoading, dateRange, startDate, endDate }: { data: any[]; isLoading: boolean; dateRange: string; startDate?: string; endDate?: string }) {
   const [selectedSetter, setSelectedSetter] = useState<any>(null);
   const [attachments, setAttachments] = useState<any[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
   const [selectedMetric, setSelectedMetric] = useState<'appointments' | 'doors' | 'quality' | 'hours'>('appointments');
+  const [expandedSetter, setExpandedSetter] = useState<number | null>(null);
+  const [appointments, setAppointments] = useState<Map<number, any[]>>(new Map());
+  const [loadingAppointments, setLoadingAppointments] = useState<Map<number, boolean>>(new Map());
 
   if (isLoading) {
     return <Skeleton className="h-96" />;
@@ -798,6 +807,42 @@ function SettersView({ data, isLoading, dateRange }: { data: any[]; isLoading: b
       setAttachments([]);
     } finally {
       setLoadingAttachments(false);
+    }
+  };
+
+  const loadAppointments = async (setter: any) => {
+    const userId = setter.userId;
+    if (appointments.has(userId)) {
+      // Already loaded, just toggle
+      setExpandedSetter(expandedSetter === userId ? null : userId);
+      return;
+    }
+
+    setExpandedSetter(userId);
+    setLoadingAppointments(new Map(loadingAppointments.set(userId, true)));
+
+    try {
+      const params = new URLSearchParams({
+        type: 'appointments',
+        repcardUserId: String(userId),
+        limit: '1000'
+      });
+      if (startDate) params.set('startDate', startDate);
+      if (endDate) params.set('endDate', endDate);
+
+      const response = await fetch(`/api/repcard/data?${params.toString()}`);
+      if (response.ok) {
+        const result = await response.json();
+        const appts = (result.data || []).filter((a: any) => 
+          a.setter_user_id === userId || String(a.setter_user_id) === String(userId)
+        );
+        setAppointments(new Map(appointments.set(userId, appts)));
+      }
+    } catch (error) {
+      console.error('Failed to load appointments:', error);
+      setAppointments(new Map(appointments.set(userId, [])));
+    } finally {
+      setLoadingAppointments(new Map(loadingAppointments.set(userId, false)));
     }
   };
 
@@ -860,7 +905,8 @@ function SettersView({ data, isLoading, dateRange }: { data: any[]; isLoading: b
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Rank</TableHead>
+                    <TableHead className="w-12"></TableHead>
+                    <TableHead>Team</TableHead>
                     <TableHead>Setter</TableHead>
                     <TableHead className="text-right">Doors</TableHead>
                     <TableHead className="text-right">Hours</TableHead>
@@ -898,21 +944,41 @@ function SettersView({ data, isLoading, dateRange }: { data: any[]; isLoading: b
                       ? ((setter.withPowerBillCount || 0) / (setter.appointmentsSet || 1)) * 100 
                       : 0;
                     
+                    const isExpanded = expandedSetter === setter.userId;
+                    const setterAppointments = appointments.get(setter.userId) || [];
+                    const isLoadingAppts = loadingAppointments.get(setter.userId) || false;
+
                     return (
-                      <TableRow key={setter.userId} className={idx < 3 ? 'bg-yellow-50/30' : ''}>
-                        <TableCell>
-                          <Badge 
-                            variant={idx < 3 ? 'default' : 'outline'}
-                            className={cn(
-                              idx === 0 && 'bg-yellow-500',
-                              idx === 1 && 'bg-gray-400',
-                              idx === 2 && 'bg-orange-600'
-                            )}
-                          >
-                            #{idx + 1}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="font-medium">{setter.name}</TableCell>
+                      <>
+                        <TableRow 
+                          key={setter.userId} 
+                          className={cn(
+                            idx < 3 && 'bg-yellow-50/30',
+                            'cursor-pointer hover:bg-gray-50 transition-colors'
+                          )}
+                          onClick={() => loadAppointments(setter)}
+                        >
+                          <TableCell className="w-12">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                loadAppointments(setter);
+                              }}
+                              className="p-1 hover:bg-gray-200 rounded transition-colors"
+                            >
+                              {isExpanded ? (
+                                <ChevronUp className="h-4 w-4 text-gray-600" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4 text-gray-600" />
+                              )}
+                            </button>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              {setter.team || 'No Team'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="font-medium">{setter.name}</TableCell>
                         <TableCell className="text-right">{formatLargeNumber(setter.doorsKnocked || 0)}</TableCell>
                         <TableCell className="text-right">{formatLargeNumber(setter.hoursOnDoors || 0)}h</TableCell>
                         <TableCell className="text-right font-bold text-lg">{formatLargeNumber(setter.appointmentsSet || 0)}</TableCell>
@@ -1004,6 +1070,83 @@ function SettersView({ data, isLoading, dateRange }: { data: any[]; isLoading: b
                           </Badge>
                         </TableCell>
                       </TableRow>
+                      {isExpanded && (
+                        <TableRow>
+                          <TableCell colSpan={11} className="bg-gray-50 p-0">
+                            <div className="p-4">
+                              {isLoadingAppts ? (
+                                <div className="flex items-center justify-center py-8">
+                                  <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+                                  <span className="ml-2 text-sm text-muted-foreground">Loading appointments...</span>
+                                </div>
+                              ) : setterAppointments.length > 0 ? (
+                                <div className="space-y-3">
+                                  <h4 className="font-semibold text-sm mb-3">Appointments Set ({setterAppointments.length})</h4>
+                                  <div className="space-y-2">
+                                    {setterAppointments.map((appt: any) => (
+                                      <Card key={appt.id || appt.repcard_appointment_id} className="hover:shadow-md transition-shadow">
+                                        <CardContent className="pt-4">
+                                          <div className="flex items-start justify-between gap-4">
+                                            <div className="flex-1 min-w-0">
+                                              <div className="flex items-center gap-2 mb-2">
+                                                <p className="font-medium text-sm">
+                                                  {appt.customer_name || appt.repcard_customer_id || 'Unknown Customer'}
+                                                </p>
+                                                {appt.has_power_bill && (
+                                                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
+                                                    <Paperclip className="h-3 w-3 mr-1" />
+                                                    Power Bill
+                                                  </Badge>
+                                                )}
+                                                {appt.is_within_48_hours && (
+                                                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
+                                                    <Zap className="h-3 w-3 mr-1" />
+                                                    48h
+                                                  </Badge>
+                                                )}
+                                              </div>
+                                              {appt.scheduled_at && (
+                                                <p className="text-xs text-muted-foreground">
+                                                  Scheduled: {format(new Date(appt.scheduled_at), 'MMM d, yyyy h:mm a')}
+                                                </p>
+                                              )}
+                                              {appt.customer_phone && (
+                                                <p className="text-xs text-muted-foreground mt-1">
+                                                  Phone: {appt.customer_phone}
+                                                </p>
+                                              )}
+                                              {appt.customer_email && (
+                                                <p className="text-xs text-muted-foreground">
+                                                  Email: {appt.customer_email}
+                                                </p>
+                                              )}
+                                            </div>
+                                            <div className="text-right shrink-0">
+                                              {appt.status_category && (
+                                                <Badge variant="outline" className="text-xs mb-1 block">
+                                                  {appt.status_category}
+                                                </Badge>
+                                              )}
+                                              {appt.disposition && (
+                                                <p className="text-xs text-muted-foreground">
+                                                  {appt.disposition}
+                                                </p>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </CardContent>
+                                      </Card>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : (
+                                <p className="text-sm text-muted-foreground text-center py-8">No appointments found for this setter</p>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </>
                     );
                   })}
                 </TableBody>
@@ -1018,10 +1161,50 @@ function SettersView({ data, isLoading, dateRange }: { data: any[]; isLoading: b
   );
 }
 
-function ClosersView({ data, isLoading, dateRange }: { data: any[]; isLoading: boolean; dateRange: string }) {
+function ClosersView({ data, isLoading, dateRange, startDate, endDate }: { data: any[]; isLoading: boolean; dateRange: string; startDate?: string; endDate?: string }) {
+  const [expandedCloser, setExpandedCloser] = useState<number | null>(null);
+  const [appointments, setAppointments] = useState<Map<number, any[]>>(new Map());
+  const [loadingAppointments, setLoadingAppointments] = useState<Map<number, boolean>>(new Map());
+
   if (isLoading) {
     return <Skeleton className="h-96" />;
   }
+
+  const loadAppointments = async (closer: any) => {
+    const userId = closer.userId;
+    if (appointments.has(userId)) {
+      // Already loaded, just toggle
+      setExpandedCloser(expandedCloser === userId ? null : userId);
+      return;
+    }
+
+    setExpandedCloser(userId);
+    setLoadingAppointments(new Map(loadingAppointments.set(userId, true)));
+
+    try {
+      const params = new URLSearchParams({
+        type: 'appointments',
+        repcardUserId: String(userId),
+        limit: '1000'
+      });
+      if (startDate) params.set('startDate', startDate);
+      if (endDate) params.set('endDate', endDate);
+
+      const response = await fetch(`/api/repcard/data?${params.toString()}`);
+      if (response.ok) {
+        const result = await response.json();
+        const appts = (result.data || []).filter((a: any) => 
+          a.closer_user_id === userId || String(a.closer_user_id) === String(userId)
+        );
+        setAppointments(new Map(appointments.set(userId, appts)));
+      }
+    } catch (error) {
+      console.error('Failed to load appointments:', error);
+      setAppointments(new Map(appointments.set(userId, [])));
+    } finally {
+      setLoadingAppointments(new Map(loadingAppointments.set(userId, false)));
+    }
+  };
 
   // Calculate summary stats
   const totalAppointmentsRun = data.reduce((sum, c) => sum + (c.appointmentsRun || 0), 0);
@@ -1075,7 +1258,8 @@ function ClosersView({ data, isLoading, dateRange }: { data: any[]; isLoading: b
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Rank</TableHead>
+                    <TableHead className="w-12"></TableHead>
+                    <TableHead>Team</TableHead>
                     <TableHead>Closer</TableHead>
                     <TableHead className="text-right">Appointments Run</TableHead>
                     <TableHead className="text-right">Sales Closed</TableHead>
@@ -1085,21 +1269,42 @@ function ClosersView({ data, isLoading, dateRange }: { data: any[]; isLoading: b
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.map((closer, idx) => (
-                    <TableRow key={closer.userId} className={idx < 3 ? 'bg-yellow-50/30' : ''}>
-                      <TableCell>
-                        <Badge 
-                          variant={idx < 3 ? 'default' : 'outline'}
+                  {data.map((closer, idx) => {
+                    const isExpanded = expandedCloser === closer.userId;
+                    const closerAppointments = appointments.get(closer.userId) || [];
+                    const isLoadingAppts = loadingAppointments.get(closer.userId) || false;
+
+                    return (
+                      <>
+                        <TableRow 
+                          key={closer.userId} 
                           className={cn(
-                            idx === 0 && 'bg-yellow-500',
-                            idx === 1 && 'bg-gray-400',
-                            idx === 2 && 'bg-orange-600'
+                            idx < 3 && 'bg-yellow-50/30',
+                            'cursor-pointer hover:bg-gray-50 transition-colors'
                           )}
+                          onClick={() => loadAppointments(closer)}
                         >
-                          #{idx + 1}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-medium">{closer.name}</TableCell>
+                          <TableCell className="w-12">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                loadAppointments(closer);
+                              }}
+                              className="p-1 hover:bg-gray-200 rounded transition-colors"
+                            >
+                              {isExpanded ? (
+                                <ChevronUp className="h-4 w-4 text-gray-600" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4 text-gray-600" />
+                              )}
+                            </button>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              {closer.team || 'No Team'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="font-medium">{closer.name}</TableCell>
                       <TableCell className="text-right">{formatLargeNumber(closer.appointmentsRun || 0)}</TableCell>
                       <TableCell className="text-right font-bold text-lg text-green-600">
                         {formatLargeNumber(closer.salesClosed || 0)}
@@ -1169,7 +1374,85 @@ function ClosersView({ data, isLoading, dateRange }: { data: any[]; isLoading: b
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    {isExpanded && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="bg-gray-50 p-0">
+                          <div className="p-4">
+                            {isLoadingAppts ? (
+                              <div className="flex items-center justify-center py-8">
+                                <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+                                <span className="ml-2 text-sm text-muted-foreground">Loading appointments...</span>
+                              </div>
+                            ) : closerAppointments.length > 0 ? (
+                              <div className="space-y-3">
+                                <h4 className="font-semibold text-sm mb-3">Appointments Run ({closerAppointments.length})</h4>
+                                <div className="space-y-2">
+                                  {closerAppointments.map((appt: any) => (
+                                    <Card key={appt.id || appt.repcard_appointment_id} className="hover:shadow-md transition-shadow">
+                                      <CardContent className="pt-4">
+                                        <div className="flex items-start justify-between gap-4">
+                                          <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-2">
+                                              <p className="font-medium text-sm">
+                                                {appt.customer_name || appt.repcard_customer_id || 'Unknown Customer'}
+                                              </p>
+                                              {appt.has_power_bill && (
+                                                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
+                                                  <Paperclip className="h-3 w-3 mr-1" />
+                                                  Power Bill
+                                                </Badge>
+                                              )}
+                                              {appt.is_within_48_hours && (
+                                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
+                                                  <Zap className="h-3 w-3 mr-1" />
+                                                  48h
+                                                </Badge>
+                                              )}
+                                            </div>
+                                            {appt.scheduled_at && (
+                                              <p className="text-xs text-muted-foreground">
+                                                Scheduled: {format(new Date(appt.scheduled_at), 'MMM d, yyyy h:mm a')}
+                                              </p>
+                                            )}
+                                            {appt.customer_phone && (
+                                              <p className="text-xs text-muted-foreground mt-1">
+                                                Phone: {appt.customer_phone}
+                                              </p>
+                                            )}
+                                            {appt.customer_email && (
+                                              <p className="text-xs text-muted-foreground">
+                                                Email: {appt.customer_email}
+                                              </p>
+                                            )}
+                                          </div>
+                                          <div className="text-right shrink-0">
+                                            {appt.status_category && (
+                                              <Badge variant="outline" className="text-xs mb-1 block">
+                                                {appt.status_category}
+                                              </Badge>
+                                            )}
+                                            {appt.disposition && (
+                                              <p className="text-xs text-muted-foreground">
+                                                {appt.disposition}
+                                              </p>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </CardContent>
+                                    </Card>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-sm text-muted-foreground text-center py-8">No appointments found for this closer</p>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    </>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

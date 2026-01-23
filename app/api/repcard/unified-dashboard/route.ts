@@ -457,6 +457,7 @@ export async function GET(request: NextRequest) {
             u.repcard_user_id,
             u.name,
             u.role,
+            COALESCE(ru.team, 'No Team') as team,
             COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
             COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_set,
             CASE
@@ -465,12 +466,13 @@ export async function GET(request: NextRequest) {
               ELSE 0
             END as conversion_rate
           FROM users u
+          LEFT JOIN repcard_users ru ON ru.repcard_user_id = u.repcard_user_id
           LEFT JOIN repcard_customers c ON c.setter_user_id::int = u.repcard_user_id
           LEFT JOIN repcard_appointments a ON a.repcard_customer_id::text = c.repcard_customer_id::text
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
           WHERE u.repcard_user_id IS NOT NULL
-          GROUP BY u.repcard_user_id, u.name, u.role
+          GROUP BY u.repcard_user_id, u.name, u.role, COALESCE(ru.team, 'No Team')
           HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
           ORDER BY doors_knocked DESC
           LIMIT 10
@@ -480,6 +482,7 @@ export async function GET(request: NextRequest) {
             u.repcard_user_id,
             u.name,
             u.role,
+            COALESCE(ru.team, 'No Team') as team,
             COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
             COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_set,
             CASE
@@ -488,10 +491,11 @@ export async function GET(request: NextRequest) {
               ELSE 0
             END as conversion_rate
           FROM users u
+          LEFT JOIN repcard_users ru ON ru.repcard_user_id = u.repcard_user_id
           LEFT JOIN repcard_customers c ON c.setter_user_id::int = u.repcard_user_id
           LEFT JOIN repcard_appointments a ON a.repcard_customer_id::text = c.repcard_customer_id::text
           WHERE u.repcard_user_id IS NOT NULL
-          GROUP BY u.repcard_user_id, u.name, u.role
+          GROUP BY u.repcard_user_id, u.name, u.role, COALESCE(ru.team, 'No Team')
           HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
           ORDER BY doors_knocked DESC
           LIMIT 50
@@ -505,6 +509,7 @@ export async function GET(request: NextRequest) {
       userId: row.repcard_user_id,
       name: row.name,
       role: row.role,
+      team: row.team || 'No Team',
       doorsKnocked: row.doors_knocked,
       appointmentsSet: row.appointments_set,
       conversionRate: parseFloat(row.conversion_rate || '0'),
@@ -523,6 +528,7 @@ export async function GET(request: NextRequest) {
             u.repcard_user_id,
             u.name,
             u.role,
+            COALESCE(ru.team, 'No Team') as team,
             -- Appointments set in date range (only first appointments, not reschedules)
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = FALSE OR a.is_reschedule IS NULL)::int as appointments_set,
             -- Quality metrics for appointments in date range
@@ -540,6 +546,7 @@ export async function GET(request: NextRequest) {
               ELSE 0
             END as conversion_rate
           FROM users u
+          LEFT JOIN repcard_users ru ON ru.repcard_user_id = u.repcard_user_id
           -- Appointments set by this user in date range
           LEFT JOIN repcard_appointments a ON a.setter_user_id::int = u.repcard_user_id
             AND a.scheduled_at >= ${startDate}::timestamptz
@@ -569,7 +576,7 @@ export async function GET(request: NextRequest) {
               AND c.created_at <= ${endDate}::timestamptz
           ) doors_subquery ON true
           WHERE u.repcard_user_id IS NOT NULL
-          GROUP BY u.repcard_user_id, u.name, u.role, COALESCE(doors_subquery.doors_knocked::int, 0)::int, COALESCE(doors_subquery.estimated_hours_on_doors::int, 0)::int
+          GROUP BY u.repcard_user_id, u.name, u.role, COALESCE(ru.team, 'No Team'), COALESCE(doors_subquery.doors_knocked::int, 0)::int, COALESCE(doors_subquery.estimated_hours_on_doors::int, 0)::int
           HAVING COUNT(DISTINCT a.id) > 0 OR COALESCE(doors_subquery.doors_knocked::int, 0) > 0
           ORDER BY appointments_set DESC
           LIMIT 10
@@ -579,6 +586,7 @@ export async function GET(request: NextRequest) {
             u.repcard_user_id,
             u.name,
             u.role,
+            COALESCE(ru.team, 'No Team') as team,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = FALSE OR a.is_reschedule IS NULL)::int as appointments_set,
             COUNT(DISTINCT a.id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.is_within_48_hours = TRUE)::int as within_48h_count,
             COUNT(DISTINCT a.id) FILTER (WHERE a.has_power_bill = TRUE)::int as with_power_bill_count,
@@ -594,6 +602,7 @@ export async function GET(request: NextRequest) {
               ELSE 0
             END as conversion_rate
           FROM users u
+          LEFT JOIN repcard_users ru ON ru.repcard_user_id = u.repcard_user_id
           -- Appointments set by this user
           LEFT JOIN repcard_appointments a ON a.setter_user_id::int = u.repcard_user_id
           -- Doors knocked: subquery to count all customers created by this setter
@@ -617,7 +626,7 @@ export async function GET(request: NextRequest) {
             WHERE c.setter_user_id::int = u.repcard_user_id
           ) doors_subquery ON true
           WHERE u.repcard_user_id IS NOT NULL
-          GROUP BY u.repcard_user_id, u.name, u.role, COALESCE(doors_subquery.doors_knocked::int, 0)::int, COALESCE(doors_subquery.estimated_hours_on_doors::int, 0)::int
+          GROUP BY u.repcard_user_id, u.name, u.role, COALESCE(ru.team, 'No Team'), COALESCE(doors_subquery.doors_knocked::int, 0)::int, COALESCE(doors_subquery.estimated_hours_on_doors::int, 0)::int
           HAVING COUNT(DISTINCT a.id) > 0 OR COALESCE(doors_subquery.doors_knocked::int, 0) > 0
           ORDER BY appointments_set DESC
           LIMIT 50
@@ -632,6 +641,7 @@ export async function GET(request: NextRequest) {
       userId: row.repcard_user_id,
       name: row.name,
       role: row.role,
+      team: row.team || 'No Team',
       appointmentsSet: row.appointments_set,
       within48hCount: row.within_48h_count,
       withPowerBillCount: row.with_power_bill_count,
@@ -651,6 +661,7 @@ export async function GET(request: NextRequest) {
             u.repcard_user_id,
             u.name,
             u.role,
+            COALESCE(ru.team, 'No Team') as team,
             COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_run,
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'sat_closed')::int as sat_closed,
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'sat_no_close')::int as sat_no_close,
@@ -666,11 +677,12 @@ export async function GET(request: NextRequest) {
               ELSE 0
             END as close_rate
           FROM users u
+          LEFT JOIN repcard_users ru ON ru.repcard_user_id = u.repcard_user_id
           LEFT JOIN repcard_appointments a ON a.closer_user_id::int = u.repcard_user_id
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
           WHERE u.repcard_user_id IS NOT NULL
-          GROUP BY u.repcard_user_id, u.name, u.role
+          GROUP BY u.repcard_user_id, u.name, u.role, COALESCE(ru.team, 'No Team')
           HAVING COUNT(DISTINCT a.repcard_appointment_id) > 0
           ORDER BY appointments_run DESC
           LIMIT 10
@@ -680,6 +692,7 @@ export async function GET(request: NextRequest) {
             u.repcard_user_id,
             u.name,
             u.role,
+            COALESCE(ru.team, 'No Team') as team,
             COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_run,
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'sat_closed')::int as sat_closed,
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'sat_no_close')::int as sat_no_close,
@@ -695,9 +708,10 @@ export async function GET(request: NextRequest) {
               ELSE 0
             END as close_rate
           FROM users u
+          LEFT JOIN repcard_users ru ON ru.repcard_user_id = u.repcard_user_id
           LEFT JOIN repcard_appointments a ON a.closer_user_id::int = u.repcard_user_id
           WHERE u.repcard_user_id IS NOT NULL
-          GROUP BY u.repcard_user_id, u.name, u.role
+          GROUP BY u.repcard_user_id, u.name, u.role, COALESCE(ru.team, 'No Team')
           HAVING COUNT(DISTINCT a.repcard_appointment_id) > 0
           ORDER BY appointments_run DESC
           LIMIT 50
@@ -757,6 +771,7 @@ export async function GET(request: NextRequest) {
       userId: row.repcard_user_id,
       name: row.name,
       role: row.role,
+      team: row.team || 'No Team',
       appointmentsRun: row.appointments_run,
       satClosed: row.sat_closed || 0,
       satNoClose: row.sat_no_close || 0,
