@@ -38,16 +38,22 @@ echo ""
 
 # Use DATABASE_URL (pooled connection) - required by Vercel Postgres client
 # The client expects a pooled connection string
-if grep -q "^DATABASE_URL=" .env.production; then
+# Source the .env.production file to get the DATABASE_URL properly (handles special chars)
+if [ -f .env.production ]; then
   echo "📊 Using DATABASE_URL (pooled connection - required by Vercel Postgres)"
-  DATABASE_URL=$(grep "^DATABASE_URL=" .env.production | cut -d '=' -f2-)
+  # Source the file to get environment variables properly
+  set -a
+  source .env.production
+  set +a
+  
+  if [ -z "$DATABASE_URL" ]; then
+    echo "❌ DATABASE_URL not found in .env.production"
+    exit 1
+  fi
 else
-  echo "❌ DATABASE_URL not found in .env.production"
+  echo "❌ .env.production file not found"
   exit 1
 fi
-
-# Remove quotes if present
-DATABASE_URL=$(echo "$DATABASE_URL" | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
 
 if [ -z "$DATABASE_URL" ]; then
   echo "❌ DATABASE_URL is empty"
