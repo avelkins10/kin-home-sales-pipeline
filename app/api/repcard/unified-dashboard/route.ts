@@ -208,7 +208,7 @@ export async function GET(request: NextRequest) {
               ELSE 0
             END as reschedule_rate
           FROM repcard_appointments a
-          LEFT JOIN users u ON u.repcard_user_id = a.setter_user_id
+          LEFT JOIN users u ON u.repcard_user_id = a.setter_user_id::int
           WHERE u.repcard_user_id IS NOT NULL
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
@@ -229,7 +229,7 @@ export async function GET(request: NextRequest) {
               ELSE 0
             END as reschedule_rate
           FROM repcard_appointments a
-          LEFT JOIN users u ON u.repcard_user_id = a.setter_user_id
+          LEFT JOIN users u ON u.repcard_user_id = a.setter_user_id::int
           WHERE u.repcard_user_id IS NOT NULL
           GROUP BY u.repcard_user_id, u.name
           HAVING COUNT(DISTINCT a.id) >= 5
@@ -359,7 +359,7 @@ export async function GET(request: NextRequest) {
           LEFT JOIN repcard_appointments a ON NULLIF(a.office_id::text, '')::int = o.repcard_office_id
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
-          LEFT JOIN users u ON u.repcard_user_id = a.closer_user_id
+          LEFT JOIN users u ON u.repcard_user_id = a.closer_user_id::int
           GROUP BY o.repcard_office_id
         `
       : await sql`
@@ -373,7 +373,7 @@ export async function GET(request: NextRequest) {
             COUNT(DISTINCT u.repcard_user_id) FILTER (WHERE u.role = 'closer')::int as closers_count
           FROM repcard_offices o
           LEFT JOIN repcard_appointments a ON NULLIF(a.office_id::text, '')::int = o.repcard_office_id
-          LEFT JOIN users u ON u.repcard_user_id = a.closer_user_id
+          LEFT JOIN users u ON u.repcard_user_id = a.closer_user_id::int
           GROUP BY o.repcard_office_id
         `;
     
@@ -503,7 +503,7 @@ export async function GET(request: NextRequest) {
             END as conversion_rate
           FROM users u
           -- Appointments set by this user in date range
-          LEFT JOIN repcard_appointments a ON a.setter_user_id = u.repcard_user_id
+          LEFT JOIN repcard_appointments a ON a.setter_user_id::int = u.repcard_user_id
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
           -- Doors knocked: subquery to count all customers created by this setter in date range
@@ -557,7 +557,7 @@ export async function GET(request: NextRequest) {
             END as conversion_rate
           FROM users u
           -- Appointments set by this user
-          LEFT JOIN repcard_appointments a ON a.setter_user_id = u.repcard_user_id
+          LEFT JOIN repcard_appointments a ON a.setter_user_id::int = u.repcard_user_id
           -- Doors knocked: subquery to count all customers created by this setter
           LEFT JOIN LATERAL (
             SELECT
@@ -621,7 +621,7 @@ export async function GET(request: NextRequest) {
               ELSE 0
             END as close_rate
           FROM users u
-          LEFT JOIN repcard_appointments a ON a.closer_user_id = u.repcard_user_id
+          LEFT JOIN repcard_appointments a ON a.closer_user_id::int = u.repcard_user_id
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
           WHERE u.repcard_user_id IS NOT NULL
@@ -650,7 +650,7 @@ export async function GET(request: NextRequest) {
               ELSE 0
             END as close_rate
           FROM users u
-          LEFT JOIN repcard_appointments a ON a.closer_user_id = u.repcard_user_id
+          LEFT JOIN repcard_appointments a ON a.closer_user_id::int = u.repcard_user_id
           WHERE u.repcard_user_id IS NOT NULL
           GROUP BY u.repcard_user_id, u.name, u.role
           HAVING COUNT(DISTINCT a.repcard_appointment_id) > 0
@@ -815,7 +815,7 @@ export async function GET(request: NextRequest) {
           INNER JOIN repcard_appointments a ON NULLIF(a.office_id::text, '')::int = o.repcard_office_id
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
-          INNER JOIN users u ON u.repcard_user_id = a.closer_user_id
+          INNER JOIN users u ON u.repcard_user_id = a.closer_user_id::int
             AND u.role = 'closer'
           GROUP BY o.repcard_office_id, o.name, u.repcard_user_id, u.name, u.role
           HAVING COUNT(DISTINCT a.repcard_appointment_id) > 0
@@ -841,7 +841,7 @@ export async function GET(request: NextRequest) {
             END as close_rate
           FROM repcard_offices o
           INNER JOIN repcard_appointments a ON NULLIF(a.office_id::text, '')::int = o.repcard_office_id
-          INNER JOIN users u ON u.repcard_user_id = a.closer_user_id
+          INNER JOIN users u ON u.repcard_user_id = a.closer_user_id::int
             AND u.role = 'closer'
           GROUP BY o.repcard_office_id, o.name, u.repcard_user_id, u.name, u.role
           HAVING COUNT(DISTINCT a.repcard_appointment_id) > 0
