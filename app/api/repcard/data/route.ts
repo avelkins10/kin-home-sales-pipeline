@@ -140,7 +140,31 @@ export async function GET(request: NextRequest) {
       }
 
       case 'appointments': {
-        let query = sql`
+        // Build query with all conditions to avoid parameter binding issues
+        const conditions: any[] = [];
+        const values: any[] = [];
+        
+        if (actualRepcardUserId) {
+          conditions.push(`(a.setter_user_id::text = $${values.length + 1}::text OR a.closer_user_id::text = $${values.length + 1}::text)`);
+          values.push(actualRepcardUserId);
+        }
+        if (customerId) {
+          conditions.push(`a.repcard_customer_id::text = $${values.length + 1}::text`);
+          values.push(customerId);
+        }
+        if (startDate) {
+          conditions.push(`a.scheduled_at >= $${values.length + 1}::timestamp`);
+          values.push(startDate);
+        }
+        if (endDate) {
+          conditions.push(`a.scheduled_at <= ($${values.length + 1}::timestamp + INTERVAL '1 day')`);
+          values.push(endDate);
+        }
+        
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+        
+        // Build base query
+        const baseQuery = `
           SELECT 
             a.id,
             a.repcard_appointment_id,
@@ -166,29 +190,17 @@ export async function GET(request: NextRequest) {
             c.address as customer_address
           FROM repcard_appointments a
           LEFT JOIN repcard_customers c ON c.repcard_customer_id::text = a.repcard_customer_id::text
-          WHERE 1=1
+          ${whereClause}
         `;
-
-        if (actualRepcardUserId) {
-          query = sql`${query} AND (a.setter_user_id::text = ${actualRepcardUserId}::text OR a.closer_user_id::text = ${actualRepcardUserId}::text)`;
-        }
-        if (customerId) {
-          query = sql`${query} AND a.repcard_customer_id::text = ${customerId}::text`;
-        }
-        if (startDate) {
-          query = sql`${query} AND a.scheduled_at >= ${startDate}::timestamp`;
-        }
-        if (endDate) {
-          query = sql`${query} AND a.scheduled_at <= (${endDate}::timestamp + INTERVAL '1 day')`;
-        }
-
-        const countResult = await sql`
-          SELECT COUNT(*) as count FROM (${query}) as subquery
-        `;
+        
+        // Count query
+        const countQuery = `SELECT COUNT(*) as count FROM (${baseQuery}) as subquery`;
+        const countResult = await sql.unsafe(countQuery, values);
         total = parseInt(Array.from(countResult)[0]?.count || '0');
 
-        query = sql`${query} ORDER BY a.scheduled_at DESC LIMIT ${limit} OFFSET ${offset}`;
-        const result = await query;
+        // Main query with ordering and pagination
+        const mainQuery = `${baseQuery} ORDER BY a.scheduled_at DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
+        const result = await sql.unsafe(mainQuery, [...values, limit, offset]);
         data = Array.from(result);
         break;
       }
