@@ -250,6 +250,19 @@ export function AppointmentCalendarView({
                                   {format(aptDate, 'h:mm a')}
                                   {duration && duration !== 60 && ` • ${duration}min`}
                                 </div>
+                                {apt.status_category && (
+                                  <div className="text-[10px] font-medium mt-0.5 capitalize">
+                                    {apt.status_category}
+                                    {apt.disposition && ` • ${apt.disposition}`}
+                                  </div>
+                                )}
+                                {(apt.closer_name || apt.setter_name) && (
+                                  <div className="text-[10px] opacity-70 mt-0.5 truncate">
+                                    {apt.closer_name && `Closer: ${apt.closer_name}`}
+                                    {apt.closer_name && apt.setter_name && ' • '}
+                                    {apt.setter_name && `Setter: ${apt.setter_name}`}
+                                  </div>
+                                )}
                               </div>
                               {apt.customer_address && (
                                 <div className="text-[10px] opacity-70 truncate mt-1">
@@ -404,6 +417,16 @@ export function AppointmentCalendarView({
                               <div className="text-[10px] opacity-80 mt-0.5">
                                 {format(aptDate, 'h:mm a')}
                               </div>
+                              {apt.status_category && (
+                                <div className="text-[9px] font-medium mt-0.5 capitalize truncate">
+                                  {apt.status_category}
+                                </div>
+                              )}
+                              {(apt.closer_name || apt.setter_name) && (
+                                <div className="text-[9px] opacity-70 mt-0.5 truncate">
+                                  {apt.closer_name ? apt.closer_name.split(' ')[0] : apt.setter_name?.split(' ')[0]}
+                                </div>
+                              )}
                               <div className="flex items-center gap-0.5 flex-wrap mt-1">
                                 {apt.is_confirmed && (
                                   <CheckCircle2 className="h-2.5 w-2.5 text-green-600" title="Confirmed" />
