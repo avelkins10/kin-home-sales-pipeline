@@ -475,7 +475,7 @@ export async function GET(request: NextRequest) {
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
           WHERE u.repcard_user_id IS NOT NULL
-          GROUP BY u.repcard_user_id, u.name, u.role, COALESCE(ru.team, 'No Team')
+          GROUP BY u.repcard_user_id, u.name, u.role, COALESCE(ru.team_name, ru.team, 'No Team')
           HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
           ORDER BY doors_knocked DESC
           LIMIT 10
@@ -498,7 +498,7 @@ export async function GET(request: NextRequest) {
           LEFT JOIN repcard_customers c ON c.setter_user_id::int = u.repcard_user_id
           LEFT JOIN repcard_appointments a ON a.repcard_customer_id::text = c.repcard_customer_id::text
           WHERE u.repcard_user_id IS NOT NULL
-          GROUP BY u.repcard_user_id, u.name, u.role, COALESCE(ru.team, 'No Team')
+          GROUP BY u.repcard_user_id, u.name, u.role, COALESCE(ru.team_name, ru.team, 'No Team')
           HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
           ORDER BY doors_knocked DESC
           LIMIT 50
