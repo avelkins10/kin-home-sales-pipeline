@@ -145,6 +145,24 @@ export async function GET(request: NextRequest) {
 
     let result;
     
+    // Log SQL structure for debugging (before query execution)
+    try {
+      // Create a test query to inspect structure
+      const testQuery = userRole === 'closer' && repcardUserId
+        ? sql`SELECT 1 WHERE 1=1 AND ${repcardUserId} = ${repcardUserId} ${hasTeamFilter ? sql`AND 1=1` : ''} ${hasCalendarFilter ? sql`AND 1=1` : ''} ${hasStatusFilter ? sql`AND 1=1` : ''}`
+        : sql`SELECT 1 WHERE 1=1`;
+      
+      logInfo('repcard-appointments-schedule-sql-debug', {
+        requestId,
+        sqlStrings: (testQuery as any).strings?.length || 0,
+        sqlValues: (testQuery as any).values?.length || 0,
+        hasAnyFilter,
+        filterFlags: { hasTeamFilter, hasCalendarFilter, hasStatusFilter, hasPowerBillTrue, hasPowerBillFalse, hasRescheduleTrue, hasRescheduleFalse }
+      });
+    } catch (debugError) {
+      // Ignore debug errors
+    }
+    
     if (userRole === 'closer' && repcardUserId) {
       // Closer query - see only their appointments
       result = await sql`
