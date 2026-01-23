@@ -16,6 +16,8 @@ const PENDING_MIGRATIONS = [
   '031_fix_48_hour_speed_calculation.sql',
   '032_repcard_event_driven_metrics.sql',
   '033_fix_repcard_metric_audit_fk.sql',
+  '034_fix_metric_audit_fk_use_repcard_id.sql',
+  '035_add_useful_webhook_fields.sql',
 ];
 
 export async function POST(request: NextRequest) {
@@ -223,6 +225,33 @@ export async function GET(request: NextRequest) {
           migrationStatus = status.hasDeferrableFK ? 'applied' : 'pending';
         } else if (migrationFile === '031_fix_48_hour_speed_calculation.sql') {
           migrationStatus = status.hasTrigger ? 'applied' : 'pending';
+        } else if (migrationFile === '034_fix_metric_audit_fk_use_repcard_id.sql') {
+          // Check if repcard_appointment_id column exists
+          try {
+            const colCheck = await sql`
+              SELECT EXISTS (
+                SELECT FROM information_schema.columns
+                WHERE table_name = 'repcard_metric_audit'
+                  AND column_name = 'repcard_appointment_id'
+              )
+            `;
+            migrationStatus = (colCheck[0] as any)?.exists ? 'applied' : 'pending';
+          } catch {
+            migrationStatus = 'pending';
+          }
+        } else if (migrationFile === '035_add_useful_webhook_fields.sql') {
+          // Check if new columns exist
+          try {
+            const colCheck = await sql`
+              SELECT COUNT(*)::int as count
+              FROM information_schema.columns
+              WHERE table_name = 'repcard_appointments'
+                AND column_name IN ('appointment_link', 'remind_at', 'contact_source')
+            `;
+            migrationStatus = (colCheck[0] as any)?.count >= 3 ? 'applied' : 'pending';
+          } catch {
+            migrationStatus = 'pending';
+          }
         }
 
         status.migrations.push({
