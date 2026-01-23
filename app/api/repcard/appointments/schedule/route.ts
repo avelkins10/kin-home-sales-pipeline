@@ -274,8 +274,27 @@ export async function GET(request: NextRequest) {
             closer.first_name || ' ' || closer.last_name as closer_name,
             closer.email as closer_email, closer.team_id as closer_team_id,
             closer.team_name as closer_team_name,
-            c.name as customer_name, c.phone as customer_phone,
-            c.address as customer_address, c.email as customer_email,
+            COALESCE(
+              c.name,
+              NULLIF(a.raw_data->'contact'->>'name', ''),
+              NULLIF(a.raw_data->'customer'->>'name', ''),
+              NULLIF(a.raw_data->>'contactName', ''),
+              NULLIF(a.raw_data->>'customerName', ''),
+              NULLIF(TRIM(
+                COALESCE(a.raw_data->'contact'->>'firstName', '') || 
+                CASE WHEN a.raw_data->'contact'->>'firstName' IS NOT NULL AND a.raw_data->'contact'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
+                COALESCE(a.raw_data->'contact'->>'lastName', '')
+              ), ''),
+              NULLIF(TRIM(
+                COALESCE(a.raw_data->'customer'->>'firstName', '') || 
+                CASE WHEN a.raw_data->'customer'->>'firstName' IS NOT NULL AND a.raw_data->'customer'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
+                COALESCE(a.raw_data->'customer'->>'lastName', '')
+              ), ''),
+              'Unknown Customer'
+            ) as customer_name,
+            COALESCE(c.phone, a.raw_data->'contact'->>'phone', a.raw_data->'customer'->>'phone', a.raw_data->>'phone') as customer_phone,
+            COALESCE(c.address, a.raw_data->'contact'->>'address', a.raw_data->'customer'->>'address', a.raw_data->>'address') as customer_address,
+            COALESCE(c.email, a.raw_data->'contact'->>'email', a.raw_data->'customer'->>'email', a.raw_data->>'email') as customer_email,
             cal.name as calendar_name, cal.status as calendar_status,
             COALESCE(closer_team.team_name, setter_team.team_name) as team_name,
             COALESCE(closer_team.repcard_team_id, setter_team.repcard_team_id) as team_id,
@@ -320,8 +339,27 @@ export async function GET(request: NextRequest) {
             closer.first_name || ' ' || closer.last_name as closer_name,
             closer.email as closer_email, closer.team_id as closer_team_id,
             closer.team_name as closer_team_name,
-            c.name as customer_name, c.phone as customer_phone,
-            c.address as customer_address, c.email as customer_email,
+            COALESCE(
+              c.name,
+              NULLIF(a.raw_data->'contact'->>'name', ''),
+              NULLIF(a.raw_data->'customer'->>'name', ''),
+              NULLIF(a.raw_data->>'contactName', ''),
+              NULLIF(a.raw_data->>'customerName', ''),
+              NULLIF(TRIM(
+                COALESCE(a.raw_data->'contact'->>'firstName', '') || 
+                CASE WHEN a.raw_data->'contact'->>'firstName' IS NOT NULL AND a.raw_data->'contact'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
+                COALESCE(a.raw_data->'contact'->>'lastName', '')
+              ), ''),
+              NULLIF(TRIM(
+                COALESCE(a.raw_data->'customer'->>'firstName', '') || 
+                CASE WHEN a.raw_data->'customer'->>'firstName' IS NOT NULL AND a.raw_data->'customer'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
+                COALESCE(a.raw_data->'customer'->>'lastName', '')
+              ), ''),
+              'Unknown Customer'
+            ) as customer_name,
+            COALESCE(c.phone, a.raw_data->'contact'->>'phone', a.raw_data->'customer'->>'phone', a.raw_data->>'phone') as customer_phone,
+            COALESCE(c.address, a.raw_data->'contact'->>'address', a.raw_data->'customer'->>'address', a.raw_data->>'address') as customer_address,
+            COALESCE(c.email, a.raw_data->'contact'->>'email', a.raw_data->'customer'->>'email', a.raw_data->>'email') as customer_email,
             cal.name as calendar_name, cal.status as calendar_status,
             COALESCE(closer_team.team_name, setter_team.team_name) as team_name,
             COALESCE(closer_team.repcard_team_id, setter_team.repcard_team_id) as team_id,
@@ -423,8 +461,27 @@ export async function GET(request: NextRequest) {
             closer.first_name || ' ' || closer.last_name as closer_name,
             closer.email as closer_email, closer.team_id as closer_team_id,
             closer.team_name as closer_team_name,
-            c.name as customer_name, c.phone as customer_phone,
-            c.address as customer_address, c.email as customer_email,
+            COALESCE(
+              c.name,
+              NULLIF(a.raw_data->'contact'->>'name', ''),
+              NULLIF(a.raw_data->'customer'->>'name', ''),
+              NULLIF(a.raw_data->>'contactName', ''),
+              NULLIF(a.raw_data->>'customerName', ''),
+              NULLIF(TRIM(
+                COALESCE(a.raw_data->'contact'->>'firstName', '') || 
+                CASE WHEN a.raw_data->'contact'->>'firstName' IS NOT NULL AND a.raw_data->'contact'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
+                COALESCE(a.raw_data->'contact'->>'lastName', '')
+              ), ''),
+              NULLIF(TRIM(
+                COALESCE(a.raw_data->'customer'->>'firstName', '') || 
+                CASE WHEN a.raw_data->'customer'->>'firstName' IS NOT NULL AND a.raw_data->'customer'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
+                COALESCE(a.raw_data->'customer'->>'lastName', '')
+              ), ''),
+              'Unknown Customer'
+            ) as customer_name,
+            COALESCE(c.phone, a.raw_data->'contact'->>'phone', a.raw_data->'customer'->>'phone', a.raw_data->>'phone') as customer_phone,
+            COALESCE(c.address, a.raw_data->'contact'->>'address', a.raw_data->'customer'->>'address', a.raw_data->>'address') as customer_address,
+            COALESCE(c.email, a.raw_data->'contact'->>'email', a.raw_data->'customer'->>'email', a.raw_data->>'email') as customer_email,
             cal.name as calendar_name, cal.status as calendar_status,
             COALESCE(closer_team.team_name, setter_team.team_name) as team_name,
             COALESCE(closer_team.repcard_team_id, setter_team.repcard_team_id) as team_id,
@@ -468,8 +525,27 @@ export async function GET(request: NextRequest) {
             closer.first_name || ' ' || closer.last_name as closer_name,
             closer.email as closer_email, closer.team_id as closer_team_id,
             closer.team_name as closer_team_name,
-            c.name as customer_name, c.phone as customer_phone,
-            c.address as customer_address, c.email as customer_email,
+            COALESCE(
+              c.name,
+              NULLIF(a.raw_data->'contact'->>'name', ''),
+              NULLIF(a.raw_data->'customer'->>'name', ''),
+              NULLIF(a.raw_data->>'contactName', ''),
+              NULLIF(a.raw_data->>'customerName', ''),
+              NULLIF(TRIM(
+                COALESCE(a.raw_data->'contact'->>'firstName', '') || 
+                CASE WHEN a.raw_data->'contact'->>'firstName' IS NOT NULL AND a.raw_data->'contact'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
+                COALESCE(a.raw_data->'contact'->>'lastName', '')
+              ), ''),
+              NULLIF(TRIM(
+                COALESCE(a.raw_data->'customer'->>'firstName', '') || 
+                CASE WHEN a.raw_data->'customer'->>'firstName' IS NOT NULL AND a.raw_data->'customer'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
+                COALESCE(a.raw_data->'customer'->>'lastName', '')
+              ), ''),
+              'Unknown Customer'
+            ) as customer_name,
+            COALESCE(c.phone, a.raw_data->'contact'->>'phone', a.raw_data->'customer'->>'phone', a.raw_data->>'phone') as customer_phone,
+            COALESCE(c.address, a.raw_data->'contact'->>'address', a.raw_data->'customer'->>'address', a.raw_data->>'address') as customer_address,
+            COALESCE(c.email, a.raw_data->'contact'->>'email', a.raw_data->'customer'->>'email', a.raw_data->>'email') as customer_email,
             cal.name as calendar_name, cal.status as calendar_status,
             COALESCE(closer_team.team_name, setter_team.team_name) as team_name,
             COALESCE(closer_team.repcard_team_id, setter_team.repcard_team_id) as team_id,
@@ -669,8 +745,27 @@ export async function GET(request: NextRequest) {
             closer.first_name || ' ' || closer.last_name as closer_name,
             closer.email as closer_email, closer.team_id as closer_team_id,
             closer.team_name as closer_team_name,
-            c.name as customer_name, c.phone as customer_phone,
-            c.address as customer_address, c.email as customer_email,
+            COALESCE(
+              c.name,
+              NULLIF(a.raw_data->'contact'->>'name', ''),
+              NULLIF(a.raw_data->'customer'->>'name', ''),
+              NULLIF(a.raw_data->>'contactName', ''),
+              NULLIF(a.raw_data->>'customerName', ''),
+              NULLIF(TRIM(
+                COALESCE(a.raw_data->'contact'->>'firstName', '') || 
+                CASE WHEN a.raw_data->'contact'->>'firstName' IS NOT NULL AND a.raw_data->'contact'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
+                COALESCE(a.raw_data->'contact'->>'lastName', '')
+              ), ''),
+              NULLIF(TRIM(
+                COALESCE(a.raw_data->'customer'->>'firstName', '') || 
+                CASE WHEN a.raw_data->'customer'->>'firstName' IS NOT NULL AND a.raw_data->'customer'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
+                COALESCE(a.raw_data->'customer'->>'lastName', '')
+              ), ''),
+              'Unknown Customer'
+            ) as customer_name,
+            COALESCE(c.phone, a.raw_data->'contact'->>'phone', a.raw_data->'customer'->>'phone', a.raw_data->>'phone') as customer_phone,
+            COALESCE(c.address, a.raw_data->'contact'->>'address', a.raw_data->'customer'->>'address', a.raw_data->>'address') as customer_address,
+            COALESCE(c.email, a.raw_data->'contact'->>'email', a.raw_data->'customer'->>'email', a.raw_data->>'email') as customer_email,
             cal.name as calendar_name, cal.status as calendar_status,
             COALESCE(closer_team.team_name, setter_team.team_name) as team_name,
             COALESCE(closer_team.repcard_team_id, setter_team.repcard_team_id) as team_id,
