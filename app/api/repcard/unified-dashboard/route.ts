@@ -62,13 +62,29 @@ export async function GET(request: NextRequest) {
     let endDate: string | null = null;
     
     if (startDateParam) {
-      // Convert to start of day in Eastern Time (handles DST automatically)
-      startDate = toEasternStart(startDateParam);
+      try {
+        // Convert to start of day in Eastern Time (handles DST automatically)
+        startDate = toEasternStart(startDateParam);
+      } catch (error) {
+        logError('unified-dashboard', error as Error, { requestId, context: 'date conversion', startDateParam });
+        return NextResponse.json(
+          { error: 'Invalid startDate parameter', message: error instanceof Error ? error.message : 'Unknown error' },
+          { status: 400 }
+        );
+      }
     }
     
     if (endDateParam) {
-      // Convert to end of day in Eastern Time (handles DST automatically)
-      endDate = toEasternEnd(endDateParam);
+      try {
+        // Convert to end of day in Eastern Time (handles DST automatically)
+        endDate = toEasternEnd(endDateParam);
+      } catch (error) {
+        logError('unified-dashboard', error as Error, { requestId, context: 'date conversion', endDateParam });
+        return NextResponse.json(
+          { error: 'Invalid endDate parameter', message: error instanceof Error ? error.message : 'Unknown error' },
+          { status: 400 }
+        );
+      }
     }
 
     // Build cache key (use original params for cache key to match frontend)
@@ -221,8 +237,11 @@ export async function GET(request: NextRequest) {
           FROM repcard_appointments a
           LEFT JOIN users u ON u.repcard_user_id = a.setter_user_id::int
           WHERE u.repcard_user_id IS NOT NULL
-            AND a.scheduled_at >= ${startDate}::timestamptz
-            AND a.scheduled_at <= ${endDate}::timestamptz
+            AND (
+              (a.scheduled_at IS NOT NULL AND a.scheduled_at >= ${startDate}::timestamptz AND a.scheduled_at <= ${endDate}::timestamptz)
+              OR
+              (a.scheduled_at IS NULL AND a.created_at >= ${startDate}::timestamptz AND a.created_at <= ${endDate}::timestamptz)
+            )
           GROUP BY u.repcard_user_id, u.name
           HAVING COUNT(DISTINCT a.id) >= 5
           ORDER BY reschedule_rate DESC
