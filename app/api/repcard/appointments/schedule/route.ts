@@ -619,6 +619,24 @@ export async function GET(request: NextRequest) {
         ORDER BY COALESCE(a.scheduled_at, a.created_at) ASC
       `;
     }
+    
+    // Safety check: ensure result is defined
+    if (!result) {
+      logError('repcard-appointments-schedule-result-undefined', new Error('result is undefined'), {
+        requestId,
+        userRole,
+        startDate,
+        endDate,
+        hasAnyFilter,
+        repcardUserId,
+        effectiveOfficeIds: effectiveOfficeIds?.length || 0
+      });
+      return NextResponse.json(
+        { error: 'Internal server error', message: 'Query result is undefined' },
+        { status: 500 }
+      );
+    }
+    
     const appointments = Array.from(result);
 
     // Log query results for debugging
@@ -630,7 +648,9 @@ export async function GET(request: NextRequest) {
       endDate,
       hasAnyFilter,
       repcardUserId,
-      effectiveOfficeIds: effectiveOfficeIds?.length || 0
+      effectiveOfficeIds: effectiveOfficeIds?.length || 0,
+      resultType: typeof result,
+      resultIsArray: Array.isArray(result)
     });
 
     // Log diagnostic info for empty results
