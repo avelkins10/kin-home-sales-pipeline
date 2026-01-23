@@ -161,9 +161,15 @@ export async function GET(request: NextRequest) {
         FROM repcard_appointments a
         LEFT JOIN repcard_customers c ON c.repcard_customer_id::int = a.repcard_customer_id::int
         WHERE
-          a.scheduled_at IS NOT NULL
-          AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date
-          AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date
+          (
+            (a.scheduled_at IS NOT NULL
+              AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date
+              AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date)
+            OR
+            (a.scheduled_at IS NULL
+              AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date
+              AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date)
+          )
           AND a.closer_user_id = ${repcardUserId}
       `;
     } else if (effectiveOfficeIds && effectiveOfficeIds.length > 0) {
@@ -186,9 +192,15 @@ export async function GET(request: NextRequest) {
         FROM repcard_appointments a
         LEFT JOIN repcard_customers c ON c.repcard_customer_id::int = a.repcard_customer_id::int
         WHERE
-          a.scheduled_at IS NOT NULL
-          AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date
-          AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date
+          (
+            (a.scheduled_at IS NOT NULL
+              AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date
+              AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date)
+            OR
+            (a.scheduled_at IS NULL
+              AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date
+              AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date)
+          )
           AND a.office_id = ANY(${effectiveOfficeIds}::int[])
       `;
     } else if (userRole === 'super_admin' || userRole === 'regional') {
@@ -207,9 +219,15 @@ export async function GET(request: NextRequest) {
         SELECT COUNT(*) as test_count
         FROM repcard_appointments a
         WHERE
-          a.scheduled_at IS NOT NULL
-          AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date
-          AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date
+          (
+            (a.scheduled_at IS NOT NULL
+              AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date
+              AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date)
+            OR
+            (a.scheduled_at IS NULL
+              AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date
+              AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date)
+          )
       `;
 
       const testRows = testResult.rows || [];
@@ -242,9 +260,15 @@ export async function GET(request: NextRequest) {
         FROM repcard_appointments a
         LEFT JOIN repcard_customers c ON c.repcard_customer_id::int = a.repcard_customer_id::int
         WHERE
-          a.scheduled_at IS NOT NULL
-          AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date
-          AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date
+          (
+            (a.scheduled_at IS NOT NULL
+              AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date
+              AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date)
+            OR
+            (a.scheduled_at IS NULL
+              AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date
+              AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date)
+          )
       `;
 
       logInfo('repcard-appointments-metrics-query-executed', {
