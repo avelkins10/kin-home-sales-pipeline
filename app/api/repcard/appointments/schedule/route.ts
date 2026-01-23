@@ -115,6 +115,12 @@ export async function GET(request: NextRequest) {
       effectiveOfficeIds = await getAssignedOffices(userId);
     }
     
+    // Normalize empty array to undefined for super_admin/regional to ensure correct path selection
+    // Empty array [] is truthy but length is 0, which could cause issues with condition checks
+    if ((userRole === 'super_admin' || userRole === 'regional') && Array.isArray(effectiveOfficeIds) && effectiveOfficeIds.length === 0) {
+      effectiveOfficeIds = undefined;
+    }
+    
     // Log office IDs for debugging
     logInfo('repcard-appointments-schedule-office-ids', {
       requestId,
@@ -122,6 +128,8 @@ export async function GET(request: NextRequest) {
       officeIdsParam,
       officeIds: officeIds?.length || 0,
       effectiveOfficeIds: effectiveOfficeIds?.length || 0,
+      effectiveOfficeIdsIsArray: Array.isArray(effectiveOfficeIds),
+      effectiveOfficeIdsIsUndefined: effectiveOfficeIds === undefined,
       willUseLeaderPath: !!(effectiveOfficeIds && effectiveOfficeIds.length > 0),
       willUseSuperAdminPath: (userRole === 'super_admin' || userRole === 'regional') && !(effectiveOfficeIds && effectiveOfficeIds.length > 0)
     });
