@@ -93,8 +93,16 @@ export async function GET(request: NextRequest) {
     const officeIds = officeIdsParam ? officeIdsParam.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id)) : null;
 
     // Build queries
-    const hasDateFilter = startDateParam && endDateParam;
-    const hasOfficeFilter = officeIds && officeIds.length > 0;
+    const hasDateFilter = !!(startDateParam && endDateParam);
+    const hasOfficeFilter = !!(officeIds && officeIds.length > 0);
+    
+    // Validate date parameters if date filter is requested
+    if (hasDateFilter && (!startDateParam || !endDateParam)) {
+      return NextResponse.json(
+        { error: 'Both startDate and endDate are required for date filtering' },
+        { status: 400 }
+      );
+    }
 
     // ========================================
     // SETTERS LEADERBOARD
