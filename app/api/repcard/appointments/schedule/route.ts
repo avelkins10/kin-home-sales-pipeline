@@ -142,7 +142,16 @@ export async function GET(request: NextRequest) {
       },
       effectiveOfficeIds: effectiveOfficeIds?.length || 0,
       dateRange: { startDate, endDate },
-      hasAnyFilter
+      hasAnyFilter,
+      filterDetails: {
+        hasTeamFilter,
+        hasCalendarFilter,
+        hasStatusFilter,
+        hasPowerBillTrue,
+        hasPowerBillFalse,
+        hasRescheduleTrue,
+        hasRescheduleFalse
+      }
     });
 
     let result;
@@ -400,6 +409,23 @@ export async function GET(request: NextRequest) {
       }
     } else if (userRole === 'super_admin' || userRole === 'regional') {
       // Super admin/regional - see all appointments - use same base query pattern
+      logInfo('repcard-appointments-schedule-super-admin-path', {
+        requestId,
+        userRole,
+        startDate,
+        endDate,
+        hasAnyFilter,
+        filterDetails: {
+          hasTeamFilter,
+          hasCalendarFilter,
+          hasStatusFilter,
+          hasPowerBillTrue,
+          hasPowerBillFalse,
+          hasRescheduleTrue,
+          hasRescheduleFalse
+        }
+      });
+      
       const baseQuery = sql`
         SELECT 
           a.id, a.repcard_appointment_id, a.customer_id, a.repcard_customer_id,
@@ -431,41 +457,68 @@ export async function GET(request: NextRequest) {
       `;
       
       if (!hasAnyFilter) {
-        result = await sql`
-          SELECT 
-            a.id, a.repcard_appointment_id, a.customer_id, a.repcard_customer_id,
-            a.setter_user_id, a.closer_user_id, a.office_id, a.disposition,
-            a.status_category, a.scheduled_at, a.completed_at, a.duration,
-            a.notes, a.is_within_48_hours, a.has_power_bill, a.is_reschedule,
-            a.reschedule_count, a.original_appointment_id, a.created_at, a.updated_at,
-            (a.raw_data->>'calendarId')::int as calendar_id,
-            setter.first_name || ' ' || setter.last_name as setter_name,
-            setter.email as setter_email, setter.team_id as setter_team_id,
-            setter.team_name as setter_team_name,
-            closer.first_name || ' ' || closer.last_name as closer_name,
-            closer.email as closer_email, closer.team_id as closer_team_id,
-            closer.team_name as closer_team_name,
-            c.name as customer_name, c.phone as customer_phone,
-            c.address as customer_address, c.email as customer_email,
-            cal.name as calendar_name, cal.status as calendar_status,
-            COALESCE(closer_team.team_name, setter_team.team_name) as team_name,
-            COALESCE(closer_team.repcard_team_id, setter_team.repcard_team_id) as team_id,
-            (SELECT COUNT(*)::int FROM repcard_customer_attachments WHERE repcard_customer_id::text = a.repcard_customer_id::text) as customer_attachment_count,
-            (SELECT COUNT(*)::int FROM repcard_appointment_attachments WHERE repcard_appointment_id::text = a.repcard_appointment_id::text) as appointment_attachment_count
-          FROM repcard_appointments a
-          LEFT JOIN repcard_users setter ON setter.repcard_user_id::int = a.setter_user_id::int
-          LEFT JOIN repcard_users closer ON closer.repcard_user_id::int = a.closer_user_id::int
-          LEFT JOIN repcard_customers c ON c.repcard_customer_id::int = a.repcard_customer_id::int
-          LEFT JOIN repcard_calendars cal ON cal.repcard_calendar_id = (a.raw_data->>'calendarId')::int
-          LEFT JOIN repcard_teams setter_team ON setter_team.repcard_team_id = setter.team_id
-          LEFT JOIN repcard_teams closer_team ON closer_team.repcard_team_id = closer.team_id
-          WHERE (
-            (a.scheduled_at IS NOT NULL AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date)
-            OR
-            (a.scheduled_at IS NULL AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date)
-          )
-          ORDER BY COALESCE(a.scheduled_at, a.created_at) ASC
-        `;
+        try {
+          result = await sql`
+            SELECT 
+              a.id, a.repcard_appointment_id, a.customer_id, a.repcard_customer_id,
+              a.setter_user_id, a.closer_user_id, a.office_id, a.disposition,
+              a.status_category, a.scheduled_at, a.completed_at, a.duration,
+              a.notes, a.is_within_48_hours, a.has_power_bill, a.is_reschedule,
+              a.reschedule_count, a.original_appointment_id, a.created_at, a.updated_at,
+              (a.raw_data->>'calendarId')::int as calendar_id,
+              setter.first_name || ' ' || setter.last_name as setter_name,
+              setter.email as setter_email, setter.team_id as setter_team_id,
+              setter.team_name as setter_team_name,
+              closer.first_name || ' ' || closer.last_name as closer_name,
+              closer.email as closer_email, closer.team_id as closer_team_id,
+              closer.team_name as closer_team_name,
+              c.name as customer_name, c.phone as customer_phone,
+              c.address as customer_address, c.email as customer_email,
+              cal.name as calendar_name, cal.status as calendar_status,
+              COALESCE(closer_team.team_name, setter_team.team_name) as team_name,
+              COALESCE(closer_team.repcard_team_id, setter_team.repcard_team_id) as team_id,
+              (SELECT COUNT(*)::int FROM repcard_customer_attachments WHERE repcard_customer_id::text = a.repcard_customer_id::text) as customer_attachment_count,
+              (SELECT COUNT(*)::int FROM repcard_appointment_attachments WHERE repcard_appointment_id::text = a.repcard_appointment_id::text) as appointment_attachment_count
+            FROM repcard_appointments a
+            LEFT JOIN repcard_users setter ON setter.repcard_user_id::int = a.setter_user_id::int
+            LEFT JOIN repcard_users closer ON closer.repcard_user_id::int = a.closer_user_id::int
+            LEFT JOIN repcard_customers c ON c.repcard_customer_id::int = a.repcard_customer_id::int
+            LEFT JOIN repcard_calendars cal ON cal.repcard_calendar_id = (a.raw_data->>'calendarId')::int
+            LEFT JOIN repcard_teams setter_team ON setter_team.repcard_team_id = setter.team_id
+            LEFT JOIN repcard_teams closer_team ON closer_team.repcard_team_id = closer.team_id
+            WHERE (
+              (a.scheduled_at IS NOT NULL AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date)
+              OR
+              (a.scheduled_at IS NULL AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date)
+            )
+            ORDER BY COALESCE(a.scheduled_at, a.created_at) ASC
+          `;
+          
+          // Log the actual query result immediately after execution for super_admin
+          const resultRowsBeforeConversion = Array.from(result);
+          logInfo('repcard-appointments-schedule-super-admin-query-result', {
+            requestId,
+            userRole,
+            startDate,
+            endDate,
+            resultRowCount: resultRowsBeforeConversion.length,
+            hasAnyFilter,
+            sampleAppointment: resultRowsBeforeConversion[0] ? {
+              id: resultRowsBeforeConversion[0].id,
+              repcard_appointment_id: resultRowsBeforeConversion[0].repcard_appointment_id,
+              scheduled_at: resultRowsBeforeConversion[0].scheduled_at
+            } : null
+          });
+        } catch (queryError) {
+          logError('repcard-appointments-schedule-query-execution-error', queryError as Error, {
+            requestId,
+            userRole,
+            startDate,
+            endDate,
+            hasAnyFilter
+          });
+          throw queryError; // Re-throw to be caught by outer catch
+        }
       } else {
         // For filtered cases, use the no-filter query for now (filters can be applied client-side)
         // TODO: Implement explicit query combinations for filters to avoid nested fragment issues
