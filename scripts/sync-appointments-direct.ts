@@ -120,8 +120,27 @@ async function syncAppointments(startDate?: string, endDate?: string) {
           const officeId = appointment.office?.id || appointment.officeId;
           const scheduledAt = appointment.startAt || appointment.appt_start_time || appointment.scheduledAt;
           const completedAt = appointment.endAt || appointment.appt_end_time || appointment.completedAt;
-          const statusCategory = appointment.status?.toLowerCase() || appointment.appointment_status_title?.toLowerCase() || 'scheduled';
-          const disposition = appointment.disposition || appointment.outcome || null;
+          
+          // Handle status - it can be an object with title/category, or a string
+          const disposition = appointment.status?.title || appointment.status?.category?.title || appointment.disposition || appointment.outcome || null;
+          
+          // Determine status category from disposition (matching sync-service logic)
+          let statusCategory: string | null = null;
+          if (disposition) {
+            const dispLower = String(disposition).toLowerCase();
+            if (dispLower.includes('cancel')) statusCategory = 'cancelled';
+            else if (dispLower.includes('reschedule')) statusCategory = 'rescheduled';
+            else if (dispLower.includes('no.show') || dispLower.includes('no_show')) statusCategory = 'no_show';
+            else if (dispLower.includes('sat.closed') || dispLower.includes('sat_closed') || dispLower.includes('closed')) statusCategory = 'sat_closed';
+            else if (dispLower.includes('sat.no.close') || dispLower.includes('sat_no_close')) statusCategory = 'sat_no_close';
+            else if (completedAt) statusCategory = 'completed';
+            else if (scheduledAt) statusCategory = 'scheduled';
+          } else {
+            // Fallback if no disposition
+            if (completedAt) statusCategory = 'completed';
+            else if (scheduledAt) statusCategory = 'scheduled';
+            else statusCategory = 'scheduled';
+          }
           const notes = appointment.notes || null;
           const duration = appointment.duration || appointment.durationTime || null;
           const isReschedule = appointment.isReschedule || false;
