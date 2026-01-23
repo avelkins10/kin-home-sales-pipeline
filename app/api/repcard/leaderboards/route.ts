@@ -497,8 +497,8 @@ export async function GET(request: NextRequest) {
     // ========================================
     let officesResult;
     try {
-      officesResult = hasDateFilter
-        ? await sql`
+      if (hasDateFilter && hasOfficeFilter) {
+        officesResult = await sql`
           WITH office_setters AS (
             SELECT
               o.repcard_office_id,
@@ -517,7 +517,7 @@ export async function GET(request: NextRequest) {
               AND a.scheduled_at IS NOT NULL
               AND a.scheduled_at::date >= ${startDateParam}::date 
               AND a.scheduled_at::date <= ${endDateParam}::date
-            ${hasOfficeFilter ? sql`WHERE o.repcard_office_id = ANY(${officeIds}::int[])` : sql`AND 1=1`}
+            WHERE o.repcard_office_id = ANY(${officeIds}::int[])
             GROUP BY o.repcard_office_id
           ),
           office_closers AS (
@@ -532,7 +532,7 @@ export async function GET(request: NextRequest) {
               AND a.scheduled_at IS NOT NULL
               AND a.scheduled_at::date >= ${startDateParam}::date 
               AND a.scheduled_at::date <= ${endDateParam}::date
-            ${hasOfficeFilter ? sql`WHERE o.repcard_office_id = ANY(${officeIds}::int[])` : sql`AND 1=1`}
+            WHERE o.repcard_office_id = ANY(${officeIds}::int[])
             GROUP BY o.repcard_office_id
           )
           SELECT
@@ -557,12 +557,14 @@ export async function GET(request: NextRequest) {
           FROM repcard_offices o
           LEFT JOIN office_setters os ON os.repcard_office_id = o.repcard_office_id
           LEFT JOIN office_closers oc ON oc.repcard_office_id = o.repcard_office_id
-          ${hasOfficeFilter ? sql`WHERE o.repcard_office_id = ANY(${officeIds}::int[])` : sql`AND 1=1`}
+          WHERE o.repcard_office_id = ANY(${officeIds}::int[])
           GROUP BY o.repcard_office_id, o.name, os.doors_knocked, os.appointments_set, oc.sales_closed, os.setters_count, oc.closers_count, oc.appointments_run
           HAVING COALESCE(os.doors_knocked, 0) > 0 OR COALESCE(os.appointments_set, 0) > 0 OR COALESCE(oc.sales_closed, 0) > 0
           ORDER BY sales_closed DESC, appointments_set DESC
         `
-        : await sql`
+        `;
+      } else if (hasDateFilter && !hasOfficeFilter) {
+        officesResult = await sql`
           WITH office_setters AS (
             SELECT
               o.repcard_office_id,
@@ -577,7 +579,7 @@ export async function GET(request: NextRequest) {
             LEFT JOIN repcard_door_knocks dk ON dk.setter_user_id = ru.repcard_user_id
             LEFT JOIN repcard_appointments a ON a.setter_user_id::int = ru.repcard_user_id
               AND a.scheduled_at IS NOT NULL
-            ${hasOfficeFilter ? sql`WHERE o.repcard_office_id = ANY(${officeIds}::int[])` : sql`AND 1=1`}
+            
             GROUP BY o.repcard_office_id
           ),
           office_closers AS (
@@ -590,7 +592,7 @@ export async function GET(request: NextRequest) {
             LEFT JOIN repcard_users ru ON ru.office_id = o.repcard_office_id
             LEFT JOIN repcard_appointments a ON a.closer_user_id::int = ru.repcard_user_id
               AND a.scheduled_at IS NOT NULL
-            ${hasOfficeFilter ? sql`WHERE o.repcard_office_id = ANY(${officeIds}::int[])` : sql`AND 1=1`}
+            
             GROUP BY o.repcard_office_id
           )
           SELECT
@@ -615,11 +617,127 @@ export async function GET(request: NextRequest) {
           FROM repcard_offices o
           LEFT JOIN office_setters os ON os.repcard_office_id = o.repcard_office_id
           LEFT JOIN office_closers oc ON oc.repcard_office_id = o.repcard_office_id
-          ${hasOfficeFilter ? sql`WHERE o.repcard_office_id = ANY(${officeIds}::int[])` : sql`AND 1=1`}
+          
           GROUP BY o.repcard_office_id, o.name, os.doors_knocked, os.appointments_set, oc.sales_closed, os.setters_count, oc.closers_count, oc.appointments_run
           HAVING COALESCE(os.doors_knocked, 0) > 0 OR COALESCE(os.appointments_set, 0) > 0 OR COALESCE(oc.sales_closed, 0) > 0
           ORDER BY sales_closed DESC, appointments_set DESC
         `;
+      } else if (!hasDateFilter && hasOfficeFilter) {
+        officesResult = await sql`
+          WITH office_setters AS (
+            SELECT
+              o.repcard_office_id,
+              COUNT(DISTINCT ru.repcard_user_id) FILTER (WHERE ru.role = \'setter\' OR ru.role IS NULL)::int as setters_count,
+              COUNT(DISTINCT dk.id)::int as doors_knocked,
+              COUNT(DISTINCT a.id) FILTER (
+                WHERE a.setter_user_id IS NOT NULL
+                AND (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)
+              )::int as appointments_set
+            FROM repcard_offices o
+            LEFT JOIN repcard_users ru ON ru.office_id = o.repcard_office_id
+            LEFT JOIN repcard_door_knocks dk ON dk.setter_user_id = ru.repcard_user_id
+            LEFT JOIN repcard_appointments a ON a.setter_user_id::int = ru.repcard_user_id
+              AND a.scheduled_at IS NOT NULL
+            WHERE o.repcard_office_id = ANY(${officeIds}::int[])
+            GROUP BY o.repcard_office_id
+          ),
+          office_closers AS (
+            SELECT
+              o.repcard_office_id,
+              COUNT(DISTINCT ru.repcard_user_id) FILTER (WHERE ru.role = \'closer\' OR ru.role IS NULL)::int as closers_count,
+              COUNT(DISTINCT a.id) FILTER (WHERE a.closer_user_id IS NOT NULL)::int as appointments_run,
+              COUNT(DISTINCT a.id) FILTER (WHERE a.status_category IN (\'sat_closed\', \'completed\'))::int as sales_closed
+            FROM repcard_offices o
+            LEFT JOIN repcard_users ru ON ru.office_id = o.repcard_office_id
+            LEFT JOIN repcard_appointments a ON a.closer_user_id::int = ru.repcard_user_id
+              AND a.scheduled_at IS NOT NULL
+            WHERE o.repcard_office_id = ANY(${officeIds}::int[])
+            GROUP BY o.repcard_office_id
+          )
+          SELECT
+            o.repcard_office_id,
+            o.name as office_name,
+            COALESCE(os.doors_knocked, 0)::int as doors_knocked,
+            COALESCE(os.appointments_set, 0)::int as appointments_set,
+            COALESCE(oc.sales_closed, 0)::int as sales_closed,
+            COALESCE(os.setters_count, 0)::int as setters_count,
+            COALESCE(oc.closers_count, 0)::int as closers_count,
+            (COALESCE(os.setters_count, 0) + COALESCE(oc.closers_count, 0))::int as total_reps,
+            CASE
+              WHEN COALESCE(os.doors_knocked, 0) > 0 THEN
+                (COALESCE(os.appointments_set, 0)::float / COALESCE(os.doors_knocked, 0)::float) * 100
+              ELSE 0
+            END as conversion_rate,
+            CASE
+              WHEN COALESCE(oc.appointments_run, 0) > 0 THEN
+                (COALESCE(oc.sales_closed, 0)::float / COALESCE(oc.appointments_run, 0)::float) * 100
+              ELSE 0
+            END as close_rate
+          FROM repcard_offices o
+          LEFT JOIN office_setters os ON os.repcard_office_id = o.repcard_office_id
+          LEFT JOIN office_closers oc ON oc.repcard_office_id = o.repcard_office_id
+          WHERE o.repcard_office_id = ANY(${officeIds}::int[])
+          GROUP BY o.repcard_office_id, o.name, os.doors_knocked, os.appointments_set, oc.sales_closed, os.setters_count, oc.closers_count, oc.appointments_run
+          HAVING COALESCE(os.doors_knocked, 0) > 0 OR COALESCE(os.appointments_set, 0) > 0 OR COALESCE(oc.sales_closed, 0) > 0
+          ORDER BY sales_closed DESC, appointments_set DESC
+        `;
+      } else {
+        officesResult = await sql`
+          WITH office_setters AS (
+            SELECT
+              o.repcard_office_id,
+              COUNT(DISTINCT ru.repcard_user_id) FILTER (WHERE ru.role = \'setter\' OR ru.role IS NULL)::int as setters_count,
+              COUNT(DISTINCT dk.id)::int as doors_knocked,
+              COUNT(DISTINCT a.id) FILTER (
+                WHERE a.setter_user_id IS NOT NULL
+                AND (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)
+              )::int as appointments_set
+            FROM repcard_offices o
+            LEFT JOIN repcard_users ru ON ru.office_id = o.repcard_office_id
+            LEFT JOIN repcard_door_knocks dk ON dk.setter_user_id = ru.repcard_user_id
+            LEFT JOIN repcard_appointments a ON a.setter_user_id::int = ru.repcard_user_id
+              AND a.scheduled_at IS NOT NULL
+            GROUP BY o.repcard_office_id
+          ),
+          office_closers AS (
+            SELECT
+              o.repcard_office_id,
+              COUNT(DISTINCT ru.repcard_user_id) FILTER (WHERE ru.role = \'closer\' OR ru.role IS NULL)::int as closers_count,
+              COUNT(DISTINCT a.id) FILTER (WHERE a.closer_user_id IS NOT NULL)::int as appointments_run,
+              COUNT(DISTINCT a.id) FILTER (WHERE a.status_category IN (\'sat_closed\', \'completed\'))::int as sales_closed
+            FROM repcard_offices o
+            LEFT JOIN repcard_users ru ON ru.office_id = o.repcard_office_id
+            LEFT JOIN repcard_appointments a ON a.closer_user_id::int = ru.repcard_user_id
+              AND a.scheduled_at IS NOT NULL
+            GROUP BY o.repcard_office_id
+          )
+          SELECT
+            o.repcard_office_id,
+            o.name as office_name,
+            COALESCE(os.doors_knocked, 0)::int as doors_knocked,
+            COALESCE(os.appointments_set, 0)::int as appointments_set,
+            COALESCE(oc.sales_closed, 0)::int as sales_closed,
+            COALESCE(os.setters_count, 0)::int as setters_count,
+            COALESCE(oc.closers_count, 0)::int as closers_count,
+            (COALESCE(os.setters_count, 0) + COALESCE(oc.closers_count, 0))::int as total_reps,
+            CASE
+              WHEN COALESCE(os.doors_knocked, 0) > 0 THEN
+                (COALESCE(os.appointments_set, 0)::float / COALESCE(os.doors_knocked, 0)::float) * 100
+              ELSE 0
+            END as conversion_rate,
+            CASE
+              WHEN COALESCE(oc.appointments_run, 0) > 0 THEN
+                (COALESCE(oc.sales_closed, 0)::float / COALESCE(oc.appointments_run, 0)::float) * 100
+              ELSE 0
+            END as close_rate
+          FROM repcard_offices o
+          LEFT JOIN office_setters os ON os.repcard_office_id = o.repcard_office_id
+          LEFT JOIN office_closers oc ON oc.repcard_office_id = o.repcard_office_id
+          GROUP BY o.repcard_office_id, o.name, os.doors_knocked, os.appointments_set, oc.sales_closed, os.setters_count, oc.closers_count, oc.appointments_run
+          HAVING COALESCE(os.doors_knocked, 0) > 0 OR COALESCE(os.appointments_set, 0) > 0 OR COALESCE(oc.sales_closed, 0) > 0
+          ORDER BY sales_closed DESC, appointments_set DESC
+        `;
+      }
     } catch (error) {
       logError('repcard-leaderboards', error as Error, { requestId, context: 'offices query' });
       throw error;
