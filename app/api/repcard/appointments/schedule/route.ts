@@ -176,6 +176,12 @@ export async function GET(request: NextRequest) {
     
     if (userRole === 'closer' && repcardUserId) {
       // Closer query - see only their appointments
+      logInfo('repcard-appointments-schedule-closer-path-ENTERED', {
+        requestId,
+        userRole,
+        repcardUserId,
+        willUseCloserQuery: true
+      });
       // Build separate queries for different filter combinations to avoid parameter binding issues
       const baseQuery = sql`
         SELECT 
@@ -294,6 +300,13 @@ export async function GET(request: NextRequest) {
       }
     } else if (effectiveOfficeIds && effectiveOfficeIds.length > 0) {
       // Leader query with office filter - use same base query pattern
+      logInfo('repcard-appointments-schedule-leader-path-ENTERED', {
+        requestId,
+        userRole,
+        effectiveOfficeIds: effectiveOfficeIds.length,
+        officeIds: officeIds?.length || 0,
+        willUseLeaderQuery: true
+      });
       const baseQuery = sql`
         SELECT 
           a.id, a.repcard_appointment_id, a.customer_id, a.repcard_customer_id,
@@ -409,6 +422,13 @@ export async function GET(request: NextRequest) {
       }
     } else if (userRole === 'super_admin' || userRole === 'regional') {
       // Super admin/regional - see all appointments - use same base query pattern
+      logInfo('repcard-appointments-schedule-super-admin-path-ENTERED', {
+        requestId,
+        userRole,
+        effectiveOfficeIds: effectiveOfficeIds?.length || 0,
+        officeIds: officeIds?.length || 0,
+        willUseSuperAdminQuery: true
+      });
       logInfo('repcard-appointments-schedule-super-admin-path', {
         requestId,
         userRole,
@@ -567,6 +587,13 @@ export async function GET(request: NextRequest) {
       }
     } else {
       // No access - return empty result
+      logInfo('repcard-appointments-schedule-no-access-path-ENTERED', {
+        requestId,
+        userRole,
+        effectiveOfficeIds: effectiveOfficeIds?.length || 0,
+        repcardUserId,
+        willReturnEmpty: true
+      });
       result = await sql`
         SELECT 
           a.id,
