@@ -157,8 +157,11 @@ export async function GET(request: NextRequest) {
       }
 
       case 'attachments': {
-        // Build customer attachments query
-        let customerQuery = `
+        // Build customer attachments query using parameterized sql template tags
+        const userIdNum = actualRepcardUserId ? (typeof actualRepcardUserId === 'string' ? parseInt(actualRepcardUserId) : actualRepcardUserId) : null;
+        const parsedCustomerId = customerId ? parseInt(customerId) : null;
+        
+        const customerAttachmentsResult = await sql`
           SELECT
             id,
             repcard_attachment_id,
@@ -173,30 +176,17 @@ export async function GET(request: NextRequest) {
             updated_at
           FROM repcard_customer_attachments
           WHERE 1=1
-        `;
-
-        if (actualRepcardUserId) {
-          const userIdNum = typeof actualRepcardUserId === 'string' ? parseInt(actualRepcardUserId) : actualRepcardUserId;
-          customerQuery += ` AND uploaded_by_user_id = ${userIdNum}`;
-        }
-        if (customerId) {
-          customerQuery += ` AND repcard_customer_id = ${parseInt(customerId)}`;
-        }
-        if (startDate) {
-          customerQuery += ` AND created_at >= '${startDate}'::timestamp`;
-        }
-        if (endDate) {
-          customerQuery += ` AND created_at <= ('${endDate}'::timestamp + INTERVAL '1 day')`;
-        }
-
-        customerQuery += `
+          ${userIdNum ? sql`AND uploaded_by_user_id = ${userIdNum}` : null}
+          ${parsedCustomerId ? sql`AND repcard_customer_id = ${parsedCustomerId}` : null}
+          ${startDate ? sql`AND created_at >= ${startDate}::timestamp` : null}
+          ${endDate ? sql`AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')` : null}
           ORDER BY created_at DESC
           LIMIT ${limit}
           OFFSET ${offset}
         `;
 
-        // Build appointment attachments query
-        let appointmentQuery = `
+        // Build appointment attachments query using parameterized sql template tags
+        const appointmentAttachmentsResult = await sql`
           SELECT
             id,
             repcard_attachment_id,
@@ -213,30 +203,14 @@ export async function GET(request: NextRequest) {
             updated_at
           FROM repcard_appointment_attachments
           WHERE 1=1
-        `;
-
-        if (actualRepcardUserId) {
-          const userIdNum = typeof actualRepcardUserId === 'string' ? parseInt(actualRepcardUserId) : actualRepcardUserId;
-          appointmentQuery += ` AND uploaded_by_user_id = ${userIdNum}`;
-        }
-        if (customerId) {
-          appointmentQuery += ` AND repcard_customer_id = ${parseInt(customerId)}`;
-        }
-        if (startDate) {
-          appointmentQuery += ` AND created_at >= '${startDate}'::timestamp`;
-        }
-        if (endDate) {
-          appointmentQuery += ` AND created_at <= ('${endDate}'::timestamp + INTERVAL '1 day')`;
-        }
-
-        appointmentQuery += `
+          ${userIdNum ? sql`AND uploaded_by_user_id = ${userIdNum}` : null}
+          ${parsedCustomerId ? sql`AND repcard_customer_id = ${parsedCustomerId}` : null}
+          ${startDate ? sql`AND created_at >= ${startDate}::timestamp` : null}
+          ${endDate ? sql`AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')` : null}
           ORDER BY created_at DESC
           LIMIT ${limit}
           OFFSET ${offset}
         `;
-
-        const customerAttachmentsResult = await sql.unsafe(customerQuery);
-        const appointmentAttachmentsResult = await sql.unsafe(appointmentQuery);
 
         data = [
           ...Array.from(customerAttachmentsResult).map((a: any) => ({ ...a, source: 'customer' })),
@@ -247,8 +221,11 @@ export async function GET(request: NextRequest) {
       }
 
       case 'users': {
-        // Build query dynamically
-        let query = `
+        // Build query using parameterized sql template tags
+        const parsedRepcardUserId = actualRepcardUserId ? parseInt(actualRepcardUserId) : null;
+        const parsedOfficeId = officeId ? parseInt(officeId) : null;
+        
+        const result = await sql`
           SELECT
             id,
             repcard_user_id,
@@ -273,57 +250,34 @@ export async function GET(request: NextRequest) {
             synced_at
           FROM repcard_users
           WHERE 1=1
-        `;
-
-        if (actualRepcardUserId) {
-          query += ` AND repcard_user_id = ${parseInt(actualRepcardUserId)}`;
-        }
-        if (officeId) {
-          query += ` AND office_id = ${parseInt(officeId)}`;
-        }
-        if (startDate) {
-          query += ` AND created_at >= '${startDate}'::timestamp`;
-        }
-        if (endDate) {
-          query += ` AND created_at <= ('${endDate}'::timestamp + INTERVAL '1 day')`;
-        }
-
-        query += `
+          ${parsedRepcardUserId ? sql`AND repcard_user_id = ${parsedRepcardUserId}` : null}
+          ${parsedOfficeId ? sql`AND office_id = ${parsedOfficeId}` : null}
+          ${startDate ? sql`AND created_at >= ${startDate}::timestamp` : null}
+          ${endDate ? sql`AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')` : null}
           ORDER BY last_name, first_name
           LIMIT ${limit}
           OFFSET ${offset}
         `;
-
-        const result = await sql.unsafe(query);
         data = Array.from(result);
 
-        // Build count query
-        let countQuery = `
+        // Build count query using parameterized sql template tags
+        const countResult = await sql`
           SELECT COUNT(*) as count FROM repcard_users
           WHERE 1=1
+          ${parsedRepcardUserId ? sql`AND repcard_user_id = ${parsedRepcardUserId}` : null}
+          ${parsedOfficeId ? sql`AND office_id = ${parsedOfficeId}` : null}
+          ${startDate ? sql`AND created_at >= ${startDate}::timestamp` : null}
+          ${endDate ? sql`AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')` : null}
         `;
-
-        if (actualRepcardUserId) {
-          countQuery += ` AND repcard_user_id = ${parseInt(actualRepcardUserId)}`;
-        }
-        if (officeId) {
-          countQuery += ` AND office_id = ${parseInt(officeId)}`;
-        }
-        if (startDate) {
-          countQuery += ` AND created_at >= '${startDate}'::timestamp`;
-        }
-        if (endDate) {
-          countQuery += ` AND created_at <= ('${endDate}'::timestamp + INTERVAL '1 day')`;
-        }
-
-        const countResult = await sql.unsafe(countQuery);
         total = parseInt(Array.from(countResult)[0]?.count || '0');
         break;
       }
 
       case 'offices': {
-        // Build query dynamically
-        let query = `
+        // Build query using parameterized sql template tags
+        const parsedOfficeId = officeId ? parseInt(officeId) : null;
+        
+        const result = await sql`
           SELECT
             id,
             repcard_office_id,
@@ -338,39 +292,29 @@ export async function GET(request: NextRequest) {
             synced_at
           FROM repcard_offices
           WHERE 1=1
-        `;
-
-        if (officeId) {
-          query += ` AND repcard_office_id = ${parseInt(officeId)}`;
-        }
-
-        query += `
+          ${parsedOfficeId ? sql`AND repcard_office_id = ${parsedOfficeId}` : null}
           ORDER BY name
           LIMIT ${limit}
           OFFSET ${offset}
         `;
-
-        const result = await sql.unsafe(query);
         data = Array.from(result);
 
-        // Build count query
-        let countQuery = `
+        // Build count query using parameterized sql template tags
+        const countResult = await sql`
           SELECT COUNT(*) as count FROM repcard_offices
           WHERE 1=1
+          ${parsedOfficeId ? sql`AND repcard_office_id = ${parsedOfficeId}` : null}
         `;
-
-        if (officeId) {
-          countQuery += ` AND repcard_office_id = ${parseInt(officeId)}`;
-        }
-
-        const countResult = await sql.unsafe(countQuery);
         total = parseInt(Array.from(countResult)[0]?.count || '0');
         break;
       }
 
       case 'status_logs': {
-        // Build query dynamically
-        let query = `
+        // Build query using parameterized sql template tags
+        const userIdNum = actualRepcardUserId ? (typeof actualRepcardUserId === 'string' ? parseInt(actualRepcardUserId) : actualRepcardUserId) : null;
+        const parsedCustomerId = customerId ? parseInt(customerId) : null;
+        
+        const result = await sql`
           SELECT
             id,
             repcard_log_id,
@@ -383,52 +327,25 @@ export async function GET(request: NextRequest) {
             synced_at
           FROM repcard_status_logs
           WHERE 1=1
-        `;
-
-        if (actualRepcardUserId) {
-          const userIdNum = typeof actualRepcardUserId === 'string' ? parseInt(actualRepcardUserId) : actualRepcardUserId;
-          query += ` AND changed_by_user_id = ${userIdNum}`;
-        }
-        if (customerId) {
-          query += ` AND repcard_customer_id = ${parseInt(customerId)}`;
-        }
-        if (startDate) {
-          query += ` AND changed_at >= '${startDate}'::timestamp`;
-        }
-        if (endDate) {
-          query += ` AND changed_at <= ('${endDate}'::timestamp + INTERVAL '1 day')`;
-        }
-
-        query += `
+          ${userIdNum ? sql`AND changed_by_user_id = ${userIdNum}` : null}
+          ${parsedCustomerId ? sql`AND repcard_customer_id = ${parsedCustomerId}` : null}
+          ${startDate ? sql`AND changed_at >= ${startDate}::timestamp` : null}
+          ${endDate ? sql`AND changed_at <= (${endDate}::timestamp + INTERVAL '1 day')` : null}
           ORDER BY changed_at DESC
           LIMIT ${limit}
           OFFSET ${offset}
         `;
-
-        const result = await sql.unsafe(query);
         data = Array.from(result);
 
-        // Build count query
-        let countQuery = `
+        // Build count query using parameterized sql template tags
+        const countResult = await sql`
           SELECT COUNT(*) as count FROM repcard_status_logs
           WHERE 1=1
+          ${userIdNum ? sql`AND changed_by_user_id = ${userIdNum}` : null}
+          ${parsedCustomerId ? sql`AND repcard_customer_id = ${parsedCustomerId}` : null}
+          ${startDate ? sql`AND changed_at >= ${startDate}::timestamp` : null}
+          ${endDate ? sql`AND changed_at <= (${endDate}::timestamp + INTERVAL '1 day')` : null}
         `;
-
-        if (actualRepcardUserId) {
-          const userIdNum = typeof actualRepcardUserId === 'string' ? parseInt(actualRepcardUserId) : actualRepcardUserId;
-          countQuery += ` AND changed_by_user_id = ${userIdNum}`;
-        }
-        if (customerId) {
-          countQuery += ` AND repcard_customer_id = ${parseInt(customerId)}`;
-        }
-        if (startDate) {
-          countQuery += ` AND changed_at >= '${startDate}'::timestamp`;
-        }
-        if (endDate) {
-          countQuery += ` AND changed_at <= ('${endDate}'::timestamp + INTERVAL '1 day')`;
-        }
-
-        const countResult = await sql.unsafe(countQuery);
         total = parseInt(Array.from(countResult)[0]?.count || '0');
         break;
       }
