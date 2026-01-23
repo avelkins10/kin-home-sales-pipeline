@@ -80,33 +80,31 @@ export function RepCardOptimizedDashboard({
   // Calculate date range display
   const dateRangeDisplay = useMemo(() => {
     if (startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      // Compare dates as strings (YYYY-MM-DD) to avoid timezone issues
+      const todayLocal = format(new Date(), 'yyyy-MM-dd');
       
-      // Check if it's today
-      if (startDate === endDate && start.getTime() === today.getTime()) {
+      // Check if it's today (using local timezone)
+      if (startDate === endDate && startDate === todayLocal) {
         return 'Today';
       }
       // Check if it's week to date
-      if (startDate && endDate) {
-        const weekStart = new Date(today);
-        weekStart.setDate(today.getDate() - today.getDay() + 1); // Monday
-        if (startDate === format(weekStart, 'yyyy-MM-dd') && endDate === format(today, 'yyyy-MM-dd')) {
-          return 'Week to Date';
-        }
-        // Check if it's month to date
-        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-        if (startDate === format(monthStart, 'yyyy-MM-dd') && endDate === format(today, 'yyyy-MM-dd')) {
-          return 'Month to Date';
-        }
-        // Check if it's year to date
-        const yearStart = new Date(today.getFullYear(), 0, 1);
-        if (startDate === format(yearStart, 'yyyy-MM-dd') && endDate === format(today, 'yyyy-MM-dd')) {
-          return 'Year to Date';
-        }
+      const now = new Date();
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - now.getDay() + 1); // Monday
+      if (startDate === format(weekStart, 'yyyy-MM-dd') && endDate === todayLocal) {
+        return 'Week to Date';
       }
+      // Check if it's month to date
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      if (startDate === format(monthStart, 'yyyy-MM-dd') && endDate === todayLocal) {
+        return 'Month to Date';
+      }
+      // Check if it's year to date
+      const yearStart = new Date(now.getFullYear(), 0, 1);
+      if (startDate === format(yearStart, 'yyyy-MM-dd') && endDate === todayLocal) {
+        return 'Year to Date';
+      }
+      
       return `${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}`;
     }
     return 'Today';

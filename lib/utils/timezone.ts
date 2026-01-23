@@ -1,57 +1,98 @@
-// lib/utils/timezone.ts
-'use client';
+/**
+ * Timezone utilities for RepCard
+ * All dates should be converted to America/New_York timezone for database queries
+ * Frontend can use local timezone for display, but dates sent to API should be in YYYY-MM-DD format
+ * API will convert to Eastern Time for database queries
+ */
 
 /**
- * Detect the user's timezone using the browser's Intl API
+ * Get today's date in the user's local timezone as YYYY-MM-DD
+ * This is what the frontend should use when "Today" is clicked
  */
-export function detectUserTimezone(): string {
-  try {
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    return timezone || 'America/New_York';
-  } catch (error) {
-    console.error('Failed to detect timezone:', error);
-    return 'America/New_York';
-  }
+export function getTodayLocal(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 /**
- * Update the user's timezone on the server
+ * Check if DST is in effect for a given date in America/New_York
+ * DST: Second Sunday in March to First Sunday in November
  */
-export async function updateUserTimezone(timezone: string): Promise<boolean> {
-  try {
-    const response = await fetch('/api/user/timezone', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ timezone }),
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      console.error('Failed to update timezone:', await response.text());
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error('Failed to update timezone:', error);
-    return false;
+function isDSTInEffect(year: number, month: number, day: number): boolean {
+  // DST starts: Second Sunday in March
+  // DST ends: First Sunday in November
+  
+  if (month < 3 || month > 11) return false; // Definitely not DST
+  if (month > 3 && month < 11) return true; // Definitely DST (April-October)
+  
+  if (month === 3) {
+    // March: DST starts on second Sunday
+    const secondSunday = getNthSunday(year, 3, 2);
+    return day >= secondSunday;
   }
+  
+  if (month === 11) {
+    // November: DST ends on first Sunday
+    const firstSunday = getNthSunday(year, 11, 1);
+    return day < firstSunday;
+  }
+  
+  return false;
 }
 
 /**
- * Check if the user's stored timezone matches their browser timezone
- * If not, update it automatically
+ * Get the day of month for the Nth Sunday in a given month/year
  */
-export async function syncUserTimezone(storedTimezone?: string): Promise<void> {
-  const detectedTimezone = detectUserTimezone();
+function getNthSunday(year: number, month: number, n: number): number {
+  // Find the first day of the month
+  const firstDay = new Date(year, month - 1, 1);
+  const firstDayOfWeek = firstDay.getDay(); // 0 = Sunday, 1 = Monday, etc.
+  
+  // Calculate how many days until the first Sunday
+  const daysUntilFirstSunday = (7 - firstDayOfWeek) % 7;
+  const firstSunday = 1 + daysUntilFirstSunday;
+  
+  // Nth Sunday = first Sunday + (n-1) * 7
+  return firstSunday + (n - 1) * 7;
+}
 
-  // Only update if different from stored value
-  if (storedTimezone && storedTimezone === detectedTimezone) {
-    return;
-  }
+/**
+ * Convert YYYY-MM-DD to start of day in America/New_York timezone
+ * Properly handles DST (EDT = -04:00, EST = -05:00)
+ * Returns ISO string for database queries
+ */
+export function toEasternStart(dateString: string): string {
+  const [year, month, day] = dateString.split('-').map(Number);
+  
+  // Check if DST is in effect
+  const isDST = isDSTInEffect(year, month, day);
+  const offset = isDST ? '-04:00' : '-05:00';
+  
+  // Create date string with explicit Eastern Time offset
+  const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00${offset}`;
+  const date = new Date(dateStr);
+  
+  return date.toISOString();
+}
 
-  // Update timezone on server
-  await updateUserTimezone(detectedTimezone);
+/**
+ * Convert YYYY-MM-DD to end of day in America/New_York timezone
+ * Properly handles DST (EDT = -04:00, EST = -05:00)
+ * Returns ISO string for database queries
+ */
+export function toEasternEnd(dateString: string): string {
+  const [year, month, day] = dateString.split('-').map(Number);
+  
+  // Check if DST is in effect
+  const isDST = isDSTInEffect(year, month, day);
+  const offset = isDST ? '-04:00' : '-05:00';
+  
+  // Create date string with explicit Eastern Time offset for end of day
+  const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T23:59:59.999${offset}`;
+  const date = new Date(dateStr);
+  
+  return date.toISOString();
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth/guards';
 import { sql } from '@/lib/db/client';
 import { logApiRequest, logApiResponse, logError } from '@/lib/logging/logger';
+import { toEasternStart, toEasternEnd } from '@/lib/utils/timezone';
 
 export const runtime = 'nodejs';
 
@@ -56,19 +57,18 @@ export async function GET(request: NextRequest) {
 
     // Convert date strings to proper timestamps in Eastern Time (per project rules)
     // When a date like "2026-01-22" is provided, interpret it as the start/end of that day in Eastern Time
+    // The date string comes from the user's local timezone, but we convert it to Eastern for database queries
     let startDate: string | null = null;
     let endDate: string | null = null;
     
     if (startDateParam) {
-      // Parse as Eastern Time start of day (00:00:00 ET)
-      const date = new Date(startDateParam + 'T00:00:00-05:00'); // EST/EDT offset
-      startDate = date.toISOString();
+      // Convert to start of day in Eastern Time (handles DST automatically)
+      startDate = toEasternStart(startDateParam);
     }
     
     if (endDateParam) {
-      // Parse as Eastern Time end of day (23:59:59.999 ET)
-      const date = new Date(endDateParam + 'T23:59:59.999-05:00'); // EST/EDT offset
-      endDate = date.toISOString();
+      // Convert to end of day in Eastern Time (handles DST automatically)
+      endDate = toEasternEnd(endDateParam);
     }
 
     // Build cache key (use original params for cache key to match frontend)

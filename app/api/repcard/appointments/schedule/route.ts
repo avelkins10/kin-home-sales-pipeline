@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth/config';
 import { sql } from '@/lib/db/client';
 import { logApiRequest, logApiResponse, logError, logInfo } from '@/lib/logging/logger';
 import { getAssignedOffices } from '@/lib/quickbase/queries';
+import { toEasternStart, toEasternEnd } from '@/lib/utils/timezone';
 
 export const runtime = 'nodejs';
 
@@ -65,6 +66,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     
     // Date range (default: today to 7 days from now)
+    // Dates come from frontend in YYYY-MM-DD format (user's local timezone)
+    // We need to convert them to Eastern Time for database queries
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const defaultEndDate = new Date(today);
@@ -72,8 +75,13 @@ export async function GET(request: NextRequest) {
     
     const startDateParam = searchParams.get('startDate');
     const endDateParam = searchParams.get('endDate');
-    startDate = startDateParam || today.toISOString().split('T')[0];
-    endDate = endDateParam || defaultEndDate.toISOString().split('T')[0];
+    const startDateStr = startDateParam || today.toISOString().split('T')[0];
+    const endDateStr = endDateParam || defaultEndDate.toISOString().split('T')[0];
+    
+    // Convert to Eastern Time for database queries
+    // Store as strings for use in SQL queries with timezone conversion
+    startDate = startDateStr;
+    endDate = endDateStr;
 
     // Filters
     const officeIdsParam = searchParams.get('officeIds');
@@ -217,9 +225,9 @@ export async function GET(request: NextRequest) {
         LEFT JOIN repcard_teams setter_team ON setter_team.repcard_team_id = setter.team_id
         LEFT JOIN repcard_teams closer_team ON closer_team.repcard_team_id = closer.team_id
         WHERE (
-          (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${startDate}::date AND a.scheduled_at::date <= ${endDate}::date)
+          (a.scheduled_at IS NOT NULL AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date)
           OR
-          (a.scheduled_at IS NULL AND a.created_at::date >= ${startDate}::date AND a.created_at::date <= ${endDate}::date)
+          (a.scheduled_at IS NULL AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date)
         )
         AND a.closer_user_id = ${repcardUserId}
         ${additionalWhere}
@@ -276,9 +284,9 @@ export async function GET(request: NextRequest) {
         LEFT JOIN repcard_teams setter_team ON setter_team.repcard_team_id = setter.team_id
         LEFT JOIN repcard_teams closer_team ON closer_team.repcard_team_id = closer.team_id
         WHERE (
-          (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${startDate}::date AND a.scheduled_at::date <= ${endDate}::date)
+          (a.scheduled_at IS NOT NULL AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date)
           OR
-          (a.scheduled_at IS NULL AND a.created_at::date >= ${startDate}::date AND a.created_at::date <= ${endDate}::date)
+          (a.scheduled_at IS NULL AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date)
         )
         AND a.office_id = ANY(${effectiveOfficeIds}::int[])
         ${additionalWhere}
@@ -335,9 +343,9 @@ export async function GET(request: NextRequest) {
         LEFT JOIN repcard_teams setter_team ON setter_team.repcard_team_id = setter.team_id
         LEFT JOIN repcard_teams closer_team ON closer_team.repcard_team_id = closer.team_id
         WHERE (
-          (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${startDate}::date AND a.scheduled_at::date <= ${endDate}::date)
+          (a.scheduled_at IS NOT NULL AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date)
           OR
-          (a.scheduled_at IS NULL AND a.created_at::date >= ${startDate}::date AND a.created_at::date <= ${endDate}::date)
+          (a.scheduled_at IS NULL AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date AND (a.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date)
         )
         ${additionalWhere}
         ORDER BY COALESCE(a.scheduled_at, a.created_at) ASC
