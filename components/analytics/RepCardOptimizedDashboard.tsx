@@ -161,6 +161,8 @@ export function RepCardOptimizedDashboard({
   const quality = data?.quality || {};
   const leaderboards = data?.leaderboards || {};
   const offices = data?.officePerformance || [];
+  const officeSetters = data?.officeSettersBreakdown || [];
+  const officeClosers = data?.officeClosersBreakdown || [];
   const canvassing = data?.canvassing || {};
 
   return (
@@ -501,6 +503,8 @@ export function RepCardOptimizedDashboard({
             offices={offices}
             isLoading={isLoading}
             dateRange={dateRangeDisplay}
+            officeSetters={officeSetters}
+            officeClosers={officeClosers}
           />
         </TabsContent>
       </Tabs>
@@ -1178,7 +1182,15 @@ function ClosersView({ data, isLoading, dateRange }: { data: any[]; isLoading: b
   );
 }
 
-function OfficesView({ offices, isLoading, dateRange }: { offices: any[]; isLoading: boolean; dateRange: string }) {
+function OfficesView({ offices, isLoading, dateRange, officeSetters, officeClosers }: { 
+  offices: any[]; 
+  isLoading: boolean; 
+  dateRange: string;
+  officeSetters?: any[];
+  officeClosers?: any[];
+}) {
+  const [expandedOffice, setExpandedOffice] = useState<string | null>(null);
+
   if (isLoading) {
     return <Skeleton className="h-96" />;
   }
@@ -1187,6 +1199,25 @@ function OfficesView({ offices, isLoading, dateRange }: { offices: any[]; isLoad
   const totalAppointments = offices.reduce((sum, o) => sum + (o.appointmentsSet || 0), 0);
   const totalSales = offices.reduce((sum, o) => sum + (o.salesClosed || 0), 0);
   const totalReps = offices.reduce((sum, o) => sum + (o.activeReps || 0), 0);
+
+  // Group setters and closers by office
+  const settersByOffice = new Map<string, any[]>();
+  (officeSetters || []).forEach((setter: any) => {
+    const officeId = setter.officeId;
+    if (!settersByOffice.has(officeId)) {
+      settersByOffice.set(officeId, []);
+    }
+    settersByOffice.get(officeId)!.push(setter);
+  });
+
+  const closersByOffice = new Map<string, any[]>();
+  (officeClosers || []).forEach((closer: any) => {
+    const officeId = closer.officeId;
+    if (!closersByOffice.has(officeId)) {
+      closersByOffice.set(officeId, []);
+    }
+    closersByOffice.get(officeId)!.push(closer);
+  });
 
   return (
     <div className="space-y-6">
@@ -1198,7 +1229,7 @@ function OfficesView({ offices, isLoading, dateRange }: { offices: any[]; isLoad
         <StatCard label="Active Reps" value={totalReps} icon={<Users className="h-5 w-5" />} color="orange" />
       </div>
 
-      {/* Office Table */}
+      {/* Office Table with Expandable Details */}
       <Card>
         <CardHeader>
           <CardTitle>Office Performance Breakdown</CardTitle>
@@ -1206,7 +1237,123 @@ function OfficesView({ offices, isLoading, dateRange }: { offices: any[]; isLoad
         </CardHeader>
         <CardContent>
           {offices.length > 0 ? (
-            <OfficePerformanceTable offices={offices} />
+            <div className="space-y-4">
+              <OfficePerformanceTable offices={offices} />
+              
+              {/* Expandable Office Details */}
+              {offices.map((office) => {
+                const officeSettersList = settersByOffice.get(office.officeId) || [];
+                const officeClosersList = closersByOffice.get(office.officeId) || [];
+                const isExpanded = expandedOffice === office.officeId;
+
+                if (officeSettersList.length === 0 && officeClosersList.length === 0) {
+                  return null;
+                }
+
+                return (
+                  <Card key={office.officeId} className="border-l-4 border-l-blue-500">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="text-lg">{office.officeName}</CardTitle>
+                          <CardDescription>
+                            {officeSettersList.length} setters • {officeClosersList.length} closers
+                          </CardDescription>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setExpandedOffice(isExpanded ? null : office.officeId)}
+                        >
+                          <ChevronRight className={cn('h-4 w-4 transition-transform', isExpanded && 'rotate-90')} />
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    {isExpanded && (
+                      <CardContent className="space-y-6">
+                        {/* Setters Breakdown */}
+                        {officeSettersList.length > 0 && (
+                          <div>
+                            <h4 className="font-semibold mb-3 flex items-center gap-2">
+                              <Users className="h-4 w-4" />
+                              Setters ({officeSettersList.length})
+                            </h4>
+                            <div className="overflow-x-auto">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Setter</TableHead>
+                                    <TableHead className="text-right">Doors</TableHead>
+                                    <TableHead className="text-right">Appointments</TableHead>
+                                    <TableHead className="text-right">48h Speed</TableHead>
+                                    <TableHead className="text-right">Power Bills</TableHead>
+                                    <TableHead className="text-right">Hours</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {officeSettersList.map((setter: any) => (
+                                    <TableRow key={setter.userId}>
+                                      <TableCell className="font-medium">{setter.name}</TableCell>
+                                      <TableCell className="text-right">{formatLargeNumber(setter.doorsKnocked)}</TableCell>
+                                      <TableCell className="text-right">{formatLargeNumber(setter.appointmentsSet)}</TableCell>
+                                      <TableCell className="text-right">
+                                        {formatPercentage((setter.within48h / (setter.appointmentsSet || 1)) * 100)}
+                                      </TableCell>
+                                      <TableCell className="text-right">
+                                        {formatPercentage((setter.withPowerBill / (setter.appointmentsSet || 1)) * 100)}
+                                      </TableCell>
+                                      <TableCell className="text-right">{setter.hoursOnDoors}h</TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Closers Breakdown */}
+                        {officeClosersList.length > 0 && (
+                          <div>
+                            <h4 className="font-semibold mb-3 flex items-center gap-2">
+                              <Award className="h-4 w-4" />
+                              Closers ({officeClosersList.length})
+                            </h4>
+                            <div className="overflow-x-auto">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Closer</TableHead>
+                                    <TableHead className="text-right">Appointments Run</TableHead>
+                                    <TableHead className="text-right">Sales Closed</TableHead>
+                                    <TableHead className="text-right">Close Rate</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {officeClosersList.map((closer: any) => (
+                                    <TableRow key={closer.userId}>
+                                      <TableCell className="font-medium">{closer.name}</TableCell>
+                                      <TableCell className="text-right">{formatLargeNumber(closer.appointmentsRun)}</TableCell>
+                                      <TableCell className="text-right font-bold text-green-600">
+                                        {formatLargeNumber(closer.satClosed)}
+                                      </TableCell>
+                                      <TableCell className="text-right">
+                                        <Badge variant={closer.closeRate >= 30 ? 'default' : 'secondary'}>
+                                          {formatPercentage(closer.closeRate)}
+                                        </Badge>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    )}
+                  </Card>
+                );
+              })}
+            </div>
           ) : (
             <p className="text-sm text-muted-foreground text-center py-8">No office data available</p>
           )}

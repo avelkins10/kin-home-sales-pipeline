@@ -11,6 +11,7 @@ import { sql } from '@/lib/db/client';
 import { logError, logInfo } from '@/lib/logging/logger';
 import { syncAppointments, syncCustomers } from './sync-service';
 import { repcardClient } from './client';
+import { syncCustomerAttachments, syncAppointmentAttachments } from './comprehensive-sync';
 
 /**
  * Process appointment webhook payload directly
@@ -264,6 +265,13 @@ export async function processAppointmentWebhook(
         is_reschedule,
         reschedule_count,
         original_appointment_id,
+        appointment_link,
+        remind_at,
+        remind_text,
+        appointment_location,
+        latitude,
+        longitude,
+        contact_source,
         created_at,
         updated_at,
         raw_data
@@ -284,6 +292,13 @@ export async function processAppointmentWebhook(
         ${isReschedule},
         ${rescheduleCount},
         ${originalAppointmentId},
+        ${payload.appointmentLink || payload.appointment_link || null},
+        ${payload.remind_at ? new Date(payload.remind_at).toISOString() : null},
+        ${payload.remind_text || null},
+        ${payload.appointmentLocation || payload.appointment_location || null},
+        ${payload.latitude ? parseFloat(payload.latitude.toString()) : null},
+        ${payload.longitude ? parseFloat(payload.longitude.toString()) : null},
+        ${payload.contact?.contactSource || payload.contactSource || null},
         ${new Date(createdAt).toISOString()},
         ${new Date(updatedAt).toISOString()},
         ${JSON.stringify(payload)}
@@ -303,6 +318,13 @@ export async function processAppointmentWebhook(
         is_reschedule = EXCLUDED.is_reschedule,
         reschedule_count = EXCLUDED.reschedule_count,
         original_appointment_id = EXCLUDED.original_appointment_id,
+        appointment_link = EXCLUDED.appointment_link,
+        remind_at = EXCLUDED.remind_at,
+        remind_text = EXCLUDED.remind_text,
+        appointment_location = EXCLUDED.appointment_location,
+        latitude = EXCLUDED.latitude,
+        longitude = EXCLUDED.longitude,
+        contact_source = EXCLUDED.contact_source,
         updated_at = EXCLUDED.updated_at,
         raw_data = EXCLUDED.raw_data
       RETURNING (xmax = 0) AS inserted
@@ -332,6 +354,47 @@ export async function processAppointmentWebhook(
       wasInserted,
       customerId,
       officeId
+    });
+
+    // Trigger attachment sync for this appointment (async, don't wait)
+    if (repcardCustomerId) {
+      setImmediate(async () => {
+        try {
+          // Sync customer attachments if customer exists
+          await syncCustomerAttachments({ 
+            incremental: true,
+            fromDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // Last 7 days
+          });
+          logInfo('[RepCard Webhook Processor] Customer attachments synced after webhook', {
+            requestId,
+            repcardCustomerId
+          });
+        } catch (error) {
+          logError('[RepCard Webhook Processor] Failed to sync customer attachments after webhook', error as Error, {
+            requestId,
+            repcardCustomerId
+          });
+        }
+      });
+    }
+
+    // Sync appointment attachments (async, don't wait)
+    setImmediate(async () => {
+      try {
+        await syncAppointmentAttachments({ 
+          incremental: true,
+          fromDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // Last 7 days
+        });
+        logInfo('[RepCard Webhook Processor] Appointment attachments synced after webhook', {
+          requestId,
+          appointmentId
+        });
+      } catch (error) {
+        logError('[RepCard Webhook Processor] Failed to sync appointment attachments after webhook', error as Error, {
+          requestId,
+          appointmentId
+        });
+      }
     });
 
     return {
@@ -432,6 +495,9 @@ export async function processCustomerWebhook(
         state,
         zip,
         status,
+        contact_source,
+        latitude,
+        longitude,
         created_at,
         updated_at,
         raw_data
@@ -448,6 +514,9 @@ export async function processCustomerWebhook(
         ${state},
         ${zip},
         ${statusId?.toString() || null},
+        ${payload.contactSource || payload.contact?.contactSource || null},
+        ${payload.latitude ? parseFloat(payload.latitude.toString()) : null},
+        ${payload.longitude ? parseFloat(payload.longitude.toString()) : null},
         ${new Date(createdAt).toISOString()},
         ${new Date(updatedAt).toISOString()},
         ${JSON.stringify(payload)}
@@ -463,6 +532,9 @@ export async function processCustomerWebhook(
         state = EXCLUDED.state,
         zip = EXCLUDED.zip,
         status = EXCLUDED.status,
+        contact_source = EXCLUDED.contact_source,
+        latitude = EXCLUDED.latitude,
+        longitude = EXCLUDED.longitude,
         created_at = COALESCE(repcard_customers.created_at, EXCLUDED.created_at),
         updated_at = EXCLUDED.updated_at,
         raw_data = EXCLUDED.raw_data,
