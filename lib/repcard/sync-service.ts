@@ -699,7 +699,9 @@ export async function syncAppointments(options: {
             }
 
             // Calculate is_within_48_hours if we have customer data
-            // Note: This could be optimized by batching, but individual query is fine for now
+            // NOTE: Changed to "within 2 calendar days" instead of strict 48 hours
+            // Counts: same day (0), next day (1), or day after next (2)
+            // This is more business-appropriate (e.g., Friday morning -> Sunday night = within 2 days)
             let isWithin48Hours = false;
             if (appointment.contact?.id && customerId && appointment.startAt) {
               // Use customerId if available, otherwise query by repcard_customer_id
@@ -709,16 +711,33 @@ export async function syncAppointments(options: {
               const customerCreatedRows = customerCreatedResult.rows || customerCreatedResult;
               if (customerCreatedRows.length > 0 && customerCreatedRows[0].created_at) {
                 const customerCreated = new Date(customerCreatedRows[0].created_at);
-                // FIXED: Use startAt (scheduled_at) instead of createdAt
-                // This measures if appointment is scheduled within 48h of customer creation (door knock)
                 // Parse startAt with timezone if available
                 const appointmentScheduledStr = appointment.startAt && (appointment as any).startAtTimezone
                   ? parseRepCardDateTime(appointment.startAt, (appointment as any).startAtTimezone)
                   : appointment.startAt;
                 const appointmentScheduled = appointmentScheduledStr ? new Date(appointmentScheduledStr) : null;
                 if (appointmentScheduled) {
-                  const diffHours = (appointmentScheduled.getTime() - customerCreated.getTime()) / (1000 * 60 * 60);
-                  isWithin48Hours = diffHours >= 0 && diffHours <= 48;
+                  // Convert both to Eastern Time and compare calendar days
+                  // Using a helper to get Eastern date (handles DST automatically)
+                  const toEasternDate = (date: Date): string => {
+                    return new Intl.DateTimeFormat('en-US', {
+                      timeZone: 'America/New_York',
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit'
+                    }).format(date);
+                  };
+                  
+                  const customerDate = toEasternDate(customerCreated);
+                  const scheduledDate = toEasternDate(appointmentScheduled);
+                  
+                  // Calculate difference in calendar days
+                  const customerDateObj = new Date(customerDate + 'T00:00:00');
+                  const scheduledDateObj = new Date(scheduledDate + 'T00:00:00');
+                  const diffDays = Math.floor((scheduledDateObj.getTime() - customerDateObj.getTime()) / (1000 * 60 * 60 * 24));
+                  
+                  // Within 2 calendar days: same day (0), next day (1), or day after next (2)
+                  isWithin48Hours = diffDays >= 0 && diffDays <= 2;
                 }
               }
             }

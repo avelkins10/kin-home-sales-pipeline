@@ -50,9 +50,9 @@ export async function GET(request: NextRequest) {
         c.created_at as customer_created_at,
         CASE
           WHEN a.scheduled_at IS NOT NULL AND c.created_at IS NOT NULL THEN
-            EXTRACT(EPOCH FROM (a.scheduled_at - c.created_at)) / 3600
+            DATE((a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')) - DATE((c.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York'))
           ELSE NULL
-        END as hours_diff,
+        END as days_diff,
         (
           SELECT COUNT(*)::int
           FROM repcard_customer_attachments ca
@@ -106,8 +106,9 @@ export async function GET(request: NextRequest) {
         AND a.scheduled_at <= ${endDate}::date + INTERVAL '1 day'
         AND a.scheduled_at IS NOT NULL
         AND c.created_at IS NOT NULL
-        AND (a.scheduled_at - c.created_at) <= INTERVAL '48 hours'
-        AND (a.scheduled_at - c.created_at) >= INTERVAL '0 hours'
+        -- Within 2 calendar days: same day (0), next day (1), or day after next (2)
+        AND DATE((a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')) - DATE((c.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')) >= 0
+        AND DATE((a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')) - DATE((c.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')) <= 2
     `;
     const shouldBeTrueRow = Array.isArray(shouldBeTrue) ? shouldBeTrue[0] : (shouldBeTrue?.rows?.[0] || {});
 
@@ -129,14 +130,14 @@ export async function GET(request: NextRequest) {
         id: s.id,
         scheduledAt: s.scheduled_at,
         customerCreatedAt: s.customer_created_at,
-        hoursDiff: s.hours_diff,
+        daysDiff: s.days_diff,
         isWithin48h: s.is_within_48_hours,
         hasPowerBill: s.has_power_bill,
         customerAttCount: s.customer_att_count || 0,
         appointmentAttCount: s.appointment_att_count || 0,
-        shouldBe48h: s.hours_diff !== null && s.hours_diff >= 0 && s.hours_diff <= 48,
+        shouldBe48h: s.days_diff !== null && s.days_diff >= 0 && s.days_diff <= 2,
         shouldHavePB: (s.customer_att_count || 0) > 0 || (s.appointment_att_count || 0) > 0,
-        mismatch48h: s.is_within_48_hours !== (s.hours_diff !== null && s.hours_diff >= 0 && s.hours_diff <= 48),
+        mismatch48h: s.is_within_48_hours !== (s.days_diff !== null && s.days_diff >= 0 && s.days_diff <= 2),
         mismatchPB: s.has_power_bill !== ((s.customer_att_count || 0) > 0 || (s.appointment_att_count || 0) > 0),
       })),
       diagnosis: {
