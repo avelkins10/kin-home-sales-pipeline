@@ -561,7 +561,8 @@ export async function GET(request: NextRequest) {
           GROUP BY o.repcard_office_id, o.name, os.doors_knocked, os.appointments_set, oc.sales_closed, os.setters_count, oc.closers_count, oc.appointments_run
           HAVING COALESCE(os.doors_knocked, 0) > 0 OR COALESCE(os.appointments_set, 0) > 0 OR COALESCE(oc.sales_closed, 0) > 0
           ORDER BY sales_closed DESC, appointments_set DESC
-        `
+        `;
+      } else if (hasDateFilter && !hasOfficeFilter) {
         officesResult = await sql`
           WITH office_setters AS (
             SELECT
@@ -575,9 +576,12 @@ export async function GET(request: NextRequest) {
             FROM repcard_offices o
             LEFT JOIN repcard_users ru ON ru.office_id = o.repcard_office_id
             LEFT JOIN repcard_door_knocks dk ON dk.setter_user_id = ru.repcard_user_id
+              AND dk.door_knocked_at >= ${startDate}::timestamptz
+              AND dk.door_knocked_at <= ${endDate}::timestamptz
             LEFT JOIN repcard_appointments a ON a.setter_user_id::int = ru.repcard_user_id
               AND a.scheduled_at IS NOT NULL
-            
+              AND a.scheduled_at::date >= ${startDateParam}::date 
+              AND a.scheduled_at::date <= ${endDateParam}::date
             GROUP BY o.repcard_office_id
           ),
           office_closers AS (
@@ -590,7 +594,8 @@ export async function GET(request: NextRequest) {
             LEFT JOIN repcard_users ru ON ru.office_id = o.repcard_office_id
             LEFT JOIN repcard_appointments a ON a.closer_user_id::int = ru.repcard_user_id
               AND a.scheduled_at IS NOT NULL
-            
+              AND a.scheduled_at::date >= ${startDateParam}::date 
+              AND a.scheduled_at::date <= ${endDateParam}::date
             GROUP BY o.repcard_office_id
           )
           SELECT
@@ -615,7 +620,6 @@ export async function GET(request: NextRequest) {
           FROM repcard_offices o
           LEFT JOIN office_setters os ON os.repcard_office_id = o.repcard_office_id
           LEFT JOIN office_closers oc ON oc.repcard_office_id = o.repcard_office_id
-          
           GROUP BY o.repcard_office_id, o.name, os.doors_knocked, os.appointments_set, oc.sales_closed, os.setters_count, oc.closers_count, oc.appointments_run
           HAVING COALESCE(os.doors_knocked, 0) > 0 OR COALESCE(os.appointments_set, 0) > 0 OR COALESCE(oc.sales_closed, 0) > 0
           ORDER BY sales_closed DESC, appointments_set DESC
