@@ -61,6 +61,7 @@ export function AppointmentDetailModal({
   const createdDate = new Date(appointment.created_at);
   const [previousAppointments, setPreviousAppointments] = useState<PreviousAppointment[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   // Fetch previous appointments when modal opens
   useEffect(() => {
@@ -278,20 +279,106 @@ export function AppointmentDetailModal({
                   Has Power Bill
                 </Badge>
               )}
-              {appointment.is_reschedule && (
-                <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-                  <RotateCcw className="h-3 w-3 mr-1" />
-                  {appointment.reschedule_count 
-                    ? `Rescheduled ${appointment.reschedule_count} time${appointment.reschedule_count > 1 ? 's' : ''}`
-                    : 'Rescheduled'}
-                </Badge>
-              )}
               {appointment.is_within_48_hours && (
                 <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
                   Within 48 Hours
                 </Badge>
               )}
             </div>
+            
+            {/* Previous Appointments Dropdown */}
+            {(previousAppointments.length > 0 || loadingHistory || appointment.is_reschedule) && (
+              <div className="mt-4 pl-6">
+                <Collapsible open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
+                  <CollapsibleTrigger asChild>
+                    <button className="flex items-center gap-2 text-sm font-medium text-yellow-700 hover:text-yellow-800 transition-colors">
+                      <RotateCcw className="h-4 w-4" />
+                      {previousAppointments.length > 0 
+                        ? `View ${previousAppointments.length} Previous Appointment${previousAppointments.length > 1 ? 's' : ''}`
+                        : appointment.is_reschedule
+                          ? `Rescheduled ${appointment.reschedule_count || 1} time${(appointment.reschedule_count || 1) > 1 ? 's' : ''} - View History`
+                          : 'View Appointment History'}
+                      <ChevronDown 
+                        className={cn(
+                          "h-4 w-4 transition-transform duration-200",
+                          isHistoryOpen && "transform rotate-180"
+                        )} 
+                      />
+                    </button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="mt-3 space-y-3">
+                    {loadingHistory ? (
+                      <div className="text-sm text-muted-foreground">Loading appointment history...</div>
+                    ) : previousAppointments.length > 0 ? (
+                      previousAppointments.map((prevApt) => {
+                        const prevScheduledDate = prevApt.scheduled_at ? new Date(prevApt.scheduled_at) : null;
+                        const prevCompletedDate = prevApt.completed_at ? new Date(prevApt.completed_at) : null;
+                        const prevStatusColor = getStatusColor(prevApt.status_category);
+
+                        return (
+                          <div
+                            key={prevApt.id}
+                            className="border rounded-lg p-3 space-y-2 bg-muted/30"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1">
+                                {prevScheduledDate ? (
+                                  <div className="font-medium text-sm">
+                                    {format(prevScheduledDate, 'EEEE, MMMM d, yyyy')} at {format(prevScheduledDate, 'h:mm a')}
+                                  </div>
+                                ) : (
+                                  <div className="font-medium text-sm text-muted-foreground">Date not available</div>
+                                )}
+                                {prevCompletedDate && (
+                                  <div className="text-xs text-muted-foreground mt-0.5">
+                                    Completed: {format(prevCompletedDate, 'MMM d, yyyy')} at {format(prevCompletedDate, 'h:mm a')}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {prevApt.is_confirmed && (
+                                  <CheckCircle2 className="h-4 w-4 text-green-600" title="Confirmed" />
+                                )}
+                                {prevApt.status_category && (
+                                  <Badge className={cn("text-xs", prevStatusColor)}>
+                                    {prevApt.status_category}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                            {prevApt.disposition && prevApt.disposition !== prevApt.status_category && (
+                              <div className="text-xs">
+                                <span className="text-muted-foreground">Outcome:</span>{' '}
+                                <span className="font-medium">{prevApt.disposition}</span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                              {prevApt.closer_name && (
+                                <div>
+                                  <span className="font-medium">Closer:</span> {prevApt.closer_name}
+                                </div>
+                              )}
+                              {prevApt.setter_name && prevApt.setter_name !== 'Unassigned' && (
+                                <div>
+                                  <span className="font-medium">Setter:</span> {prevApt.setter_name}
+                                </div>
+                              )}
+                            </div>
+                            {prevApt.notes && (
+                              <div className="text-xs text-muted-foreground pt-1 border-t">
+                                <span className="font-medium">Note:</span> {prevApt.notes}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="text-sm text-muted-foreground">No previous appointments found.</div>
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
+              </div>
+            )}
           </div>
 
           {/* Attachments */}
@@ -334,100 +421,6 @@ export function AppointmentDetailModal({
             </>
           )}
 
-          {/* Previous Appointments */}
-          {previousAppointments.length > 0 && (
-            <>
-              <Separator />
-              <div>
-                <h3 className="font-semibold mb-3 flex items-center gap-2">
-                  <History className="h-4 w-4" />
-                  Previous Appointments
-                </h3>
-                <div className="pl-6 space-y-3">
-                  {previousAppointments.map((prevApt) => {
-                    const prevScheduledDate = prevApt.scheduled_at ? new Date(prevApt.scheduled_at) : null;
-                    const prevCompletedDate = prevApt.completed_at ? new Date(prevApt.completed_at) : null;
-                    const prevStatusColor = getStatusColor(prevApt.status_category);
-
-                    return (
-                      <div
-                        key={prevApt.id}
-                        className="border rounded-lg p-3 space-y-2 bg-muted/30"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1">
-                            {prevScheduledDate ? (
-                              <div className="font-medium text-sm">
-                                {format(prevScheduledDate, 'EEEE, MMMM d, yyyy')} at {format(prevScheduledDate, 'h:mm a')}
-                              </div>
-                            ) : (
-                              <div className="font-medium text-sm text-muted-foreground">Date not available</div>
-                            )}
-                            {prevCompletedDate && (
-                              <div className="text-xs text-muted-foreground mt-0.5">
-                                Completed: {format(prevCompletedDate, 'MMM d, yyyy')} at {format(prevCompletedDate, 'h:mm a')}
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {prevApt.is_confirmed && (
-                              <CheckCircle2 className="h-4 w-4 text-green-600" title="Confirmed" />
-                            )}
-                            {prevApt.status_category && (
-                              <Badge className={cn("text-xs", prevStatusColor)}>
-                                {prevApt.status_category}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                        {prevApt.disposition && prevApt.disposition !== prevApt.status_category && (
-                          <div className="text-xs">
-                            <span className="text-muted-foreground">Outcome:</span>{' '}
-                            <span className="font-medium">{prevApt.disposition}</span>
-                          </div>
-                        )}
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                          {prevApt.closer_name && (
-                            <div>
-                              <span className="font-medium">Closer:</span> {prevApt.closer_name}
-                            </div>
-                          )}
-                          {prevApt.setter_name && prevApt.setter_name !== 'Unassigned' && (
-                            <div>
-                              <span className="font-medium">Setter:</span> {prevApt.setter_name}
-                            </div>
-                          )}
-                        </div>
-                        {prevApt.notes && (
-                          <div className="text-xs text-muted-foreground pt-1 border-t">
-                            <span className="font-medium">Note:</span> {prevApt.notes}
-                          </div>
-                        )}
-                        {prevApt.is_reschedule && (
-                          <div className="text-xs">
-                            <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-                              <RotateCcw className="h-2.5 w-2.5 mr-1" />
-                              {prevApt.reschedule_count 
-                                ? `Rescheduled ${prevApt.reschedule_count} time${prevApt.reschedule_count > 1 ? 's' : ''}`
-                                : 'Rescheduled'}
-                            </Badge>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </>
-          )}
-          {loadingHistory && (
-            <>
-              <Separator />
-              <div className="pl-6">
-                <p className="text-sm text-muted-foreground">Loading appointment history...</p>
-              </div>
-            </>
-          )}
         </div>
       </DialogContent>
     </Dialog>
