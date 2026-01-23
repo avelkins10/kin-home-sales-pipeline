@@ -263,55 +263,241 @@ export async function GET(request: NextRequest) {
       }
 
       case 'users': {
-        // Build query using parameterized sql template tags
+        // Build query using separate queries for different filter combinations (like audit-logs)
+        // This avoids parameter binding issues from conditional interpolation
         const parsedRepcardUserId = actualRepcardUserId ? parseInt(actualRepcardUserId) : null;
         const parsedOfficeId = officeId ? parseInt(officeId) : null;
+        const hasUserId = !!parsedRepcardUserId;
+        const hasOfficeId = !!parsedOfficeId;
+        const hasStartDate = !!startDate;
+        const hasEndDate = !!endDate;
         
-        // Include conditions directly in query to avoid nested fragment parameter binding issues
-        const result = await sql`
-          SELECT
-            id,
-            repcard_user_id,
-            company_id,
-            office_id,
-            first_name,
-            last_name,
-            email,
-            phone,
-            username,
-            role,
-            status,
-            office_name,
-            team,
-            job_title,
-            profile_image,
-            rating,
-            bio,
-            badge_id,
-            created_at,
-            updated_at,
-            synced_at
-          FROM repcard_users
-          WHERE 1=1
-          ${parsedRepcardUserId ? sql`AND repcard_user_id = ${parsedRepcardUserId}` : ''}
-          ${parsedOfficeId ? sql`AND office_id = ${parsedOfficeId}` : ''}
-          ${startDate ? sql`AND created_at >= ${startDate}::timestamp` : ''}
-          ${endDate ? sql`AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')` : ''}
-          ORDER BY last_name, first_name
-          LIMIT ${limit}
-          OFFSET ${offset}
-        `;
+        // Build separate queries based on filter combinations
+        const result = hasUserId && hasOfficeId && hasStartDate && hasEndDate
+          ? await sql`
+              SELECT
+                id, repcard_user_id, company_id, office_id, first_name, last_name,
+                email, phone, username, role, status, office_name, team, job_title,
+                profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
+              FROM repcard_users
+              WHERE repcard_user_id = ${parsedRepcardUserId}
+                AND office_id = ${parsedOfficeId}
+                AND created_at >= ${startDate}::timestamp
+                AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')
+              ORDER BY last_name, first_name
+              LIMIT ${limit} OFFSET ${offset}
+            `
+          : hasUserId && hasOfficeId && hasStartDate
+          ? await sql`
+              SELECT
+                id, repcard_user_id, company_id, office_id, first_name, last_name,
+                email, phone, username, role, status, office_name, team, job_title,
+                profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
+              FROM repcard_users
+              WHERE repcard_user_id = ${parsedRepcardUserId}
+                AND office_id = ${parsedOfficeId}
+                AND created_at >= ${startDate}::timestamp
+              ORDER BY last_name, first_name
+              LIMIT ${limit} OFFSET ${offset}
+            `
+          : hasUserId && hasOfficeId && hasEndDate
+          ? await sql`
+              SELECT
+                id, repcard_user_id, company_id, office_id, first_name, last_name,
+                email, phone, username, role, status, office_name, team, job_title,
+                profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
+              FROM repcard_users
+              WHERE repcard_user_id = ${parsedRepcardUserId}
+                AND office_id = ${parsedOfficeId}
+                AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')
+              ORDER BY last_name, first_name
+              LIMIT ${limit} OFFSET ${offset}
+            `
+          : hasUserId && hasOfficeId
+          ? await sql`
+              SELECT
+                id, repcard_user_id, company_id, office_id, first_name, last_name,
+                email, phone, username, role, status, office_name, team, job_title,
+                profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
+              FROM repcard_users
+              WHERE repcard_user_id = ${parsedRepcardUserId}
+                AND office_id = ${parsedOfficeId}
+              ORDER BY last_name, first_name
+              LIMIT ${limit} OFFSET ${offset}
+            `
+          : hasUserId && hasStartDate && hasEndDate
+          ? await sql`
+              SELECT
+                id, repcard_user_id, company_id, office_id, first_name, last_name,
+                email, phone, username, role, status, office_name, team, job_title,
+                profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
+              FROM repcard_users
+              WHERE repcard_user_id = ${parsedRepcardUserId}
+                AND created_at >= ${startDate}::timestamp
+                AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')
+              ORDER BY last_name, first_name
+              LIMIT ${limit} OFFSET ${offset}
+            `
+          : hasUserId && hasStartDate
+          ? await sql`
+              SELECT
+                id, repcard_user_id, company_id, office_id, first_name, last_name,
+                email, phone, username, role, status, office_name, team, job_title,
+                profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
+              FROM repcard_users
+              WHERE repcard_user_id = ${parsedRepcardUserId}
+                AND created_at >= ${startDate}::timestamp
+              ORDER BY last_name, first_name
+              LIMIT ${limit} OFFSET ${offset}
+            `
+          : hasUserId && hasEndDate
+          ? await sql`
+              SELECT
+                id, repcard_user_id, company_id, office_id, first_name, last_name,
+                email, phone, username, role, status, office_name, team, job_title,
+                profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
+              FROM repcard_users
+              WHERE repcard_user_id = ${parsedRepcardUserId}
+                AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')
+              ORDER BY last_name, first_name
+              LIMIT ${limit} OFFSET ${offset}
+            `
+          : hasUserId
+          ? await sql`
+              SELECT
+                id, repcard_user_id, company_id, office_id, first_name, last_name,
+                email, phone, username, role, status, office_name, team, job_title,
+                profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
+              FROM repcard_users
+              WHERE repcard_user_id = ${parsedRepcardUserId}
+              ORDER BY last_name, first_name
+              LIMIT ${limit} OFFSET ${offset}
+            `
+          : hasOfficeId && hasStartDate && hasEndDate
+          ? await sql`
+              SELECT
+                id, repcard_user_id, company_id, office_id, first_name, last_name,
+                email, phone, username, role, status, office_name, team, job_title,
+                profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
+              FROM repcard_users
+              WHERE office_id = ${parsedOfficeId}
+                AND created_at >= ${startDate}::timestamp
+                AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')
+              ORDER BY last_name, first_name
+              LIMIT ${limit} OFFSET ${offset}
+            `
+          : hasOfficeId && hasStartDate
+          ? await sql`
+              SELECT
+                id, repcard_user_id, company_id, office_id, first_name, last_name,
+                email, phone, username, role, status, office_name, team, job_title,
+                profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
+              FROM repcard_users
+              WHERE office_id = ${parsedOfficeId}
+                AND created_at >= ${startDate}::timestamp
+              ORDER BY last_name, first_name
+              LIMIT ${limit} OFFSET ${offset}
+            `
+          : hasOfficeId && hasEndDate
+          ? await sql`
+              SELECT
+                id, repcard_user_id, company_id, office_id, first_name, last_name,
+                email, phone, username, role, status, office_name, team, job_title,
+                profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
+              FROM repcard_users
+              WHERE office_id = ${parsedOfficeId}
+                AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')
+              ORDER BY last_name, first_name
+              LIMIT ${limit} OFFSET ${offset}
+            `
+          : hasOfficeId
+          ? await sql`
+              SELECT
+                id, repcard_user_id, company_id, office_id, first_name, last_name,
+                email, phone, username, role, status, office_name, team, job_title,
+                profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
+              FROM repcard_users
+              WHERE office_id = ${parsedOfficeId}
+              ORDER BY last_name, first_name
+              LIMIT ${limit} OFFSET ${offset}
+            `
+          : hasStartDate && hasEndDate
+          ? await sql`
+              SELECT
+                id, repcard_user_id, company_id, office_id, first_name, last_name,
+                email, phone, username, role, status, office_name, team, job_title,
+                profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
+              FROM repcard_users
+              WHERE created_at >= ${startDate}::timestamp
+                AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')
+              ORDER BY last_name, first_name
+              LIMIT ${limit} OFFSET ${offset}
+            `
+          : hasStartDate
+          ? await sql`
+              SELECT
+                id, repcard_user_id, company_id, office_id, first_name, last_name,
+                email, phone, username, role, status, office_name, team, job_title,
+                profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
+              FROM repcard_users
+              WHERE created_at >= ${startDate}::timestamp
+              ORDER BY last_name, first_name
+              LIMIT ${limit} OFFSET ${offset}
+            `
+          : hasEndDate
+          ? await sql`
+              SELECT
+                id, repcard_user_id, company_id, office_id, first_name, last_name,
+                email, phone, username, role, status, office_name, team, job_title,
+                profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
+              FROM repcard_users
+              WHERE created_at <= (${endDate}::timestamp + INTERVAL '1 day')
+              ORDER BY last_name, first_name
+              LIMIT ${limit} OFFSET ${offset}
+            `
+          : await sql`
+              SELECT
+                id, repcard_user_id, company_id, office_id, first_name, last_name,
+                email, phone, username, role, status, office_name, team, job_title,
+                profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
+              FROM repcard_users
+              ORDER BY last_name, first_name
+              LIMIT ${limit} OFFSET ${offset}
+            `;
         data = Array.from(result);
 
-        // Build count query using parameterized sql template tags
-        const countResult = await sql`
-          SELECT COUNT(*) as count FROM repcard_users
-          WHERE 1=1
-          ${parsedRepcardUserId ? sql`AND repcard_user_id = ${parsedRepcardUserId}` : ''}
-          ${parsedOfficeId ? sql`AND office_id = ${parsedOfficeId}` : ''}
-          ${startDate ? sql`AND created_at >= ${startDate}::timestamp` : ''}
-          ${endDate ? sql`AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')` : ''}
-        `;
+        // Build count query using same pattern
+        const countResult = hasUserId && hasOfficeId && hasStartDate && hasEndDate
+          ? await sql`SELECT COUNT(*) as count FROM repcard_users WHERE repcard_user_id = ${parsedRepcardUserId} AND office_id = ${parsedOfficeId} AND created_at >= ${startDate}::timestamp AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')`
+          : hasUserId && hasOfficeId && hasStartDate
+          ? await sql`SELECT COUNT(*) as count FROM repcard_users WHERE repcard_user_id = ${parsedRepcardUserId} AND office_id = ${parsedOfficeId} AND created_at >= ${startDate}::timestamp`
+          : hasUserId && hasOfficeId && hasEndDate
+          ? await sql`SELECT COUNT(*) as count FROM repcard_users WHERE repcard_user_id = ${parsedRepcardUserId} AND office_id = ${parsedOfficeId} AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')`
+          : hasUserId && hasOfficeId
+          ? await sql`SELECT COUNT(*) as count FROM repcard_users WHERE repcard_user_id = ${parsedRepcardUserId} AND office_id = ${parsedOfficeId}`
+          : hasUserId && hasStartDate && hasEndDate
+          ? await sql`SELECT COUNT(*) as count FROM repcard_users WHERE repcard_user_id = ${parsedRepcardUserId} AND created_at >= ${startDate}::timestamp AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')`
+          : hasUserId && hasStartDate
+          ? await sql`SELECT COUNT(*) as count FROM repcard_users WHERE repcard_user_id = ${parsedRepcardUserId} AND created_at >= ${startDate}::timestamp`
+          : hasUserId && hasEndDate
+          ? await sql`SELECT COUNT(*) as count FROM repcard_users WHERE repcard_user_id = ${parsedRepcardUserId} AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')`
+          : hasUserId
+          ? await sql`SELECT COUNT(*) as count FROM repcard_users WHERE repcard_user_id = ${parsedRepcardUserId}`
+          : hasOfficeId && hasStartDate && hasEndDate
+          ? await sql`SELECT COUNT(*) as count FROM repcard_users WHERE office_id = ${parsedOfficeId} AND created_at >= ${startDate}::timestamp AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')`
+          : hasOfficeId && hasStartDate
+          ? await sql`SELECT COUNT(*) as count FROM repcard_users WHERE office_id = ${parsedOfficeId} AND created_at >= ${startDate}::timestamp`
+          : hasOfficeId && hasEndDate
+          ? await sql`SELECT COUNT(*) as count FROM repcard_users WHERE office_id = ${parsedOfficeId} AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')`
+          : hasOfficeId
+          ? await sql`SELECT COUNT(*) as count FROM repcard_users WHERE office_id = ${parsedOfficeId}`
+          : hasStartDate && hasEndDate
+          ? await sql`SELECT COUNT(*) as count FROM repcard_users WHERE created_at >= ${startDate}::timestamp AND created_at <= (${endDate}::timestamp + INTERVAL '1 day')`
+          : hasStartDate
+          ? await sql`SELECT COUNT(*) as count FROM repcard_users WHERE created_at >= ${startDate}::timestamp`
+          : hasEndDate
+          ? await sql`SELECT COUNT(*) as count FROM repcard_users WHERE created_at <= (${endDate}::timestamp + INTERVAL '1 day')`
+          : await sql`SELECT COUNT(*) as count FROM repcard_users`;
         total = parseInt(Array.from(countResult)[0]?.count || '0');
         break;
       }
