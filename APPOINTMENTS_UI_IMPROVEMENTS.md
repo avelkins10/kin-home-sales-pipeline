@@ -144,8 +144,15 @@ The Appointments tab serves as the central hub where:
 
 #### Navigation
 - **Calendar Navigation** - Easy date selection (today, tomorrow, next week)
-- **Filtering** - By office, team, status, date range
+- **Filtering** - By office, **team**, **calendar**, status, date range
 - **Search** - Find appointments by customer name
+
+#### Filter Requirements
+- **Team Filter**: Filter appointments by team (setter or closer's team)
+- **Calendar Filter**: Filter appointments by specific calendar
+- **Combined Filters**: Team + Calendar filters should work together
+- **Filter Persistence**: Remember filter selections (optional)
+- **Clear Filters**: Easy way to reset all filters
 
 ### 4. Mobile/Tablet Optimization
 
