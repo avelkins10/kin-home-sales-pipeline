@@ -36,11 +36,24 @@ fi
 echo "✅ Production environment variables pulled"
 echo ""
 
-# Extract DATABASE_URL from .env.production
-DATABASE_URL=$(grep "^DATABASE_URL=" .env.production | cut -d '=' -f2- | tr -d '"' | tr -d "'")
+# Prefer DATABASE_URL_UNPOOLED for migrations (better for direct connections)
+# Fall back to DATABASE_URL if unpooled is not available
+if grep -q "^DATABASE_URL_UNPOOLED=" .env.production; then
+  echo "📊 Using DATABASE_URL_UNPOOLED (recommended for migrations)"
+  DATABASE_URL=$(grep "^DATABASE_URL_UNPOOLED=" .env.production | cut -d '=' -f2-)
+elif grep -q "^DATABASE_URL=" .env.production; then
+  echo "📊 Using DATABASE_URL (pooled connection)"
+  DATABASE_URL=$(grep "^DATABASE_URL=" .env.production | cut -d '=' -f2-)
+else
+  echo "❌ Neither DATABASE_URL nor DATABASE_URL_UNPOOLED found in .env.production"
+  exit 1
+fi
+
+# Remove quotes if present
+DATABASE_URL=$(echo "$DATABASE_URL" | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
 
 if [ -z "$DATABASE_URL" ]; then
-  echo "❌ DATABASE_URL not found in .env.production"
+  echo "❌ DATABASE_URL is empty"
   exit 1
 fi
 
