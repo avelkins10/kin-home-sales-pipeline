@@ -94,8 +94,9 @@ export async function GET(request: NextRequest) {
       effectiveOfficeIds = await getAssignedOffices(userId);
     }
 
-    // Build query
-    let query = sql`
+    // Build complete query with all conditions in a single sql template tag
+    // This avoids parameter binding issues when chaining sql template tags
+    const result = await sql`
       SELECT 
         a.id,
         a.repcard_appointment_id,
@@ -150,66 +151,23 @@ export async function GET(request: NextRequest) {
       LEFT JOIN repcard_calendars cal ON cal.repcard_calendar_id = (a.raw_data->>'calendarId')::int
       LEFT JOIN repcard_teams setter_team ON setter_team.repcard_team_id = setter.team_id
       LEFT JOIN repcard_teams closer_team ON closer_team.repcard_team_id = closer.team_id
-      WHERE 1=1
+      WHERE (
+        (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${startDate}::date AND a.scheduled_at::date <= ${endDate}::date)
+        OR
+        (a.scheduled_at IS NULL AND a.created_at::date >= ${startDate}::date AND a.created_at::date <= ${endDate}::date)
+      )
+      ${userRole === 'closer' && repcardUserId ? sql`AND a.closer_user_id::text = ${repcardUserId}` : sql``}
+      ${effectiveOfficeIds && effectiveOfficeIds.length > 0 ? sql`AND a.office_id = ANY(${effectiveOfficeIds}::int[])` : sql``}
+      ${userRole !== 'super_admin' && userRole !== 'regional' && (!effectiveOfficeIds || effectiveOfficeIds.length === 0) && (!repcardUserId || userRole !== 'closer') ? sql`AND 1=0` : sql``}
+      ${teamIds && teamIds.length > 0 ? sql`AND (setter.team_id = ANY(${teamIds}::int[]) OR closer.team_id = ANY(${teamIds}::int[]))` : sql``}
+      ${calendarId ? sql`AND (a.raw_data->>'calendarId')::int = ${calendarId}` : sql``}
+      ${statusFilter ? sql`AND a.status_category = ${statusFilter}` : sql``}
+      ${hasPowerBillFilter === 'true' ? sql`AND a.has_power_bill = TRUE` : sql``}
+      ${hasPowerBillFilter === 'false' ? sql`AND (a.has_power_bill = FALSE OR a.has_power_bill IS NULL)` : sql``}
+      ${isRescheduleFilter === 'true' ? sql`AND a.is_reschedule = TRUE` : sql``}
+      ${isRescheduleFilter === 'false' ? sql`AND (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)` : sql``}
+      ORDER BY COALESCE(a.scheduled_at, a.created_at) ASC
     `;
-
-    // Date range filter
-    query = sql`${query} AND (
-      (a.scheduled_at IS NOT NULL AND a.scheduled_at::date >= ${startDate}::date AND a.scheduled_at::date <= ${endDate}::date)
-      OR
-      (a.scheduled_at IS NULL AND a.created_at::date >= ${startDate}::date AND a.created_at::date <= ${endDate}::date)
-    )`;
-
-    // Role-based filtering
-    if (userRole === 'closer' && repcardUserId) {
-      // Closers see only their own appointments
-      query = sql`${query} AND a.closer_user_id::text = ${repcardUserId}`;
-    } else if (effectiveOfficeIds && effectiveOfficeIds.length > 0) {
-      // Leaders see appointments in their assigned offices
-      // Note: We need to map QuickBase office IDs to RepCard office IDs
-      // For now, we'll filter by office_id on appointments (which is RepCard office_id)
-      // This may need adjustment if office mapping is needed
-      query = sql`${query} AND a.office_id = ANY(${effectiveOfficeIds}::int[])`;
-    } else if (userRole === 'super_admin' || userRole === 'regional') {
-      // Super admin and regional see all (no additional filter)
-    } else {
-      // Default: no appointments if no access
-      query = sql`${query} AND 1=0`;
-    }
-
-    // Team filter
-    if (teamIds && teamIds.length > 0) {
-      query = sql`${query} AND (setter.team_id = ANY(${teamIds}::int[]) OR closer.team_id = ANY(${teamIds}::int[]))`;
-    }
-
-    // Calendar filter
-    if (calendarId) {
-      query = sql`${query} AND (a.raw_data->>'calendarId')::int = ${calendarId}`;
-    }
-
-    // Status filter
-    if (statusFilter) {
-      query = sql`${query} AND a.status_category = ${statusFilter}`;
-    }
-
-    // Power bill filter
-    if (hasPowerBillFilter === 'true') {
-      query = sql`${query} AND a.has_power_bill = TRUE`;
-    } else if (hasPowerBillFilter === 'false') {
-      query = sql`${query} AND (a.has_power_bill = FALSE OR a.has_power_bill IS NULL)`;
-    }
-
-    // Reschedule filter
-    if (isRescheduleFilter === 'true') {
-      query = sql`${query} AND a.is_reschedule = TRUE`;
-    } else if (isRescheduleFilter === 'false') {
-      query = sql`${query} AND (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)`;
-    }
-
-    // Order by scheduled time
-    query = sql`${query} ORDER BY COALESCE(a.scheduled_at, a.created_at) ASC`;
-
-    const result = await query;
     const appointments = Array.from(result);
 
     const duration = Date.now() - start;
