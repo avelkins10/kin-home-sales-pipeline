@@ -121,14 +121,14 @@ export async function GET(request: NextRequest) {
                     SELECT MAX(daily_ranges.day_max) - MIN(daily_ranges.day_min)
                     FROM (
                       SELECT 
-                        DATE(dk2.door_knocked_at AT TIME ZONE 'America/New_York') as day,
+                        DATE(dk2.door_knocked_at) as day,
                         MIN(dk2.door_knocked_at) as day_min,
                         MAX(dk2.door_knocked_at) as day_max
                       FROM repcard_door_knocks dk2
                       WHERE dk2.setter_user_id = dk.setter_user_id
                         AND dk2.door_knocked_at >= ${startDate}::timestamptz
                         AND dk2.door_knocked_at <= ${endDate}::timestamptz
-                      GROUP BY DATE(dk2.door_knocked_at AT TIME ZONE 'America/New_York')
+                      GROUP BY DATE(dk2.door_knocked_at)
                     ) daily_ranges
                   )) / 3600
                 ), 0)::int as estimated_hours_on_doors

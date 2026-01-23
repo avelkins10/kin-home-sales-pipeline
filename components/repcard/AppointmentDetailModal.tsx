@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
   Clock, 
   MapPin, 
@@ -21,7 +22,8 @@ import {
   RotateCcw,
   FileText,
   History,
-  CheckCircle2
+  CheckCircle2,
+  ChevronDown
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { AppointmentData } from './AppointmentCard';
