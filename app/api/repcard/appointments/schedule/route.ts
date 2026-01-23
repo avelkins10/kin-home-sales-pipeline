@@ -534,7 +534,12 @@ export async function GET(request: NextRequest) {
           `;
           
           // Log the actual query result immediately after execution for super_admin
-          const resultRowsBeforeConversion = Array.from(result);
+          const getRows = (result: any): any[] => {
+            if (Array.isArray(result)) return result;
+            if (result?.rows && Array.isArray(result.rows)) return result.rows;
+            return Array.from(result);
+          };
+          const resultRowsBeforeConversion = getRows(result);
           logInfo('repcard-appointments-schedule-super-admin-query-result', {
             requestId,
             userRole,
@@ -687,25 +692,15 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    // Convert result to array - handle both Vercel Postgres result format and arrays
-    let appointments: any[];
-    if (Array.isArray(result)) {
-      appointments = result;
-    } else if (result && typeof result === 'object' && 'rows' in result) {
-      // Vercel Postgres returns { rows: [...] }
-      appointments = (result as any).rows || [];
-    } else if (result && typeof result === 'object' && Symbol.iterator in result) {
-      // Iterable result (like sql template tag result)
-      appointments = Array.from(result);
-    } else {
-      logError('repcard-appointments-schedule-invalid-result', new Error('Result is not in expected format'), {
-        requestId,
-        userRole,
-        resultType: typeof result,
-        resultKeys: result && typeof result === 'object' ? Object.keys(result) : []
-      });
-      appointments = [];
-    }
+    // Convert result to array using the same pattern as other routes
+    // Vercel Postgres can return results in different formats
+    const getRows = (result: any): any[] => {
+      if (Array.isArray(result)) return result;
+      if (result?.rows && Array.isArray(result.rows)) return result.rows;
+      return Array.from(result);
+    };
+    
+    const appointments = getRows(result);
 
     // Log query results for debugging
     logInfo('repcard-appointments-schedule-result', {
