@@ -76,15 +76,15 @@ export async function GET(request: NextRequest) {
     const hasPowerBillFilter = searchParams.get('hasPowerBill');
     const isRescheduleFilter = searchParams.get('isReschedule');
 
-    // Get RepCard user ID for closers
-    let repcardUserId: string | undefined;
+    // Get RepCard user ID for closers (as integer)
+    let repcardUserId: number | undefined;
     if (userRole === 'closer') {
       const userResult = await sql`
         SELECT repcard_user_id FROM users WHERE id = ${userId}
       `;
       const userRows = Array.from(userResult);
       if (userRows.length > 0 && userRows[0].repcard_user_id) {
-        repcardUserId = userRows[0].repcard_user_id.toString();
+        repcardUserId = parseInt(userRows[0].repcard_user_id) || undefined;
       }
     }
 
@@ -141,8 +141,8 @@ export async function GET(request: NextRequest) {
           (SELECT COUNT(*)::int FROM repcard_customer_attachments WHERE repcard_customer_id = a.repcard_customer_id) as customer_attachment_count,
           (SELECT COUNT(*)::int FROM repcard_appointment_attachments WHERE repcard_appointment_id = a.repcard_appointment_id) as appointment_attachment_count
         FROM repcard_appointments a
-        LEFT JOIN repcard_users setter ON setter.repcard_user_id::text = a.setter_user_id::text
-        LEFT JOIN repcard_users closer ON closer.repcard_user_id::text = a.closer_user_id::text
+        LEFT JOIN repcard_users setter ON setter.repcard_user_id = a.setter_user_id
+        LEFT JOIN repcard_users closer ON closer.repcard_user_id = a.closer_user_id
         LEFT JOIN repcard_customers c ON c.repcard_customer_id = a.repcard_customer_id
         LEFT JOIN repcard_calendars cal ON cal.repcard_calendar_id = (a.raw_data->>'calendarId')::int
         LEFT JOIN repcard_teams setter_team ON setter_team.repcard_team_id = setter.team_id
@@ -152,12 +152,12 @@ export async function GET(request: NextRequest) {
           OR
           (a.scheduled_at IS NULL AND a.created_at::date >= ${startDate}::date AND a.created_at::date <= ${endDate}::date)
         )
-        AND a.closer_user_id::text = ${repcardUserId}
-        ${teamIds && teamIds.length > 0 ? sql`AND (setter.team_id = ANY(${teamIds}::int[]) OR closer.team_id = ANY(${teamIds}::int[]))` : sql`AND 1=1`}
-        ${calendarId ? sql`AND (a.raw_data->>'calendarId')::int = ${calendarId}` : sql`AND 1=1`}
-        ${statusFilter ? sql`AND a.status_category = ${statusFilter}` : sql`AND 1=1`}
-        ${hasPowerBillFilter === 'true' ? sql`AND a.has_power_bill = TRUE` : hasPowerBillFilter === 'false' ? sql`AND (a.has_power_bill = FALSE OR a.has_power_bill IS NULL)` : sql`AND 1=1`}
-        ${isRescheduleFilter === 'true' ? sql`AND a.is_reschedule = TRUE` : isRescheduleFilter === 'false' ? sql`AND (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)` : sql`AND 1=1`}
+        AND a.closer_user_id = ${repcardUserId}
+        ${teamIds && teamIds.length > 0 ? sql`AND (setter.team_id = ANY(${teamIds}::int[]) OR closer.team_id = ANY(${teamIds}::int[]))` : sql``}
+        ${calendarId ? sql`AND (a.raw_data->>'calendarId')::int = ${calendarId}` : sql``}
+        ${statusFilter ? sql`AND a.status_category = ${statusFilter}` : sql``}
+        ${hasPowerBillFilter === 'true' ? sql`AND a.has_power_bill = TRUE` : hasPowerBillFilter === 'false' ? sql`AND (a.has_power_bill = FALSE OR a.has_power_bill IS NULL)` : sql``}
+        ${isRescheduleFilter === 'true' ? sql`AND a.is_reschedule = TRUE` : isRescheduleFilter === 'false' ? sql`AND (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)` : sql``}
         ORDER BY COALESCE(a.scheduled_at, a.created_at) ASC
       `;
     } else if (effectiveOfficeIds && effectiveOfficeIds.length > 0) {
@@ -204,8 +204,8 @@ export async function GET(request: NextRequest) {
           (SELECT COUNT(*)::int FROM repcard_customer_attachments WHERE repcard_customer_id = a.repcard_customer_id) as customer_attachment_count,
           (SELECT COUNT(*)::int FROM repcard_appointment_attachments WHERE repcard_appointment_id = a.repcard_appointment_id) as appointment_attachment_count
         FROM repcard_appointments a
-        LEFT JOIN repcard_users setter ON setter.repcard_user_id::text = a.setter_user_id::text
-        LEFT JOIN repcard_users closer ON closer.repcard_user_id::text = a.closer_user_id::text
+        LEFT JOIN repcard_users setter ON setter.repcard_user_id = a.setter_user_id
+        LEFT JOIN repcard_users closer ON closer.repcard_user_id = a.closer_user_id
         LEFT JOIN repcard_customers c ON c.repcard_customer_id = a.repcard_customer_id
         LEFT JOIN repcard_calendars cal ON cal.repcard_calendar_id = (a.raw_data->>'calendarId')::int
         LEFT JOIN repcard_teams setter_team ON setter_team.repcard_team_id = setter.team_id
@@ -216,11 +216,11 @@ export async function GET(request: NextRequest) {
           (a.scheduled_at IS NULL AND a.created_at::date >= ${startDate}::date AND a.created_at::date <= ${endDate}::date)
         )
         AND a.office_id = ANY(${effectiveOfficeIds}::int[])
-        ${teamIds && teamIds.length > 0 ? sql`AND (setter.team_id = ANY(${teamIds}::int[]) OR closer.team_id = ANY(${teamIds}::int[]))` : sql`AND 1=1`}
-        ${calendarId ? sql`AND (a.raw_data->>'calendarId')::int = ${calendarId}` : sql`AND 1=1`}
-        ${statusFilter ? sql`AND a.status_category = ${statusFilter}` : sql`AND 1=1`}
-        ${hasPowerBillFilter === 'true' ? sql`AND a.has_power_bill = TRUE` : hasPowerBillFilter === 'false' ? sql`AND (a.has_power_bill = FALSE OR a.has_power_bill IS NULL)` : sql`AND 1=1`}
-        ${isRescheduleFilter === 'true' ? sql`AND a.is_reschedule = TRUE` : isRescheduleFilter === 'false' ? sql`AND (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)` : sql`AND 1=1`}
+        ${teamIds && teamIds.length > 0 ? sql`AND (setter.team_id = ANY(${teamIds}::int[]) OR closer.team_id = ANY(${teamIds}::int[]))` : sql``}
+        ${calendarId ? sql`AND (a.raw_data->>'calendarId')::int = ${calendarId}` : sql``}
+        ${statusFilter ? sql`AND a.status_category = ${statusFilter}` : sql``}
+        ${hasPowerBillFilter === 'true' ? sql`AND a.has_power_bill = TRUE` : hasPowerBillFilter === 'false' ? sql`AND (a.has_power_bill = FALSE OR a.has_power_bill IS NULL)` : sql``}
+        ${isRescheduleFilter === 'true' ? sql`AND a.is_reschedule = TRUE` : isRescheduleFilter === 'false' ? sql`AND (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)` : sql``}
         ORDER BY COALESCE(a.scheduled_at, a.created_at) ASC
       `;
     } else if (userRole === 'super_admin' || userRole === 'regional') {
@@ -267,8 +267,8 @@ export async function GET(request: NextRequest) {
           (SELECT COUNT(*)::int FROM repcard_customer_attachments WHERE repcard_customer_id = a.repcard_customer_id) as customer_attachment_count,
           (SELECT COUNT(*)::int FROM repcard_appointment_attachments WHERE repcard_appointment_id = a.repcard_appointment_id) as appointment_attachment_count
         FROM repcard_appointments a
-        LEFT JOIN repcard_users setter ON setter.repcard_user_id::text = a.setter_user_id::text
-        LEFT JOIN repcard_users closer ON closer.repcard_user_id::text = a.closer_user_id::text
+        LEFT JOIN repcard_users setter ON setter.repcard_user_id = a.setter_user_id
+        LEFT JOIN repcard_users closer ON closer.repcard_user_id = a.closer_user_id
         LEFT JOIN repcard_customers c ON c.repcard_customer_id = a.repcard_customer_id
         LEFT JOIN repcard_calendars cal ON cal.repcard_calendar_id = (a.raw_data->>'calendarId')::int
         LEFT JOIN repcard_teams setter_team ON setter_team.repcard_team_id = setter.team_id
@@ -278,11 +278,11 @@ export async function GET(request: NextRequest) {
           OR
           (a.scheduled_at IS NULL AND a.created_at::date >= ${startDate}::date AND a.created_at::date <= ${endDate}::date)
         )
-        ${teamIds && teamIds.length > 0 ? sql`AND (setter.team_id = ANY(${teamIds}::int[]) OR closer.team_id = ANY(${teamIds}::int[]))` : sql`AND 1=1`}
-        ${calendarId ? sql`AND (a.raw_data->>'calendarId')::int = ${calendarId}` : sql`AND 1=1`}
-        ${statusFilter ? sql`AND a.status_category = ${statusFilter}` : sql`AND 1=1`}
-        ${hasPowerBillFilter === 'true' ? sql`AND a.has_power_bill = TRUE` : hasPowerBillFilter === 'false' ? sql`AND (a.has_power_bill = FALSE OR a.has_power_bill IS NULL)` : sql`AND 1=1`}
-        ${isRescheduleFilter === 'true' ? sql`AND a.is_reschedule = TRUE` : isRescheduleFilter === 'false' ? sql`AND (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)` : sql`AND 1=1`}
+        ${teamIds && teamIds.length > 0 ? sql`AND (setter.team_id = ANY(${teamIds}::int[]) OR closer.team_id = ANY(${teamIds}::int[]))` : sql``}
+        ${calendarId ? sql`AND (a.raw_data->>'calendarId')::int = ${calendarId}` : sql``}
+        ${statusFilter ? sql`AND a.status_category = ${statusFilter}` : sql``}
+        ${hasPowerBillFilter === 'true' ? sql`AND a.has_power_bill = TRUE` : hasPowerBillFilter === 'false' ? sql`AND (a.has_power_bill = FALSE OR a.has_power_bill IS NULL)` : sql``}
+        ${isRescheduleFilter === 'true' ? sql`AND a.is_reschedule = TRUE` : isRescheduleFilter === 'false' ? sql`AND (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)` : sql``}
         ORDER BY COALESCE(a.scheduled_at, a.created_at) ASC
       `;
     } else {
@@ -329,8 +329,8 @@ export async function GET(request: NextRequest) {
           (SELECT COUNT(*)::int FROM repcard_customer_attachments WHERE repcard_customer_id = a.repcard_customer_id) as customer_attachment_count,
           (SELECT COUNT(*)::int FROM repcard_appointment_attachments WHERE repcard_appointment_id = a.repcard_appointment_id) as appointment_attachment_count
         FROM repcard_appointments a
-        LEFT JOIN repcard_users setter ON setter.repcard_user_id::text = a.setter_user_id::text
-        LEFT JOIN repcard_users closer ON closer.repcard_user_id::text = a.closer_user_id::text
+        LEFT JOIN repcard_users setter ON setter.repcard_user_id = a.setter_user_id
+        LEFT JOIN repcard_users closer ON closer.repcard_user_id = a.closer_user_id
         LEFT JOIN repcard_customers c ON c.repcard_customer_id = a.repcard_customer_id
         LEFT JOIN repcard_calendars cal ON cal.repcard_calendar_id = (a.raw_data->>'calendarId')::int
         LEFT JOIN repcard_teams setter_team ON setter_team.repcard_team_id = setter.team_id
