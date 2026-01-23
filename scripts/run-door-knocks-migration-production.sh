@@ -36,16 +36,13 @@ fi
 echo "✅ Production environment variables pulled"
 echo ""
 
-# Prefer DATABASE_URL_UNPOOLED for migrations (better for direct connections)
-# Fall back to DATABASE_URL if unpooled is not available
-if grep -q "^DATABASE_URL_UNPOOLED=" .env.production; then
-  echo "📊 Using DATABASE_URL_UNPOOLED (recommended for migrations)"
-  DATABASE_URL=$(grep "^DATABASE_URL_UNPOOLED=" .env.production | cut -d '=' -f2-)
-elif grep -q "^DATABASE_URL=" .env.production; then
-  echo "📊 Using DATABASE_URL (pooled connection)"
+# Use DATABASE_URL (pooled connection) - required by Vercel Postgres client
+# The client expects a pooled connection string
+if grep -q "^DATABASE_URL=" .env.production; then
+  echo "📊 Using DATABASE_URL (pooled connection - required by Vercel Postgres)"
   DATABASE_URL=$(grep "^DATABASE_URL=" .env.production | cut -d '=' -f2-)
 else
-  echo "❌ Neither DATABASE_URL nor DATABASE_URL_UNPOOLED found in .env.production"
+  echo "❌ DATABASE_URL not found in .env.production"
   exit 1
 fi
 
