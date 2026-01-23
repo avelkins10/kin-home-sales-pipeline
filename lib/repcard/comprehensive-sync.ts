@@ -623,11 +623,44 @@ export async function syncCustomerAttachments(options: {
               LIMIT 1
             `;
             const customerRows = customerResult.rows || customerResult;
-            const customerId = customerRows.length > 0 ? customerRows[0].id : null;
+            let customerId = customerRows.length > 0 ? customerRows[0].id : null;
             
-            // Validate attribution
-            if (!customerId) {
-              console.warn(`[RepCard Sync] Customer attachment ${attachment.id} references non-existent customer ${attachment.customerId}`);
+            // If customer doesn't exist, try to fetch it from API and sync it
+            if (!customerId && attachment.customerId) {
+              try {
+                // Attempt to fetch the missing customer by ID
+                const customerResponse = await repcardClient.getCustomerById(Number(attachment.customerId));
+                if (customerResponse?.result?.data) {
+                  const customer = customerResponse.result.data;
+                  // Use the sync service to insert/update the customer
+                  const { syncCustomers } = await import('./sync-service');
+                  await syncCustomers({ 
+                    incremental: true,
+                    // Use a recent date range to limit scope
+                    startDate: customer.createdAt ? new Date(customer.createdAt).toISOString().split('T')[0] : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+                  });
+                  
+                  // Re-query to get the customer we just synced
+                  const retryResult = await sql`
+                    SELECT id FROM repcard_customers
+                    WHERE repcard_customer_id::text = ${attachment.customerId}::text
+                    LIMIT 1
+                  `;
+                  const retryRows = retryResult.rows || retryResult;
+                  if (retryRows.length > 0) {
+                    customerId = retryRows[0].id;
+                    console.log(`[RepCard Sync] Successfully synced missing customer ${attachment.customerId} for attachment ${attachment.id}`);
+                  }
+                }
+              } catch (syncError) {
+                // If sync fails, log but continue - attachment will be stored with null foreign keys
+                // This is expected if the customer was deleted in RepCard
+              }
+            }
+            
+            // Validate attribution (only warn if still missing after retry)
+            if (!customerId && attachment.customerId) {
+              console.warn(`[RepCard Sync] Customer attachment ${attachment.id} references non-existent customer ${attachment.customerId} (sync attempt failed or customer deleted)`);
             }
             if (!attachment.customerId) {
               console.warn(`[RepCard Sync] Customer attachment ${attachment.id} has no customerId in API response`);
@@ -797,15 +830,48 @@ export async function syncAppointmentAttachments(options: {
               LIMIT 1
             `;
             const appointmentRows = appointmentResult.rows || appointmentResult;
-            const appointmentId = appointmentRows.length > 0 ? appointmentRows[0].id : null;
-            const customerId = appointmentRows.length > 0 ? appointmentRows[0].customer_id : null;
-            const repcardCustomerId = appointmentRows.length > 0 ? appointmentRows[0].repcard_customer_id : null;
+            let appointmentId = appointmentRows.length > 0 ? appointmentRows[0].id : null;
+            let customerId = appointmentRows.length > 0 ? appointmentRows[0].customer_id : null;
+            let repcardCustomerId = appointmentRows.length > 0 ? appointmentRows[0].repcard_customer_id : null;
             
-            // Validate attribution
-            if (!appointmentId) {
-              console.warn(`[RepCard Sync] Appointment attachment ${attachment.id} references non-existent appointment ${attachment.appointmentId}`);
+            // If appointment doesn't exist, try to trigger a sync for it
+            // Note: We can't fetch a single appointment by ID, so we trigger a broader sync
+            if (!appointmentId && attachment.appointmentId) {
+              try {
+                // Trigger an incremental appointment sync which should pick up the missing appointment
+                // Use a recent date range to limit the scope
+                const { syncAppointments } = await import('./sync-service');
+                await syncAppointments({ 
+                  incremental: true,
+                  // Use last 30 days to catch recently created appointments
+                  fromDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+                });
+                
+                // Re-query to get the appointment we just synced
+                const retryResult = await sql`
+                  SELECT id, customer_id, repcard_customer_id
+                  FROM repcard_appointments
+                  WHERE repcard_appointment_id::text = ${attachment.appointmentId}::text
+                  LIMIT 1
+                `;
+                const retryRows = retryResult.rows || retryResult;
+                if (retryRows.length > 0) {
+                  appointmentId = retryRows[0].id;
+                  customerId = retryRows[0].customer_id;
+                  repcardCustomerId = retryRows[0].repcard_customer_id;
+                  console.log(`[RepCard Sync] Successfully synced missing appointment ${attachment.appointmentId} for attachment ${attachment.id}`);
+                }
+              } catch (syncError) {
+                // If sync fails, log but continue - attachment will be stored with null foreign keys
+                // This is expected if the appointment was deleted in RepCard
+              }
             }
-            if (!repcardCustomerId) {
+            
+            // Validate attribution (only warn if still missing after retry)
+            if (!appointmentId && attachment.appointmentId) {
+              console.warn(`[RepCard Sync] Appointment attachment ${attachment.id} references non-existent appointment ${attachment.appointmentId} (sync attempt failed or appointment deleted)`);
+            }
+            if (!repcardCustomerId && appointmentId) {
               console.warn(`[RepCard Sync] Appointment attachment ${attachment.id} has no customer_id from appointment ${attachment.appointmentId}`);
             }
             if (!attachment.appointmentId) {
