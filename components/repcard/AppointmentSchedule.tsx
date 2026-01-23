@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import { AppointmentFilters } from './AppointmentFilters';
 import { AppointmentCard, AppointmentData } from './AppointmentCard';
 import { AppointmentDetailModal } from './AppointmentDetailModal';
+import { AppointmentCalendarView } from './AppointmentCalendarView';
 import { getBaseUrl } from '@/lib/utils/baseUrl';
 
 type ViewMode = 'list' | 'day' | 'week' | 'month';
