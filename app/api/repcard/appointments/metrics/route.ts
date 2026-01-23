@@ -193,6 +193,35 @@ export async function GET(request: NextRequest) {
       `;
     } else if (userRole === 'super_admin' || userRole === 'regional') {
       queryDescription = 'super-admin-all-appointments';
+
+      logInfo('repcard-appointments-metrics-executing-query', {
+        requestId,
+        queryType: queryDescription,
+        startDate,
+        endDate,
+        note: 'About to execute aggregation query'
+      });
+
+      // Test query first - count appointments without aggregations
+      const testResult = await sql`
+        SELECT COUNT(*) as test_count
+        FROM repcard_appointments a
+        WHERE
+          a.scheduled_at IS NOT NULL
+          AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date
+          AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date
+      `;
+
+      logInfo('repcard-appointments-metrics-test-query-result', {
+        requestId,
+        testResultExists: !!testResult,
+        testResultType: typeof testResult,
+        testResultConstructor: testResult?.constructor?.name,
+        testResultKeys: testResult ? Object.keys(testResult).slice(0, 10) : null,
+        testRows: Array.from(testResult),
+        note: 'Simple COUNT query result'
+      });
+
       // Super admin/regional - see all appointments
       result = await sql`
         SELECT
@@ -215,6 +244,13 @@ export async function GET(request: NextRequest) {
           AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date
           AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date
       `;
+
+      logInfo('repcard-appointments-metrics-query-executed', {
+        requestId,
+        resultExists: !!result,
+        resultKeys: result ? Object.keys(result).slice(0, 10) : null,
+        note: 'Query executed successfully'
+      });
     } else {
       queryDescription = 'no-access-empty';
       // No access - return empty metrics
