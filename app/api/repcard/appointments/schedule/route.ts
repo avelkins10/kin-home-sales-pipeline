@@ -127,6 +127,14 @@ export async function GET(request: NextRequest) {
       sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]} ${additionalWhereParts[3]} ${additionalWhereParts[4]}`;
 
     // Log query parameters for debugging
+    // Try to inspect the sql fragment structure
+    const additionalWhereInfo = additionalWhere ? {
+      stringsCount: (additionalWhere as any).strings?.length || 0,
+      valuesCount: (additionalWhere as any).values?.length || 0,
+      hasStrings: !!(additionalWhere as any).strings,
+      hasValues: !!(additionalWhere as any).values
+    } : null;
+    
     logInfo('repcard-appointments-schedule', {
       requestId,
       userRole,
@@ -139,6 +147,7 @@ export async function GET(request: NextRequest) {
         isRescheduleFilter
       },
       additionalWherePartsCount: additionalWhereParts.length,
+      additionalWhereInfo,
       effectiveOfficeIds: effectiveOfficeIds?.length || 0,
       dateRange: { startDate, endDate }
     });
