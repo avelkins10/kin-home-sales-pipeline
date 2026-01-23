@@ -162,6 +162,8 @@ export async function GET(request: NextRequest) {
         const parsedCustomerId = customerId ? parseInt(customerId) : null;
         
         // Build WHERE conditions as array to avoid null parameter binding issues
+        // Use empty sql template tag for missing conditions (doesn't create parameters)
+        const emptySql = sql``;
         const additionalWhere: any[] = [];
         if (userIdNum) {
           additionalWhere.push(sql`AND uploaded_by_user_id = ${userIdNum}`);
@@ -191,10 +193,10 @@ export async function GET(request: NextRequest) {
             updated_at
           FROM repcard_customer_attachments
           WHERE 1=1
-          ${additionalWhere[0] || ''}
-          ${additionalWhere[1] || ''}
-          ${additionalWhere[2] || ''}
-          ${additionalWhere[3] || ''}
+          ${additionalWhere[0] || emptySql}
+          ${additionalWhere[1] || emptySql}
+          ${additionalWhere[2] || emptySql}
+          ${additionalWhere[3] || emptySql}
           ORDER BY created_at DESC
           LIMIT ${limit}
           OFFSET ${offset}
@@ -218,10 +220,10 @@ export async function GET(request: NextRequest) {
             updated_at
           FROM repcard_appointment_attachments
           WHERE 1=1
-          ${additionalWhere[0] || ''}
-          ${additionalWhere[1] || ''}
-          ${additionalWhere[2] || ''}
-          ${additionalWhere[3] || ''}
+          ${additionalWhere[0] || emptySql}
+          ${additionalWhere[1] || emptySql}
+          ${additionalWhere[2] || emptySql}
+          ${additionalWhere[3] || emptySql}
           ORDER BY created_at DESC
           LIMIT ${limit}
           OFFSET ${offset}
@@ -241,6 +243,8 @@ export async function GET(request: NextRequest) {
         const parsedOfficeId = officeId ? parseInt(officeId) : null;
         
         // Build WHERE conditions as array to avoid null parameter binding issues
+        // Use empty sql template tag for missing conditions (doesn't create parameters)
+        const emptySql = sql``;
         const additionalWhere: any[] = [];
         if (parsedRepcardUserId) {
           additionalWhere.push(sql`AND repcard_user_id = ${parsedRepcardUserId}`);
@@ -280,10 +284,10 @@ export async function GET(request: NextRequest) {
             synced_at
           FROM repcard_users
           WHERE 1=1
-          ${additionalWhere[0] || ''}
-          ${additionalWhere[1] || ''}
-          ${additionalWhere[2] || ''}
-          ${additionalWhere[3] || ''}
+          ${additionalWhere[0] || emptySql}
+          ${additionalWhere[1] || emptySql}
+          ${additionalWhere[2] || emptySql}
+          ${additionalWhere[3] || emptySql}
           ORDER BY last_name, first_name
           LIMIT ${limit}
           OFFSET ${offset}
@@ -294,10 +298,10 @@ export async function GET(request: NextRequest) {
         const countResult = await sql`
           SELECT COUNT(*) as count FROM repcard_users
           WHERE 1=1
-          ${additionalWhere[0] || ''}
-          ${additionalWhere[1] || ''}
-          ${additionalWhere[2] || ''}
-          ${additionalWhere[3] || ''}
+          ${additionalWhere[0] || emptySql}
+          ${additionalWhere[1] || emptySql}
+          ${additionalWhere[2] || emptySql}
+          ${additionalWhere[3] || emptySql}
         `;
         total = parseInt(Array.from(countResult)[0]?.count || '0');
         break;
@@ -308,6 +312,8 @@ export async function GET(request: NextRequest) {
         const parsedOfficeId = officeId ? parseInt(officeId) : null;
         
         // Build WHERE conditions as array to avoid null parameter binding issues
+        // Use empty sql template tag for missing conditions (doesn't create parameters)
+        const emptySql = sql``;
         const additionalWhere: any[] = [];
         if (parsedOfficeId) {
           additionalWhere.push(sql`AND repcard_office_id = ${parsedOfficeId}`);
@@ -328,7 +334,7 @@ export async function GET(request: NextRequest) {
             synced_at
           FROM repcard_offices
           WHERE 1=1
-          ${additionalWhere[0] || ''}
+          ${additionalWhere[0] || emptySql}
           ORDER BY name
           LIMIT ${limit}
           OFFSET ${offset}
@@ -339,7 +345,7 @@ export async function GET(request: NextRequest) {
         const countResult = await sql`
           SELECT COUNT(*) as count FROM repcard_offices
           WHERE 1=1
-          ${additionalWhere[0] || ''}
+          ${additionalWhere[0] || emptySql}
         `;
         total = parseInt(Array.from(countResult)[0]?.count || '0');
         break;
@@ -351,6 +357,8 @@ export async function GET(request: NextRequest) {
         const parsedCustomerId = customerId ? parseInt(customerId) : null;
         
         // Build WHERE conditions as array to avoid null parameter binding issues
+        // Use empty sql template tag for missing conditions (doesn't create parameters)
+        const emptySql = sql``;
         const additionalWhere: any[] = [];
         if (userIdNum) {
           additionalWhere.push(sql`AND changed_by_user_id = ${userIdNum}`);
@@ -378,10 +386,10 @@ export async function GET(request: NextRequest) {
             synced_at
           FROM repcard_status_logs
           WHERE 1=1
-          ${additionalWhere[0] || ''}
-          ${additionalWhere[1] || ''}
-          ${additionalWhere[2] || ''}
-          ${additionalWhere[3] || ''}
+          ${additionalWhere[0] || emptySql}
+          ${additionalWhere[1] || emptySql}
+          ${additionalWhere[2] || emptySql}
+          ${additionalWhere[3] || emptySql}
           ORDER BY changed_at DESC
           LIMIT ${limit}
           OFFSET ${offset}
@@ -392,10 +400,10 @@ export async function GET(request: NextRequest) {
         const countResult = await sql`
           SELECT COUNT(*) as count FROM repcard_status_logs
           WHERE 1=1
-          ${additionalWhere[0] || ''}
-          ${additionalWhere[1] || ''}
-          ${additionalWhere[2] || ''}
-          ${additionalWhere[3] || ''}
+          ${additionalWhere[0] || emptySql}
+          ${additionalWhere[1] || emptySql}
+          ${additionalWhere[2] || emptySql}
+          ${additionalWhere[3] || emptySql}
         `;
         total = parseInt(Array.from(countResult)[0]?.count || '0');
         break;

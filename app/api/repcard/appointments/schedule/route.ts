@@ -96,6 +96,8 @@ export async function GET(request: NextRequest) {
 
     // Build query based on role and filters - use separate queries to avoid parameter binding issues
     // Build WHERE conditions as array to avoid null parameter binding issues
+    // Use empty sql template tag for missing conditions (doesn't create parameters)
+    const emptySql = sql``;
     const additionalWhere: any[] = [];
     if (teamIds && teamIds.length > 0) {
       additionalWhere.push(sql`AND (setter.team_id = ANY(${teamIds}::int[]) OR closer.team_id = ANY(${teamIds}::int[]))`);
@@ -175,11 +177,11 @@ export async function GET(request: NextRequest) {
           (a.scheduled_at IS NULL AND a.created_at::date >= ${startDate}::date AND a.created_at::date <= ${endDate}::date)
         )
         AND a.closer_user_id = ${repcardUserId}
-        ${additionalWhere[0] || ''}
-        ${additionalWhere[1] || ''}
-        ${additionalWhere[2] || ''}
-        ${additionalWhere[3] || ''}
-        ${additionalWhere[4] || ''}
+        ${additionalWhere[0] || emptySql}
+        ${additionalWhere[1] || emptySql}
+        ${additionalWhere[2] || emptySql}
+        ${additionalWhere[3] || emptySql}
+        ${additionalWhere[4] || emptySql}
         ORDER BY COALESCE(a.scheduled_at, a.created_at) ASC
       `;
     } else if (effectiveOfficeIds && effectiveOfficeIds.length > 0) {
@@ -238,11 +240,11 @@ export async function GET(request: NextRequest) {
           (a.scheduled_at IS NULL AND a.created_at::date >= ${startDate}::date AND a.created_at::date <= ${endDate}::date)
         )
         AND a.office_id = ANY(${effectiveOfficeIds}::int[])
-        ${additionalWhere[0] || ''}
-        ${additionalWhere[1] || ''}
-        ${additionalWhere[2] || ''}
-        ${additionalWhere[3] || ''}
-        ${additionalWhere[4] || ''}
+        ${additionalWhere[0] || emptySql}
+        ${additionalWhere[1] || emptySql}
+        ${additionalWhere[2] || emptySql}
+        ${additionalWhere[3] || emptySql}
+        ${additionalWhere[4] || emptySql}
         ORDER BY COALESCE(a.scheduled_at, a.created_at) ASC
       `;
     } else if (userRole === 'super_admin' || userRole === 'regional') {
@@ -300,11 +302,11 @@ export async function GET(request: NextRequest) {
           OR
           (a.scheduled_at IS NULL AND a.created_at::date >= ${startDate}::date AND a.created_at::date <= ${endDate}::date)
         )
-        ${additionalWhere[0] || ''}
-        ${additionalWhere[1] || ''}
-        ${additionalWhere[2] || ''}
-        ${additionalWhere[3] || ''}
-        ${additionalWhere[4] || ''}
+        ${additionalWhere[0] || emptySql}
+        ${additionalWhere[1] || emptySql}
+        ${additionalWhere[2] || emptySql}
+        ${additionalWhere[3] || emptySql}
+        ${additionalWhere[4] || emptySql}
         ORDER BY COALESCE(a.scheduled_at, a.created_at) ASC
       `;
     } else {
