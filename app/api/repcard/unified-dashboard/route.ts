@@ -531,7 +531,7 @@ export async function GET(request: NextRequest) {
               AND c.created_at <= ${endDate}::timestamptz
           ) doors_subquery ON true
           WHERE u.repcard_user_id IS NOT NULL
-          GROUP BY u.repcard_user_id, u.name, u.role, doors_subquery.doors_knocked, doors_subquery.estimated_hours_on_doors
+          GROUP BY u.repcard_user_id, u.name, u.role, doors_subquery.doors_knocked::int, doors_subquery.estimated_hours_on_doors::int
           HAVING COUNT(DISTINCT a.id) > 0 OR doors_subquery.doors_knocked::int > 0
           ORDER BY appointments_set DESC
           LIMIT 10
@@ -579,7 +579,7 @@ export async function GET(request: NextRequest) {
             WHERE c.setter_user_id::int = u.repcard_user_id
           ) doors_subquery ON true
           WHERE u.repcard_user_id IS NOT NULL
-          GROUP BY u.repcard_user_id, u.name, u.role, doors_subquery.doors_knocked, doors_subquery.estimated_hours_on_doors
+          GROUP BY u.repcard_user_id, u.name, u.role, doors_subquery.doors_knocked::int, doors_subquery.estimated_hours_on_doors::int
           HAVING COUNT(DISTINCT a.id) > 0 OR doors_subquery.doors_knocked::int > 0
           ORDER BY appointments_set DESC
           LIMIT 50
