@@ -190,7 +190,7 @@ export async function GET(request: NextRequest) {
             SELECT 1 FROM offices o
             WHERE o.name = COALESCE(u.sales_office[1], ru.office_name)
             AND o.quickbase_office_id = ANY(${officeIds}::int[])
-          )` : sql``}
+          )` : sql`AND 1=1`}
           GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, 'No Team'), COALESCE(dks.doors_knocked, 0)::int, COALESCE(dks.estimated_hours_on_doors, 0)::int
           HAVING COUNT(DISTINCT a.id) > 0 OR COALESCE(dks.doors_knocked, 0) > 0
           ORDER BY appointments_set DESC
@@ -243,7 +243,7 @@ export async function GET(request: NextRequest) {
             SELECT 1 FROM offices o
             WHERE o.name = COALESCE(u.sales_office[1], ru.office_name)
             AND o.quickbase_office_id = ANY(${officeIds}::int[])
-          )` : sql``}
+          )` : sql`AND 1=1`}
           GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, 'No Team')
           HAVING COUNT(DISTINCT a.id) > 0 OR COUNT(DISTINCT dk.id) > 0
           ORDER BY appointments_set DESC
@@ -297,7 +297,7 @@ export async function GET(request: NextRequest) {
             SELECT 1 FROM offices o
             WHERE o.name = COALESCE(u.sales_office[1], ru.office_name)
             AND o.quickbase_office_id = ANY(${officeIds}::int[])
-          )` : sql``}
+          )` : sql`AND 1=1`}
           GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, 'No Team')
           HAVING COUNT(DISTINCT a.id) > 0
           ORDER BY sat_closed DESC
@@ -328,7 +328,7 @@ export async function GET(request: NextRequest) {
             SELECT 1 FROM offices o
             WHERE o.name = COALESCE(u.sales_office[1], ru.office_name)
             AND o.quickbase_office_id = ANY(${officeIds}::int[])
-          )` : sql``}
+          )` : sql`AND 1=1`}
           GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, 'No Team')
           HAVING COUNT(DISTINCT a.id) > 0
           ORDER BY sat_closed DESC
@@ -363,7 +363,7 @@ export async function GET(request: NextRequest) {
               AND a.scheduled_at IS NOT NULL
               AND a.scheduled_at::date >= ${startDateParam}::date 
               AND a.scheduled_at::date <= ${endDateParam}::date
-            ${hasOfficeFilter ? sql`WHERE o.repcard_office_id = ANY(${officeIds}::int[])` : sql``}
+            ${hasOfficeFilter ? sql`WHERE o.repcard_office_id = ANY(${officeIds}::int[])` : sql`AND 1=1`}
             GROUP BY o.repcard_office_id
           ),
           office_closers AS (
@@ -378,7 +378,7 @@ export async function GET(request: NextRequest) {
               AND a.scheduled_at IS NOT NULL
               AND a.scheduled_at::date >= ${startDateParam}::date 
               AND a.scheduled_at::date <= ${endDateParam}::date
-            ${hasOfficeFilter ? sql`WHERE o.repcard_office_id = ANY(${officeIds}::int[])` : sql``}
+            ${hasOfficeFilter ? sql`WHERE o.repcard_office_id = ANY(${officeIds}::int[])` : sql`AND 1=1`}
             GROUP BY o.repcard_office_id
           )
           SELECT
@@ -403,7 +403,7 @@ export async function GET(request: NextRequest) {
           FROM repcard_offices o
           LEFT JOIN office_setters os ON os.repcard_office_id = o.repcard_office_id
           LEFT JOIN office_closers oc ON oc.repcard_office_id = o.repcard_office_id
-          ${hasOfficeFilter ? sql`WHERE o.repcard_office_id = ANY(${officeIds}::int[])` : sql``}
+          ${hasOfficeFilter ? sql`WHERE o.repcard_office_id = ANY(${officeIds}::int[])` : sql`AND 1=1`}
           GROUP BY o.repcard_office_id, o.name, os.doors_knocked, os.appointments_set, oc.sales_closed, os.setters_count, oc.closers_count, oc.appointments_run
           HAVING COALESCE(os.doors_knocked, 0) > 0 OR COALESCE(os.appointments_set, 0) > 0 OR COALESCE(oc.sales_closed, 0) > 0
           ORDER BY sales_closed DESC, appointments_set DESC
@@ -423,7 +423,7 @@ export async function GET(request: NextRequest) {
             LEFT JOIN repcard_door_knocks dk ON dk.setter_user_id = ru.repcard_user_id
             LEFT JOIN repcard_appointments a ON a.setter_user_id::int = ru.repcard_user_id
               AND a.scheduled_at IS NOT NULL
-            ${hasOfficeFilter ? sql`WHERE o.repcard_office_id = ANY(${officeIds}::int[])` : sql``}
+            ${hasOfficeFilter ? sql`WHERE o.repcard_office_id = ANY(${officeIds}::int[])` : sql`AND 1=1`}
             GROUP BY o.repcard_office_id
           ),
           office_closers AS (
@@ -436,7 +436,7 @@ export async function GET(request: NextRequest) {
             LEFT JOIN repcard_users ru ON ru.office_id = o.repcard_office_id
             LEFT JOIN repcard_appointments a ON a.closer_user_id::int = ru.repcard_user_id
               AND a.scheduled_at IS NOT NULL
-            ${hasOfficeFilter ? sql`WHERE o.repcard_office_id = ANY(${officeIds}::int[])` : sql``}
+            ${hasOfficeFilter ? sql`WHERE o.repcard_office_id = ANY(${officeIds}::int[])` : sql`AND 1=1`}
             GROUP BY o.repcard_office_id
           )
           SELECT
@@ -461,7 +461,7 @@ export async function GET(request: NextRequest) {
           FROM repcard_offices o
           LEFT JOIN office_setters os ON os.repcard_office_id = o.repcard_office_id
           LEFT JOIN office_closers oc ON oc.repcard_office_id = o.repcard_office_id
-          ${hasOfficeFilter ? sql`WHERE o.repcard_office_id = ANY(${officeIds}::int[])` : sql``}
+          ${hasOfficeFilter ? sql`WHERE o.repcard_office_id = ANY(${officeIds}::int[])` : sql`AND 1=1`}
           GROUP BY o.repcard_office_id, o.name, os.doors_knocked, os.appointments_set, oc.sales_closed, os.setters_count, oc.closers_count, oc.appointments_run
           HAVING COALESCE(os.doors_knocked, 0) > 0 OR COALESCE(os.appointments_set, 0) > 0 OR COALESCE(oc.sales_closed, 0) > 0
           ORDER BY sales_closed DESC, appointments_set DESC
