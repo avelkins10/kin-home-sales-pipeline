@@ -128,8 +128,8 @@ export async function GET(request: NextRequest) {
     } else if (isRescheduleFilter === 'false') {
       additionalWhereParts.push(sql`AND (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)`);
     }
-    // Build WHERE clause by explicitly including fragments based on what exists
-    // This avoids nested sql fragments that cause parameter binding issues
+    // Build WHERE clause by conditionally including each fragment
+    // Build as a single sql template to avoid parameter binding issues
     const additionalWhere = 
       additionalWhereParts.length === 0 ? sql`` :
       additionalWhereParts.length === 1 ? additionalWhereParts[0] :

@@ -643,7 +643,9 @@ export async function GET(request: NextRequest) {
     }));
 
     // Top closers - with appointment outcomes breakdown
-    const topClosersResult = startDate && endDate
+    let topClosersResult;
+    try {
+      topClosersResult = startDate && endDate
       ? await sql`
           SELECT
             u.repcard_user_id,
