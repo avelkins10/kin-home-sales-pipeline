@@ -256,13 +256,10 @@ export function AppointmentCalendarView({
                                     {apt.disposition && ` • ${apt.disposition}`}
                                   </div>
                                 )}
-                                {(apt.closer_name || apt.setter_name) && (
-                                  <div className="text-[10px] opacity-70 mt-0.5 truncate">
-                                    {apt.closer_name && `Closer: ${apt.closer_name}`}
-                                    {apt.closer_name && apt.setter_name && ' • '}
-                                    {apt.setter_name && `Setter: ${apt.setter_name}`}
-                                  </div>
-                                )}
+                                <div className="text-[10px] opacity-70 mt-0.5 truncate">
+                                  Closer: {apt.closer_name || 'Unassigned'}
+                                  {apt.setter_name && ` • Setter: ${apt.setter_name}`}
+                                </div>
                               </div>
                               {apt.customer_address && (
                                 <div className="text-[10px] opacity-70 truncate mt-1">
@@ -422,11 +419,9 @@ export function AppointmentCalendarView({
                                   {apt.status_category}
                                 </div>
                               )}
-                              {(apt.closer_name || apt.setter_name) && (
-                                <div className="text-[9px] opacity-70 mt-0.5 truncate">
-                                  {apt.closer_name ? apt.closer_name.split(' ')[0] : apt.setter_name?.split(' ')[0]}
-                                </div>
-                              )}
+                              <div className="text-[9px] opacity-70 mt-0.5 truncate">
+                                {apt.closer_name === 'Unassigned' ? 'Unassigned' : apt.closer_name?.split(' ')[0] || 'Unassigned'}
+                              </div>
                               <div className="flex items-center gap-0.5 flex-wrap mt-1">
                                 {apt.is_confirmed && (
                                   <CheckCircle2 className="h-2.5 w-2.5 text-green-600" title="Confirmed" />
