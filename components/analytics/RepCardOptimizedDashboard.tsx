@@ -907,6 +907,7 @@ function SettersView({ data, isLoading, dateRange, startDate, endDate }: { data:
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-12"></TableHead>
+                    <TableHead>Rank</TableHead>
                     <TableHead>Team</TableHead>
                     <TableHead>Setter</TableHead>
                     <TableHead className="text-right">Doors</TableHead>
@@ -973,6 +974,18 @@ function SettersView({ data, isLoading, dateRange, startDate, endDate }: { data:
                                 <ChevronDown className="h-4 w-4 text-gray-600" />
                               )}
                             </button>
+                          </TableCell>
+                          <TableCell>
+                            <Badge 
+                              variant={idx < 3 ? 'default' : 'outline'}
+                              className={cn(
+                                idx === 0 && 'bg-yellow-500',
+                                idx === 1 && 'bg-gray-400',
+                                idx === 2 && 'bg-orange-600'
+                              )}
+                            >
+                              #{idx + 1}
+                            </Badge>
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline" className="text-xs">
@@ -1073,7 +1086,7 @@ function SettersView({ data, isLoading, dateRange, startDate, endDate }: { data:
                       </TableRow>
                       {isExpanded && (
                         <TableRow>
-                          <TableCell colSpan={11} className="bg-gray-50 p-0">
+                          <TableCell colSpan={12} className="bg-gray-50 p-0">
                             <div className="p-4">
                               {isLoadingAppts ? (
                                 <div className="flex items-center justify-center py-8">
@@ -1262,6 +1275,7 @@ function ClosersView({ data, isLoading, dateRange, startDate, endDate }: { data:
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-12"></TableHead>
+                    <TableHead>Rank</TableHead>
                     <TableHead>Team</TableHead>
                     <TableHead>Closer</TableHead>
                     <TableHead className="text-right">Appointments Run</TableHead>
@@ -1301,6 +1315,18 @@ function ClosersView({ data, isLoading, dateRange, startDate, endDate }: { data:
                                 <ChevronDown className="h-4 w-4 text-gray-600" />
                               )}
                             </button>
+                          </TableCell>
+                          <TableCell>
+                            <Badge 
+                              variant={idx < 3 ? 'default' : 'outline'}
+                              className={cn(
+                                idx === 0 && 'bg-yellow-500',
+                                idx === 1 && 'bg-gray-400',
+                                idx === 2 && 'bg-orange-600'
+                              )}
+                            >
+                              #{idx + 1}
+                            </Badge>
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline" className="text-xs">
@@ -1379,7 +1405,7 @@ function ClosersView({ data, isLoading, dateRange, startDate, endDate }: { data:
                     </TableRow>
                     {isExpanded && (
                       <TableRow>
-                        <TableCell colSpan={8} className="bg-gray-50 p-0">
+                        <TableCell colSpan={9} className="bg-gray-50 p-0">
                           <div className="p-4">
                             {isLoadingAppts ? (
                               <div className="flex items-center justify-center py-8">
