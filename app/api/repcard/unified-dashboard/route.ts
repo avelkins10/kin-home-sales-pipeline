@@ -715,6 +715,167 @@ export async function GET(request: NextRequest) {
     }));
 
     // ========================================
+    // 3.5. OFFICE SETTERS AND CLOSERS BREAKDOWN
+    // Detailed breakdown of setters and closers by office for expandable view
+    // ========================================
+    const officeSettersBreakdownResult = startDate && endDate
+      ? await sql`
+          SELECT
+            o.repcard_office_id,
+            o.name as office_name,
+            u.repcard_user_id,
+            u.name as rep_name,
+            u.role,
+            COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.is_reschedule = FALSE OR a.is_reschedule IS NULL)::int as appointments_set,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.is_within_48_hours = TRUE)::int as within_48h,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.has_power_bill = TRUE)::int as with_power_bill,
+            COALESCE((
+              SELECT SUM(EXTRACT(EPOCH FROM (day_max - day_min)) / 3600)::int
+              FROM (
+                SELECT 
+                  DATE(c2.created_at AT TIME ZONE 'America/New_York') as day,
+                  MIN(c2.created_at) as day_min,
+                  MAX(c2.created_at) as day_max
+                FROM repcard_customers c2
+                WHERE c2.setter_user_id = u.repcard_user_id::TEXT
+                  AND c2.office_id = o.repcard_office_id::TEXT
+                  AND c2.created_at >= ${startDate}::timestamptz
+                  AND c2.created_at <= ${endDate}::timestamptz
+                GROUP BY DATE(c2.created_at AT TIME ZONE 'America/New_York')
+              ) daily_ranges
+            ), 0)::int as hours_on_doors
+          FROM repcard_offices o
+          INNER JOIN repcard_customers c ON c.office_id = o.repcard_office_id::TEXT
+            AND c.created_at >= ${startDate}::timestamptz
+            AND c.created_at <= ${endDate}::timestamptz
+          INNER JOIN users u ON u.repcard_user_id::TEXT = c.setter_user_id
+            AND u.role = 'setter'
+          LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id
+            AND a.scheduled_at >= ${startDate}::timestamptz
+            AND a.scheduled_at <= ${endDate}::timestamptz
+          GROUP BY o.repcard_office_id, o.name, u.repcard_user_id, u.name, u.role
+          HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
+          ORDER BY o.repcard_office_id, doors_knocked DESC
+        `
+      : await sql`
+          SELECT
+            o.repcard_office_id,
+            o.name as office_name,
+            u.repcard_user_id,
+            u.name as rep_name,
+            u.role,
+            COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.is_reschedule = FALSE OR a.is_reschedule IS NULL)::int as appointments_set,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.is_within_48_hours = TRUE)::int as within_48h,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.has_power_bill = TRUE)::int as with_power_bill,
+            COALESCE((
+              SELECT SUM(EXTRACT(EPOCH FROM (day_max - day_min)) / 3600)::int
+              FROM (
+                SELECT 
+                  DATE(c2.created_at AT TIME ZONE 'America/New_York') as day,
+                  MIN(c2.created_at) as day_min,
+                  MAX(c2.created_at) as day_max
+                FROM repcard_customers c2
+                WHERE c2.setter_user_id = u.repcard_user_id::TEXT
+                  AND c2.office_id = o.repcard_office_id::TEXT
+                GROUP BY DATE(c2.created_at AT TIME ZONE 'America/New_York')
+              ) daily_ranges
+            ), 0)::int as hours_on_doors
+          FROM repcard_offices o
+          INNER JOIN repcard_customers c ON c.office_id = o.repcard_office_id::TEXT
+          INNER JOIN users u ON u.repcard_user_id::TEXT = c.setter_user_id
+            AND u.role = 'setter'
+          LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id
+          GROUP BY o.repcard_office_id, o.name, u.repcard_user_id, u.name, u.role
+          HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
+          ORDER BY o.repcard_office_id, doors_knocked DESC
+        `;
+    
+    const officeClosersBreakdownResult = startDate && endDate
+      ? await sql`
+          SELECT
+            o.repcard_office_id,
+            o.name as office_name,
+            u.repcard_user_id,
+            u.name as rep_name,
+            u.role,
+            COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_run,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'sat_closed')::int as sat_closed,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'sat_no_close')::int as sat_no_close,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'no_show')::int as no_show,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'cancelled')::int as cancelled,
+            CASE
+              WHEN COUNT(DISTINCT a.repcard_appointment_id) > 0 THEN
+                (COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'sat_closed')::float /
+                 COUNT(DISTINCT a.repcard_appointment_id)::float) * 100
+              ELSE 0
+            END as close_rate
+          FROM repcard_offices o
+          INNER JOIN repcard_appointments a ON a.office_id = o.repcard_office_id::TEXT
+            AND a.scheduled_at >= ${startDate}::timestamptz
+            AND a.scheduled_at <= ${endDate}::timestamptz
+          INNER JOIN users u ON u.repcard_user_id::TEXT = a.closer_user_id
+            AND u.role = 'closer'
+          GROUP BY o.repcard_office_id, o.name, u.repcard_user_id, u.name, u.role
+          HAVING COUNT(DISTINCT a.repcard_appointment_id) > 0
+          ORDER BY o.repcard_office_id, appointments_run DESC
+        `
+      : await sql`
+          SELECT
+            o.repcard_office_id,
+            o.name as office_name,
+            u.repcard_user_id,
+            u.name as rep_name,
+            u.role,
+            COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_run,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'sat_closed')::int as sat_closed,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'sat_no_close')::int as sat_no_close,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'no_show')::int as no_show,
+            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'cancelled')::int as cancelled,
+            CASE
+              WHEN COUNT(DISTINCT a.repcard_appointment_id) > 0 THEN
+                (COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'sat_closed')::float /
+                 COUNT(DISTINCT a.repcard_appointment_id)::float) * 100
+              ELSE 0
+            END as close_rate
+          FROM repcard_offices o
+          INNER JOIN repcard_appointments a ON a.office_id = o.repcard_office_id::TEXT
+          INNER JOIN users u ON u.repcard_user_id::TEXT = a.closer_user_id
+            AND u.role = 'closer'
+          GROUP BY o.repcard_office_id, o.name, u.repcard_user_id, u.name, u.role
+          HAVING COUNT(DISTINCT a.repcard_appointment_id) > 0
+          ORDER BY o.repcard_office_id, appointments_run DESC
+        `;
+    
+    const officeSettersBreakdown = getRows(officeSettersBreakdownResult).map((row: any) => ({
+      officeId: row.repcard_office_id,
+      officeName: row.office_name,
+      userId: row.repcard_user_id,
+      name: row.rep_name,
+      role: row.role,
+      doorsKnocked: row.doors_knocked,
+      appointmentsSet: row.appointments_set,
+      within48h: row.within_48h,
+      withPowerBill: row.with_power_bill,
+      hoursOnDoors: row.hours_on_doors || 0,
+    }));
+    
+    const officeClosersBreakdown = getRows(officeClosersBreakdownResult).map((row: any) => ({
+      officeId: row.repcard_office_id,
+      officeName: row.office_name,
+      userId: row.repcard_user_id,
+      name: row.rep_name,
+      role: row.role,
+      appointmentsRun: row.appointments_run,
+      satClosed: row.sat_closed,
+      satNoClose: row.sat_no_close,
+      noShow: row.no_show,
+      cancelled: row.cancelled,
+      closeRate: parseFloat(row.close_rate || '0'),
+    }));
+
+    // ========================================
     // 4. CANVASSING ACTIVITY
     // ========================================
     const canvassingResult = startDate && endDate
