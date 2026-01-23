@@ -34,12 +34,15 @@ The Appointments tab serves as the central hub where:
 - ✅ Real-time updates (30-second polling)
 
 ### What Needs Improvement
-- ⚠️ Date/time display accuracy (timezone handling)
+- ⚠️ Date/time display accuracy (timezone handling) - **FIXED**
 - ⚠️ Visual hierarchy and information density
 - ⚠️ Quick actions and status updates
 - ⚠️ Appointment outcome tracking and updates
 - ⚠️ Mobile/tablet optimization for field use
 - ⚠️ Visual indicators for appointments needing attention
+- ⚠️ **Summary metrics/statistics cards** - Show key metrics at a glance
+- ⚠️ **Team filtering** - Ensure team filter works properly with calendar filter
+- ⚠️ **Average schedule out time** - Calculate and display time from customer creation to appointment
 
 ## User Personas & Use Cases
 
@@ -162,11 +165,84 @@ The Appointments tab serves as the central hub where:
 - Smooth scrolling
 - Optimistic updates
 
+## Summary Metrics & Statistics Cards
+
+### Overview Cards (Top of Page)
+Display beautiful, informative cards at the top showing key metrics for the **filtered period** (day/week/month based on current filter):
+
+#### 1. Total Appointments Card
+- **Metric**: Total appointments scheduled in filtered period
+- **Display**: Large number with label
+- **Color**: Primary blue
+- **Icon**: Calendar icon
+- **Context**: "X appointments scheduled"
+
+#### 2. Power Bill Coverage Card
+- **Metric**: Count and percentage of appointments with power bills
+- **Display**: "X appointments (Y%) have power bills"
+- **Color**: Green if >80%, Yellow if 50-80%, Red if <50%
+- **Icon**: Paperclip/Attachment icon
+- **Context**: Shows preparation readiness
+
+#### 3. Average Schedule Out Time Card
+- **Metric**: Average time from customer creation (door knock) to appointment scheduled
+- **Display**: "X.X days average" or "X hours average" (whichever is more appropriate)
+- **Color**: Blue/Info
+- **Icon**: Clock/Timer icon
+- **Calculation**: `AVG(scheduled_at - customer.created_at)` for appointments in filtered period
+- **Context**: Shows how quickly appointments are being scheduled
+
+#### 4. Unassigned Appointments Card
+- **Metric**: Count of appointments without closer assignment
+- **Display**: "X appointments unassigned"
+- **Color**: Red (needs attention)
+- **Icon**: User/Person icon with X
+- **Context**: Critical for leaders to identify gaps
+
+#### 5. Confirmation Rate Card (Optional)
+- **Metric**: Percentage of appointments confirmed
+- **Display**: "X% confirmed (Y of Z appointments)"
+- **Color**: Green if >80%, Yellow if 50-80%, Red if <50%
+- **Icon**: CheckCircle icon
+- **Context**: Shows appointment readiness
+
+#### 6. Reschedule Count Card (Optional)
+- **Metric**: Number of rescheduled appointments
+- **Display**: "X rescheduled appointments"
+- **Color**: Yellow (attention needed)
+- **Icon**: RotateCcw icon
+- **Context**: Shows appointment stability
+
+### Card Design Requirements
+- **Layout**: Responsive grid (2-3 columns on desktop, 1-2 on tablet, 1 on mobile)
+- **Styling**: Modern card design with subtle shadows, rounded corners
+- **Icons**: Lucide icons, appropriately sized and colored
+- **Typography**: Large, readable numbers; clear labels
+- **Interactivity**: Cards can be clickable to filter by that metric (optional)
+- **Loading States**: Skeleton loaders while data is fetching
+- **Empty States**: Graceful handling when no data
+
+### Metrics Calculation
+- **Filter-Aware**: All metrics respect current filters (date range, office, team, calendar, status)
+- **Real-Time**: Update when filters change
+- **Accurate**: Use same data source as appointment list
+- **Performance**: Calculate efficiently, cache when possible
+
 ## Proposed Improvements
 
-### Phase 1: Enhanced Information Display
+### Phase 1: Enhanced Information Display & Summary Metrics
 
-#### 1.1 Appointment Cards (Calendar View)
+#### 1.1 Summary Metrics Cards (NEW - HIGH PRIORITY)
+**Current**: No summary metrics displayed
+**Improvement**: 
+- Add beautiful metric cards at top of appointments tab
+- Show total appointments, power bill coverage, average schedule out time, unassigned count
+- Cards update based on current filters (date range, office, team, calendar)
+- Modern, appealing design with icons and color coding
+- Responsive grid layout (2-3 columns desktop, 1-2 tablet, 1 mobile)
+- Clickable cards to filter by metric (optional enhancement)
+
+#### 1.2 Appointment Cards (Calendar View)
 **Current**: Basic card with customer name, time, and icons
 **Improvement**: 
 - Larger, more informative cards
@@ -258,10 +334,24 @@ The Appointments tab serves as the central hub where:
 - **Notes**: `repcard_customer_notes`
 
 ### API Endpoints
-- `GET /api/repcard/appointments/schedule` - Main appointments query
+- `GET /api/repcard/appointments/schedule` - Main appointments query (supports team and calendar filters)
 - `GET /api/repcard/appointments/[id]/history` - Previous appointments
+- `GET /api/repcard/appointments/metrics` - **NEW**: Get summary metrics for filtered period (may need to be created)
 - `POST /api/repcard/appointments/[id]/update` - Update status/outcome (may need to be created)
 - `POST /api/repcard/appointments/[id]/notes` - Add notes (may need to be created)
+
+### Metrics API Requirements
+The metrics endpoint should:
+- Accept same filter parameters as schedule endpoint (startDate, endDate, officeIds, teamIds, calendarId, status, etc.)
+- Return aggregated statistics:
+  - Total appointments count
+  - Appointments with power bills (count and percentage)
+  - Average schedule out time (in hours or days)
+  - Unassigned appointments count (closer_user_id IS NULL)
+  - Confirmation rate (count and percentage)
+  - Reschedule count (optional)
+- Calculate efficiently using SQL aggregations
+- Respect all filters applied to appointment list
 
 ### Performance Requirements
 - Initial load: <2 seconds
@@ -301,6 +391,9 @@ The Appointments tab serves as the central hub where:
 5. **Context Awareness**: Show related information (history, notes, attachments)
 6. **Error Prevention**: Clear indicators for missing information
 7. **Performance**: Fast, responsive, optimistic updates
+8. **Beautiful UI**: Modern, appealing design with proper spacing, shadows, and visual hierarchy
+9. **Accurate Metrics**: All statistics must be precise and filter-aware
+10. **At-a-Glance Insights**: Summary cards provide immediate understanding of appointment health
 
 ## Implementation Notes
 
@@ -329,12 +422,38 @@ components/repcard/
 - `components/repcard/AppointmentCalendarView.tsx` - Calendar view
 - `components/repcard/AppointmentDetailModal.tsx` - Detail modal
 
+## Implementation Priority
+
+### Phase 1 (Immediate - High Priority)
+1. **Summary Metrics Cards** - Add metric cards at top showing:
+   - Total appointments (filtered)
+   - Power bill coverage
+   - Average schedule out time
+   - Unassigned appointments
+2. **Team Filter Enhancement** - Ensure team filter works properly with calendar filter
+3. **Metrics API Endpoint** - Create endpoint to calculate summary statistics
+4. **UI Polish** - Improve visual design, spacing, and overall appeal
+
+### Phase 2 (Next)
+1. Enhanced appointment cards
+2. Quick actions (confirmation toggle, outcome updates)
+3. Improved list view
+
+### Phase 3 (Future)
+1. Advanced analytics
+2. Appointment reassignment
+3. Smart notifications
+
 ## Next Steps
 
 1. **Review & Refine**: Review this document with stakeholders
-2. **Prioritize**: Determine which improvements are Phase 1 vs Phase 2
-3. **Design**: Create mockups/wireframes for key improvements
-4. **Implement**: Start with highest-impact, lowest-effort improvements
+2. **Prioritize**: Focus on Phase 1 (summary metrics + filters)
+3. **Design**: Create mockups for metric cards and improved UI
+4. **Implement**: 
+   - Create metrics API endpoint
+   - Build summary cards component
+   - Enhance filtering (team + calendar)
+   - Polish UI/UX
 5. **Test**: User testing with actual closers and leaders
 6. **Iterate**: Gather feedback and refine
 
