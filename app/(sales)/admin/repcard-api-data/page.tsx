@@ -202,13 +202,13 @@ export default function RepCardAPIDataPage() {
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <p><strong>Option 1:</strong> Use this page to fetch and view data interactively</p>
-          <p><strong>Option 2:</strong> Use the API endpoint directly:</p>
+          <p><strong>Option 2:</strong> Use the API endpoint directly in your browser (while logged in):</p>
           <code className="block bg-muted p-2 rounded mt-2">
-            GET /api/repcard/raw-api-data?type=all&limit=5
+            /api/repcard/raw-api-data?type=all&limit=5
           </code>
-          <p className="mt-4"><strong>Option 3:</strong> Use curl in terminal:</p>
+          <p className="mt-4"><strong>Option 3:</strong> Use curl in terminal (with your session cookie):</p>
           <code className="block bg-muted p-2 rounded mt-2">
-            curl -H &quot;Cookie: your-session-cookie&quot; https://your-domain.com/api/repcard/raw-api-data?type=users&limit=5
+            curl -H &quot;Cookie: your-session-cookie&quot; https://kineticsales.app/api/repcard/raw-api-data?type=users&limit=5
           </code>
         </CardContent>
       </Card>
