@@ -218,10 +218,20 @@ export async function GET(request: NextRequest) {
           closer.team_name as closer_team_name,
           COALESCE(
             c.name,
-            TRIM((a.raw_data->'contact'->>'firstName' || '') || ' ' || (a.raw_data->'contact'->>'lastName' || '')),
-            TRIM((a.raw_data->'customer'->>'firstName' || '') || ' ' || (a.raw_data->'customer'->>'lastName' || '')),
-            a.raw_data->>'contactName',
-            a.raw_data->>'customerName',
+            NULLIF(TRIM(
+              COALESCE(a.raw_data->'contact'->>'firstName', '') || 
+              CASE WHEN a.raw_data->'contact'->>'firstName' IS NOT NULL AND a.raw_data->'contact'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
+              COALESCE(a.raw_data->'contact'->>'lastName', '')
+            ), ''),
+            NULLIF(TRIM(
+              COALESCE(a.raw_data->'customer'->>'firstName', '') || 
+              CASE WHEN a.raw_data->'customer'->>'firstName' IS NOT NULL AND a.raw_data->'customer'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
+              COALESCE(a.raw_data->'customer'->>'lastName', '')
+            ), ''),
+            NULLIF(a.raw_data->>'contactName', ''),
+            NULLIF(a.raw_data->>'customerName', ''),
+            NULLIF(a.raw_data->'contact'->>'name', ''),
+            NULLIF(a.raw_data->'customer'->>'name', ''),
             'Unknown Customer'
           ) as customer_name,
           COALESCE(c.phone, a.raw_data->'contact'->>'phone', a.raw_data->'customer'->>'phone', a.raw_data->>'phone') as customer_phone,
@@ -351,10 +361,20 @@ export async function GET(request: NextRequest) {
           closer.team_name as closer_team_name,
           COALESCE(
             c.name,
-            TRIM((a.raw_data->'contact'->>'firstName' || '') || ' ' || (a.raw_data->'contact'->>'lastName' || '')),
-            TRIM((a.raw_data->'customer'->>'firstName' || '') || ' ' || (a.raw_data->'customer'->>'lastName' || '')),
-            a.raw_data->>'contactName',
-            a.raw_data->>'customerName',
+            NULLIF(TRIM(
+              COALESCE(a.raw_data->'contact'->>'firstName', '') || 
+              CASE WHEN a.raw_data->'contact'->>'firstName' IS NOT NULL AND a.raw_data->'contact'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
+              COALESCE(a.raw_data->'contact'->>'lastName', '')
+            ), ''),
+            NULLIF(TRIM(
+              COALESCE(a.raw_data->'customer'->>'firstName', '') || 
+              CASE WHEN a.raw_data->'customer'->>'firstName' IS NOT NULL AND a.raw_data->'customer'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
+              COALESCE(a.raw_data->'customer'->>'lastName', '')
+            ), ''),
+            NULLIF(a.raw_data->>'contactName', ''),
+            NULLIF(a.raw_data->>'customerName', ''),
+            NULLIF(a.raw_data->'contact'->>'name', ''),
+            NULLIF(a.raw_data->'customer'->>'name', ''),
             'Unknown Customer'
           ) as customer_name,
           COALESCE(c.phone, a.raw_data->'contact'->>'phone', a.raw_data->'customer'->>'phone', a.raw_data->>'phone') as customer_phone,
@@ -499,10 +519,20 @@ export async function GET(request: NextRequest) {
           closer.team_name as closer_team_name,
           COALESCE(
             c.name,
-            TRIM((a.raw_data->'contact'->>'firstName' || '') || ' ' || (a.raw_data->'contact'->>'lastName' || '')),
-            TRIM((a.raw_data->'customer'->>'firstName' || '') || ' ' || (a.raw_data->'customer'->>'lastName' || '')),
-            a.raw_data->>'contactName',
-            a.raw_data->>'customerName',
+            NULLIF(TRIM(
+              COALESCE(a.raw_data->'contact'->>'firstName', '') || 
+              CASE WHEN a.raw_data->'contact'->>'firstName' IS NOT NULL AND a.raw_data->'contact'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
+              COALESCE(a.raw_data->'contact'->>'lastName', '')
+            ), ''),
+            NULLIF(TRIM(
+              COALESCE(a.raw_data->'customer'->>'firstName', '') || 
+              CASE WHEN a.raw_data->'customer'->>'firstName' IS NOT NULL AND a.raw_data->'customer'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
+              COALESCE(a.raw_data->'customer'->>'lastName', '')
+            ), ''),
+            NULLIF(a.raw_data->>'contactName', ''),
+            NULLIF(a.raw_data->>'customerName', ''),
+            NULLIF(a.raw_data->'contact'->>'name', ''),
+            NULLIF(a.raw_data->'customer'->>'name', ''),
             'Unknown Customer'
           ) as customer_name,
           COALESCE(c.phone, a.raw_data->'contact'->>'phone', a.raw_data->'customer'->>'phone', a.raw_data->>'phone') as customer_phone,
@@ -682,10 +712,20 @@ export async function GET(request: NextRequest) {
           closer.team_name as closer_team_name,
           COALESCE(
             c.name,
-            TRIM((a.raw_data->'contact'->>'firstName' || '') || ' ' || (a.raw_data->'contact'->>'lastName' || '')),
-            TRIM((a.raw_data->'customer'->>'firstName' || '') || ' ' || (a.raw_data->'customer'->>'lastName' || '')),
-            a.raw_data->>'contactName',
-            a.raw_data->>'customerName',
+            NULLIF(TRIM(
+              COALESCE(a.raw_data->'contact'->>'firstName', '') || 
+              CASE WHEN a.raw_data->'contact'->>'firstName' IS NOT NULL AND a.raw_data->'contact'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
+              COALESCE(a.raw_data->'contact'->>'lastName', '')
+            ), ''),
+            NULLIF(TRIM(
+              COALESCE(a.raw_data->'customer'->>'firstName', '') || 
+              CASE WHEN a.raw_data->'customer'->>'firstName' IS NOT NULL AND a.raw_data->'customer'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
+              COALESCE(a.raw_data->'customer'->>'lastName', '')
+            ), ''),
+            NULLIF(a.raw_data->>'contactName', ''),
+            NULLIF(a.raw_data->>'customerName', ''),
+            NULLIF(a.raw_data->'contact'->>'name', ''),
+            NULLIF(a.raw_data->'customer'->>'name', ''),
             'Unknown Customer'
           ) as customer_name,
           COALESCE(c.phone, a.raw_data->'contact'->>'phone', a.raw_data->'customer'->>'phone', a.raw_data->>'phone') as customer_phone,
