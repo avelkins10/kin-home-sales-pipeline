@@ -125,14 +125,14 @@ export async function GET(request: NextRequest) {
       qualityResult = startDate && endDate
       ? await sql`
           SELECT
-            COUNT(DISTINCT a.id)::int as total_appointments,
-            COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE)::int as within_48h,
-            COUNT(DISTINCT a.id) FILTER (WHERE a.has_power_bill = TRUE)::int as with_power_bill,
-            COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE AND a.has_power_bill = TRUE)::int as both,
-            COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = FALSE AND a.has_power_bill = FALSE)::int as neither,
-            COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = TRUE)::int as reschedules,
-            COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours IS NULL)::int as null_48h,
-            COUNT(DISTINCT a.id) FILTER (WHERE a.has_power_bill IS NULL)::int as null_pb
+            COUNT(*)::int as total_appointments,
+            COUNT(*) FILTER (WHERE is_within_48_hours = TRUE)::int as within_48h,
+            COUNT(*) FILTER (WHERE has_power_bill = TRUE)::int as with_power_bill,
+            COUNT(*) FILTER (WHERE is_within_48_hours = TRUE AND has_power_bill = TRUE)::int as both,
+            COUNT(*) FILTER (WHERE is_within_48_hours = FALSE AND has_power_bill = FALSE)::int as neither,
+            COUNT(*) FILTER (WHERE is_reschedule = TRUE)::int as reschedules,
+            COUNT(*) FILTER (WHERE is_within_48_hours IS NULL)::int as null_48h,
+            COUNT(*) FILTER (WHERE has_power_bill IS NULL)::int as null_pb
           FROM repcard_appointments a
           WHERE (
             (a.scheduled_at IS NOT NULL AND a.scheduled_at >= ${startDate}::timestamptz AND a.scheduled_at <= ${endDate}::timestamptz)
@@ -142,14 +142,14 @@ export async function GET(request: NextRequest) {
         `
       : await sql`
           SELECT
-            COUNT(DISTINCT a.id)::int as total_appointments,
-            COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE)::int as within_48h,
-            COUNT(DISTINCT a.id) FILTER (WHERE a.has_power_bill = TRUE)::int as with_power_bill,
-            COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE AND a.has_power_bill = TRUE)::int as both,
-            COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = FALSE AND a.has_power_bill = FALSE)::int as neither,
-            COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = TRUE)::int as reschedules,
-            COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours IS NULL)::int as null_48h,
-            COUNT(DISTINCT a.id) FILTER (WHERE a.has_power_bill IS NULL)::int as null_pb
+            COUNT(*)::int as total_appointments,
+            COUNT(*) FILTER (WHERE is_within_48_hours = TRUE)::int as within_48h,
+            COUNT(*) FILTER (WHERE has_power_bill = TRUE)::int as with_power_bill,
+            COUNT(*) FILTER (WHERE is_within_48_hours = TRUE AND has_power_bill = TRUE)::int as both,
+            COUNT(*) FILTER (WHERE is_within_48_hours = FALSE AND has_power_bill = FALSE)::int as neither,
+            COUNT(*) FILTER (WHERE is_reschedule = TRUE)::int as reschedules,
+            COUNT(*) FILTER (WHERE is_within_48_hours IS NULL)::int as null_48h,
+            COUNT(*) FILTER (WHERE has_power_bill IS NULL)::int as null_pb
           FROM repcard_appointments a
         `;
     } catch (error) {
@@ -286,62 +286,90 @@ export async function GET(request: NextRequest) {
     try {
       officeResult = startDate && endDate
       ? await sql`
+          WITH office_door_knocks AS (
+            SELECT 
+              office_id,
+              COUNT(DISTINCT id)::int as doors_knocked,
+              COUNT(DISTINCT setter_user_id)::int as active_reps
+            FROM repcard_door_knocks
+            WHERE door_knocked_at >= ${startDate}::timestamptz
+              AND door_knocked_at <= ${endDate}::timestamptz
+            GROUP BY office_id
+          ),
+          office_appointments AS (
+            SELECT 
+              office_id,
+              COUNT(DISTINCT repcard_appointment_id) FILTER (WHERE is_reschedule = FALSE OR is_reschedule IS NULL)::int as appointments_set,
+              COUNT(DISTINCT repcard_appointment_id) FILTER (WHERE disposition ILIKE '%closed%' AND (is_reschedule = FALSE OR is_reschedule IS NULL))::int as sales_closed,
+              COUNT(DISTINCT repcard_appointment_id)::int as total_appointments
+            FROM repcard_appointments
+            WHERE scheduled_at >= ${startDate}::timestamptz
+              AND scheduled_at <= ${endDate}::timestamptz
+            GROUP BY office_id
+          )
           SELECT
             o.repcard_office_id,
             o.name as office_name,
-            COUNT(DISTINCT dk.id)::int as doors_knocked,
-            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.is_reschedule = FALSE OR a.is_reschedule IS NULL)::int as appointments_set,
-            COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' AND (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) THEN a.repcard_appointment_id END)::int as sales_closed,
-            COUNT(DISTINCT u.repcard_user_id)::int as active_reps,
+            COALESCE(odk.doors_knocked, 0)::int as doors_knocked,
+            COALESCE(oa.appointments_set, 0)::int as appointments_set,
+            COALESCE(oa.sales_closed, 0)::int as sales_closed,
+            COALESCE(odk.active_reps, 0)::int as active_reps,
             CASE
-              WHEN COUNT(DISTINCT dk.id) > 0 THEN
-                (COUNT(DISTINCT a.repcard_appointment_id)::float / COUNT(DISTINCT dk.id)::float) * 100
+              WHEN COALESCE(odk.doors_knocked, 0) > 0 THEN
+                (COALESCE(oa.appointments_set, 0)::float / COALESCE(odk.doors_knocked, 0)::float) * 100
               ELSE 0
             END as conversion_rate,
             CASE
-              WHEN COUNT(DISTINCT a.repcard_appointment_id) > 0 THEN
-                (COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' THEN a.repcard_appointment_id END)::float /
-                 COUNT(DISTINCT a.repcard_appointment_id)::float) * 100
+              WHEN COALESCE(oa.total_appointments, 0) > 0 THEN
+                (COALESCE(oa.sales_closed, 0)::float / COALESCE(oa.total_appointments, 0)::float) * 100
               ELSE 0
             END as close_rate
           FROM repcard_offices o
-          LEFT JOIN repcard_door_knocks dk ON dk.office_id::int = o.repcard_office_id
-            AND dk.door_knocked_at >= ${startDate}::timestamptz
-            AND dk.door_knocked_at <= ${endDate}::timestamptz
-          LEFT JOIN repcard_appointments a ON a.office_id::int = o.repcard_office_id
-            AND a.scheduled_at >= ${startDate}::timestamptz
-            AND a.scheduled_at <= ${endDate}::timestamptz
-          LEFT JOIN users u ON u.repcard_user_id::text = dk.setter_user_id::text
-          GROUP BY o.repcard_office_id, o.name
-          HAVING COUNT(DISTINCT dk.id) > 0 OR COUNT(DISTINCT a.repcard_appointment_id) > 0
+          LEFT JOIN office_door_knocks odk ON odk.office_id = o.repcard_office_id
+          LEFT JOIN office_appointments oa ON oa.office_id = o.repcard_office_id
+          WHERE COALESCE(odk.doors_knocked, 0) > 0 OR COALESCE(oa.appointments_set, 0) > 0
           ORDER BY doors_knocked DESC
           LIMIT 50
         `
       : await sql`
+          WITH office_door_knocks AS (
+            SELECT 
+              office_id,
+              COUNT(DISTINCT id)::int as doors_knocked,
+              COUNT(DISTINCT setter_user_id)::int as active_reps
+            FROM repcard_door_knocks
+            GROUP BY office_id
+          ),
+          office_appointments AS (
+            SELECT 
+              office_id,
+              COUNT(DISTINCT repcard_appointment_id) FILTER (WHERE is_reschedule = FALSE OR is_reschedule IS NULL)::int as appointments_set,
+              COUNT(DISTINCT repcard_appointment_id) FILTER (WHERE disposition ILIKE '%closed%' AND (is_reschedule = FALSE OR is_reschedule IS NULL))::int as sales_closed,
+              COUNT(DISTINCT repcard_appointment_id)::int as total_appointments
+            FROM repcard_appointments
+            GROUP BY office_id
+          )
           SELECT
             o.repcard_office_id,
             o.name as office_name,
-            COUNT(DISTINCT dk.id)::int as doors_knocked,
-            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.is_reschedule = FALSE OR a.is_reschedule IS NULL)::int as appointments_set,
-            COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' AND (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) THEN a.repcard_appointment_id END)::int as sales_closed,
-            COUNT(DISTINCT u.repcard_user_id)::int as active_reps,
+            COALESCE(odk.doors_knocked, 0)::int as doors_knocked,
+            COALESCE(oa.appointments_set, 0)::int as appointments_set,
+            COALESCE(oa.sales_closed, 0)::int as sales_closed,
+            COALESCE(odk.active_reps, 0)::int as active_reps,
             CASE
-              WHEN COUNT(DISTINCT dk.id) > 0 THEN
-                (COUNT(DISTINCT a.repcard_appointment_id)::float / COUNT(DISTINCT dk.id)::float) * 100
+              WHEN COALESCE(odk.doors_knocked, 0) > 0 THEN
+                (COALESCE(oa.appointments_set, 0)::float / COALESCE(odk.doors_knocked, 0)::float) * 100
               ELSE 0
             END as conversion_rate,
             CASE
-              WHEN COUNT(DISTINCT a.repcard_appointment_id) > 0 THEN
-                (COUNT(DISTINCT CASE WHEN a.disposition ILIKE '%closed%' THEN a.repcard_appointment_id END)::float /
-                 COUNT(DISTINCT a.repcard_appointment_id)::float) * 100
+              WHEN COALESCE(oa.total_appointments, 0) > 0 THEN
+                (COALESCE(oa.sales_closed, 0)::float / COALESCE(oa.total_appointments, 0)::float) * 100
               ELSE 0
             END as close_rate
           FROM repcard_offices o
-          LEFT JOIN repcard_door_knocks dk ON dk.office_id::int = o.repcard_office_id
-          LEFT JOIN repcard_appointments a ON a.office_id::int = o.repcard_office_id
-          LEFT JOIN users u ON u.repcard_user_id::text = dk.setter_user_id::text
-          GROUP BY o.repcard_office_id, o.name
-          HAVING COUNT(DISTINCT dk.id) > 0 OR COUNT(DISTINCT a.repcard_appointment_id) > 0
+          LEFT JOIN office_door_knocks odk ON odk.office_id = o.repcard_office_id
+          LEFT JOIN office_appointments oa ON oa.office_id = o.repcard_office_id
+          WHERE COALESCE(odk.doors_knocked, 0) > 0 OR COALESCE(oa.appointments_set, 0) > 0
           ORDER BY doors_knocked DESC
           LIMIT 10
         `;
@@ -471,57 +499,83 @@ export async function GET(request: NextRequest) {
     // ========================================
 
     // Top doors knocked
-    // FIXED: Start from repcard_users to ensure all RepCard users are included
+    // OPTIMIZED: Use CTEs for better performance, avoid multiple DISTINCT operations
     let topDoorsResult;
     try {
       topDoorsResult = startDate && endDate
       ? await sql`
+          WITH door_knock_counts AS (
+            SELECT 
+              setter_user_id,
+              COUNT(DISTINCT id)::int as doors_knocked
+            FROM repcard_door_knocks
+            WHERE door_knocked_at >= ${startDate}::timestamptz
+              AND door_knocked_at <= ${endDate}::timestamptz
+            GROUP BY setter_user_id
+          ),
+          appointment_counts AS (
+            SELECT 
+              setter_user_id::int as setter_user_id,
+              COUNT(DISTINCT repcard_appointment_id)::int as appointments_set
+            FROM repcard_appointments
+            WHERE scheduled_at >= ${startDate}::timestamptz
+              AND scheduled_at <= ${endDate}::timestamptz
+            GROUP BY setter_user_id::int
+          )
           SELECT
             ru.repcard_user_id,
             COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as name,
             COALESCE(u.role, ru.role) as role,
             COALESCE(ru.team, 'No Team') as team,
-            COUNT(DISTINCT dk.id)::int as doors_knocked,
-            COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_set,
+            COALESCE(dkc.doors_knocked, 0)::int as doors_knocked,
+            COALESCE(ac.appointments_set, 0)::int as appointments_set,
             CASE
-              WHEN COUNT(DISTINCT dk.id) > 0 THEN
-                (COUNT(DISTINCT a.repcard_appointment_id)::float / COUNT(DISTINCT dk.id)::float) * 100
+              WHEN COALESCE(dkc.doors_knocked, 0) > 0 THEN
+                (COALESCE(ac.appointments_set, 0)::float / COALESCE(dkc.doors_knocked, 0)::float) * 100
               ELSE 0
             END as conversion_rate
           FROM repcard_users ru
           LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
-          LEFT JOIN repcard_door_knocks dk ON dk.setter_user_id::int = ru.repcard_user_id
-            AND dk.door_knocked_at >= ${startDate}::timestamptz
-            AND dk.door_knocked_at <= ${endDate}::timestamptz
-          LEFT JOIN repcard_appointments a ON a.setter_user_id::int = ru.repcard_user_id
-            AND a.scheduled_at >= ${startDate}::timestamptz
-            AND a.scheduled_at <= ${endDate}::timestamptz
+          LEFT JOIN door_knock_counts dkc ON dkc.setter_user_id = ru.repcard_user_id
+          LEFT JOIN appointment_counts ac ON ac.setter_user_id = ru.repcard_user_id
           WHERE ru.status = 1 AND (ru.role = 'setter' OR ru.role IS NULL)
-          GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, 'No Team')
-          HAVING COUNT(DISTINCT dk.id) > 0 OR COUNT(DISTINCT a.repcard_appointment_id) > 0
+            AND (COALESCE(dkc.doors_knocked, 0) > 0 OR COALESCE(ac.appointments_set, 0) > 0)
           ORDER BY doors_knocked DESC
           LIMIT 10
         `
       : await sql`
+          WITH door_knock_counts AS (
+            SELECT 
+              setter_user_id,
+              COUNT(DISTINCT id)::int as doors_knocked
+            FROM repcard_door_knocks
+            GROUP BY setter_user_id
+          ),
+          appointment_counts AS (
+            SELECT 
+              setter_user_id::int as setter_user_id,
+              COUNT(DISTINCT repcard_appointment_id)::int as appointments_set
+            FROM repcard_appointments
+            GROUP BY setter_user_id::int
+          )
           SELECT
             ru.repcard_user_id,
             COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as name,
             COALESCE(u.role, ru.role) as role,
             COALESCE(ru.team, 'No Team') as team,
-            COUNT(DISTINCT dk.id)::int as doors_knocked,
-            COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_set,
+            COALESCE(dkc.doors_knocked, 0)::int as doors_knocked,
+            COALESCE(ac.appointments_set, 0)::int as appointments_set,
             CASE
-              WHEN COUNT(DISTINCT dk.id) > 0 THEN
-                (COUNT(DISTINCT a.repcard_appointment_id)::float / COUNT(DISTINCT dk.id)::float) * 100
+              WHEN COALESCE(dkc.doors_knocked, 0) > 0 THEN
+                (COALESCE(ac.appointments_set, 0)::float / COALESCE(dkc.doors_knocked, 0)::float) * 100
               ELSE 0
             END as conversion_rate
           FROM repcard_users ru
           LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
-          LEFT JOIN repcard_door_knocks dk ON dk.setter_user_id::int = ru.repcard_user_id
-          LEFT JOIN repcard_appointments a ON a.setter_user_id::int = ru.repcard_user_id
+          LEFT JOIN door_knock_counts dkc ON dkc.setter_user_id = ru.repcard_user_id
+          LEFT JOIN appointment_counts ac ON ac.setter_user_id = ru.repcard_user_id
           WHERE ru.status = 1 AND (ru.role = 'setter' OR ru.role IS NULL)
-          GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, 'No Team')
-          HAVING COUNT(DISTINCT dk.id) > 0 OR COUNT(DISTINCT a.repcard_appointment_id) > 0
+            AND (COALESCE(dkc.doors_knocked, 0) > 0 OR COALESCE(ac.appointments_set, 0) > 0)
           ORDER BY doors_knocked DESC
           LIMIT 50
         `;
@@ -550,6 +604,30 @@ export async function GET(request: NextRequest) {
     try {
       topAppointmentSettersResult = startDate && endDate
       ? await sql`
+          WITH door_knock_stats AS (
+            -- Pre-calculate door knocks and hours per setter (more efficient than LATERAL)
+            SELECT
+              dk.setter_user_id,
+              COUNT(DISTINCT dk.id)::int as doors_knocked,
+              COALESCE((
+                SELECT SUM(EXTRACT(EPOCH FROM (day_max - day_min)) / 3600)::int
+                FROM (
+                  SELECT 
+                    DATE(dk2.door_knocked_at AT TIME ZONE 'America/New_York') as day,
+                    MIN(dk2.door_knocked_at) as day_min,
+                    MAX(dk2.door_knocked_at) as day_max
+                  FROM repcard_door_knocks dk2
+                  WHERE dk2.setter_user_id = dk.setter_user_id
+                    AND dk2.door_knocked_at >= ${startDate}::timestamptz
+                    AND dk2.door_knocked_at <= ${endDate}::timestamptz
+                  GROUP BY DATE(dk2.door_knocked_at AT TIME ZONE 'America/New_York')
+                ) daily_ranges
+              ), 0)::int as estimated_hours_on_doors
+            FROM repcard_door_knocks dk
+            WHERE dk.door_knocked_at >= ${startDate}::timestamptz
+              AND dk.door_knocked_at <= ${endDate}::timestamptz
+            GROUP BY dk.setter_user_id
+          )
           SELECT
             ru.repcard_user_id,
             COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as name,
@@ -562,13 +640,13 @@ export async function GET(request: NextRequest) {
             COUNT(DISTINCT a.id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.has_power_bill = TRUE)::int as with_power_bill_count,
             COUNT(DISTINCT a.id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.is_within_48_hours = TRUE AND a.has_power_bill = TRUE)::int as both_count,
             COUNT(DISTINCT a.id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.is_within_48_hours = FALSE AND a.has_power_bill = FALSE)::int as neither_count,
-            -- Doors knocked: all customers created by this setter in date range (regardless of appointments)
-            COALESCE(doors_subquery.doors_knocked::int, 0)::int as doors_knocked,
-            -- Hours on doors: sum of (last door knocked - first door knocked) for each day
-            COALESCE(doors_subquery.estimated_hours_on_doors::int, 0)::int as estimated_hours_on_doors,
+            -- Doors knocked from pre-calculated CTE
+            COALESCE(dks.doors_knocked, 0)::int as doors_knocked,
+            -- Hours on doors from pre-calculated CTE
+            COALESCE(dks.estimated_hours_on_doors, 0)::int as estimated_hours_on_doors,
             CASE
-              WHEN COALESCE(doors_subquery.doors_knocked::int, 0) > 0 THEN
-                (COUNT(DISTINCT a.id)::float / COALESCE(doors_subquery.doors_knocked::int, 0)::float) * 100
+              WHEN COALESCE(dks.doors_knocked, 0) > 0 THEN
+                (COUNT(DISTINCT a.id)::float / COALESCE(dks.doors_knocked, 0)::float) * 100
               ELSE 0
             END as conversion_rate
           FROM repcard_users ru
@@ -577,11 +655,20 @@ export async function GET(request: NextRequest) {
           LEFT JOIN repcard_appointments a ON a.setter_user_id::int = ru.repcard_user_id
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
-          -- Doors knocked: subquery to count door knocks from door_knocks table
-          LEFT JOIN LATERAL (
+          -- Door knock stats from CTE (more efficient than LATERAL)
+          LEFT JOIN door_knock_stats dks ON dks.setter_user_id = ru.repcard_user_id
+          WHERE ru.status = 1 AND (ru.role = 'setter' OR ru.role IS NULL)
+          GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, 'No Team'), COALESCE(dks.doors_knocked, 0)::int, COALESCE(dks.estimated_hours_on_doors, 0)::int
+          HAVING COUNT(DISTINCT a.id) > 0 OR COALESCE(dks.doors_knocked, 0) > 0
+          ORDER BY appointments_set DESC
+          LIMIT 10
+        `
+      : await sql`
+          WITH door_knock_stats AS (
+            -- Pre-calculate door knocks and hours per setter (more efficient than LATERAL)
             SELECT
+              dk.setter_user_id,
               COUNT(DISTINCT dk.id)::int as doors_knocked,
-              -- Hours on doors: sum of (last door knocked - first door knocked) for each day
               COALESCE((
                 SELECT SUM(EXTRACT(EPOCH FROM (day_max - day_min)) / 3600)::int
                 FROM (
@@ -590,24 +677,13 @@ export async function GET(request: NextRequest) {
                     MIN(dk2.door_knocked_at) as day_min,
                     MAX(dk2.door_knocked_at) as day_max
                   FROM repcard_door_knocks dk2
-                  WHERE dk2.setter_user_id::int = ru.repcard_user_id
-                    AND dk2.door_knocked_at >= ${startDate}::timestamptz
-                    AND dk2.door_knocked_at <= ${endDate}::timestamptz
+                  WHERE dk2.setter_user_id = dk.setter_user_id
                   GROUP BY DATE(dk2.door_knocked_at AT TIME ZONE 'America/New_York')
                 ) daily_ranges
               ), 0)::int as estimated_hours_on_doors
             FROM repcard_door_knocks dk
-            WHERE dk.setter_user_id::int = ru.repcard_user_id
-              AND dk.door_knocked_at >= ${startDate}::timestamptz
-              AND dk.door_knocked_at <= ${endDate}::timestamptz
-          ) doors_subquery ON true
-          WHERE ru.status = 1 AND (ru.role = 'setter' OR ru.role IS NULL)
-          GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, 'No Team'), COALESCE(doors_subquery.doors_knocked::int, 0)::int, COALESCE(doors_subquery.estimated_hours_on_doors::int, 0)::int
-          HAVING COUNT(DISTINCT a.id) > 0 OR COALESCE(doors_subquery.doors_knocked::int, 0) > 0
-          ORDER BY appointments_set DESC
-          LIMIT 10
-        `
-      : await sql`
+            GROUP BY dk.setter_user_id
+          )
           SELECT
             ru.repcard_user_id,
             COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as name,
@@ -618,42 +694,24 @@ export async function GET(request: NextRequest) {
             COUNT(DISTINCT a.id) FILTER (WHERE a.has_power_bill = TRUE)::int as with_power_bill_count,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = TRUE AND a.has_power_bill = TRUE)::int as both_count,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_within_48_hours = FALSE AND a.has_power_bill = FALSE)::int as neither_count,
-            -- Doors knocked: all customers created by this setter (regardless of appointments)
-            COALESCE(doors_subquery.doors_knocked::int, 0)::int as doors_knocked,
-            -- Hours on doors: sum of (last door knocked - first door knocked) for each day
-            COALESCE(doors_subquery.estimated_hours_on_doors::int, 0)::int as estimated_hours_on_doors,
+            -- Doors knocked from pre-calculated CTE
+            COALESCE(dks.doors_knocked, 0)::int as doors_knocked,
+            -- Hours on doors from pre-calculated CTE
+            COALESCE(dks.estimated_hours_on_doors, 0)::int as estimated_hours_on_doors,
             CASE
-              WHEN COALESCE(doors_subquery.doors_knocked::int, 0) > 0 THEN
-                (COUNT(DISTINCT a.id)::float / COALESCE(doors_subquery.doors_knocked::int, 0)::float) * 100
+              WHEN COALESCE(dks.doors_knocked, 0) > 0 THEN
+                (COUNT(DISTINCT a.id)::float / COALESCE(dks.doors_knocked, 0)::float) * 100
               ELSE 0
             END as conversion_rate
           FROM repcard_users ru
           LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
           -- Appointments set by this user
           LEFT JOIN repcard_appointments a ON a.setter_user_id::int = ru.repcard_user_id
-          -- Doors knocked: subquery to count door knocks from door_knocks table
-          LEFT JOIN LATERAL (
-            SELECT
-              COUNT(DISTINCT dk.id)::int as doors_knocked,
-              -- Hours on doors: sum of (last door knocked - first door knocked) for each day
-              COALESCE((
-                SELECT SUM(EXTRACT(EPOCH FROM (day_max - day_min)) / 3600)::int
-                FROM (
-                  SELECT 
-                    DATE(dk2.door_knocked_at AT TIME ZONE 'America/New_York') as day,
-                    MIN(dk2.door_knocked_at) as day_min,
-                    MAX(dk2.door_knocked_at) as day_max
-                  FROM repcard_door_knocks dk2
-                  WHERE dk2.setter_user_id::int = ru.repcard_user_id
-                  GROUP BY DATE(dk2.door_knocked_at AT TIME ZONE 'America/New_York')
-                ) daily_ranges
-              ), 0)::int as estimated_hours_on_doors
-            FROM repcard_door_knocks dk
-            WHERE dk.setter_user_id::int = ru.repcard_user_id
-          ) doors_subquery ON true
+          -- Door knock stats from CTE (more efficient than LATERAL)
+          LEFT JOIN door_knock_stats dks ON dks.setter_user_id = ru.repcard_user_id
           WHERE ru.status = 1 AND (ru.role = 'setter' OR ru.role IS NULL)
-          GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, 'No Team'), COALESCE(doors_subquery.doors_knocked::int, 0)::int, COALESCE(doors_subquery.estimated_hours_on_doors::int, 0)::int
-          HAVING COUNT(DISTINCT a.id) > 0 OR COALESCE(doors_subquery.doors_knocked::int, 0) > 0
+          GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, 'No Team'), COALESCE(dks.doors_knocked, 0)::int, COALESCE(dks.estimated_hours_on_doors, 0)::int
+          HAVING COUNT(DISTINCT a.id) > 0 OR COALESCE(dks.doors_knocked, 0) > 0
           ORDER BY appointments_set DESC
           LIMIT 50
         `;
@@ -688,62 +746,88 @@ export async function GET(request: NextRequest) {
     try {
       topClosersResult = startDate && endDate
       ? await sql`
+          WITH closer_appointment_stats AS (
+            SELECT
+              closer_user_id::int as closer_user_id,
+              COUNT(DISTINCT repcard_appointment_id)::int as appointments_run,
+              COUNT(DISTINCT repcard_appointment_id) FILTER (WHERE status_category = 'sat_closed')::int as sat_closed,
+              COUNT(DISTINCT repcard_appointment_id) FILTER (WHERE status_category = 'sat_no_close')::int as sat_no_close,
+              COUNT(DISTINCT repcard_appointment_id) FILTER (WHERE status_category = 'no_show')::int as no_show,
+              COUNT(DISTINCT repcard_appointment_id) FILTER (WHERE status_category = 'cancelled')::int as cancelled,
+              COUNT(DISTINCT repcard_appointment_id) FILTER (WHERE status_category = 'rescheduled')::int as rescheduled,
+              COUNT(DISTINCT repcard_appointment_id) FILTER (WHERE status_category = 'completed')::int as completed,
+              COUNT(DISTINCT repcard_appointment_id) FILTER (WHERE status_category IN ('sat_closed', 'sat_no_close', 'completed'))::int as appointments_sat
+            FROM repcard_appointments
+            WHERE closer_user_id IS NOT NULL
+              AND scheduled_at >= ${startDate}::timestamptz
+              AND scheduled_at <= ${endDate}::timestamptz
+            GROUP BY closer_user_id::int
+          )
           SELECT
             ru.repcard_user_id,
             COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as name,
             COALESCE(u.role, ru.role) as role,
             COALESCE(ru.team, 'No Team') as team,
-            COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_run,
-            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'sat_closed')::int as sat_closed,
-            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'sat_no_close')::int as sat_no_close,
-            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'no_show')::int as no_show,
-            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'cancelled')::int as cancelled,
-            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'rescheduled')::int as rescheduled,
-            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'completed')::int as completed,
-            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category IN ('sat_closed', 'sat_no_close', 'completed'))::int as appointments_sat,
+            COALESCE(cas.appointments_run, 0)::int as appointments_run,
+            COALESCE(cas.sat_closed, 0)::int as sat_closed,
+            COALESCE(cas.sat_no_close, 0)::int as sat_no_close,
+            COALESCE(cas.no_show, 0)::int as no_show,
+            COALESCE(cas.cancelled, 0)::int as cancelled,
+            COALESCE(cas.rescheduled, 0)::int as rescheduled,
+            COALESCE(cas.completed, 0)::int as completed,
+            COALESCE(cas.appointments_sat, 0)::int as appointments_sat,
             CASE
-              WHEN COUNT(DISTINCT a.repcard_appointment_id) > 0 THEN
-                (COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'sat_closed')::float /
-                 COUNT(DISTINCT a.repcard_appointment_id)::float) * 100
+              WHEN COALESCE(cas.appointments_run, 0) > 0 THEN
+                (COALESCE(cas.sat_closed, 0)::float / COALESCE(cas.appointments_run, 0)::float) * 100
               ELSE 0
             END as close_rate
           FROM repcard_users ru
           LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
-          LEFT JOIN repcard_appointments a ON a.closer_user_id::int = ru.repcard_user_id
-            AND a.scheduled_at >= ${startDate}::timestamptz
-            AND a.scheduled_at <= ${endDate}::timestamptz
+          LEFT JOIN closer_appointment_stats cas ON cas.closer_user_id = ru.repcard_user_id
           WHERE ru.status = 1 AND (ru.role = 'closer' OR ru.role IS NULL)
-          GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, 'No Team')
-          HAVING COUNT(DISTINCT a.repcard_appointment_id) > 0
+            AND COALESCE(cas.appointments_run, 0) > 0
           ORDER BY appointments_run DESC
           LIMIT 10
         `
       : await sql`
+          WITH closer_appointment_stats AS (
+            SELECT
+              closer_user_id::int as closer_user_id,
+              COUNT(DISTINCT repcard_appointment_id)::int as appointments_run,
+              COUNT(DISTINCT repcard_appointment_id) FILTER (WHERE status_category = 'sat_closed')::int as sat_closed,
+              COUNT(DISTINCT repcard_appointment_id) FILTER (WHERE status_category = 'sat_no_close')::int as sat_no_close,
+              COUNT(DISTINCT repcard_appointment_id) FILTER (WHERE status_category = 'no_show')::int as no_show,
+              COUNT(DISTINCT repcard_appointment_id) FILTER (WHERE status_category = 'cancelled')::int as cancelled,
+              COUNT(DISTINCT repcard_appointment_id) FILTER (WHERE status_category = 'rescheduled')::int as rescheduled,
+              COUNT(DISTINCT repcard_appointment_id) FILTER (WHERE status_category = 'completed')::int as completed,
+              COUNT(DISTINCT repcard_appointment_id) FILTER (WHERE status_category IN ('sat_closed', 'sat_no_close', 'completed'))::int as appointments_sat
+            FROM repcard_appointments
+            WHERE closer_user_id IS NOT NULL
+            GROUP BY closer_user_id::int
+          )
           SELECT
             ru.repcard_user_id,
             COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)) as name,
             COALESCE(u.role, ru.role) as role,
             COALESCE(ru.team, 'No Team') as team,
-            COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_run,
-            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'sat_closed')::int as sat_closed,
-            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'sat_no_close')::int as sat_no_close,
-            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'no_show')::int as no_show,
-            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'cancelled')::int as cancelled,
-            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'rescheduled')::int as rescheduled,
-            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'completed')::int as completed,
-            COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category IN ('sat_closed', 'sat_no_close', 'completed'))::int as appointments_sat,
+            COALESCE(cas.appointments_run, 0)::int as appointments_run,
+            COALESCE(cas.sat_closed, 0)::int as sat_closed,
+            COALESCE(cas.sat_no_close, 0)::int as sat_no_close,
+            COALESCE(cas.no_show, 0)::int as no_show,
+            COALESCE(cas.cancelled, 0)::int as cancelled,
+            COALESCE(cas.rescheduled, 0)::int as rescheduled,
+            COALESCE(cas.completed, 0)::int as completed,
+            COALESCE(cas.appointments_sat, 0)::int as appointments_sat,
             CASE
-              WHEN COUNT(DISTINCT a.repcard_appointment_id) > 0 THEN
-                (COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'sat_closed')::float /
-                 COUNT(DISTINCT a.repcard_appointment_id)::float) * 100
+              WHEN COALESCE(cas.appointments_run, 0) > 0 THEN
+                (COALESCE(cas.sat_closed, 0)::float / COALESCE(cas.appointments_run, 0)::float) * 100
               ELSE 0
             END as close_rate
           FROM repcard_users ru
           LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
-          LEFT JOIN repcard_appointments a ON a.closer_user_id::int = ru.repcard_user_id
+          LEFT JOIN closer_appointment_stats cas ON cas.closer_user_id = ru.repcard_user_id
           WHERE ru.status = 1 AND (ru.role = 'closer' OR ru.role IS NULL)
-          GROUP BY ru.repcard_user_id, COALESCE(u.name, TRIM(ru.first_name || ' ' || ru.last_name)), COALESCE(u.role, ru.role), COALESCE(ru.team, 'No Team')
-          HAVING COUNT(DISTINCT a.repcard_appointment_id) > 0
+            AND COALESCE(cas.appointments_run, 0) > 0
           ORDER BY appointments_run DESC
           LIMIT 50
         `;
