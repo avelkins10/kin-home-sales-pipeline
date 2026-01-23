@@ -833,7 +833,9 @@ export async function GET(request: NextRequest) {
           ORDER BY o.repcard_office_id, doors_knocked DESC
         `;
     
-    const officeClosersBreakdownResult = startDate && endDate
+    let officeClosersBreakdownResult;
+    try {
+      officeClosersBreakdownResult = startDate && endDate
       ? await sql`
           SELECT
             o.repcard_office_id,
