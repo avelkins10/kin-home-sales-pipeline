@@ -498,7 +498,7 @@ export async function GET(request: NextRequest) {
             COALESCE(doors_subquery.estimated_hours_on_doors, 0)::int as estimated_hours_on_doors,
             CASE
               WHEN COALESCE(doors_subquery.doors_knocked, 0) > 0 THEN
-                (COUNT(DISTINCT a.id)::float / doors_subquery.doors_knocked::float) * 100
+                (COUNT(DISTINCT a.id)::float / doors_subquery.doors_knocked::int::float) * 100
               ELSE 0
             END as conversion_rate
           FROM users u
@@ -532,7 +532,7 @@ export async function GET(request: NextRequest) {
           ) doors_subquery ON true
           WHERE u.repcard_user_id IS NOT NULL
           GROUP BY u.repcard_user_id, u.name, u.role, doors_subquery.doors_knocked, doors_subquery.estimated_hours_on_doors
-          HAVING COUNT(DISTINCT a.id) > 0 OR doors_subquery.doors_knocked > 0
+          HAVING COUNT(DISTINCT a.id) > 0 OR doors_subquery.doors_knocked::int > 0
           ORDER BY appointments_set DESC
           LIMIT 10
         `
@@ -552,7 +552,7 @@ export async function GET(request: NextRequest) {
             COALESCE(doors_subquery.estimated_hours_on_doors, 0)::int as estimated_hours_on_doors,
             CASE
               WHEN COALESCE(doors_subquery.doors_knocked, 0) > 0 THEN
-                (COUNT(DISTINCT a.id)::float / doors_subquery.doors_knocked::float) * 100
+                (COUNT(DISTINCT a.id)::float / doors_subquery.doors_knocked::int::float) * 100
               ELSE 0
             END as conversion_rate
           FROM users u
@@ -580,7 +580,7 @@ export async function GET(request: NextRequest) {
           ) doors_subquery ON true
           WHERE u.repcard_user_id IS NOT NULL
           GROUP BY u.repcard_user_id, u.name, u.role, doors_subquery.doors_knocked, doors_subquery.estimated_hours_on_doors
-          HAVING COUNT(DISTINCT a.id) > 0 OR doors_subquery.doors_knocked > 0
+          HAVING COUNT(DISTINCT a.id) > 0 OR doors_subquery.doors_knocked::int > 0
           ORDER BY appointments_set DESC
           LIMIT 50
         `;
