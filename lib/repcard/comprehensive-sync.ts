@@ -302,6 +302,7 @@ export async function syncUsers(options: {
                 status,
                 office_name,
                 team,
+                team_id,
                 job_title,
                 profile_image,
                 rating,
@@ -324,7 +325,8 @@ export async function syncUsers(options: {
                 ${(user as any).role || null},
                 ${statusValue},
                 ${(user as any).office || (user as any).office_name || null},
-                ${(user as any).team || null},
+                ${(user as any).team || null}, -- team name from API (e.g., "Stevens - The Panhandle 2026")
+                ${(user as any).officeTeamId || (user as any).office_team_id || null}, -- team_id from API (e.g., 5671)
                 ${(user as any).jobTitle || (user as any).job_title || null},
                 ${(user as any).image || (user as any).profile_image || null},
                 ${(user as any).rating || null},
@@ -348,6 +350,7 @@ export async function syncUsers(options: {
                 status = EXCLUDED.status,
                 office_name = EXCLUDED.office_name,
                 team = EXCLUDED.team,
+                team_id = EXCLUDED.team_id,
                 job_title = EXCLUDED.job_title,
                 profile_image = EXCLUDED.profile_image,
                 rating = EXCLUDED.rating,
