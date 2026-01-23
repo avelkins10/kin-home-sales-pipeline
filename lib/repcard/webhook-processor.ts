@@ -246,6 +246,68 @@ export async function processAppointmentWebhook(
     const createdAt = payload.created_at || payload.createdAt || new Date().toISOString();
     const updatedAt = payload.updated_at || payload.updatedAt || new Date().toISOString();
 
+    // Auto-create users in repcard_users if they don't exist (from payload data)
+    // This ensures the joins work even if users haven't been synced yet
+    if (setterUserId && payload.user) {
+      try {
+        const setterData = payload.user;
+        await sql`
+          INSERT INTO repcard_users (
+            repcard_user_id,
+            first_name,
+            last_name,
+            email,
+            raw_data
+          )
+          VALUES (
+            ${setterUserId}::int,
+            ${setterData.firstName || setterData.first_name || null},
+            ${setterData.lastName || setterData.last_name || null},
+            ${setterData.email || null},
+            ${JSON.stringify(setterData)}
+          )
+          ON CONFLICT (repcard_user_id) DO NOTHING
+        `;
+      } catch (userError) {
+        // Non-fatal - continue even if user creation fails
+        logInfo('[RepCard Webhook Processor] Could not auto-create setter user', {
+          requestId,
+          setterUserId,
+          error: userError instanceof Error ? userError.message : String(userError)
+        });
+      }
+    }
+
+    if (closerUserId && payload.closer) {
+      try {
+        const closerData = payload.closer;
+        await sql`
+          INSERT INTO repcard_users (
+            repcard_user_id,
+            first_name,
+            last_name,
+            email,
+            raw_data
+          )
+          VALUES (
+            ${closerUserId}::int,
+            ${closerData.firstName || closerData.first_name || null},
+            ${closerData.lastName || closerData.last_name || null},
+            ${closerData.email || null},
+            ${JSON.stringify(closerData)}
+          )
+          ON CONFLICT (repcard_user_id) DO NOTHING
+        `;
+      } catch (userError) {
+        // Non-fatal - continue even if user creation fails
+        logInfo('[RepCard Webhook Processor] Could not auto-create closer user', {
+          requestId,
+          closerUserId,
+          error: userError instanceof Error ? userError.message : String(userError)
+        });
+      }
+    }
+
     // Insert/update appointment directly from payload
     // NOTE: is_within_48_hours and has_power_bill are calculated by database triggers
     const result = await sql`

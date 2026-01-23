@@ -222,6 +222,11 @@ export async function GET(request: NextRequest) {
             NULLIF(TRIM(closer.first_name || ' ' || closer.last_name), ''),
             NULLIF(a.raw_data->'closer'->>'fullName', ''),
             NULLIF(a.raw_data->'closer'->>'name', ''),
+            NULLIF(TRIM(
+              COALESCE(a.raw_data->'closer'->>'firstName', '') || 
+              CASE WHEN a.raw_data->'closer'->>'firstName' IS NOT NULL AND a.raw_data->'closer'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
+              COALESCE(a.raw_data->'closer'->>'lastName', '')
+            ), ''),
             'Unassigned'
           ) as closer_name,
           closer.email as closer_email, closer.team_id as closer_team_id,
@@ -441,6 +446,11 @@ export async function GET(request: NextRequest) {
             NULLIF(TRIM(closer.first_name || ' ' || closer.last_name), ''),
             NULLIF(a.raw_data->'closer'->>'fullName', ''),
             NULLIF(a.raw_data->'closer'->>'name', ''),
+            NULLIF(TRIM(
+              COALESCE(a.raw_data->'closer'->>'firstName', '') || 
+              CASE WHEN a.raw_data->'closer'->>'firstName' IS NOT NULL AND a.raw_data->'closer'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
+              COALESCE(a.raw_data->'closer'->>'lastName', '')
+            ), ''),
             'Unassigned'
           ) as closer_name,
           closer.email as closer_email, closer.team_id as closer_team_id,
@@ -675,6 +685,11 @@ export async function GET(request: NextRequest) {
             NULLIF(TRIM(closer.first_name || ' ' || closer.last_name), ''),
             NULLIF(a.raw_data->'closer'->>'fullName', ''),
             NULLIF(a.raw_data->'closer'->>'name', ''),
+            NULLIF(TRIM(
+              COALESCE(a.raw_data->'closer'->>'firstName', '') || 
+              CASE WHEN a.raw_data->'closer'->>'firstName' IS NOT NULL AND a.raw_data->'closer'->>'lastName' IS NOT NULL THEN ' ' ELSE '' END ||
+              COALESCE(a.raw_data->'closer'->>'lastName', '')
+            ), ''),
             'Unassigned'
           ) as closer_name,
           closer.email as closer_email, closer.team_id as closer_team_id,
