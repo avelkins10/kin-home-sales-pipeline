@@ -155,8 +155,8 @@ export async function GET(request: NextRequest) {
             a.raw_data->>'status' ILIKE '%confirmed%'
           ) as confirmed_appointments,
           COUNT(*) FILTER (WHERE a.is_reschedule = TRUE) as rescheduled_appointments,
-          AVG(EXTRACT(EPOCH FROM (a.scheduled_at - c.created_at)) / 3600)
-            FILTER (WHERE a.scheduled_at IS NOT NULL AND c.created_at IS NOT NULL)
+          AVG(EXTRACT(EPOCH FROM (a.scheduled_at - a.created_at)) / 3600)
+            FILTER (WHERE a.scheduled_at IS NOT NULL AND a.created_at IS NOT NULL)
             as avg_schedule_out_hours
         FROM repcard_appointments a
         LEFT JOIN repcard_customers c ON c.repcard_customer_id::int = a.repcard_customer_id::int
@@ -180,8 +180,8 @@ export async function GET(request: NextRequest) {
             a.raw_data->>'status' ILIKE '%confirmed%'
           ) as confirmed_appointments,
           COUNT(*) FILTER (WHERE a.is_reschedule = TRUE) as rescheduled_appointments,
-          AVG(EXTRACT(EPOCH FROM (a.scheduled_at - c.created_at)) / 3600)
-            FILTER (WHERE a.scheduled_at IS NOT NULL AND c.created_at IS NOT NULL)
+          AVG(EXTRACT(EPOCH FROM (a.scheduled_at - a.created_at)) / 3600)
+            FILTER (WHERE a.scheduled_at IS NOT NULL AND a.created_at IS NOT NULL)
             as avg_schedule_out_hours
         FROM repcard_appointments a
         LEFT JOIN repcard_customers c ON c.repcard_customer_id::int = a.repcard_customer_id::int
@@ -236,8 +236,8 @@ export async function GET(request: NextRequest) {
             a.raw_data->>'status' ILIKE '%confirmed%'
           ) as confirmed_appointments,
           COUNT(*) FILTER (WHERE a.is_reschedule = TRUE) as rescheduled_appointments,
-          AVG(EXTRACT(EPOCH FROM (a.scheduled_at - c.created_at)) / 3600)
-            FILTER (WHERE a.scheduled_at IS NOT NULL AND c.created_at IS NOT NULL)
+          AVG(EXTRACT(EPOCH FROM (a.scheduled_at - a.created_at)) / 3600)
+            FILTER (WHERE a.scheduled_at IS NOT NULL AND a.created_at IS NOT NULL)
             as avg_schedule_out_hours
         FROM repcard_appointments a
         LEFT JOIN repcard_customers c ON c.repcard_customer_id::int = a.repcard_customer_id::int
