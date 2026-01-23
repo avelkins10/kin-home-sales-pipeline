@@ -526,7 +526,7 @@ export async function GET(request: NextRequest) {
                 ) daily_ranges
               ), 0)::int as estimated_hours_on_doors
             FROM repcard_customers c
-            WHERE c.setter_user_id = u.repcard_user_id::TEXT
+            WHERE c.setter_user_id = u.repcard_user_id
               AND c.created_at >= ${startDate}::timestamptz
               AND c.created_at <= ${endDate}::timestamptz
           ) doors_subquery ON true
@@ -576,7 +576,7 @@ export async function GET(request: NextRequest) {
                 ) daily_ranges
               ), 0)::int as estimated_hours_on_doors
             FROM repcard_customers c
-            WHERE c.setter_user_id = u.repcard_user_id::TEXT
+            WHERE c.setter_user_id = u.repcard_user_id
           ) doors_subquery ON true
           WHERE u.repcard_user_id IS NOT NULL
           GROUP BY u.repcard_user_id, u.name, u.role, doors_subquery.doors_knocked, doors_subquery.estimated_hours_on_doors
