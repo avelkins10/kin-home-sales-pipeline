@@ -7,6 +7,7 @@ import { getAssignedOffices } from '@/lib/quickbase/queries';
 import { toEasternStart, toEasternEnd } from '@/lib/utils/timezone';
 
 export const runtime = 'nodejs';
+export const maxDuration = 30; // 30 seconds max - fail fast if query hangs
 
 /**
  * GET /api/repcard/appointments/schedule
