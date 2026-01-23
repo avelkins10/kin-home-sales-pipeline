@@ -171,8 +171,9 @@ export async function GET(request: NextRequest) {
           FROM repcard_appointments a
           WHERE (
             a.scheduled_at IS NOT NULL 
-            AND a.scheduled_at >= ${startDate}::timestamptz 
-            AND a.scheduled_at <= ${endDate}::timestamptz
+            AND a.scheduled_at IS NOT NULL
+            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDateParam}::date
+            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDateParam}::date
           )
         `
       : await sql`
@@ -273,8 +274,9 @@ export async function GET(request: NextRequest) {
           LEFT JOIN users u ON u.repcard_user_id = a.setter_user_id::int
           WHERE u.repcard_user_id IS NOT NULL
             AND a.scheduled_at IS NOT NULL
-            AND a.scheduled_at >= ${startDate}::timestamptz 
-            AND a.scheduled_at <= ${endDate}::timestamptz
+            AND a.scheduled_at IS NOT NULL
+            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDateParam}::date
+            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDateParam}::date
           GROUP BY u.repcard_user_id, u.name
           HAVING COUNT(DISTINCT a.id) >= 5
           ORDER BY reschedule_rate DESC
@@ -341,8 +343,9 @@ export async function GET(request: NextRequest) {
               COUNT(DISTINCT repcard_appointment_id) FILTER (WHERE disposition ILIKE '%closed%' AND (is_reschedule = FALSE OR is_reschedule IS NULL))::int as sales_closed,
               COUNT(DISTINCT repcard_appointment_id)::int as total_appointments
             FROM repcard_appointments
-            WHERE scheduled_at >= ${startDate}::timestamptz
-              AND scheduled_at <= ${endDate}::timestamptz
+            WHERE scheduled_at IS NOT NULL
+              AND (scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDateParam}::date
+              AND (scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDateParam}::date
             GROUP BY office_id
           )
           SELECT
@@ -442,8 +445,9 @@ export async function GET(request: NextRequest) {
             AND dk.door_knocked_at >= ${startDate}::timestamptz
             AND dk.door_knocked_at <= ${endDate}::timestamptz
           LEFT JOIN repcard_appointments a ON a.office_id::int = o.repcard_office_id
-            AND a.scheduled_at >= ${startDate}::timestamptz
-            AND a.scheduled_at <= ${endDate}::timestamptz
+            AND a.scheduled_at IS NOT NULL
+            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDateParam}::date
+            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDateParam}::date
           LEFT JOIN users u ON u.repcard_user_id::text = dk.setter_user_id::text
           GROUP BY o.repcard_office_id
         `
@@ -484,8 +488,9 @@ export async function GET(request: NextRequest) {
             COUNT(DISTINCT u.repcard_user_id) FILTER (WHERE u.role = 'closer')::int as closers_count
           FROM repcard_offices o
           LEFT JOIN repcard_appointments a ON NULLIF(a.office_id::text, '')::int = o.repcard_office_id
-            AND a.scheduled_at >= ${startDate}::timestamptz
-            AND a.scheduled_at <= ${endDate}::timestamptz
+            AND a.scheduled_at IS NOT NULL
+            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDateParam}::date
+            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDateParam}::date
           LEFT JOIN users u ON u.repcard_user_id = a.closer_user_id::int
           GROUP BY o.repcard_office_id
         `
@@ -569,12 +574,14 @@ export async function GET(request: NextRequest) {
               setter_user_id::int as setter_user_id,
               -- Gross appointments set (for gamification) - exclude ONLY reschedules
               -- Disposition doesn't matter - we want to gamify TODAY's door efforts
+              -- Use date comparison (not timestamp) to match schedule route pattern
               COUNT(DISTINCT repcard_appointment_id) FILTER (
                 WHERE (is_reschedule = FALSE OR is_reschedule IS NULL)
               )::int as appointments_set
             FROM repcard_appointments
-            WHERE scheduled_at >= ${startDate}::timestamptz
-              AND scheduled_at <= ${endDate}::timestamptz
+            WHERE scheduled_at IS NOT NULL
+              AND (scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDateParam}::date
+              AND (scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDateParam}::date
             GROUP BY setter_user_id::int
           )
           SELECT
@@ -735,9 +742,11 @@ export async function GET(request: NextRequest) {
           FROM repcard_users ru
           LEFT JOIN users u ON u.repcard_user_id::text = ru.repcard_user_id::text
           -- Appointments set by this user in date range
+          -- Convert scheduled_at to Eastern Time date for accurate day-boundary comparison (matches schedule route)
           LEFT JOIN repcard_appointments a ON a.setter_user_id::int = ru.repcard_user_id
-            AND a.scheduled_at >= ${startDate}::timestamptz
-            AND a.scheduled_at <= ${endDate}::timestamptz
+            AND a.scheduled_at IS NOT NULL
+            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDateParam}::date
+            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDateParam}::date
           -- Door knock stats from CTE (more efficient than LATERAL)
           LEFT JOIN door_knock_stats dks ON dks.setter_user_id = ru.repcard_user_id
           WHERE ru.status = 1 AND (ru.role = 'setter' OR ru.role IS NULL)
@@ -860,8 +869,9 @@ export async function GET(request: NextRequest) {
               COUNT(DISTINCT repcard_appointment_id) FILTER (WHERE status_category IN ('sat_closed', 'sat_no_close', 'completed'))::int as appointments_sat
             FROM repcard_appointments
             WHERE closer_user_id IS NOT NULL
-              AND scheduled_at >= ${startDate}::timestamptz
-              AND scheduled_at <= ${endDate}::timestamptz
+              AND scheduled_at IS NOT NULL
+              AND (scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDateParam}::date
+              AND (scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDateParam}::date
             GROUP BY closer_user_id::int
           )
           SELECT
@@ -948,8 +958,9 @@ export async function GET(request: NextRequest) {
             COUNT(DISTINCT a.repcard_appointment_id)::int as count
           FROM users u
           INNER JOIN repcard_appointments a ON a.closer_user_id::int = u.repcard_user_id
-            AND a.scheduled_at >= ${startDate}::timestamptz
-            AND a.scheduled_at <= ${endDate}::timestamptz
+            AND a.scheduled_at IS NOT NULL
+            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDateParam}::date
+            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDateParam}::date
           WHERE u.repcard_user_id IS NOT NULL
             AND a.disposition IS NOT NULL
           GROUP BY u.repcard_user_id, a.disposition
@@ -1115,8 +1126,9 @@ export async function GET(request: NextRequest) {
             END as close_rate
           FROM repcard_offices o
           INNER JOIN repcard_appointments a ON NULLIF(a.office_id::text, '')::int = o.repcard_office_id
-            AND a.scheduled_at >= ${startDate}::timestamptz
-            AND a.scheduled_at <= ${endDate}::timestamptz
+            AND a.scheduled_at IS NOT NULL
+            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDateParam}::date
+            AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDateParam}::date
           INNER JOIN users u ON u.repcard_user_id = a.closer_user_id::int
             AND u.role = 'closer'
           GROUP BY o.repcard_office_id, o.name, u.repcard_user_id, u.name, u.role

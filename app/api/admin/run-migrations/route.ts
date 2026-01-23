@@ -18,6 +18,7 @@ const PENDING_MIGRATIONS = [
   '033_fix_repcard_metric_audit_fk.sql',
   '034_fix_metric_audit_fk_use_repcard_id.sql',
   '035_add_useful_webhook_fields.sql',
+  '038_change_48h_to_2_calendar_days.sql',
 ];
 
 export async function POST(request: NextRequest) {
@@ -249,6 +250,21 @@ export async function GET(request: NextRequest) {
                 AND column_name IN ('appointment_link', 'remind_at', 'contact_source')
             `;
             migrationStatus = (colCheck[0] as any)?.count >= 3 ? 'applied' : 'pending';
+          } catch {
+            migrationStatus = 'pending';
+          }
+        } else if (migrationFile === '038_change_48h_to_2_calendar_days.sql') {
+          // Check if function uses calendar days (check function definition)
+          try {
+            const funcCheck = await sql`
+              SELECT pg_get_functiondef(oid) as definition
+              FROM pg_proc
+              WHERE proname = 'calculate_is_within_48_hours'
+              LIMIT 1
+            `;
+            const funcDef = (funcCheck[0] as any)?.definition || '';
+            // Migration 038 changes from hours_diff to days_diff
+            migrationStatus = funcDef.includes('days_diff') && funcDef.includes('calendar days') ? 'applied' : 'pending';
           } catch {
             migrationStatus = 'pending';
           }
