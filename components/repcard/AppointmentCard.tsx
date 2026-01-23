@@ -31,6 +31,8 @@ export interface AppointmentData {
   notes: string | null;
   customer_attachment_count: number;
   appointment_attachment_count: number;
+  customer_note_count: number;
+  is_confirmed: boolean;
 }
 
 interface AppointmentCardProps {
