@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
       const userResult = await sql`
         SELECT repcard_user_id FROM users WHERE id = ${userId}
       `;
-      const userRows = Array.from(userResult);
+      const userRows = userResult.rows || [];
       if (userRows.length > 0 && userRows[0].repcard_user_id) {
         repcardUserId = parseInt(userRows[0].repcard_user_id) || undefined;
       }
@@ -212,14 +212,16 @@ export async function GET(request: NextRequest) {
           AND (a.scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date
       `;
 
+      const testRows = testResult.rows || [];
       logInfo('repcard-appointments-metrics-test-query-result', {
         requestId,
         testResultExists: !!testResult,
         testResultType: typeof testResult,
         testResultConstructor: testResult?.constructor?.name,
         testResultKeys: testResult ? Object.keys(testResult).slice(0, 10) : null,
-        testRows: Array.from(testResult),
-        note: 'Simple COUNT query result'
+        testRowsLength: testRows.length,
+        testRowsFirstRow: testRows[0] || null,
+        note: 'Simple COUNT query result - FIXED to use .rows property'
       });
 
       // Super admin/regional - see all appointments
@@ -276,8 +278,8 @@ export async function GET(request: NextRequest) {
       throw queryError; // Re-throw to be caught by outer catch
     }
 
-    // Parse result
-    const rows = Array.from(result);
+    // Parse result - Neon returns result object with .rows property
+    const rows = result.rows || [];
 
     // Log detailed query result for debugging
     logInfo('repcard-appointments-metrics-query-result', {
