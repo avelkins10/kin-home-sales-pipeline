@@ -183,73 +183,75 @@ export function AppointmentFilters({
       </div>
 
       {/* Primary Filters - Office, Team, Calendar */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-        {/* Office Filter (for leaders) */}
-        {isLeader && availableOffices.length > 0 && (
-          <div>
-            <Label className="text-sm font-medium flex items-center gap-1.5">
-              <Building2 className="h-3.5 w-3.5" />
-              Office
-            </Label>
-            <Select
-              value={filters.officeIds?.join(',') || 'all'}
-              onValueChange={(value) => {
-                if (value === 'all') {
-                  onFiltersChange({ ...filters, officeIds: undefined });
-                } else {
-                  onFiltersChange({ ...filters, officeIds: value.split(',').map(id => parseInt(id)) });
-                }
-              }}
-            >
-              <SelectTrigger className="mt-1.5">
-                <SelectValue placeholder="All Offices" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Offices</SelectItem>
-                {availableOffices.map(office => (
-                  <SelectItem key={office.id} value={office.id.toString()}>
-                    {office.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+      {(isLeader || availableCalendars.length > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+          {/* Office Filter (for leaders) */}
+          {isLeader && (
+            <div>
+              <Label className="text-sm font-medium flex items-center gap-1.5">
+                <Building2 className="h-3.5 w-3.5" />
+                Office
+              </Label>
+              <Select
+                value={filters.officeIds?.join(',') || 'all'}
+                onValueChange={(value) => {
+                  if (value === 'all') {
+                    onFiltersChange({ ...filters, officeIds: undefined });
+                  } else {
+                    onFiltersChange({ ...filters, officeIds: value.split(',').map(id => parseInt(id)) });
+                  }
+                }}
+                disabled={availableOffices.length === 0}
+              >
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue placeholder={availableOffices.length === 0 ? "Loading offices..." : "All Offices"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Offices</SelectItem>
+                  {availableOffices.map(office => (
+                    <SelectItem key={office.id} value={office.id.toString()}>
+                      {office.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
-        {/* Team Filter */}
-        {isLeader && availableTeams.length > 0 && (
-          <div>
-            <Label className="text-sm font-medium flex items-center gap-1.5">
-              <Users className="h-3.5 w-3.5" />
-              Team
-            </Label>
-            <Select
-              value={filters.teamIds?.join(',') || 'all'}
-              onValueChange={(value) => {
-                if (value === 'all') {
-                  onFiltersChange({ ...filters, teamIds: undefined });
-                } else {
-                  onFiltersChange({ ...filters, teamIds: value.split(',').map(id => parseInt(id)) });
-                }
-              }}
-            >
-              <SelectTrigger className="mt-1.5">
-                <SelectValue placeholder="All Teams" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Teams</SelectItem>
-                {availableTeams.map(team => (
-                  <SelectItem key={team.id} value={team.id.toString()}>
-                    {team.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+          {/* Team Filter */}
+          {isLeader && (
+            <div>
+              <Label className="text-sm font-medium flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5" />
+                Team
+              </Label>
+              <Select
+                value={filters.teamIds?.join(',') || 'all'}
+                onValueChange={(value) => {
+                  if (value === 'all') {
+                    onFiltersChange({ ...filters, teamIds: undefined });
+                  } else {
+                    onFiltersChange({ ...filters, teamIds: value.split(',').map(id => parseInt(id)) });
+                  }
+                }}
+                disabled={availableTeams.length === 0}
+              >
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue placeholder={availableTeams.length === 0 ? "Loading teams..." : "All Teams"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Teams</SelectItem>
+                  {availableTeams.map(team => (
+                    <SelectItem key={team.id} value={team.id.toString()}>
+                      {team.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
-        {/* Calendar Filter */}
-        {availableCalendars.length > 0 && (
+          {/* Calendar Filter - Show for everyone */}
           <div>
             <Label className="text-sm font-medium flex items-center gap-1.5">
               <CalendarDays className="h-3.5 w-3.5" />
@@ -264,9 +266,10 @@ export function AppointmentFilters({
                   onFiltersChange({ ...filters, calendarId: parseInt(value) });
                 }
               }}
+              disabled={availableCalendars.length === 0}
             >
               <SelectTrigger className="mt-1.5">
-                <SelectValue placeholder="All Calendars" />
+                <SelectValue placeholder={availableCalendars.length === 0 ? "Loading calendars..." : "All Calendars"} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Calendars</SelectItem>
@@ -278,8 +281,8 @@ export function AppointmentFilters({
               </SelectContent>
             </Select>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Advanced Filters */}
       {showAdvanced && (

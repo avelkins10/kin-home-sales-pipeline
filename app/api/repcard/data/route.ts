@@ -12,7 +12,7 @@ export const runtime = 'nodejs';
  * Query synced RepCard data from database
  * 
  * Query params:
- * - type: 'customers' | 'appointments' | 'attachments' | 'users' | 'offices' | 'status_logs'
+ * - type: 'customers' | 'appointments' | 'attachments' | 'users' | 'offices' | 'calendars' | 'teams' | 'status_logs'
  * - userId: Filter by user ID (dashboard user ID)
  * - repcardUserId: Filter by RepCard user ID
  * - officeId: Filter by office ID
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
       const userResult = await sql`
         SELECT repcard_user_id FROM users WHERE id = ${userId}
       `;
-      const userRows = Array.from(userResult);
+      const userRows = userResult.rows || [];
       if (userRows.length > 0 && userRows[0].repcard_user_id) {
         actualRepcardUserId = userRows[0].repcard_user_id;
       }
@@ -132,11 +132,11 @@ export async function GET(request: NextRequest) {
         const countResult = await sql`
           SELECT COUNT(*) as count FROM (${query}) as subquery
         `;
-        total = parseInt(Array.from(countResult)[0]?.count || '0');
+        total = parseInt((countResult.rows?.[0] || countResult[0])?.count || '0');
 
         query = sql`${query} ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`;
         const result = await query;
-        data = Array.from(result);
+        data = result.rows || [];
         break;
       }
 
@@ -274,7 +274,7 @@ export async function GET(request: NextRequest) {
           `;
         }
         
-        data = Array.from(result);
+        data = result.rows || [];
         
         // Count query (use same filter pattern, handle NULL scheduled_at)
         let countResult;
@@ -291,7 +291,7 @@ export async function GET(request: NextRequest) {
         } else {
           countResult = await sql`SELECT COUNT(*) as count FROM repcard_appointments a`;
         }
-        total = parseInt(Array.from(countResult)[0]?.count || '0');
+        total = parseInt((countResult.rows?.[0] || countResult[0])?.count || '0');
         break;
       }
 
@@ -375,7 +375,7 @@ export async function GET(request: NextRequest) {
           ? await sql`
               SELECT
                 id, repcard_user_id, company_id, office_id, first_name, last_name,
-                email, phone, username, role, status, office_name, team, job_title,
+                email, phone, username, role, status, office_name, team, team_id, job_title,
                 profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
               FROM repcard_users
               WHERE repcard_user_id = ${parsedRepcardUserId}
@@ -389,7 +389,7 @@ export async function GET(request: NextRequest) {
           ? await sql`
               SELECT
                 id, repcard_user_id, company_id, office_id, first_name, last_name,
-                email, phone, username, role, status, office_name, team, job_title,
+                email, phone, username, role, status, office_name, team, team_id, job_title,
                 profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
               FROM repcard_users
               WHERE repcard_user_id = ${parsedRepcardUserId}
@@ -402,7 +402,7 @@ export async function GET(request: NextRequest) {
           ? await sql`
               SELECT
                 id, repcard_user_id, company_id, office_id, first_name, last_name,
-                email, phone, username, role, status, office_name, team, job_title,
+                email, phone, username, role, status, office_name, team, team_id, job_title,
                 profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
               FROM repcard_users
               WHERE repcard_user_id = ${parsedRepcardUserId}
@@ -415,7 +415,7 @@ export async function GET(request: NextRequest) {
           ? await sql`
               SELECT
                 id, repcard_user_id, company_id, office_id, first_name, last_name,
-                email, phone, username, role, status, office_name, team, job_title,
+                email, phone, username, role, status, office_name, team, team_id, job_title,
                 profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
               FROM repcard_users
               WHERE repcard_user_id = ${parsedRepcardUserId}
@@ -427,7 +427,7 @@ export async function GET(request: NextRequest) {
           ? await sql`
               SELECT
                 id, repcard_user_id, company_id, office_id, first_name, last_name,
-                email, phone, username, role, status, office_name, team, job_title,
+                email, phone, username, role, status, office_name, team, team_id, job_title,
                 profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
               FROM repcard_users
               WHERE repcard_user_id = ${parsedRepcardUserId}
@@ -440,7 +440,7 @@ export async function GET(request: NextRequest) {
           ? await sql`
               SELECT
                 id, repcard_user_id, company_id, office_id, first_name, last_name,
-                email, phone, username, role, status, office_name, team, job_title,
+                email, phone, username, role, status, office_name, team, team_id, job_title,
                 profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
               FROM repcard_users
               WHERE repcard_user_id = ${parsedRepcardUserId}
@@ -452,7 +452,7 @@ export async function GET(request: NextRequest) {
           ? await sql`
               SELECT
                 id, repcard_user_id, company_id, office_id, first_name, last_name,
-                email, phone, username, role, status, office_name, team, job_title,
+                email, phone, username, role, status, office_name, team, team_id, job_title,
                 profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
               FROM repcard_users
               WHERE repcard_user_id = ${parsedRepcardUserId}
@@ -464,7 +464,7 @@ export async function GET(request: NextRequest) {
           ? await sql`
               SELECT
                 id, repcard_user_id, company_id, office_id, first_name, last_name,
-                email, phone, username, role, status, office_name, team, job_title,
+                email, phone, username, role, status, office_name, team, team_id, job_title,
                 profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
               FROM repcard_users
               WHERE repcard_user_id = ${parsedRepcardUserId}
@@ -475,7 +475,7 @@ export async function GET(request: NextRequest) {
           ? await sql`
               SELECT
                 id, repcard_user_id, company_id, office_id, first_name, last_name,
-                email, phone, username, role, status, office_name, team, job_title,
+                email, phone, username, role, status, office_name, team, team_id, job_title,
                 profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
               FROM repcard_users
               WHERE office_id = ${parsedOfficeId}
@@ -488,7 +488,7 @@ export async function GET(request: NextRequest) {
           ? await sql`
               SELECT
                 id, repcard_user_id, company_id, office_id, first_name, last_name,
-                email, phone, username, role, status, office_name, team, job_title,
+                email, phone, username, role, status, office_name, team, team_id, job_title,
                 profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
               FROM repcard_users
               WHERE office_id = ${parsedOfficeId}
@@ -500,7 +500,7 @@ export async function GET(request: NextRequest) {
           ? await sql`
               SELECT
                 id, repcard_user_id, company_id, office_id, first_name, last_name,
-                email, phone, username, role, status, office_name, team, job_title,
+                email, phone, username, role, status, office_name, team, team_id, job_title,
                 profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
               FROM repcard_users
               WHERE office_id = ${parsedOfficeId}
@@ -512,7 +512,7 @@ export async function GET(request: NextRequest) {
           ? await sql`
               SELECT
                 id, repcard_user_id, company_id, office_id, first_name, last_name,
-                email, phone, username, role, status, office_name, team, job_title,
+                email, phone, username, role, status, office_name, team, team_id, job_title,
                 profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
               FROM repcard_users
               WHERE office_id = ${parsedOfficeId}
@@ -523,7 +523,7 @@ export async function GET(request: NextRequest) {
           ? await sql`
               SELECT
                 id, repcard_user_id, company_id, office_id, first_name, last_name,
-                email, phone, username, role, status, office_name, team, job_title,
+                email, phone, username, role, status, office_name, team, team_id, job_title,
                 profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
               FROM repcard_users
               WHERE created_at >= ${startDate}::timestamp
@@ -535,7 +535,7 @@ export async function GET(request: NextRequest) {
           ? await sql`
               SELECT
                 id, repcard_user_id, company_id, office_id, first_name, last_name,
-                email, phone, username, role, status, office_name, team, job_title,
+                email, phone, username, role, status, office_name, team, team_id, job_title,
                 profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
               FROM repcard_users
               WHERE created_at >= ${startDate}::timestamp
@@ -546,7 +546,7 @@ export async function GET(request: NextRequest) {
           ? await sql`
               SELECT
                 id, repcard_user_id, company_id, office_id, first_name, last_name,
-                email, phone, username, role, status, office_name, team, job_title,
+                email, phone, username, role, status, office_name, team, team_id, job_title,
                 profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
               FROM repcard_users
               WHERE created_at <= (${endDate}::timestamp + INTERVAL '1 day')
@@ -556,13 +556,13 @@ export async function GET(request: NextRequest) {
           : await sql`
               SELECT
                 id, repcard_user_id, company_id, office_id, first_name, last_name,
-                email, phone, username, role, status, office_name, team, job_title,
+                email, phone, username, role, status, office_name, team, team_id, job_title,
                 profile_image, rating, bio, badge_id, created_at, updated_at, synced_at
               FROM repcard_users
               ORDER BY last_name, first_name
               LIMIT ${limit} OFFSET ${offset}
             `;
-        data = Array.from(result);
+        data = result.rows || [];
 
         // Build count query using same pattern
         const countResult = hasUserId && hasOfficeId && hasStartDate && hasEndDate
@@ -596,7 +596,7 @@ export async function GET(request: NextRequest) {
           : hasEndDate
           ? await sql`SELECT COUNT(*) as count FROM repcard_users WHERE created_at <= (${endDate}::timestamp + INTERVAL '1 day')`
           : await sql`SELECT COUNT(*) as count FROM repcard_users`;
-        total = parseInt(Array.from(countResult)[0]?.count || '0');
+        total = parseInt((countResult.rows?.[0] || countResult[0])?.count || '0');
         break;
       }
 
@@ -624,13 +624,13 @@ export async function GET(request: NextRequest) {
               ORDER BY name
               LIMIT ${limit} OFFSET ${offset}
             `;
-        data = Array.from(result);
+        data = result.rows || [];
 
         // Build count query using same pattern
         const countResult = hasOfficeId
           ? await sql`SELECT COUNT(*) as count FROM repcard_offices WHERE repcard_office_id = ${parsedOfficeId}`
           : await sql`SELECT COUNT(*) as count FROM repcard_offices`;
-        total = parseInt(Array.from(countResult)[0]?.count || '0');
+        total = parseInt((countResult.rows?.[0] || countResult[0])?.count || '0');
         break;
       }
 
@@ -638,7 +638,7 @@ export async function GET(request: NextRequest) {
         // Build query using parameterized sql template tags
         const userIdNum = actualRepcardUserId ? (typeof actualRepcardUserId === 'string' ? parseInt(actualRepcardUserId) : actualRepcardUserId) : null;
         const parsedCustomerId = customerId ? parseInt(customerId) : null;
-        
+
         // Include conditions directly in queries to avoid nested fragment parameter binding issues
         const result = await sql`
           SELECT
@@ -661,7 +661,7 @@ export async function GET(request: NextRequest) {
           LIMIT ${limit}
           OFFSET ${offset}
         `;
-        data = Array.from(result);
+        data = result.rows || [];
 
         // Build count query using parameterized sql template tags
         const countResult = await sql`
@@ -672,13 +672,88 @@ export async function GET(request: NextRequest) {
           ${startDate ? sql`AND changed_at >= ${startDate}::timestamp` : ''}
           ${endDate ? sql`AND changed_at <= (${endDate}::timestamp + INTERVAL '1 day')` : ''}
         `;
-        total = parseInt(Array.from(countResult)[0]?.count || '0');
+        total = parseInt((countResult.rows?.[0] || countResult[0])?.count || '0');
+        break;
+      }
+
+      case 'calendars': {
+        const result = await sql`
+          SELECT
+            id,
+            repcard_calendar_id,
+            name,
+            company_id,
+            status,
+            setters,
+            closers,
+            dispatchers,
+            created_at,
+            updated_at,
+            synced_at
+          FROM repcard_calendars
+          WHERE status = 'active'
+          ORDER BY name
+          LIMIT ${limit} OFFSET ${offset}
+        `;
+        data = result.rows || [];
+
+        const countResult = await sql`
+          SELECT COUNT(*) as count FROM repcard_calendars WHERE status = 'active'
+        `;
+        total = parseInt((countResult.rows?.[0] || countResult[0])?.count || '0');
+        break;
+      }
+
+      case 'teams': {
+        const parsedOfficeId = officeId ? parseInt(officeId) : null;
+        const hasOfficeId = !!parsedOfficeId;
+
+        const result = hasOfficeId
+          ? await sql`
+              SELECT
+                id,
+                repcard_team_id,
+                team_name,
+                office_id,
+                repcard_office_id,
+                team_logo,
+                company_id,
+                created_at,
+                updated_at,
+                synced_at
+              FROM repcard_teams
+              WHERE office_id = ${parsedOfficeId}
+              ORDER BY team_name
+              LIMIT ${limit} OFFSET ${offset}
+            `
+          : await sql`
+              SELECT
+                id,
+                repcard_team_id,
+                team_name,
+                office_id,
+                repcard_office_id,
+                team_logo,
+                company_id,
+                created_at,
+                updated_at,
+                synced_at
+              FROM repcard_teams
+              ORDER BY team_name
+              LIMIT ${limit} OFFSET ${offset}
+            `;
+        data = result.rows || [];
+
+        const countResult = hasOfficeId
+          ? await sql`SELECT COUNT(*) as count FROM repcard_teams WHERE office_id = ${parsedOfficeId}`
+          : await sql`SELECT COUNT(*) as count FROM repcard_teams`;
+        total = parseInt((countResult.rows?.[0] || countResult[0])?.count || '0');
         break;
       }
 
       default:
         return NextResponse.json(
-          { error: `Invalid type. Must be one of: customers, appointments, attachments, users, offices, status_logs` },
+          { error: `Invalid type. Must be one of: customers, appointments, attachments, users, offices, calendars, teams, status_logs` },
           { status: 400 }
         );
     }

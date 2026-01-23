@@ -101,40 +101,56 @@ export function AppointmentSchedule({
   });
 
   // Fetch available offices, teams, and calendars for filters
-  const { data: filterData } = useQuery({
-    queryKey: ['repcard-filter-data', userId],
+  const { data: filterData, isLoading: isLoadingFilterData, error: filterError } = useQuery({
+    queryKey: ['repcard-filter-data', userId, userRole],
     queryFn: async () => {
+      console.log('[AppointmentSchedule] Fetching filter data for role:', userRole);
+
       // Fetch offices, teams, and calendars
       const [officesRes, teamsRes, calendarsRes] = await Promise.all([
-        fetch(`${getBaseUrl()}/api/repcard/data?type=offices`).catch(() => null),
-        fetch(`${getBaseUrl()}/api/repcard/data?type=users&limit=1000`).catch(() => null),
-        fetch(`${getBaseUrl()}/api/repcard/data?type=calendars`).catch(() => null)
+        fetch(`${getBaseUrl()}/api/repcard/data?type=offices`).catch(err => {
+          console.error('[AppointmentSchedule] Failed to fetch offices:', err);
+          return null;
+        }),
+        fetch(`${getBaseUrl()}/api/repcard/data?type=teams&limit=1000`).catch(err => {
+          console.error('[AppointmentSchedule] Failed to fetch teams:', err);
+          return null;
+        }),
+        fetch(`${getBaseUrl()}/api/repcard/data?type=calendars`).catch(err => {
+          console.error('[AppointmentSchedule] Failed to fetch calendars:', err);
+          return null;
+        })
       ]);
 
-      const offices = officesRes?.ok ? (await officesRes.json()).data : [];
+      // Get offices directly from offices table
+      const officesData = officesRes?.ok ? (await officesRes.json()).data : [];
+      const offices = officesData.map((office: any) => ({
+        id: office.repcard_office_id,
+        name: office.name
+      }));
+      console.log('[AppointmentSchedule] Loaded offices:', offices.length);
 
-      // Extract unique teams from users
-      const users = teamsRes?.ok ? (await teamsRes.json()).data : [];
-      const teamsMap = new Map();
-      users.forEach((user: any) => {
-        if (user.team_id && user.team_name) {
-          if (!teamsMap.has(user.team_id)) {
-            teamsMap.set(user.team_id, {
-              id: user.team_id,
-              name: user.team_name,
-              officeId: user.office_id
-            });
-          }
-        }
-      });
-      const teams = Array.from(teamsMap.values());
+      // Get teams directly from teams table
+      const teamsData = teamsRes?.ok ? (await teamsRes.json()).data : [];
+      const teams = teamsData.map((team: any) => ({
+        id: team.repcard_team_id,
+        name: team.team_name,
+        officeId: team.office_id
+      }));
+      console.log('[AppointmentSchedule] Loaded teams:', teams.length);
 
-      // Get calendars
-      const calendars = calendarsRes?.ok ? (await calendarsRes.json()).data : [];
+      // Get calendars directly from calendars table
+      const calendarsData = calendarsRes?.ok ? (await calendarsRes.json()).data : [];
+      const calendars = calendarsData.map((calendar: any) => ({
+        id: calendar.repcard_calendar_id,
+        name: calendar.name
+      }));
+      console.log('[AppointmentSchedule] Loaded calendars:', calendars.length);
 
       return { offices, teams, calendars };
     },
-    enabled: ['office_leader', 'area_director', 'divisional', 'regional', 'super_admin'].includes(userRole)
+    staleTime: 300000, // 5 minutes
+    retry: 2
   });
 
   const appointments = data?.appointments || [];
