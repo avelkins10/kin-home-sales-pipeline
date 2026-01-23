@@ -460,7 +460,7 @@ export async function GET(request: NextRequest) {
             u.repcard_user_id,
             u.name,
             u.role,
-            COALESCE(ru.team, 'No Team') as team,
+            COALESCE(ru.team_name, ru.team, 'No Team') as team,
             COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
             COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_set,
             CASE
@@ -485,7 +485,7 @@ export async function GET(request: NextRequest) {
             u.repcard_user_id,
             u.name,
             u.role,
-            COALESCE(ru.team, 'No Team') as team,
+            COALESCE(ru.team_name, ru.team, 'No Team') as team,
             COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
             COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_set,
             CASE
@@ -531,7 +531,7 @@ export async function GET(request: NextRequest) {
             u.repcard_user_id,
             u.name,
             u.role,
-            COALESCE(ru.team, 'No Team') as team,
+            COALESCE(ru.team_name, ru.team, 'No Team') as team,
             -- Appointments set in date range (only first appointments, not reschedules)
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = FALSE OR a.is_reschedule IS NULL)::int as appointments_set,
             -- Quality metrics for appointments in date range
@@ -579,7 +579,7 @@ export async function GET(request: NextRequest) {
               AND c.created_at <= ${endDate}::timestamptz
           ) doors_subquery ON true
           WHERE u.repcard_user_id IS NOT NULL
-          GROUP BY u.repcard_user_id, u.name, u.role, COALESCE(ru.team, 'No Team'), COALESCE(doors_subquery.doors_knocked::int, 0)::int, COALESCE(doors_subquery.estimated_hours_on_doors::int, 0)::int
+          GROUP BY u.repcard_user_id, u.name, u.role, COALESCE(ru.team_name, ru.team, 'No Team'), COALESCE(doors_subquery.doors_knocked::int, 0)::int, COALESCE(doors_subquery.estimated_hours_on_doors::int, 0)::int
           HAVING COUNT(DISTINCT a.id) > 0 OR COALESCE(doors_subquery.doors_knocked::int, 0) > 0
           ORDER BY appointments_set DESC
           LIMIT 10
@@ -589,7 +589,7 @@ export async function GET(request: NextRequest) {
             u.repcard_user_id,
             u.name,
             u.role,
-            COALESCE(ru.team, 'No Team') as team,
+            COALESCE(ru.team_name, ru.team, 'No Team') as team,
             COUNT(DISTINCT a.id) FILTER (WHERE a.is_reschedule = FALSE OR a.is_reschedule IS NULL)::int as appointments_set,
             COUNT(DISTINCT a.id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.is_within_48_hours = TRUE)::int as within_48h_count,
             COUNT(DISTINCT a.id) FILTER (WHERE a.has_power_bill = TRUE)::int as with_power_bill_count,
@@ -629,7 +629,7 @@ export async function GET(request: NextRequest) {
             WHERE c.setter_user_id::int = u.repcard_user_id
           ) doors_subquery ON true
           WHERE u.repcard_user_id IS NOT NULL
-          GROUP BY u.repcard_user_id, u.name, u.role, COALESCE(ru.team, 'No Team'), COALESCE(doors_subquery.doors_knocked::int, 0)::int, COALESCE(doors_subquery.estimated_hours_on_doors::int, 0)::int
+          GROUP BY u.repcard_user_id, u.name, u.role, COALESCE(ru.team_name, ru.team, 'No Team'), COALESCE(doors_subquery.doors_knocked::int, 0)::int, COALESCE(doors_subquery.estimated_hours_on_doors::int, 0)::int
           HAVING COUNT(DISTINCT a.id) > 0 OR COALESCE(doors_subquery.doors_knocked::int, 0) > 0
           ORDER BY appointments_set DESC
           LIMIT 50
@@ -664,7 +664,7 @@ export async function GET(request: NextRequest) {
             u.repcard_user_id,
             u.name,
             u.role,
-            COALESCE(ru.team, 'No Team') as team,
+            COALESCE(ru.team_name, ru.team, 'No Team') as team,
             COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_run,
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'sat_closed')::int as sat_closed,
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'sat_no_close')::int as sat_no_close,
@@ -695,7 +695,7 @@ export async function GET(request: NextRequest) {
             u.repcard_user_id,
             u.name,
             u.role,
-            COALESCE(ru.team, 'No Team') as team,
+            COALESCE(ru.team_name, ru.team, 'No Team') as team,
             COUNT(DISTINCT a.repcard_appointment_id)::int as appointments_run,
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'sat_closed')::int as sat_closed,
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'sat_no_close')::int as sat_no_close,
