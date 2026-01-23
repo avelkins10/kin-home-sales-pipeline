@@ -27,6 +27,19 @@ export async function GET(request: NextRequest) {
   const path = new URL(request.url).pathname;
   const requestId = request.headers.get('x-request-id') || `req-${Date.now()}`;
 
+  // Declare variables at function scope for error handling
+  let userId: string | undefined;
+  let userRole: string | undefined;
+  let startDate: string | undefined;
+  let endDate: string | undefined;
+  let teamIds: number[] | undefined;
+  let calendarId: number | undefined;
+  let statusFilter: string | null = null;
+  let hasPowerBillFilter: string | null = null;
+  let isRescheduleFilter: string | null = null;
+  let repcardUserId: number | undefined;
+  let effectiveOfficeIds: number[] | undefined;
+
   try {
     logApiRequest('GET', path, { endpoint: 'repcard-appointments-schedule', requestId });
 
@@ -38,8 +51,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userId = (session.user as any).id as string;
-    const userRole = session.user.role;
+    userId = (session.user as any).id as string;
+    userRole = session.user.role;
 
     // Validate role
     const allowedRoles = ['closer', 'setter', 'office_leader', 'area_director', 'divisional', 'regional', 'super_admin', 'team_lead'];
@@ -59,25 +72,24 @@ export async function GET(request: NextRequest) {
     
     const startDateParam = searchParams.get('startDate');
     const endDateParam = searchParams.get('endDate');
-    const startDate = startDateParam || today.toISOString().split('T')[0];
-    const endDate = endDateParam || defaultEndDate.toISOString().split('T')[0];
+    startDate = startDateParam || today.toISOString().split('T')[0];
+    endDate = endDateParam || defaultEndDate.toISOString().split('T')[0];
 
     // Filters
     const officeIdsParam = searchParams.get('officeIds');
     const officeIds = officeIdsParam ? officeIdsParam.split(',').map(id => parseInt(id.trim())).filter(Boolean) : undefined;
     
     const teamIdsParam = searchParams.get('teamIds');
-    const teamIds = teamIdsParam ? teamIdsParam.split(',').map(id => parseInt(id.trim())).filter(Boolean) : undefined;
+    teamIds = teamIdsParam ? teamIdsParam.split(',').map(id => parseInt(id.trim())).filter(Boolean) : undefined;
     
     const calendarIdParam = searchParams.get('calendarId');
-    const calendarId = calendarIdParam ? parseInt(calendarIdParam) : undefined;
+    calendarId = calendarIdParam ? parseInt(calendarIdParam) : undefined;
     
-    const statusFilter = searchParams.get('status');
-    const hasPowerBillFilter = searchParams.get('hasPowerBill');
-    const isRescheduleFilter = searchParams.get('isReschedule');
+    statusFilter = searchParams.get('status');
+    hasPowerBillFilter = searchParams.get('hasPowerBill');
+    isRescheduleFilter = searchParams.get('isReschedule');
 
     // Get RepCard user ID for closers (as integer)
-    let repcardUserId: number | undefined;
     if (userRole === 'closer') {
       const userResult = await sql`
         SELECT repcard_user_id FROM users WHERE id = ${userId}
@@ -89,7 +101,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get office IDs for leaders (if not provided)
-    let effectiveOfficeIds = officeIds;
+    effectiveOfficeIds = officeIds;
     if (!effectiveOfficeIds && ['office_leader', 'area_director', 'divisional', 'regional'].includes(userRole)) {
       effectiveOfficeIds = await getAssignedOffices(userId);
     }

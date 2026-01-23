@@ -26,6 +26,19 @@ export async function GET(request: NextRequest) {
   const path = new URL(request.url).pathname;
   const requestId = request.headers.get('x-request-id') || `req-${Date.now()}`;
 
+  // Declare variables at function scope for error handling
+  let type: string | undefined;
+  let userId: string | null = null;
+  let repcardUserId: string | null = null;
+  let officeId: string | null = null;
+  let customerId: string | null = null;
+  let startDate: string | null = null;
+  let endDate: string | null = null;
+  let limit = 100;
+  let page = 1;
+  let offset = 0;
+  let actualRepcardUserId: string | null = null;
+
   try {
     logApiRequest('GET', path, { endpoint: 'repcard-data', requestId });
 
@@ -38,19 +51,19 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type') || 'customers';
-    const userId = searchParams.get('userId');
-    const repcardUserId = searchParams.get('repcardUserId');
-    const officeId = searchParams.get('officeId');
-    const customerId = searchParams.get('customerId');
-    const startDate = searchParams.get('startDate');
-    const endDate = searchParams.get('endDate');
-    const limit = Math.min(parseInt(searchParams.get('limit') || '100'), 1000);
-    const page = Math.max(parseInt(searchParams.get('page') || '1'), 1);
-    const offset = (page - 1) * limit;
+    type = searchParams.get('type') || 'customers';
+    userId = searchParams.get('userId');
+    repcardUserId = searchParams.get('repcardUserId');
+    officeId = searchParams.get('officeId');
+    customerId = searchParams.get('customerId');
+    startDate = searchParams.get('startDate');
+    endDate = searchParams.get('endDate');
+    limit = Math.min(parseInt(searchParams.get('limit') || '100'), 1000);
+    page = Math.max(parseInt(searchParams.get('page') || '1'), 1);
+    offset = (page - 1) * limit;
 
     // Get RepCard user ID if userId provided
-    let actualRepcardUserId = repcardUserId;
+    actualRepcardUserId = repcardUserId;
     if (userId && !repcardUserId) {
       const userResult = await sql`
         SELECT repcard_user_id FROM users WHERE id = ${userId}
