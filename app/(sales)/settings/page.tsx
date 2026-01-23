@@ -15,6 +15,7 @@ import { MilestoneConfigTab } from '@/components/settings/MilestoneConfigTab'
 import { Card, CardContent } from '@/components/ui/card'
 import RepCardManagementTab from '@/components/settings/RepCardManagementTab'
 import { RepCardConfigTab } from '@/components/settings/RepCardConfigTab'
+import { RepCardMetricConfigTab } from '@/components/settings/RepCardMetricConfigTab'
 
 export default async function SettingsPage() {
   const session = await getServerSession(authOptions)
@@ -110,6 +111,7 @@ export default async function SettingsPage() {
                 <TabsTrigger value="audit">Audit Logs</TabsTrigger>
                 <TabsTrigger value="repcard">RepCard</TabsTrigger>
                 <TabsTrigger value="repcard-config">RepCard Config</TabsTrigger>
+                <TabsTrigger value="repcard-metrics">Metric Config</TabsTrigger>
               </>
             )}
           </TabsList>
@@ -170,6 +172,12 @@ export default async function SettingsPage() {
               <Suspense fallback={<Skeleton className="h-96 w-full" />}>
                 <TabsContent value="repcard-config">
                   <RepCardConfigTab />
+                </TabsContent>
+              </Suspense>
+
+              <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+                <TabsContent value="repcard-metrics">
+                  <RepCardMetricConfigTab />
                 </TabsContent>
               </Suspense>
             </>

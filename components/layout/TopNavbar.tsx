@@ -35,7 +35,8 @@ import {
   RefreshCw,
   Bell,
   Truck,
-  ChevronDown
+  ChevronDown,
+  Trophy
 } from 'lucide-react';
 import { Logo } from './Logo';
 
@@ -57,6 +58,7 @@ export function TopNavbar() {
     { name: 'Calendar', href: '/calendar', icon: Calendar, roles: ['closer', 'setter', 'coordinator', 'team_lead', 'area_director', 'divisional', 'office_leader', 'regional', 'super_admin'] },
     { name: 'Appointments', href: '/appointments', icon: Calendar, roles: ['closer', 'office_leader', 'area_director', 'divisional', 'regional', 'super_admin', 'team_lead'] },
     { name: 'Analytics', href: '/analytics', icon: BarChart3, roles: ['team_lead', 'area_director', 'divisional', 'office_leader', 'regional', 'super_admin'] },
+    { name: 'Leaderboards', href: '/leaderboards', icon: Trophy, roles: ['team_lead', 'area_director', 'divisional', 'office_leader', 'regional', 'super_admin'] },
     { name: 'Reports', href: '/reports', icon: FileText, roles: ['team_lead', 'area_director', 'divisional', 'office_leader', 'regional', 'super_admin'] },
     { name: 'Settings', href: '/settings', icon: Settings, roles: ['closer', 'setter', 'coordinator', 'team_lead', 'area_director', 'divisional', 'office_leader', 'regional', 'super_admin'] },
     { name: 'KIN Sales Hub', href: 'https://sites.google.com/kinhome.com/kinhomesalesnetwork/home', icon: ExternalLink, roles: ['closer', 'setter', 'coordinator', 'team_lead', 'area_director', 'divisional', 'office_leader', 'regional', 'super_admin'], external: true },

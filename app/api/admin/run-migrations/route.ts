@@ -19,6 +19,7 @@ const PENDING_MIGRATIONS = [
   '034_fix_metric_audit_fk_use_repcard_id.sql',
   '035_add_useful_webhook_fields.sql',
   '038_change_48h_to_2_calendar_days.sql',
+  '039_repcard_metric_config.sql',
 ];
 
 export async function POST(request: NextRequest) {
@@ -265,6 +266,27 @@ export async function GET(request: NextRequest) {
             const funcDef = (funcCheck[0] as any)?.definition || '';
             // Migration 038 changes from hours_diff to days_diff
             migrationStatus = funcDef.includes('days_diff') && funcDef.includes('calendar days') ? 'applied' : 'pending';
+          } catch {
+            migrationStatus = 'pending';
+          }
+        } else if (migrationFile === '039_repcard_metric_config.sql') {
+          try {
+            const tableCheck = await sql`
+              SELECT EXISTS (
+                SELECT FROM information_schema.tables
+                WHERE table_schema = 'public'
+                AND table_name = 'repcard_metric_config'
+              )
+            `;
+            const funcCheck = await sql`
+              SELECT EXISTS (
+                SELECT FROM pg_proc
+                WHERE proname = 'should_count_for_metric'
+              )
+            `;
+            const hasTable = (tableCheck[0] as any)?.exists || false;
+            const hasFunction = (funcCheck[0] as any)?.exists || false;
+            migrationStatus = hasTable && hasFunction ? 'applied' : 'pending';
           } catch {
             migrationStatus = 'pending';
           }
