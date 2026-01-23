@@ -208,7 +208,7 @@ export async function GET(request: NextRequest) {
               ELSE 0
             END as reschedule_rate
           FROM repcard_appointments a
-          LEFT JOIN users u ON u.repcard_user_id::TEXT = a.setter_user_id
+          LEFT JOIN users u ON u.repcard_user_id = a.setter_user_id
           WHERE u.repcard_user_id IS NOT NULL
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
@@ -229,7 +229,7 @@ export async function GET(request: NextRequest) {
               ELSE 0
             END as reschedule_rate
           FROM repcard_appointments a
-          LEFT JOIN users u ON u.repcard_user_id::TEXT = a.setter_user_id
+          LEFT JOIN users u ON u.repcard_user_id = a.setter_user_id
           WHERE u.repcard_user_id IS NOT NULL
           GROUP BY u.repcard_user_id, u.name
           HAVING COUNT(DISTINCT a.id) >= 5
@@ -269,10 +269,10 @@ export async function GET(request: NextRequest) {
               ELSE 0
             END as close_rate
           FROM repcard_offices o
-          LEFT JOIN repcard_customers c ON c.office_id = o.repcard_office_id::TEXT
+          LEFT JOIN repcard_customers c ON c.office_id::int = o.repcard_office_id
             AND c.created_at >= ${startDate}::timestamptz
             AND c.created_at <= ${endDate}::timestamptz
-          LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id
+          LEFT JOIN repcard_appointments a ON a.repcard_customer_id::int = c.repcard_customer_id
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
           LEFT JOIN users u ON u.repcard_user_id::TEXT = c.setter_user_id
@@ -301,8 +301,8 @@ export async function GET(request: NextRequest) {
               ELSE 0
             END as close_rate
           FROM repcard_offices o
-          LEFT JOIN repcard_customers c ON c.office_id = o.repcard_office_id::TEXT
-          LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id
+          LEFT JOIN repcard_customers c ON c.office_id::int = o.repcard_office_id
+          LEFT JOIN repcard_appointments a ON a.repcard_customer_id::int = c.repcard_customer_id
           LEFT JOIN users u ON u.repcard_user_id::TEXT = c.setter_user_id
           GROUP BY o.repcard_office_id, o.name
           HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
@@ -321,10 +321,10 @@ export async function GET(request: NextRequest) {
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.has_power_bill = TRUE)::int as with_power_bill,
             COUNT(DISTINCT u.repcard_user_id) FILTER (WHERE u.role = 'setter')::int as setters_count
           FROM repcard_offices o
-          LEFT JOIN repcard_customers c ON c.office_id = o.repcard_office_id::TEXT
+          LEFT JOIN repcard_customers c ON c.office_id::int = o.repcard_office_id
             AND c.created_at >= ${startDate}::timestamptz
             AND c.created_at <= ${endDate}::timestamptz
-          LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id
+          LEFT JOIN repcard_appointments a ON a.repcard_customer_id::int = c.repcard_customer_id
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
           LEFT JOIN users u ON u.repcard_user_id::TEXT = c.setter_user_id
@@ -339,8 +339,8 @@ export async function GET(request: NextRequest) {
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND a.has_power_bill = TRUE)::int as with_power_bill,
             COUNT(DISTINCT u.repcard_user_id) FILTER (WHERE u.role = 'setter')::int as setters_count
           FROM repcard_offices o
-          LEFT JOIN repcard_customers c ON c.office_id = o.repcard_office_id::TEXT
-          LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id
+          LEFT JOIN repcard_customers c ON c.office_id::int = o.repcard_office_id
+          LEFT JOIN repcard_appointments a ON a.repcard_customer_id::int = c.repcard_customer_id
           LEFT JOIN users u ON u.repcard_user_id::TEXT = c.setter_user_id
           GROUP BY o.repcard_office_id
         `;
@@ -356,10 +356,10 @@ export async function GET(request: NextRequest) {
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'cancelled')::int as cancelled,
             COUNT(DISTINCT u.repcard_user_id) FILTER (WHERE u.role = 'closer')::int as closers_count
           FROM repcard_offices o
-          LEFT JOIN repcard_appointments a ON a.office_id = o.repcard_office_id::TEXT
+          LEFT JOIN repcard_appointments a ON a.office_id::int = o.repcard_office_id
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
-          LEFT JOIN users u ON u.repcard_user_id::TEXT = a.closer_user_id
+          LEFT JOIN users u ON u.repcard_user_id = a.closer_user_id
           GROUP BY o.repcard_office_id
         `
       : await sql`
@@ -372,8 +372,8 @@ export async function GET(request: NextRequest) {
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE a.status_category = 'cancelled')::int as cancelled,
             COUNT(DISTINCT u.repcard_user_id) FILTER (WHERE u.role = 'closer')::int as closers_count
           FROM repcard_offices o
-          LEFT JOIN repcard_appointments a ON a.office_id = o.repcard_office_id::TEXT
-          LEFT JOIN users u ON u.repcard_user_id::TEXT = a.closer_user_id
+          LEFT JOIN repcard_appointments a ON a.office_id::int = o.repcard_office_id
+          LEFT JOIN users u ON u.repcard_user_id = a.closer_user_id
           GROUP BY o.repcard_office_id
         `;
     
@@ -433,8 +433,8 @@ export async function GET(request: NextRequest) {
               ELSE 0
             END as conversion_rate
           FROM users u
-          LEFT JOIN repcard_customers c ON c.setter_user_id = u.repcard_user_id::TEXT
-          LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id
+          LEFT JOIN repcard_customers c ON c.setter_user_id = u.repcard_user_id
+          LEFT JOIN repcard_appointments a ON a.repcard_customer_id::int = c.repcard_customer_id
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
           WHERE u.repcard_user_id IS NOT NULL
@@ -456,8 +456,8 @@ export async function GET(request: NextRequest) {
               ELSE 0
             END as conversion_rate
           FROM users u
-          LEFT JOIN repcard_customers c ON c.setter_user_id = u.repcard_user_id::TEXT
-          LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id
+          LEFT JOIN repcard_customers c ON c.setter_user_id = u.repcard_user_id
+          LEFT JOIN repcard_appointments a ON a.repcard_customer_id::int = c.repcard_customer_id
           WHERE u.repcard_user_id IS NOT NULL
           GROUP BY u.repcard_user_id, u.name, u.role
           HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
@@ -503,7 +503,7 @@ export async function GET(request: NextRequest) {
             END as conversion_rate
           FROM users u
           -- Appointments set by this user in date range
-          LEFT JOIN repcard_appointments a ON a.setter_user_id = u.repcard_user_id::TEXT
+          LEFT JOIN repcard_appointments a ON a.setter_user_id = u.repcard_user_id
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
           -- Doors knocked: subquery to count all customers created by this setter in date range
@@ -519,7 +519,7 @@ export async function GET(request: NextRequest) {
                     MIN(c2.created_at) as day_min,
                     MAX(c2.created_at) as day_max
                   FROM repcard_customers c2
-                  WHERE c2.setter_user_id = u.repcard_user_id::TEXT
+                  WHERE c2.setter_user_id = u.repcard_user_id
                     AND c2.created_at >= ${startDate}::timestamptz
                     AND c2.created_at <= ${endDate}::timestamptz
                   GROUP BY DATE(c2.created_at AT TIME ZONE 'America/New_York')
@@ -557,7 +557,7 @@ export async function GET(request: NextRequest) {
             END as conversion_rate
           FROM users u
           -- Appointments set by this user
-          LEFT JOIN repcard_appointments a ON a.setter_user_id = u.repcard_user_id::TEXT
+          LEFT JOIN repcard_appointments a ON a.setter_user_id = u.repcard_user_id
           -- Doors knocked: subquery to count all customers created by this setter
           LEFT JOIN LATERAL (
             SELECT
@@ -571,7 +571,7 @@ export async function GET(request: NextRequest) {
                     MIN(c2.created_at) as day_min,
                     MAX(c2.created_at) as day_max
                   FROM repcard_customers c2
-                  WHERE c2.setter_user_id = u.repcard_user_id::TEXT
+                  WHERE c2.setter_user_id = u.repcard_user_id
                   GROUP BY DATE(c2.created_at AT TIME ZONE 'America/New_York')
                 ) daily_ranges
               ), 0)::int as estimated_hours_on_doors
@@ -621,7 +621,7 @@ export async function GET(request: NextRequest) {
               ELSE 0
             END as close_rate
           FROM users u
-          LEFT JOIN repcard_appointments a ON a.closer_user_id = u.repcard_user_id::TEXT
+          LEFT JOIN repcard_appointments a ON a.closer_user_id = u.repcard_user_id
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
           WHERE u.repcard_user_id IS NOT NULL
@@ -650,7 +650,7 @@ export async function GET(request: NextRequest) {
               ELSE 0
             END as close_rate
           FROM users u
-          LEFT JOIN repcard_appointments a ON a.closer_user_id = u.repcard_user_id::TEXT
+          LEFT JOIN repcard_appointments a ON a.closer_user_id = u.repcard_user_id
           WHERE u.repcard_user_id IS NOT NULL
           GROUP BY u.repcard_user_id, u.name, u.role
           HAVING COUNT(DISTINCT a.repcard_appointment_id) > 0
@@ -666,7 +666,7 @@ export async function GET(request: NextRequest) {
             a.disposition,
             COUNT(DISTINCT a.repcard_appointment_id)::int as count
           FROM users u
-          INNER JOIN repcard_appointments a ON a.closer_user_id = u.repcard_user_id::TEXT
+          INNER JOIN repcard_appointments a ON a.closer_user_id = u.repcard_user_id
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
           WHERE u.repcard_user_id IS NOT NULL
@@ -679,7 +679,7 @@ export async function GET(request: NextRequest) {
             a.disposition,
             COUNT(DISTINCT a.repcard_appointment_id)::int as count
           FROM users u
-          INNER JOIN repcard_appointments a ON a.closer_user_id = u.repcard_user_id::TEXT
+          INNER JOIN repcard_appointments a ON a.closer_user_id = u.repcard_user_id
           WHERE u.repcard_user_id IS NOT NULL
             AND a.disposition IS NOT NULL
           GROUP BY u.repcard_user_id, a.disposition
@@ -738,7 +738,7 @@ export async function GET(request: NextRequest) {
                   MIN(c2.created_at) as day_min,
                   MAX(c2.created_at) as day_max
                 FROM repcard_customers c2
-                WHERE c2.setter_user_id = u.repcard_user_id::TEXT
+                WHERE c2.setter_user_id = u.repcard_user_id
                   AND c2.office_id = o.repcard_office_id::TEXT
                   AND c2.created_at >= ${startDate}::timestamptz
                   AND c2.created_at <= ${endDate}::timestamptz
@@ -746,12 +746,12 @@ export async function GET(request: NextRequest) {
               ) daily_ranges
             ), 0)::int as hours_on_doors
           FROM repcard_offices o
-          INNER JOIN repcard_customers c ON c.office_id = o.repcard_office_id::TEXT
+          INNER JOIN repcard_customers c ON c.office_id::int = o.repcard_office_id
             AND c.created_at >= ${startDate}::timestamptz
             AND c.created_at <= ${endDate}::timestamptz
-          INNER JOIN users u ON u.repcard_user_id::TEXT = c.setter_user_id
+          INNER JOIN users u ON u.repcard_user_id = c.setter_user_id
             AND u.role = 'setter'
-          LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id
+          LEFT JOIN repcard_appointments a ON a.repcard_customer_id::int = c.repcard_customer_id
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
           GROUP BY o.repcard_office_id, o.name, u.repcard_user_id, u.name, u.role
@@ -777,16 +777,16 @@ export async function GET(request: NextRequest) {
                   MIN(c2.created_at) as day_min,
                   MAX(c2.created_at) as day_max
                 FROM repcard_customers c2
-                WHERE c2.setter_user_id = u.repcard_user_id::TEXT
+                WHERE c2.setter_user_id = u.repcard_user_id
                   AND c2.office_id = o.repcard_office_id::TEXT
                 GROUP BY DATE(c2.created_at AT TIME ZONE 'America/New_York')
               ) daily_ranges
             ), 0)::int as hours_on_doors
           FROM repcard_offices o
-          INNER JOIN repcard_customers c ON c.office_id = o.repcard_office_id::TEXT
-          INNER JOIN users u ON u.repcard_user_id::TEXT = c.setter_user_id
+          INNER JOIN repcard_customers c ON c.office_id::int = o.repcard_office_id
+          INNER JOIN users u ON u.repcard_user_id = c.setter_user_id
             AND u.role = 'setter'
-          LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id
+          LEFT JOIN repcard_appointments a ON a.repcard_customer_id::int = c.repcard_customer_id
           GROUP BY o.repcard_office_id, o.name, u.repcard_user_id, u.name, u.role
           HAVING COUNT(DISTINCT c.repcard_customer_id) > 0
           ORDER BY o.repcard_office_id, doors_knocked DESC
@@ -812,10 +812,10 @@ export async function GET(request: NextRequest) {
               ELSE 0
             END as close_rate
           FROM repcard_offices o
-          INNER JOIN repcard_appointments a ON a.office_id = o.repcard_office_id::TEXT
+          INNER JOIN repcard_appointments a ON a.office_id::int = o.repcard_office_id
             AND a.scheduled_at >= ${startDate}::timestamptz
             AND a.scheduled_at <= ${endDate}::timestamptz
-          INNER JOIN users u ON u.repcard_user_id::TEXT = a.closer_user_id
+          INNER JOIN users u ON u.repcard_user_id = a.closer_user_id
             AND u.role = 'closer'
           GROUP BY o.repcard_office_id, o.name, u.repcard_user_id, u.name, u.role
           HAVING COUNT(DISTINCT a.repcard_appointment_id) > 0
@@ -840,8 +840,8 @@ export async function GET(request: NextRequest) {
               ELSE 0
             END as close_rate
           FROM repcard_offices o
-          INNER JOIN repcard_appointments a ON a.office_id = o.repcard_office_id::TEXT
-          INNER JOIN users u ON u.repcard_user_id::TEXT = a.closer_user_id
+          INNER JOIN repcard_appointments a ON a.office_id::int = o.repcard_office_id
+          INNER JOIN users u ON u.repcard_user_id = a.closer_user_id
             AND u.role = 'closer'
           GROUP BY o.repcard_office_id, o.name, u.repcard_user_id, u.name, u.role
           HAVING COUNT(DISTINCT a.repcard_appointment_id) > 0
@@ -885,7 +885,7 @@ export async function GET(request: NextRequest) {
             COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND DATE(a.scheduled_at) = DATE(c.created_at))::int as appointments_set
           FROM repcard_customers c
-          LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id
+          LEFT JOIN repcard_appointments a ON a.repcard_customer_id::int = c.repcard_customer_id
             AND DATE(a.scheduled_at) = DATE(c.created_at)
           WHERE c.created_at >= ${startDate}::timestamptz
             AND c.created_at <= ${endDate}::timestamptz
@@ -898,7 +898,7 @@ export async function GET(request: NextRequest) {
             COUNT(DISTINCT c.repcard_customer_id)::int as doors_knocked,
             COUNT(DISTINCT a.repcard_appointment_id) FILTER (WHERE (a.is_reschedule = FALSE OR a.is_reschedule IS NULL) AND DATE(a.scheduled_at) = DATE(c.created_at))::int as appointments_set
           FROM repcard_customers c
-          LEFT JOIN repcard_appointments a ON a.repcard_customer_id = c.repcard_customer_id
+          LEFT JOIN repcard_appointments a ON a.repcard_customer_id::int = c.repcard_customer_id
             AND DATE(a.scheduled_at) = DATE(c.created_at)
           WHERE c.created_at >= NOW() - INTERVAL '30 days'
           GROUP BY DATE(c.created_at)
