@@ -833,9 +833,12 @@ function SettersView({ data, isLoading, dateRange, startDate, endDate }: { data:
       const response = await fetch(`/api/repcard/data?${params.toString()}`);
       if (response.ok) {
         const result = await response.json();
-        const appts = (result.data || []).filter((a: any) => 
-          a.setter_user_id === userId || String(a.setter_user_id) === String(userId)
-        );
+        // Filter appointments where this setter is the setter (not reschedules)
+        const appts = (result.data || []).filter((a: any) => {
+          const setterId = a.setter_user_id;
+          return (setterId === userId || String(setterId) === String(userId)) && 
+                 (a.is_reschedule === false || a.is_reschedule === null);
+        });
         setAppointments(new Map(appointments.set(userId, appts)));
       }
     } catch (error) {
@@ -1193,9 +1196,11 @@ function ClosersView({ data, isLoading, dateRange, startDate, endDate }: { data:
       const response = await fetch(`/api/repcard/data?${params.toString()}`);
       if (response.ok) {
         const result = await response.json();
-        const appts = (result.data || []).filter((a: any) => 
-          a.closer_user_id === userId || String(a.closer_user_id) === String(userId)
-        );
+        // Filter appointments where this closer is the closer
+        const appts = (result.data || []).filter((a: any) => {
+          const closerId = a.closer_user_id;
+          return closerId === userId || String(closerId) === String(userId);
+        });
         setAppointments(new Map(appointments.set(userId, appts)));
       }
     } catch (error) {
@@ -1376,7 +1381,7 @@ function ClosersView({ data, isLoading, dateRange, startDate, endDate }: { data:
                     </TableRow>
                     {isExpanded && (
                       <TableRow>
-                        <TableCell colSpan={7} className="bg-gray-50 p-0">
+                        <TableCell colSpan={8} className="bg-gray-50 p-0">
                           <div className="p-4">
                             {isLoadingAppts ? (
                               <div className="flex items-center justify-center py-8">
