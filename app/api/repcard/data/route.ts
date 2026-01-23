@@ -142,35 +142,44 @@ export async function GET(request: NextRequest) {
       case 'appointments': {
         let query = sql`
           SELECT 
-            id,
-            repcard_appointment_id,
-            customer_id,
-            repcard_customer_id,
-            setter_user_id,
-            closer_user_id,
-            disposition,
-            scheduled_at,
-            completed_at,
-            duration,
-            notes,
-            created_at,
-            updated_at,
-            synced_at
-          FROM repcard_appointments
+            a.id,
+            a.repcard_appointment_id,
+            a.customer_id,
+            a.repcard_customer_id,
+            a.setter_user_id,
+            a.closer_user_id,
+            a.disposition,
+            a.status_category,
+            a.scheduled_at,
+            a.completed_at,
+            a.duration,
+            a.notes,
+            a.is_within_48_hours,
+            a.has_power_bill,
+            a.is_reschedule,
+            a.created_at,
+            a.updated_at,
+            a.synced_at,
+            c.name as customer_name,
+            c.phone as customer_phone,
+            c.email as customer_email,
+            c.address as customer_address
+          FROM repcard_appointments a
+          LEFT JOIN repcard_customers c ON c.repcard_customer_id::text = a.repcard_customer_id::text
           WHERE 1=1
         `;
 
         if (actualRepcardUserId) {
-          query = sql`${query} AND (setter_user_id = ${actualRepcardUserId} OR closer_user_id = ${actualRepcardUserId})`;
+          query = sql`${query} AND (a.setter_user_id::text = ${actualRepcardUserId}::text OR a.closer_user_id::text = ${actualRepcardUserId}::text)`;
         }
         if (customerId) {
-          query = sql`${query} AND repcard_customer_id = ${parseInt(customerId)}`;
+          query = sql`${query} AND a.repcard_customer_id::text = ${customerId}::text`;
         }
         if (startDate) {
-          query = sql`${query} AND scheduled_at >= ${startDate}::timestamp`;
+          query = sql`${query} AND a.scheduled_at >= ${startDate}::timestamp`;
         }
         if (endDate) {
-          query = sql`${query} AND scheduled_at <= (${endDate}::timestamp + INTERVAL '1 day')`;
+          query = sql`${query} AND a.scheduled_at <= (${endDate}::timestamp + INTERVAL '1 day')`;
         }
 
         const countResult = await sql`
@@ -178,7 +187,7 @@ export async function GET(request: NextRequest) {
         `;
         total = parseInt(Array.from(countResult)[0]?.count || '0');
 
-        query = sql`${query} ORDER BY scheduled_at DESC LIMIT ${limit} OFFSET ${offset}`;
+        query = sql`${query} ORDER BY a.scheduled_at DESC LIMIT ${limit} OFFSET ${offset}`;
         const result = await query;
         data = Array.from(result);
         break;
