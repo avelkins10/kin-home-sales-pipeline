@@ -472,14 +472,39 @@ export async function GET(request: NextRequest) {
     // Log diagnostic info for empty results
     if (appointments.length === 0) {
       // Check if there are ANY appointments in the database for this date range
-      const diagnosticCheck = await sql`
+      // Check with timezone conversion (what the query uses)
+      const diagnosticCheckTZ = await sql`
         SELECT 
-          COUNT(*) FILTER (WHERE scheduled_at IS NOT NULL AND (scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date AND (scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date) as with_scheduled,
-          COUNT(*) FILTER (WHERE scheduled_at IS NULL AND (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date AND (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date) as with_created,
-          COUNT(*) as total_in_range
+          COUNT(*) FILTER (WHERE scheduled_at IS NOT NULL AND (scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date AND (scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date) as with_scheduled_tz,
+          COUNT(*) FILTER (WHERE scheduled_at IS NULL AND (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date >= ${startDate}::date AND (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date <= ${endDate}::date) as with_created_tz
         FROM repcard_appointments
       `;
-      const diagnostic = Array.from(diagnosticCheck)[0];
+      
+      // Also check without timezone conversion (raw dates)
+      const diagnosticCheckRaw = await sql`
+        SELECT 
+          COUNT(*) FILTER (WHERE scheduled_at IS NOT NULL AND scheduled_at::date >= ${startDate}::date AND scheduled_at::date <= ${endDate}::date) as with_scheduled_raw,
+          COUNT(*) FILTER (WHERE scheduled_at IS NULL AND created_at::date >= ${startDate}::date AND created_at::date <= ${endDate}::date) as with_created_raw,
+          COUNT(*) as total_all
+        FROM repcard_appointments
+      `;
+      
+      const diagnosticTZ = Array.from(diagnosticCheckTZ)[0];
+      const diagnosticRaw = Array.from(diagnosticCheckRaw)[0];
+      
+      // Get sample dates to see what's actually stored
+      const sampleDates = await sql`
+        SELECT 
+          repcard_appointment_id,
+          scheduled_at,
+          created_at,
+          (scheduled_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date as scheduled_at_et_date,
+          scheduled_at::date as scheduled_at_utc_date
+        FROM repcard_appointments
+        WHERE scheduled_at IS NOT NULL
+        ORDER BY scheduled_at DESC
+        LIMIT 5
+      `;
       
       logInfo('repcard-appointments-schedule-empty', {
         requestId,
@@ -487,11 +512,21 @@ export async function GET(request: NextRequest) {
         repcardUserId,
         startDate,
         endDate,
-        diagnostic: {
-          withScheduled: diagnostic?.with_scheduled || 0,
-          withCreated: diagnostic?.with_created || 0,
-          totalInRange: diagnostic?.total_in_range || 0
+        diagnosticTZ: {
+          withScheduled: diagnosticTZ?.with_scheduled_tz || 0,
+          withCreated: diagnosticTZ?.with_created_tz || 0
         },
+        diagnosticRaw: {
+          withScheduled: diagnosticRaw?.with_scheduled_raw || 0,
+          withCreated: diagnosticRaw?.with_created_raw || 0,
+          totalAll: diagnosticRaw?.total_all || 0
+        },
+        sampleDates: Array.from(sampleDates).map((d: any) => ({
+          id: d.repcard_appointment_id,
+          scheduledAt: d.scheduled_at,
+          scheduledAtETDate: d.scheduled_at_et_date,
+          scheduledAtUTCDate: d.scheduled_at_utc_date
+        })),
         filters: {
           teamIds: teamIds?.length || 0,
           calendarId,
