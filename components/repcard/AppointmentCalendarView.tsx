@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Clock, Paperclip, RotateCcw } from 'lucide-react';
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, addDays, addWeeks, addMonths, subDays, subWeeks, subMonths, isSameDay, isToday, isSameMonth, getHours, getMinutes, setHours, setMinutes, startOfDay } from 'date-fns';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, addDays, addWeeks, addMonths, subDays, subWeeks, subMonths, isToday, isSameMonth, getHours, getMinutes, setHours, startOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { AppointmentData } from './AppointmentCard';
 
