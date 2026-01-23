@@ -255,6 +255,11 @@ export async function syncCustomers(options: {
             }
 
             // Upsert customer into database
+            // Use fullName if available, otherwise construct from firstName + lastName
+            const customerName = (customer as any).fullName || 
+                                 `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 
+                                 null;
+            
             const result = await sql`
               INSERT INTO repcard_customers (
                 repcard_customer_id,
@@ -268,6 +273,9 @@ export async function syncCustomers(options: {
                 state,
                 zip,
                 status,
+                contact_source,
+                latitude,
+                longitude,
                 created_at,
                 updated_at,
                 raw_data
@@ -276,14 +284,17 @@ export async function syncCustomers(options: {
                 ${customer.id.toString()}::text,
                 ${setterUserId},
                 ${null}, -- office_id not available in customer record
-                ${`${customer.firstName} ${customer.lastName}`},
+                ${customerName},
                 ${customer.email || null},
-                ${customer.phone || null},
+                ${customer.phone || (customer as any).phoneNumber || null},
                 ${customer.address || null},
                 ${customer.city || null},
                 ${customer.state || null},
-                ${customer.zipCode || null},
+                ${customer.zipCode || (customer as any).zip || null},
                 ${customer.statusId?.toString() || null},
+                ${(customer as any).contactSource || null},
+                ${(customer as any).latitude ? parseFloat((customer as any).latitude.toString()) : null},
+                ${(customer as any).longitude ? parseFloat((customer as any).longitude.toString()) : null},
                 ${customer.createdAt},
                 ${customer.updatedAt},
                 ${JSON.stringify(customer)}
@@ -299,6 +310,9 @@ export async function syncCustomers(options: {
                 state = EXCLUDED.state,
                 zip = EXCLUDED.zip,
                 status = EXCLUDED.status,
+                contact_source = EXCLUDED.contact_source,
+                latitude = EXCLUDED.latitude,
+                longitude = EXCLUDED.longitude,
                 -- CRITICAL: Update created_at if it's NULL (backfill missing data)
                 created_at = COALESCE(repcard_customers.created_at, EXCLUDED.created_at),
                 updated_at = EXCLUDED.updated_at,
@@ -692,6 +706,10 @@ export async function syncAppointments(options: {
                 completed_at,
                 duration,
                 notes,
+                appointment_location,
+                latitude,
+                longitude,
+                contact_source,
                 is_within_48_hours,
                 has_power_bill,
                 is_reschedule,
@@ -710,12 +728,16 @@ export async function syncAppointments(options: {
                 ${officeId},
                 ${disposition},
                 ${statusCategory},
-                ${appointment.startAt && appointment.startAtTimezone 
-                  ? parseRepCardDateTime(appointment.startAt, appointment.startAtTimezone) 
+                ${appointment.startAt && (appointment as any).startAtTimezone 
+                  ? parseRepCardDateTime(appointment.startAt, (appointment as any).startAtTimezone) 
                   : appointment.startAt || null},
                 ${appointment.endAt || null},
                 ${appointment.durationTime || null},
                 ${appointment.notes || null},
+                ${(appointment as any).appointmentLocation || null},
+                ${(appointment as any).latitude ? parseFloat((appointment as any).latitude.toString()) : null},
+                ${(appointment as any).longitude ? parseFloat((appointment as any).longitude.toString()) : null},
+                ${appointment.contact?.contactSource || (appointment as any).contactSource || null},
                 ${isWithin48Hours},
                 ${hasPowerBill},
                 ${isReschedule},
@@ -737,6 +759,10 @@ export async function syncAppointments(options: {
                 completed_at = EXCLUDED.completed_at,
                 duration = EXCLUDED.duration,
                 notes = EXCLUDED.notes,
+                appointment_location = EXCLUDED.appointment_location,
+                latitude = EXCLUDED.latitude,
+                longitude = EXCLUDED.longitude,
+                contact_source = EXCLUDED.contact_source,
                 -- EVENT-DRIVEN: Metrics are recalculated by triggers when scheduled_at or repcard_customer_id changes
                 -- Don't set is_within_48_hours or has_power_bill here - triggers handle it automatically
                 -- Updating scheduled_at or repcard_customer_id will trigger recalculation
