@@ -21,6 +21,7 @@ export interface AppointmentData {
   closer_name: string | null;
   closer_email: string | null;
   closer_team_name: string | null;
+  office_name: string | null;
   calendar_name: string | null;
   status_category: string | null;
   disposition: string | null;

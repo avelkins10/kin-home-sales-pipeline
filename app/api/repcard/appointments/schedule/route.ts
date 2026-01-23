@@ -210,10 +210,20 @@ export async function GET(request: NextRequest) {
           a.notes, a.is_within_48_hours, a.has_power_bill, a.is_reschedule,
           a.reschedule_count, a.original_appointment_id, a.created_at, a.updated_at,
           (a.raw_data->>'calendarId')::int as calendar_id,
-          COALESCE(NULLIF(TRIM(setter.first_name || ' ' || setter.last_name), ''), 'Unassigned') as setter_name,
+          COALESCE(
+            NULLIF(TRIM(setter.first_name || ' ' || setter.last_name), ''),
+            NULLIF(a.raw_data->'setter'->>'fullName', ''),
+            NULLIF(a.raw_data->'setter'->>'name', ''),
+            'Unassigned'
+          ) as setter_name,
           setter.email as setter_email, setter.team_id as setter_team_id,
           setter.team_name as setter_team_name,
-          COALESCE(NULLIF(TRIM(closer.first_name || ' ' || closer.last_name), ''), 'Unassigned') as closer_name,
+          COALESCE(
+            NULLIF(TRIM(closer.first_name || ' ' || closer.last_name), ''),
+            NULLIF(a.raw_data->'closer'->>'fullName', ''),
+            NULLIF(a.raw_data->'closer'->>'name', ''),
+            'Unassigned'
+          ) as closer_name,
           closer.email as closer_email, closer.team_id as closer_team_id,
           closer.team_name as closer_team_name,
           COALESCE(
@@ -240,6 +250,7 @@ export async function GET(request: NextRequest) {
           cal.name as calendar_name, cal.status as calendar_status,
           COALESCE(closer_team.team_name, setter_team.team_name) as team_name,
           COALESCE(closer_team.repcard_team_id, setter_team.repcard_team_id) as team_id,
+          office.name as office_name,
           (SELECT COUNT(*)::int FROM repcard_customer_attachments WHERE repcard_customer_id::text = a.repcard_customer_id::text) as customer_attachment_count,
           (SELECT COUNT(*)::int FROM repcard_appointment_attachments WHERE repcard_appointment_id::text = a.repcard_appointment_id::text) as appointment_attachment_count,
           (SELECT COUNT(*)::int FROM repcard_customer_notes WHERE repcard_customer_id::text = a.repcard_customer_id::text) as customer_note_count,
@@ -398,10 +409,20 @@ export async function GET(request: NextRequest) {
           a.notes, a.is_within_48_hours, a.has_power_bill, a.is_reschedule,
           a.reschedule_count, a.original_appointment_id, a.created_at, a.updated_at,
           (a.raw_data->>'calendarId')::int as calendar_id,
-          COALESCE(NULLIF(TRIM(setter.first_name || ' ' || setter.last_name), ''), 'Unassigned') as setter_name,
+          COALESCE(
+            NULLIF(TRIM(setter.first_name || ' ' || setter.last_name), ''),
+            NULLIF(a.raw_data->'setter'->>'fullName', ''),
+            NULLIF(a.raw_data->'setter'->>'name', ''),
+            'Unassigned'
+          ) as setter_name,
           setter.email as setter_email, setter.team_id as setter_team_id,
           setter.team_name as setter_team_name,
-          COALESCE(NULLIF(TRIM(closer.first_name || ' ' || closer.last_name), ''), 'Unassigned') as closer_name,
+          COALESCE(
+            NULLIF(TRIM(closer.first_name || ' ' || closer.last_name), ''),
+            NULLIF(a.raw_data->'closer'->>'fullName', ''),
+            NULLIF(a.raw_data->'closer'->>'name', ''),
+            'Unassigned'
+          ) as closer_name,
           closer.email as closer_email, closer.team_id as closer_team_id,
           closer.team_name as closer_team_name,
           COALESCE(
@@ -428,6 +449,7 @@ export async function GET(request: NextRequest) {
           cal.name as calendar_name, cal.status as calendar_status,
           COALESCE(closer_team.team_name, setter_team.team_name) as team_name,
           COALESCE(closer_team.repcard_team_id, setter_team.repcard_team_id) as team_id,
+          office.name as office_name,
           (SELECT COUNT(*)::int FROM repcard_customer_attachments WHERE repcard_customer_id::text = a.repcard_customer_id::text) as customer_attachment_count,
           (SELECT COUNT(*)::int FROM repcard_appointment_attachments WHERE repcard_appointment_id::text = a.repcard_appointment_id::text) as appointment_attachment_count,
           (SELECT COUNT(*)::int FROM repcard_customer_notes WHERE repcard_customer_id::text = a.repcard_customer_id::text) as customer_note_count,
@@ -601,10 +623,20 @@ export async function GET(request: NextRequest) {
           a.notes, a.is_within_48_hours, a.has_power_bill, a.is_reschedule,
           a.reschedule_count, a.original_appointment_id, a.created_at, a.updated_at,
           (a.raw_data->>'calendarId')::int as calendar_id,
-          COALESCE(NULLIF(TRIM(setter.first_name || ' ' || setter.last_name), ''), 'Unassigned') as setter_name,
+          COALESCE(
+            NULLIF(TRIM(setter.first_name || ' ' || setter.last_name), ''),
+            NULLIF(a.raw_data->'setter'->>'fullName', ''),
+            NULLIF(a.raw_data->'setter'->>'name', ''),
+            'Unassigned'
+          ) as setter_name,
           setter.email as setter_email, setter.team_id as setter_team_id,
           setter.team_name as setter_team_name,
-          COALESCE(NULLIF(TRIM(closer.first_name || ' ' || closer.last_name), ''), 'Unassigned') as closer_name,
+          COALESCE(
+            NULLIF(TRIM(closer.first_name || ' ' || closer.last_name), ''),
+            NULLIF(a.raw_data->'closer'->>'fullName', ''),
+            NULLIF(a.raw_data->'closer'->>'name', ''),
+            'Unassigned'
+          ) as closer_name,
           closer.email as closer_email, closer.team_id as closer_team_id,
           closer.team_name as closer_team_name,
           COALESCE(
@@ -631,6 +663,7 @@ export async function GET(request: NextRequest) {
           cal.name as calendar_name, cal.status as calendar_status,
           COALESCE(closer_team.team_name, setter_team.team_name) as team_name,
           COALESCE(closer_team.repcard_team_id, setter_team.repcard_team_id) as team_id,
+          office.name as office_name,
           (SELECT COUNT(*)::int FROM repcard_customer_attachments WHERE repcard_customer_id::text = a.repcard_customer_id::text) as customer_attachment_count,
           (SELECT COUNT(*)::int FROM repcard_appointment_attachments WHERE repcard_appointment_id::text = a.repcard_appointment_id::text) as appointment_attachment_count,
           (SELECT COUNT(*)::int FROM repcard_customer_notes WHERE repcard_customer_id::text = a.repcard_customer_id::text) as customer_note_count,

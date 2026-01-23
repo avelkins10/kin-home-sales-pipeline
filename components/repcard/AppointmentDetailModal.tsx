@@ -225,6 +225,35 @@ export function AppointmentDetailModal({
             </div>
           </div>
 
+          {/* Office/Team */}
+          {(appointment.office_name || appointment.setter_team_name || appointment.closer_team_name) && (
+            <>
+              <Separator />
+              <div>
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  Office & Team
+                </h3>
+                <div className="space-y-2 pl-6">
+                  {appointment.office_name && (
+                    <div>
+                      <span className="text-sm text-muted-foreground">Office:</span>{' '}
+                      <span className="font-medium">{appointment.office_name}</span>
+                    </div>
+                  )}
+                  {(appointment.setter_team_name || appointment.closer_team_name) && (
+                    <div>
+                      <span className="text-sm text-muted-foreground">Team:</span>{' '}
+                      <span className="font-medium">
+                        {appointment.closer_team_name || appointment.setter_team_name}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
           <Separator />
 
           {/* Status and Flags */}
