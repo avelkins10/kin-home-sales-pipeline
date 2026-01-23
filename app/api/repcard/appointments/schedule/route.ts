@@ -128,26 +128,9 @@ export async function GET(request: NextRequest) {
     } else if (isRescheduleFilter === 'false') {
       additionalWhereParts.push(sql`AND (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)`);
     }
-    // Build WHERE clause by conditionally including each fragment
-    // Only create fragment if we have conditions to avoid creating empty parameter placeholders
-    const hasAdditionalWhere = additionalWhereParts.length > 0;
-    const additionalWhere = hasAdditionalWhere
-      ? (additionalWhereParts.length === 1 ? additionalWhereParts[0] :
-         additionalWhereParts.length === 2 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]}` :
-         additionalWhereParts.length === 3 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]}` :
-         additionalWhereParts.length === 4 ? sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]} ${additionalWhereParts[3]}` :
-         sql`${additionalWhereParts[0]} ${additionalWhereParts[1]} ${additionalWhereParts[2]} ${additionalWhereParts[3]} ${additionalWhereParts[4]}`)
-      : null;
+    // Don't combine fragments - include them directly in queries to avoid nested parameter binding issues
 
     // Log query parameters for debugging
-    // Try to inspect the sql fragment structure
-    const additionalWhereInfo = additionalWhere ? {
-      stringsCount: (additionalWhere as any).strings?.length || 0,
-      valuesCount: (additionalWhere as any).values?.length || 0,
-      hasStrings: !!(additionalWhere as any).strings,
-      hasValues: !!(additionalWhere as any).values
-    } : null;
-    
     logInfo('repcard-appointments-schedule', {
       requestId,
       userRole,
@@ -159,8 +142,6 @@ export async function GET(request: NextRequest) {
         hasPowerBillFilter,
         isRescheduleFilter
       },
-      additionalWherePartsCount: additionalWhereParts.length,
-      additionalWhereInfo,
       effectiveOfficeIds: effectiveOfficeIds?.length || 0,
       dateRange: { startDate, endDate }
     });
@@ -223,7 +204,11 @@ export async function GET(request: NextRequest) {
           (a.scheduled_at IS NULL AND a.created_at::date >= ${startDate}::date AND a.created_at::date <= ${endDate}::date)
         )
         AND a.closer_user_id = ${repcardUserId}
-        ${additionalWhere}
+        ${teamIds && teamIds.length > 0 ? sql`AND (setter.team_id = ANY(${teamIds}::int[]) OR closer.team_id = ANY(${teamIds}::int[]))` : ''}
+        ${calendarId ? sql`AND (a.raw_data->>'calendarId')::int = ${calendarId}` : ''}
+        ${statusFilter ? sql`AND a.status_category = ${statusFilter}` : ''}
+        ${hasPowerBillFilter === 'true' ? sql`AND a.has_power_bill = TRUE` : hasPowerBillFilter === 'false' ? sql`AND (a.has_power_bill = FALSE OR a.has_power_bill IS NULL)` : ''}
+        ${isRescheduleFilter === 'true' ? sql`AND a.is_reschedule = TRUE` : isRescheduleFilter === 'false' ? sql`AND (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)` : ''}
         ORDER BY COALESCE(a.scheduled_at, a.created_at) ASC
       `;
     } else if (effectiveOfficeIds && effectiveOfficeIds.length > 0) {
@@ -282,7 +267,11 @@ export async function GET(request: NextRequest) {
           (a.scheduled_at IS NULL AND a.created_at::date >= ${startDate}::date AND a.created_at::date <= ${endDate}::date)
         )
         AND a.office_id = ANY(${effectiveOfficeIds}::int[])
-        ${hasAdditionalWhere ? additionalWhere : ''}
+        ${teamIds && teamIds.length > 0 ? sql`AND (setter.team_id = ANY(${teamIds}::int[]) OR closer.team_id = ANY(${teamIds}::int[]))` : ''}
+        ${calendarId ? sql`AND (a.raw_data->>'calendarId')::int = ${calendarId}` : ''}
+        ${statusFilter ? sql`AND a.status_category = ${statusFilter}` : ''}
+        ${hasPowerBillFilter === 'true' ? sql`AND a.has_power_bill = TRUE` : hasPowerBillFilter === 'false' ? sql`AND (a.has_power_bill = FALSE OR a.has_power_bill IS NULL)` : ''}
+        ${isRescheduleFilter === 'true' ? sql`AND a.is_reschedule = TRUE` : isRescheduleFilter === 'false' ? sql`AND (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)` : ''}
         ORDER BY COALESCE(a.scheduled_at, a.created_at) ASC
       `;
     } else if (userRole === 'super_admin' || userRole === 'regional') {
@@ -340,7 +329,11 @@ export async function GET(request: NextRequest) {
           OR
           (a.scheduled_at IS NULL AND a.created_at::date >= ${startDate}::date AND a.created_at::date <= ${endDate}::date)
         )
-        ${hasAdditionalWhere ? additionalWhere : ''}
+        ${teamIds && teamIds.length > 0 ? sql`AND (setter.team_id = ANY(${teamIds}::int[]) OR closer.team_id = ANY(${teamIds}::int[]))` : ''}
+        ${calendarId ? sql`AND (a.raw_data->>'calendarId')::int = ${calendarId}` : ''}
+        ${statusFilter ? sql`AND a.status_category = ${statusFilter}` : ''}
+        ${hasPowerBillFilter === 'true' ? sql`AND a.has_power_bill = TRUE` : hasPowerBillFilter === 'false' ? sql`AND (a.has_power_bill = FALSE OR a.has_power_bill IS NULL)` : ''}
+        ${isRescheduleFilter === 'true' ? sql`AND a.is_reschedule = TRUE` : isRescheduleFilter === 'false' ? sql`AND (a.is_reschedule = FALSE OR a.is_reschedule IS NULL)` : ''}
         ORDER BY COALESCE(a.scheduled_at, a.created_at) ASC
       `;
     } else {
