@@ -55,6 +55,7 @@ export function TopNavbar() {
     { name: 'Tasks', href: '/tasks', icon: CheckSquare, roles: ['closer', 'setter', 'coordinator', 'team_lead', 'area_director', 'divisional', 'office_leader', 'regional', 'super_admin'] },
     // { name: 'Holds', href: '/holds', icon: Clock, roles: ['closer', 'setter', 'coordinator', 'team_lead', 'area_director', 'divisional', 'office_leader', 'regional', 'super_admin'] }, // TODO: Implement holds page
     { name: 'Calendar', href: '/calendar', icon: Calendar, roles: ['closer', 'setter', 'coordinator', 'team_lead', 'area_director', 'divisional', 'office_leader', 'regional', 'super_admin'] },
+    { name: 'Appointments', href: '/appointments', icon: Calendar, roles: ['closer', 'office_leader', 'area_director', 'divisional', 'regional', 'super_admin', 'team_lead'] },
     { name: 'Analytics', href: '/analytics', icon: BarChart3, roles: ['team_lead', 'area_director', 'divisional', 'office_leader', 'regional', 'super_admin'] },
     { name: 'Reports', href: '/reports', icon: FileText, roles: ['team_lead', 'area_director', 'divisional', 'office_leader', 'regional', 'super_admin'] },
     { name: 'Settings', href: '/settings', icon: Settings, roles: ['closer', 'setter', 'coordinator', 'team_lead', 'area_director', 'divisional', 'office_leader', 'regional', 'super_admin'] },
