@@ -67,25 +67,52 @@ export function AppointmentCard({ appointment, onClick, compact = false }: Appoi
   const createdDate = new Date(appointment.created_at);
   const isUnassigned = !appointment.closer_name || appointment.closer_name === 'Unassigned';
 
-  // Status color coding
-  const getStatusColor = (status: string | null) => {
-    if (!status) return 'bg-gray-100 text-gray-700 border-gray-200';
+  // Get prominent outcome badge
+  const getOutcomeBadge = () => {
+    const status = appointment.status_category;
+    const disposition = appointment.disposition;
+
+    if (!status) return null;
+
+    let badgeClass = '';
+    let badgeText = '';
+    let icon = null;
+
     switch (status.toLowerCase()) {
-      case 'scheduled':
-        return 'bg-green-50 text-green-700 border-green-200';
       case 'completed':
-        return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'rescheduled':
-        return 'bg-yellow-50 text-yellow-700 border-yellow-200';
+        badgeClass = 'bg-green-600 text-white border-green-700';
+        badgeText = disposition ? capitalizeWords(disposition) : 'COMPLETED';
+        icon = <CheckCircle2 className="h-4 w-4" />;
+        break;
       case 'cancelled':
+        badgeClass = 'bg-red-600 text-white border-red-700';
+        badgeText = disposition ? capitalizeWords(disposition) : 'CANCELLED';
+        icon = <AlertCircle className="h-4 w-4" />;
+        break;
       case 'no_show':
-        return 'bg-red-50 text-red-700 border-red-200';
+        badgeClass = 'bg-red-700 text-white border-red-800';
+        badgeText = 'NO SHOW';
+        icon = <AlertCircle className="h-4 w-4" />;
+        break;
+      case 'rescheduled':
+        badgeClass = 'bg-amber-600 text-white border-amber-700';
+        badgeText = 'RESCHEDULED';
+        icon = <RotateCcw className="h-4 w-4" />;
+        break;
+      case 'scheduled':
+        badgeClass = 'bg-blue-600 text-white border-blue-700';
+        badgeText = 'SCHEDULED';
+        icon = <Clock className="h-4 w-4" />;
+        break;
       default:
-        return 'bg-gray-100 text-gray-700 border-gray-200';
+        badgeClass = 'bg-gray-600 text-white border-gray-700';
+        badgeText = capitalizeWords(status);
     }
+
+    return { badgeClass, badgeText, icon };
   };
 
-  const statusColor = getStatusColor(appointment.status_category);
+  const outcomeBadge = getOutcomeBadge();
   const totalAttachments = appointment.customer_attachment_count + appointment.appointment_attachment_count;
 
   return (
@@ -97,154 +124,167 @@ export function AppointmentCard({ appointment, onClick, compact = false }: Appoi
       )}
       onClick={() => onClick?.(appointment)}
     >
-      <div className="space-y-3">
-        {/* Header: Time, Status, and Key Indicators */}
-        <div className="flex items-start justify-between gap-3 flex-wrap">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              {scheduledDate ? (
-                <>
-                  <Clock className="h-4 w-4 text-blue-600 shrink-0" />
-                  <span className="font-semibold text-gray-900">
-                    {format(scheduledDate, 'EEE, MMM d')} at {format(scheduledDate, 'h:mm a')}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <Clock className="h-4 w-4 text-amber-600 shrink-0" />
-                  <span className="font-semibold text-amber-600">Not Scheduled</span>
-                </>
-              )}
-            </div>
-            {scheduledDate && (
-              <div className="text-xs text-muted-foreground ml-6">
-                Created {format(createdDate, 'MMM d, yyyy')}
-              </div>
+      <div className="space-y-2.5">
+        {/* Header: Time + Outcome Badge */}
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            {scheduledDate ? (
+              <>
+                <Clock className="h-4 w-4 text-blue-600 shrink-0" />
+                <span className="font-semibold text-gray-900">
+                  {format(scheduledDate, 'EEE, MMM d')} at {format(scheduledDate, 'h:mm a')}
+                </span>
+              </>
+            ) : (
+              <>
+                <Clock className="h-4 w-4 text-amber-600 shrink-0" />
+                <span className="font-semibold text-amber-600">Not Scheduled</span>
+              </>
             )}
           </div>
 
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {appointment.is_confirmed && (
-              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                <CheckCircle2 className="h-3 w-3 mr-1" />
-                Confirmed
-              </Badge>
-            )}
-            {isUnassigned && (
-              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-                <AlertCircle className="h-3 w-3 mr-1" />
-                Needs Closer
-              </Badge>
-            )}
-            {appointment.status_category && (
-              <Badge variant="outline" className={statusColor}>
-                {capitalizeWords(appointment.status_category)}
-              </Badge>
-            )}
-          </div>
+          {/* Prominent Outcome Badge */}
+          {outcomeBadge && (
+            <div className={cn(
+              "flex items-center gap-2 px-3 py-1.5 rounded-md font-bold text-sm border-2",
+              outcomeBadge.badgeClass
+            )}>
+              {outcomeBadge.icon}
+              {outcomeBadge.badgeText}
+            </div>
+          )}
         </div>
 
-        {/* Customer Info - Prominent */}
-        <div className="bg-gradient-to-r from-gray-50 to-transparent rounded-lg p-3 -mx-1">
-          <div className="flex items-start gap-2 mb-2">
-            <User className="h-5 w-5 text-gray-600 mt-0.5 shrink-0" />
+        {/* Customer Info */}
+        <div className="bg-gradient-to-r from-blue-50/50 to-transparent rounded-lg p-2.5 -mx-1">
+          <div className="flex items-start gap-2">
+            <User className="h-4 w-4 text-gray-600 mt-0.5 shrink-0" />
             <div className="flex-1 min-w-0">
-              <h4 className="font-semibold text-lg text-gray-900 truncate">
+              <h4 className="font-semibold text-base text-gray-900 truncate">
                 {appointment.customer_name || 'Customer Name Not Available'}
               </h4>
               {appointment.customer_address && (
-                <div className="flex items-start gap-1.5 text-sm text-gray-600 mt-1">
-                  <MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                <div className="flex items-start gap-1 text-xs text-gray-600 mt-0.5">
+                  <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
                   <span className="line-clamp-1">{appointment.customer_address}</span>
                 </div>
               )}
+              <div className="flex items-center gap-3 text-xs text-gray-600 mt-1">
+                {appointment.customer_phone && (
+                  <a
+                    href={`tel:${appointment.customer_phone}`}
+                    className="flex items-center gap-1 hover:text-blue-600 transition-colors"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Phone className="h-3 w-3" />
+                    <span>{appointment.customer_phone}</span>
+                  </a>
+                )}
+                {appointment.customer_email && (
+                  <a
+                    href={`mailto:${appointment.customer_email}`}
+                    className="flex items-center gap-1 hover:text-blue-600 transition-colors truncate"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Mail className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{appointment.customer_email}</span>
+                  </a>
+                )}
+              </div>
             </div>
-          </div>
-
-          <div className="flex items-center gap-4 text-sm text-gray-600 ml-7">
-            {appointment.customer_phone && (
-              <a
-                href={`tel:${appointment.customer_phone}`}
-                className="flex items-center gap-1.5 hover:text-blue-600 transition-colors"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Phone className="h-3.5 w-3.5" />
-                <span>{appointment.customer_phone}</span>
-              </a>
-            )}
-            {appointment.customer_email && (
-              <a
-                href={`mailto:${appointment.customer_email}`}
-                className="flex items-center gap-1.5 hover:text-blue-600 transition-colors truncate"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Mail className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{appointment.customer_email}</span>
-              </a>
-            )}
           </div>
         </div>
 
-        {/* Team Assignment */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Setter</div>
-            <div className="text-sm font-medium text-gray-900">
-              {appointment.setter_name || 'Not Assigned'}
+        {/* Assignment - Closer Prominent */}
+        <div className="grid grid-cols-[2fr_1fr] gap-3">
+          {/* Closer - Large and Prominent */}
+          <div className={cn(
+            "rounded-lg p-2.5 border-2",
+            isUnassigned
+              ? "bg-amber-50 border-amber-300"
+              : "bg-green-50 border-green-300"
+          )}>
+            <div className="flex items-center gap-2 mb-1">
+              <User className={cn(
+                "h-4 w-4",
+                isUnassigned ? "text-amber-600" : "text-green-600"
+              )} />
+              <div className="text-xs font-bold uppercase tracking-wide text-gray-600">Closer</div>
+              {isUnassigned && (
+                <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-400 text-[10px] px-1 py-0">
+                  UNASSIGNED
+                </Badge>
+              )}
             </div>
-            {appointment.setter_team_name && (
-              <div className="flex items-center gap-1 text-xs text-gray-500">
-                <Users className="h-3 w-3" />
-                {appointment.setter_team_name}
-              </div>
-            )}
-          </div>
-          <div className="space-y-1">
-            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Closer</div>
             <div className={cn(
-              "text-sm font-medium",
-              isUnassigned ? "text-amber-600" : "text-gray-900"
+              "text-base font-bold truncate",
+              isUnassigned ? "text-amber-700" : "text-gray-900"
             )}>
               {appointment.closer_name || 'Unassigned'}
             </div>
             {appointment.closer_team_name && (
-              <div className="flex items-center gap-1 text-xs text-gray-500">
+              <div className="flex items-center gap-1 text-xs text-gray-600 mt-0.5">
                 <Users className="h-3 w-3" />
                 {appointment.closer_team_name}
               </div>
             )}
           </div>
+
+          {/* Setter - Smaller */}
+          <div className="bg-gray-50 rounded-lg p-2 border border-gray-200">
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1">Setter</div>
+            <div className="text-sm font-medium text-gray-900 truncate">
+              {appointment.setter_name || 'N/A'}
+            </div>
+            {appointment.setter_team_name && (
+              <div className="flex items-center gap-1 text-[10px] text-gray-500 mt-0.5">
+                <Users className="h-2.5 w-2.5" />
+                <span className="truncate">{appointment.setter_team_name}</span>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Footer: Metadata and Badges */}
-        <div className="flex items-center justify-between pt-3 border-t gap-2 flex-wrap">
-          <div className="flex items-center gap-3 text-xs text-gray-500">
+        {/* Footer: Metadata */}
+        <div className="flex items-center justify-between pt-2 border-t gap-2 text-xs text-gray-500">
+          <div className="flex items-center gap-3">
             {appointment.calendar_name && (
               <div className="flex items-center gap-1">
                 <Calendar className="h-3 w-3" />
                 <span>{appointment.calendar_name}</span>
               </div>
             )}
+            {appointment.is_confirmed && (
+              <div className="flex items-center gap-1 text-green-600 font-medium">
+                <CheckCircle2 className="h-3 w-3" />
+                Confirmed
+              </div>
+            )}
+            {scheduledDate && (
+              <div className="text-gray-400">
+                Created {format(createdDate, 'MMM d')}
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center gap-1.5">
             {appointment.has_power_bill && (
-              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
-                <Paperclip className="h-3 w-3 mr-1" />
-                Power Bill
-              </Badge>
+              <div className="flex items-center gap-1 text-blue-600">
+                <Paperclip className="h-3 w-3" />
+                <span className="text-[10px] font-medium">Power Bill</span>
+              </div>
             )}
-            {appointment.is_reschedule && (
-              <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs">
-                <RotateCcw className="h-3 w-3 mr-1" />
-                {appointment.reschedule_count ? `${appointment.reschedule_count}x` : 'Rescheduled'}
-              </Badge>
+            {appointment.is_reschedule && appointment.reschedule_count && (
+              <div className="flex items-center gap-1 text-purple-600">
+                <RotateCcw className="h-3 w-3" />
+                <span className="text-[10px] font-medium">{appointment.reschedule_count}x</span>
+              </div>
             )}
             {totalAttachments > 0 && (
-              <Badge variant="outline" className="bg-gray-50 text-gray-600 border-gray-200 text-xs">
-                <Paperclip className="h-3 w-3 mr-1" />
-                {totalAttachments}
-              </Badge>
+              <div className="flex items-center gap-1">
+                <Paperclip className="h-3 w-3" />
+                <span className="text-[10px]">{totalAttachments}</span>
+              </div>
             )}
           </div>
         </div>

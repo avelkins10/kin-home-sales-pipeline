@@ -233,19 +233,25 @@ export function AppointmentCalendarView({
                   )}
                   onClick={() => onAppointmentClick(apt)}
                 >
-                  <div className="font-semibold truncate">{apt.customer_name || 'Unknown Customer'}</div>
-                  <div className="text-[10px] opacity-80 mt-0.5">Created: {format(new Date(apt.created_at), 'MMM d')}</div>
-                  {(() => {
-                    const badge = getStatusBadge(apt.status_category, apt.disposition);
-                    return badge && (
-                      <div className={cn(
-                        "inline-block px-1.5 py-0.5 rounded text-[9px] font-bold mt-1 border",
-                        badge.badgeClass
-                      )}>
-                        {badge.badgeText}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-xs truncate">{apt.customer_name || 'Unknown Customer'}</div>
+                      <div className="text-[10px] font-semibold mt-0.5 truncate">
+                        {apt.closer_name || <span className="text-amber-600">UNASSIGNED</span>}
                       </div>
-                    );
-                  })()}
+                    </div>
+                    {(() => {
+                      const badge = getStatusBadge(apt.status_category, apt.disposition);
+                      return badge && (
+                        <div className={cn(
+                          "inline-block px-1 py-0.5 rounded text-[8px] font-bold border shrink-0",
+                          badge.badgeClass
+                        )}>
+                          {badge.badgeText.split(' ')[0]}
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
               ))}
             </div>
@@ -306,53 +312,38 @@ export function AppointmentCalendarView({
                           onClick={() => onAppointmentClick(apt)}
                         >
                           <div className="flex items-start justify-between gap-2 h-full">
-                            <div className="flex-1 min-w-0 flex flex-col justify-between">
-                              <div>
-                                <div className="font-semibold text-sm truncate">
-                                  {apt.customer_name || 'Unknown Customer'}
-                                </div>
-                                <div className="text-xs opacity-80 mt-0.5">
-                                  {format(aptDate, 'h:mm a')}
-                                  {duration && duration !== 60 && ` • ${duration}min`}
-                                </div>
-                                {(() => {
-                                  const badge = getStatusBadge(apt.status_category, apt.disposition);
-                                  return badge && (
-                                    <div className={cn(
-                                      "inline-block px-2 py-0.5 rounded-md text-[10px] font-bold mt-1 border",
-                                      badge.badgeClass
-                                    )}>
-                                      {badge.badgeText}
-                                    </div>
-                                  );
-                                })()}
-                                <div className="text-[10px] opacity-70 mt-1 truncate">
-                                  Closer: {apt.closer_name || 'Unassigned'}
-                                  {apt.setter_name && ` • Setter: ${apt.setter_name}`}
-                                </div>
+                            <div className="flex-1 min-w-0 flex flex-col">
+                              <div className="font-semibold text-sm truncate">
+                                {apt.customer_name || 'Unknown Customer'}
                               </div>
-                              {apt.customer_address && (
-                                <div className="text-[10px] opacity-70 truncate mt-1">
-                                  {apt.customer_address}
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex flex-col items-end gap-1 shrink-0">
-                              {apt.is_confirmed && (
-                                <CheckCircle2 className="h-3.5 w-3.5 text-green-600" title="Confirmed" />
-                              )}
-                              {apt.has_power_bill && (
-                                <Paperclip className="h-3.5 w-3.5 opacity-70" title="Has Power Bill" />
-                              )}
-                              {apt.is_reschedule && (
-                                <RotateCcw className="h-3.5 w-3.5 opacity-70" title="Rescheduled" />
-                              )}
-                              {apt.notes && (
-                                <FileText className="h-3.5 w-3.5 opacity-70 text-blue-600" title="Has Appointment Note" />
-                              )}
-                              {apt.customer_note_count > 0 && (
-                                <FileText className="h-3.5 w-3.5 opacity-70 text-purple-600" title={`${apt.customer_note_count} Customer Note${apt.customer_note_count > 1 ? 's' : ''}`} />
-                              )}
+                              <div className="text-xs opacity-80 mt-0.5">
+                                {format(aptDate, 'h:mm a')}
+                              </div>
+                              {(() => {
+                                const badge = getStatusBadge(apt.status_category, apt.disposition);
+                                return badge && (
+                                  <div className={cn(
+                                    "inline-block px-2 py-0.5 rounded-md text-[10px] font-bold mt-1 border self-start",
+                                    badge.badgeClass
+                                  )}>
+                                    {badge.badgeText}
+                                  </div>
+                                );
+                              })()}
+                              <div className="text-[11px] font-semibold mt-1 truncate">
+                                {apt.closer_name || <span className="text-amber-600">UNASSIGNED</span>}
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                {apt.is_confirmed && (
+                                  <CheckCircle2 className="h-3 w-3 text-green-600" title="Confirmed" />
+                                )}
+                                {apt.has_power_bill && (
+                                  <Paperclip className="h-3 w-3 text-blue-600" title="Has Power Bill" />
+                                )}
+                                {apt.is_reschedule && (
+                                  <RotateCcw className="h-3 w-3 text-purple-600" title="Rescheduled" />
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -478,41 +469,35 @@ export function AppointmentCalendarView({
                               }}
                               onClick={() => onAppointmentClick(apt)}
                             >
-                              <div className="font-semibold truncate leading-tight">
-                                {apt.customer_name || 'Unknown'}
-                              </div>
-                              <div className="text-[10px] opacity-80 mt-0.5">
+                              <div className="text-[10px] opacity-80">
                                 {format(aptDate, 'h:mm a')}
                               </div>
                               {(() => {
                                 const badge = getStatusBadge(apt.status_category, apt.disposition);
                                 return badge && (
                                   <div className={cn(
-                                    "inline-block px-1.5 py-0.5 rounded text-[8px] font-bold mt-0.5 border",
+                                    "inline-block px-1 py-0.5 rounded text-[8px] font-bold mt-0.5 border",
                                     badge.badgeClass
                                   )}>
                                     {badge.badgeText.split(' ')[0]}
                                   </div>
                                 );
                               })()}
-                              <div className="text-[9px] opacity-70 mt-0.5 truncate">
-                                {apt.closer_name === 'Unassigned' ? 'Unassigned' : apt.closer_name?.split(' ')[0] || 'Unassigned'}
+                              <div className="font-semibold text-[10px] mt-0.5 truncate">
+                                {apt.closer_name === 'Unassigned' ? <span className="text-amber-700">UNASSIGNED</span> : apt.closer_name?.split(' ')[0] || 'Unassigned'}
                               </div>
-                              <div className="flex items-center gap-0.5 flex-wrap mt-1">
+                              <div className="text-[9px] opacity-70 truncate">
+                                {apt.customer_name || 'Unknown'}
+                              </div>
+                              <div className="flex items-center gap-0.5 mt-0.5">
                                 {apt.is_confirmed && (
                                   <CheckCircle2 className="h-2.5 w-2.5 text-green-600" title="Confirmed" />
                                 )}
                                 {apt.has_power_bill && (
-                                  <Paperclip className="h-2.5 w-2.5 opacity-70" title="Has Power Bill" />
+                                  <Paperclip className="h-2.5 w-2.5 text-blue-600" title="Has Power Bill" />
                                 )}
                                 {apt.is_reschedule && (
-                                  <RotateCcw className="h-2.5 w-2.5 opacity-70" title="Rescheduled" />
-                                )}
-                                {apt.notes && (
-                                  <FileText className="h-2.5 w-2.5 opacity-70 text-blue-600" title="Has Appointment Note" />
-                                )}
-                                {apt.customer_note_count > 0 && (
-                                  <FileText className="h-2.5 w-2.5 opacity-70 text-purple-600" title={`${apt.customer_note_count} Customer Note${apt.customer_note_count > 1 ? 's' : ''}`} />
+                                  <RotateCcw className="h-2.5 w-2.5 text-purple-600" title="Rescheduled" />
                                 )}
                               </div>
                             </div>
@@ -609,38 +594,35 @@ export function AppointmentCalendarView({
                           onClick={() => onAppointmentClick(apt)}
                           title={`${apt.customer_name || 'Unknown Customer'} - ${scheduledTime}`}
                         >
-                          <div className="font-semibold truncate text-[11px]">
+                          <div className="text-[10px] font-semibold">
                             {scheduledTime}
-                          </div>
-                          <div className="truncate text-[10px] opacity-90 mt-0.5">
-                            {apt.customer_name || 'Unknown'}
                           </div>
                           {(() => {
                             const badge = getStatusBadge(apt.status_category, apt.disposition);
                             return badge && (
                               <div className={cn(
-                                "inline-block px-1 py-0.5 rounded text-[8px] font-bold mt-1 border",
+                                "inline-block px-1 py-0.5 rounded text-[8px] font-bold mt-0.5 border",
                                 badge.badgeClass
                               )}>
-                                {badge.badgeText.split(' ').slice(0, 2).join(' ')}
+                                {badge.badgeText.split(' ')[0]}
                               </div>
                             );
                           })()}
-                          <div className="flex items-center gap-0.5 flex-wrap mt-1">
+                          <div className="text-[9px] font-semibold mt-0.5 truncate">
+                            {apt.closer_name === 'Unassigned' ? <span className="text-amber-700">UNASSIGNED</span> : apt.closer_name?.split(' ')[0] || 'N/A'}
+                          </div>
+                          <div className="truncate text-[9px] opacity-80">
+                            {apt.customer_name || 'Unknown'}
+                          </div>
+                          <div className="flex items-center gap-0.5 mt-0.5">
                             {apt.is_confirmed && (
-                              <CheckCircle2 className="h-2.5 w-2.5 text-green-600" title="Confirmed" />
+                              <CheckCircle2 className="h-2 w-2 text-green-600" title="Confirmed" />
                             )}
                             {apt.has_power_bill && (
-                              <Paperclip className="h-2.5 w-2.5 opacity-70" title="Has Power Bill" />
+                              <Paperclip className="h-2 w-2 text-blue-600" title="Has Power Bill" />
                             )}
                             {apt.is_reschedule && (
-                              <RotateCcw className="h-2.5 w-2.5 opacity-70" title="Rescheduled" />
-                            )}
-                            {apt.notes && (
-                              <FileText className="h-2.5 w-2.5 opacity-70 text-blue-600" title="Has Appointment Note" />
-                            )}
-                            {apt.customer_note_count > 0 && (
-                              <FileText className="h-2.5 w-2.5 opacity-70 text-purple-600" title={`${apt.customer_note_count} Customer Note${apt.customer_note_count > 1 ? 's' : ''}`} />
+                              <RotateCcw className="h-2 w-2 text-purple-600" title="Rescheduled" />
                             )}
                           </div>
                         </div>
