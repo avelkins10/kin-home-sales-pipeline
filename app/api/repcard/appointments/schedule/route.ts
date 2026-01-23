@@ -241,7 +241,14 @@ export async function GET(request: NextRequest) {
           COALESCE(closer_team.team_name, setter_team.team_name) as team_name,
           COALESCE(closer_team.repcard_team_id, setter_team.repcard_team_id) as team_id,
           (SELECT COUNT(*)::int FROM repcard_customer_attachments WHERE repcard_customer_id::text = a.repcard_customer_id::text) as customer_attachment_count,
-          (SELECT COUNT(*)::int FROM repcard_appointment_attachments WHERE repcard_appointment_id::text = a.repcard_appointment_id::text) as appointment_attachment_count
+          (SELECT COUNT(*)::int FROM repcard_appointment_attachments WHERE repcard_appointment_id::text = a.repcard_appointment_id::text) as appointment_attachment_count,
+          (SELECT COUNT(*)::int FROM repcard_customer_notes WHERE repcard_customer_id::text = a.repcard_customer_id::text) as customer_note_count,
+          CASE 
+            WHEN a.status_category = 'scheduled' OR a.status_category = 'completed' THEN TRUE
+            WHEN a.raw_data->>'appointment_status_title' ILIKE '%confirmed%' THEN TRUE
+            WHEN a.raw_data->>'status' ILIKE '%confirmed%' THEN TRUE
+            ELSE FALSE
+          END as is_confirmed
         FROM repcard_appointments a
         LEFT JOIN repcard_users setter ON setter.repcard_user_id::int = a.setter_user_id::int
         LEFT JOIN repcard_users closer ON closer.repcard_user_id::int = a.closer_user_id::int
@@ -384,7 +391,14 @@ export async function GET(request: NextRequest) {
           COALESCE(closer_team.team_name, setter_team.team_name) as team_name,
           COALESCE(closer_team.repcard_team_id, setter_team.repcard_team_id) as team_id,
           (SELECT COUNT(*)::int FROM repcard_customer_attachments WHERE repcard_customer_id::text = a.repcard_customer_id::text) as customer_attachment_count,
-          (SELECT COUNT(*)::int FROM repcard_appointment_attachments WHERE repcard_appointment_id::text = a.repcard_appointment_id::text) as appointment_attachment_count
+          (SELECT COUNT(*)::int FROM repcard_appointment_attachments WHERE repcard_appointment_id::text = a.repcard_appointment_id::text) as appointment_attachment_count,
+          (SELECT COUNT(*)::int FROM repcard_customer_notes WHERE repcard_customer_id::text = a.repcard_customer_id::text) as customer_note_count,
+          CASE 
+            WHEN a.status_category = 'scheduled' OR a.status_category = 'completed' THEN TRUE
+            WHEN a.raw_data->>'appointment_status_title' ILIKE '%confirmed%' THEN TRUE
+            WHEN a.raw_data->>'status' ILIKE '%confirmed%' THEN TRUE
+            ELSE FALSE
+          END as is_confirmed
         FROM repcard_appointments a
         LEFT JOIN repcard_users setter ON setter.repcard_user_id::int = a.setter_user_id::int
         LEFT JOIN repcard_users closer ON closer.repcard_user_id::int = a.closer_user_id::int
@@ -542,7 +556,14 @@ export async function GET(request: NextRequest) {
           COALESCE(closer_team.team_name, setter_team.team_name) as team_name,
           COALESCE(closer_team.repcard_team_id, setter_team.repcard_team_id) as team_id,
           (SELECT COUNT(*)::int FROM repcard_customer_attachments WHERE repcard_customer_id::text = a.repcard_customer_id::text) as customer_attachment_count,
-          (SELECT COUNT(*)::int FROM repcard_appointment_attachments WHERE repcard_appointment_id::text = a.repcard_appointment_id::text) as appointment_attachment_count
+          (SELECT COUNT(*)::int FROM repcard_appointment_attachments WHERE repcard_appointment_id::text = a.repcard_appointment_id::text) as appointment_attachment_count,
+          (SELECT COUNT(*)::int FROM repcard_customer_notes WHERE repcard_customer_id::text = a.repcard_customer_id::text) as customer_note_count,
+          CASE 
+            WHEN a.status_category = 'scheduled' OR a.status_category = 'completed' THEN TRUE
+            WHEN a.raw_data->>'appointment_status_title' ILIKE '%confirmed%' THEN TRUE
+            WHEN a.raw_data->>'status' ILIKE '%confirmed%' THEN TRUE
+            ELSE FALSE
+          END as is_confirmed
         FROM repcard_appointments a
         LEFT JOIN repcard_users setter ON setter.repcard_user_id::int = a.setter_user_id::int
         LEFT JOIN repcard_users closer ON closer.repcard_user_id::int = a.closer_user_id::int
@@ -736,7 +757,14 @@ export async function GET(request: NextRequest) {
           COALESCE(closer_team.team_name, setter_team.team_name) as team_name,
           COALESCE(closer_team.repcard_team_id, setter_team.repcard_team_id) as team_id,
           (SELECT COUNT(*)::int FROM repcard_customer_attachments WHERE repcard_customer_id::text = a.repcard_customer_id::text) as customer_attachment_count,
-          (SELECT COUNT(*)::int FROM repcard_appointment_attachments WHERE repcard_appointment_id::text = a.repcard_appointment_id::text) as appointment_attachment_count
+          (SELECT COUNT(*)::int FROM repcard_appointment_attachments WHERE repcard_appointment_id::text = a.repcard_appointment_id::text) as appointment_attachment_count,
+          (SELECT COUNT(*)::int FROM repcard_customer_notes WHERE repcard_customer_id::text = a.repcard_customer_id::text) as customer_note_count,
+          CASE 
+            WHEN a.status_category = 'scheduled' OR a.status_category = 'completed' THEN TRUE
+            WHEN a.raw_data->>'appointment_status_title' ILIKE '%confirmed%' THEN TRUE
+            WHEN a.raw_data->>'status' ILIKE '%confirmed%' THEN TRUE
+            ELSE FALSE
+          END as is_confirmed
         FROM repcard_appointments a
         LEFT JOIN repcard_users setter ON setter.repcard_user_id::int = a.setter_user_id::int
         LEFT JOIN repcard_users closer ON closer.repcard_user_id::int = a.closer_user_id::int

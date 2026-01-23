@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Clock, Paperclip, RotateCcw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, Paperclip, RotateCcw, CheckCircle2, FileText } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, addDays, addWeeks, addMonths, subDays, subWeeks, subMonths, isToday, isSameMonth, getHours, getMinutes, setHours, startOfDay, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { AppointmentData } from './AppointmentCard';
@@ -258,11 +258,20 @@ export function AppointmentCalendarView({
                               )}
                             </div>
                             <div className="flex flex-col items-end gap-1 shrink-0">
+                              {apt.is_confirmed && (
+                                <CheckCircle2 className="h-3.5 w-3.5 text-green-600" title="Confirmed" />
+                              )}
                               {apt.has_power_bill && (
                                 <Paperclip className="h-3.5 w-3.5 opacity-70" title="Has Power Bill" />
                               )}
                               {apt.is_reschedule && (
                                 <RotateCcw className="h-3.5 w-3.5 opacity-70" title="Rescheduled" />
+                              )}
+                              {apt.notes && (
+                                <FileText className="h-3.5 w-3.5 opacity-70 text-blue-600" title="Has Appointment Note" />
+                              )}
+                              {apt.customer_note_count > 0 && (
+                                <FileText className="h-3.5 w-3.5 opacity-70 text-purple-600" title={`${apt.customer_note_count} Customer Note${apt.customer_note_count > 1 ? 's' : ''}`} />
                               )}
                             </div>
                           </div>
