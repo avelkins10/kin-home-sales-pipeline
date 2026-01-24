@@ -220,7 +220,7 @@ export async function GET(request: NextRequest) {
           a.id, a.repcard_appointment_id, a.customer_id, a.repcard_customer_id,
           a.setter_user_id, a.closer_user_id, a.office_id, a.disposition,
           a.status_category, a.scheduled_at, a.completed_at, a.duration,
-          a.notes, a.is_within_48_hours, a.has_power_bill, a.is_reschedule,
+          a.notes, a.timezone, a.is_within_48_hours, a.has_power_bill, a.is_reschedule,
           a.reschedule_count, a.original_appointment_id, a.created_at, a.updated_at,
           (a.raw_data->>'calendarId')::int as calendar_id,
           COALESCE(
@@ -294,7 +294,7 @@ export async function GET(request: NextRequest) {
             a.id, a.repcard_appointment_id, a.customer_id, a.repcard_customer_id,
             a.setter_user_id, a.closer_user_id, a.office_id, a.disposition,
             a.status_category, a.scheduled_at, a.completed_at, a.duration,
-            a.notes, a.is_within_48_hours, a.has_power_bill, a.is_reschedule,
+            a.notes, a.timezone, a.is_within_48_hours, a.has_power_bill, a.is_reschedule,
             a.reschedule_count, a.original_appointment_id, a.created_at, a.updated_at,
             (a.raw_data->>'calendarId')::int as calendar_id,
             COALESCE(
@@ -369,7 +369,7 @@ export async function GET(request: NextRequest) {
             a.id, a.repcard_appointment_id, a.customer_id, a.repcard_customer_id,
             a.setter_user_id, a.closer_user_id, a.office_id, a.disposition,
             a.status_category, a.scheduled_at, a.completed_at, a.duration,
-            a.notes, a.is_within_48_hours, a.has_power_bill, a.is_reschedule,
+            a.notes, a.timezone, a.is_within_48_hours, a.has_power_bill, a.is_reschedule,
             a.reschedule_count, a.original_appointment_id, a.created_at, a.updated_at,
             (a.raw_data->>'calendarId')::int as calendar_id,
             COALESCE(
@@ -444,7 +444,7 @@ export async function GET(request: NextRequest) {
           a.id, a.repcard_appointment_id, a.customer_id, a.repcard_customer_id,
           a.setter_user_id, a.closer_user_id, a.office_id, a.disposition,
           a.status_category, a.scheduled_at, a.completed_at, a.duration,
-          a.notes, a.is_within_48_hours, a.has_power_bill, a.is_reschedule,
+          a.notes, a.timezone, a.is_within_48_hours, a.has_power_bill, a.is_reschedule,
           a.reschedule_count, a.original_appointment_id, a.created_at, a.updated_at,
           (a.raw_data->>'calendarId')::int as calendar_id,
           COALESCE(
@@ -517,7 +517,7 @@ export async function GET(request: NextRequest) {
             a.id, a.repcard_appointment_id, a.customer_id, a.repcard_customer_id,
             a.setter_user_id, a.closer_user_id, a.office_id, a.disposition,
             a.status_category, a.scheduled_at, a.completed_at, a.duration,
-            a.notes, a.is_within_48_hours, a.has_power_bill, a.is_reschedule,
+            a.notes, a.timezone, a.is_within_48_hours, a.has_power_bill, a.is_reschedule,
             a.reschedule_count, a.original_appointment_id, a.created_at, a.updated_at,
             (a.raw_data->>'calendarId')::int as calendar_id,
             COALESCE(
@@ -591,7 +591,7 @@ export async function GET(request: NextRequest) {
             a.id, a.repcard_appointment_id, a.customer_id, a.repcard_customer_id,
             a.setter_user_id, a.closer_user_id, a.office_id, a.disposition,
             a.status_category, a.scheduled_at, a.completed_at, a.duration,
-            a.notes, a.is_within_48_hours, a.has_power_bill, a.is_reschedule,
+            a.notes, a.timezone, a.is_within_48_hours, a.has_power_bill, a.is_reschedule,
             a.reschedule_count, a.original_appointment_id, a.created_at, a.updated_at,
             (a.raw_data->>'calendarId')::int as calendar_id,
             COALESCE(
@@ -683,7 +683,7 @@ export async function GET(request: NextRequest) {
           a.id, a.repcard_appointment_id, a.customer_id, a.repcard_customer_id,
           a.setter_user_id, a.closer_user_id, a.office_id, a.disposition,
           a.status_category, a.scheduled_at, a.completed_at, a.duration,
-          a.notes, a.is_within_48_hours, a.has_power_bill, a.is_reschedule,
+          a.notes, a.timezone, a.is_within_48_hours, a.has_power_bill, a.is_reschedule,
           a.reschedule_count, a.original_appointment_id, a.created_at, a.updated_at,
           (a.raw_data->>'calendarId')::int as calendar_id,
           COALESCE(
@@ -757,7 +757,7 @@ export async function GET(request: NextRequest) {
               a.id, a.repcard_appointment_id, a.customer_id, a.repcard_customer_id,
               a.setter_user_id, a.closer_user_id, a.office_id, a.disposition,
               a.status_category, a.scheduled_at, a.completed_at, a.duration,
-              a.notes, a.is_within_48_hours, a.has_power_bill, a.is_reschedule,
+              a.notes, a.timezone, a.is_within_48_hours, a.has_power_bill, a.is_reschedule,
               a.reschedule_count, a.original_appointment_id, a.created_at, a.updated_at,
               (a.raw_data->>'calendarId')::int as calendar_id,
               setter.first_name || ' ' || setter.last_name as setter_name,
@@ -863,7 +863,7 @@ export async function GET(request: NextRequest) {
             a.id, a.repcard_appointment_id, a.customer_id, a.repcard_customer_id,
             a.setter_user_id, a.closer_user_id, a.office_id, a.disposition,
             a.status_category, a.scheduled_at, a.completed_at, a.duration,
-            a.notes, a.is_within_48_hours, a.has_power_bill, a.is_reschedule,
+            a.notes, a.timezone, a.is_within_48_hours, a.has_power_bill, a.is_reschedule,
             a.reschedule_count, a.original_appointment_id, a.created_at, a.updated_at,
             (a.raw_data->>'calendarId')::int as calendar_id,
             COALESCE(

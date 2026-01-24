@@ -17,13 +17,14 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { formatInEasternTime } from '@/lib/utils/timezone';
+import { formatInTimezone } from '@/lib/utils/timezone';
 
 export interface AppointmentData {
   id: string;
   repcard_appointment_id: number;
   scheduled_at: string | null;
   created_at: string;
+  timezone: string; // IANA timezone (e.g., America/New_York, America/Los_Angeles)
   customer_name: string | null;
   customer_phone: string | null;
   customer_address: string | null;
@@ -133,7 +134,7 @@ export function AppointmentCard({ appointment, onClick, compact = false }: Appoi
               <>
                 <Clock className="h-4 w-4 text-blue-600 shrink-0" />
                 <span className="font-semibold text-gray-900">
-                  {formatInEasternTime(scheduledDate, 'datetime')}
+                  {formatInTimezone(scheduledDate, 'datetime', appointment.timezone)}
                 </span>
               </>
             ) : (

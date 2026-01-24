@@ -109,16 +109,18 @@ export function syncUserTimezone(timezone: string): void {
 }
 
 /**
- * Format a date/time in Eastern Time for display
- * This shows the time as it was originally set by the setter, not converted to viewer's timezone
+ * Format a date/time in its local timezone for display
+ * This shows the time as it was originally set, not converted to viewer's timezone
  *
  * @param date - Date object or ISO string
  * @param formatStr - Format string: 'date', 'time', 'datetime', 'full'
- * @returns Formatted string in Eastern Time with ET suffix
+ * @param timezone - IANA timezone identifier (e.g., 'America/New_York', 'America/Los_Angeles')
+ * @returns Formatted string in the specified timezone with timezone suffix
  */
-export function formatInEasternTime(
+export function formatInTimezone(
   date: Date | string | null | undefined,
-  formatStr: 'date' | 'time' | 'datetime' | 'full' = 'datetime'
+  formatStr: 'date' | 'time' | 'datetime' | 'full' = 'datetime',
+  timezone: string = 'America/New_York'
 ): string {
   if (!date) return 'Not set';
 
@@ -127,7 +129,7 @@ export function formatInEasternTime(
   if (isNaN(dateObj.getTime())) return 'Invalid date';
 
   const options: Intl.DateTimeFormatOptions = {
-    timeZone: 'America/New_York',
+    timeZone: timezone,
   };
 
   switch (formatStr) {
@@ -163,12 +165,55 @@ export function formatInEasternTime(
 
   const formatted = new Intl.DateTimeFormat('en-US', options).format(dateObj);
 
-  // Add timezone indicator for time formats
+  // Add timezone abbreviation for time formats
   if (formatStr === 'time' || formatStr === 'datetime' || formatStr === 'full') {
-    return `${formatted} ET`;
+    // Get timezone abbreviation (PT, ET, CT, MT, etc.)
+    const tzAbbr = getTimezoneAbbreviation(timezone, dateObj);
+    return `${formatted} ${tzAbbr}`;
   }
 
   return formatted;
+}
+
+/**
+ * Get timezone abbreviation (PT, ET, CT, MT, etc.) for a given timezone and date
+ */
+function getTimezoneAbbreviation(timezone: string, date: Date): string {
+  try {
+    // Get the short timezone name
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      timeZoneName: 'short'
+    });
+
+    const parts = formatter.formatToParts(date);
+    const timeZonePart = parts.find(part => part.type === 'timeZoneName');
+
+    if (timeZonePart && timeZonePart.value) {
+      return timeZonePart.value;
+    }
+  } catch (error) {
+    // Fallback for invalid timezones
+  }
+
+  // Fallback: derive from timezone name
+  if (timezone.includes('New_York') || timezone.includes('Eastern')) return 'ET';
+  if (timezone.includes('Chicago') || timezone.includes('Central')) return 'CT';
+  if (timezone.includes('Denver') || timezone.includes('Mountain')) return 'MT';
+  if (timezone.includes('Los_Angeles') || timezone.includes('Pacific')) return 'PT';
+
+  return 'Local';
+}
+
+/**
+ * Legacy alias - kept for backwards compatibility
+ * @deprecated Use formatInTimezone instead
+ */
+export function formatInEasternTime(
+  date: Date | string | null | undefined,
+  formatStr: 'date' | 'time' | 'datetime' | 'full' = 'datetime'
+): string {
+  return formatInTimezone(date, formatStr, 'America/New_York');
 }
 
 /**

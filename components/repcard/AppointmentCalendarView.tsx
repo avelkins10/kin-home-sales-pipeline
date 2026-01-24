@@ -8,7 +8,7 @@ import { ChevronLeft, ChevronRight, Clock, Paperclip, RotateCcw, CheckCircle2, F
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, addDays, addWeeks, addMonths, subDays, subWeeks, subMonths, isToday, isSameMonth, getHours, getMinutes, setHours, startOfDay, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { AppointmentData } from './AppointmentCard';
-import { formatInEasternTime } from '@/lib/utils/timezone';
+import { formatInTimezone } from '@/lib/utils/timezone';
 
 type ViewMode = 'day' | 'week' | 'month';
 
@@ -31,29 +31,30 @@ export function AppointmentCalendarView({
   onAppointmentClick
 }: AppointmentCalendarViewProps) {
   // Group appointments by date and time
-  // Convert UTC times to Eastern Time for proper date grouping
+  // Convert UTC times to appointment's local timezone for proper date grouping
   const appointmentsByDate = useMemo(() => {
     const grouped = new Map<string, AppointmentData[]>();
     appointments.forEach(apt => {
       try {
         let date: string | null = null;
+        // Use appointment's timezone (defaults to America/New_York if not set)
+        const timezone = apt.timezone || 'America/New_York';
+
         if (apt.scheduled_at) {
-          // Convert UTC to Eastern Time for date grouping
+          // Convert UTC to appointment's local timezone for date grouping
           const utcDate = new Date(apt.scheduled_at);
-          // Get date in Eastern Time by formatting with timezone offset
-          // Create a date string in Eastern Time
-          const etDate = new Date(utcDate.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-          // Get the date part (YYYY-MM-DD) in Eastern Time
-          const year = etDate.getFullYear();
-          const month = String(etDate.getMonth() + 1).padStart(2, '0');
-          const day = String(etDate.getDate()).padStart(2, '0');
+          const localDate = new Date(utcDate.toLocaleString('en-US', { timeZone: timezone }));
+          // Get the date part (YYYY-MM-DD) in appointment's timezone
+          const year = localDate.getFullYear();
+          const month = String(localDate.getMonth() + 1).padStart(2, '0');
+          const day = String(localDate.getDate()).padStart(2, '0');
           date = `${year}-${month}-${day}`;
         } else if (apt.created_at) {
           const utcDate = new Date(apt.created_at);
-          const etDate = new Date(utcDate.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-          const year = etDate.getFullYear();
-          const month = String(etDate.getMonth() + 1).padStart(2, '0');
-          const day = String(etDate.getDate()).padStart(2, '0');
+          const localDate = new Date(utcDate.toLocaleString('en-US', { timeZone: timezone }));
+          const year = localDate.getFullYear();
+          const month = String(localDate.getMonth() + 1).padStart(2, '0');
+          const day = String(localDate.getDate()).padStart(2, '0');
           date = `${year}-${month}-${day}`;
         }
         if (date) {
@@ -84,12 +85,13 @@ export function AppointmentCalendarView({
         const aptDate = new Date(apt.scheduled_at);
         if (isNaN(aptDate.getTime())) return false;
 
-        // CRITICAL: Get hour in Eastern Time, not browser's local timezone
-        // Convert UTC timestamp to Eastern Time before extracting hour
-        const etDate = new Date(aptDate.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-        const etHour = etDate.getHours();
+        // CRITICAL: Get hour in appointment's timezone, not browser's local timezone
+        // Convert UTC timestamp to appointment's local timezone before extracting hour
+        const timezone = apt.timezone || 'America/New_York';
+        const localDate = new Date(aptDate.toLocaleString('en-US', { timeZone: timezone }));
+        const localHour = localDate.getHours();
 
-        return etHour === hour;
+        return localHour === hour;
       } catch {
         return false;
       }
@@ -200,10 +202,11 @@ export function AppointmentCalendarView({
     
     dayAppointments.forEach(apt => {
       if (apt.scheduled_at) {
-        // CRITICAL: Get hour in Eastern Time
+        // CRITICAL: Get hour in appointment's timezone
         const utcDate = new Date(apt.scheduled_at);
-        const etDate = new Date(utcDate.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-        const hour = etDate.getHours();
+        const timezone = apt.timezone || 'America/New_York';
+        const localDate = new Date(utcDate.toLocaleString('en-US', { timeZone: timezone }));
+        const hour = localDate.getHours();
 
         if (hour >= 6 && hour <= 22) { // Only show appointments in visible hours
           if (!appointmentsByHour.has(hour)) {
@@ -258,9 +261,10 @@ export function AppointmentCalendarView({
                         const aptDate = new Date(apt.scheduled_at);
                         if (isNaN(aptDate.getTime())) return null;
 
-                        // CRITICAL: Get minutes in Eastern Time for correct positioning
-                        const etDate = new Date(aptDate.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-                        const minutes = etDate.getMinutes();
+                        // CRITICAL: Get minutes in appointment's timezone for correct positioning
+                        const timezone = apt.timezone || 'America/New_York';
+                        const localDate = new Date(aptDate.toLocaleString('en-US', { timeZone: timezone }));
+                        const minutes = localDate.getMinutes();
 
                         const topOffset = (minutes / 60) * 64; // 64px per hour
                         const duration = apt.duration || 60; // Default 60 minutes
@@ -290,7 +294,7 @@ export function AppointmentCalendarView({
                                 {apt.customer_name || 'Unknown Customer'}
                               </div>
                               <div className="text-xs opacity-80 mt-0.5">
-                                {formatInEasternTime(aptDate, 'time')}
+                                {formatInTimezone(aptDate, 'time', apt.timezone)}
                               </div>
                               {(() => {
                                 const badge = getStatusBadge(apt.status_category, apt.disposition);
@@ -420,9 +424,10 @@ export function AppointmentCalendarView({
                           const aptDate = new Date(apt.scheduled_at);
                           if (isNaN(aptDate.getTime()) || !isValid(aptDate)) return null;
 
-                          // CRITICAL: Get minutes in Eastern Time for correct positioning
-                          const etDate = new Date(aptDate.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-                          const minutes = etDate.getMinutes();
+                          // CRITICAL: Get minutes in appointment's timezone for correct positioning
+                          const timezone = apt.timezone || 'America/New_York';
+                          const localDate = new Date(aptDate.toLocaleString('en-US', { timeZone: timezone }));
+                          const minutes = localDate.getMinutes();
 
                           const topOffset = (minutes / 60) * 64;
                           const duration = apt.duration || 60;
@@ -447,7 +452,7 @@ export function AppointmentCalendarView({
                               onClick={() => onAppointmentClick(apt)}
                             >
                               <div className="text-[10px] opacity-80">
-                                {formatInEasternTime(aptDate, 'time')}
+                                {formatInTimezone(aptDate, 'time', apt.timezone)}
                               </div>
                               {(() => {
                                 const badge = getStatusBadge(apt.status_category, apt.disposition);
@@ -556,7 +561,7 @@ export function AppointmentCalendarView({
                       const scheduledTime = apt.scheduled_at
                         ? (() => {
                             const date = new Date(apt.scheduled_at);
-                            return isValid(date) ? formatInEasternTime(date, 'time') : 'Invalid time';
+                            return isValid(date) ? formatInTimezone(date, 'time', apt.timezone) : 'Invalid time';
                           })()
                         : 'Unscheduled';
                       

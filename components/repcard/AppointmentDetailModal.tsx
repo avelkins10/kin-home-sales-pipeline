@@ -33,7 +33,7 @@ import {
 import { format } from 'date-fns';
 import { AppointmentData } from './AppointmentCard';
 import { cn } from '@/lib/utils';
-import { formatInEasternTime } from '@/lib/utils/timezone';
+import { formatInTimezone } from '@/lib/utils/timezone';
 
 interface AppointmentDetailModalProps {
   appointment: AppointmentData;
@@ -227,10 +227,10 @@ export function AppointmentDetailModal({
                     <div>
                       <div className="text-sm font-medium text-gray-500 mb-1">Appointment Date & Time</div>
                       <div className="text-base font-semibold text-gray-900">
-                        {formatInEasternTime(scheduledDate, 'date')}
+                        {formatInTimezone(scheduledDate, 'date', appointment.timezone)}
                       </div>
                       <div className="text-base font-semibold text-gray-900">
-                        {formatInEasternTime(scheduledDate, 'time')}
+                        {formatInTimezone(scheduledDate, 'time', appointment.timezone)}
                       </div>
                     </div>
                     {appointment.duration && (
@@ -254,7 +254,7 @@ export function AppointmentDetailModal({
               <div className="flex flex-wrap gap-4 text-sm text-gray-600">
                 <div>
                   <span className="font-medium text-gray-700">Created:</span>{' '}
-                  {formatInEasternTime(createdDate, 'datetime')}
+                  {formatInTimezone(createdDate, 'datetime', appointment.timezone)}
                 </div>
                 {appointment.calendar_name && (
                   <div>
@@ -421,7 +421,7 @@ export function AppointmentDetailModal({
                                   </span>
                                   {prevScheduledDate ? (
                                     <div className="font-semibold text-gray-900">
-                                      {formatInEasternTime(prevScheduledDate, 'datetime')}
+                                      {formatInTimezone(prevScheduledDate, 'datetime', appointment.timezone)}
                                     </div>
                                   ) : (
                                     <div className="font-medium text-gray-500">Date not available</div>
@@ -429,7 +429,7 @@ export function AppointmentDetailModal({
                                 </div>
                                 {prevCompletedDate && (
                                   <div className="text-sm text-gray-600 ml-10">
-                                    Completed: {formatInEasternTime(prevCompletedDate, 'datetime')}
+                                    Completed: {formatInTimezone(prevCompletedDate, 'datetime', appointment.timezone)}
                                   </div>
                                 )}
                               </div>
