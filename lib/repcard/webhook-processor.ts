@@ -748,9 +748,10 @@ export async function processDoorKnockWebhook(
     // Get office_id from setter
     let officeId: number | null = null;
     if (setterUserId) {
+      const setterUserIdInt = parseInt(setterUserId.toString());
       const setterOfficeResult = await sql`
         SELECT office_id FROM repcard_users 
-        WHERE repcard_user_id = ${setterUserId.toString()}::text 
+        WHERE repcard_user_id = ${setterUserIdInt}
         LIMIT 1
       `;
       const setterOfficeRows = setterOfficeResult.rows || setterOfficeResult;
@@ -762,9 +763,10 @@ export async function processDoorKnockWebhook(
     // Get customer_id from repcard_customer_id if available
     let customerId: string | null = null;
     if (repcardCustomerId) {
+      const repcardCustomerIdInt = parseInt(repcardCustomerId.toString());
       const customerResult = await sql`
         SELECT id FROM repcard_customers
-        WHERE repcard_customer_id = ${repcardCustomerId.toString()}::text
+        WHERE repcard_customer_id = ${repcardCustomerIdInt}
         LIMIT 1
       `;
       const customerRows = customerResult.rows || customerResult;
@@ -796,8 +798,8 @@ export async function processDoorKnockWebhook(
       )
       VALUES (
         ${doorKnockId},
-        ${setterUserId.toString()}::text,
-        ${repcardCustomerId ? repcardCustomerId.toString() : null}::text,
+        ${parseInt(setterUserId.toString())},
+        ${repcardCustomerId ? parseInt(repcardCustomerId.toString()) : null},
         ${customerId},
         ${officeId},
         ${new Date(doorKnockedAt).toISOString()},
