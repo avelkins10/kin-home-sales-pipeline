@@ -348,9 +348,10 @@ export async function syncCustomers(options: {
                 // Get office_id from setter
                 let officeId: number | null = null;
                 if (setterUserId) {
+                  const setterUserIdInt = parseInt(setterUserId.toString());
                   const setterOfficeResult = await sql`
                     SELECT office_id FROM repcard_users 
-                    WHERE repcard_user_id = ${setterUserId.toString()}::text 
+                    WHERE repcard_user_id = ${setterUserIdInt}
                     LIMIT 1
                   `;
                   const setterOfficeRows = setterOfficeResult.rows || setterOfficeResult;
@@ -360,9 +361,10 @@ export async function syncCustomers(options: {
                 }
                 
                 // Get customer_id from database
+                const repcardCustomerIdInt = parseInt(customer.id.toString());
                 const customerIdResult = await sql`
                   SELECT id FROM repcard_customers
-                  WHERE repcard_customer_id = ${customer.id.toString()}::text
+                  WHERE repcard_customer_id = ${repcardCustomerIdInt}
                   LIMIT 1
                 `;
                 const customerIdRows = customerIdResult.rows || customerIdResult;
@@ -391,8 +393,8 @@ export async function syncCustomers(options: {
                   )
                   VALUES (
                     ${doorKnockId},
-                    ${setterUserId ? setterUserId.toString() : null}::text,
-                    ${customer.id.toString()}::text,
+                    ${setterUserId ? parseInt(setterUserId.toString()) : null},
+                    ${repcardCustomerIdInt},
                     ${customerId},
                     ${officeId},
                     ${new Date(doorKnockedAt).toISOString()},
